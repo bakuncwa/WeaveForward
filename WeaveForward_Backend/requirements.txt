@@ -1,5 +1,7 @@
 django
 djangorestframework
+djangorestframework-simplejwt
+bcrypt
 python-dotenv
 django-mysql
 mysqlclient
