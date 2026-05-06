@@ -1,6 +1,8 @@
 import re, os, io
+import pyotp
 from rest_framework import serializers
-from .models import User, Upload
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from .models import User, Upload, UserAccountStatus
 from .constants import ALLOWED_FIBERS, TUAB_REG_MAX_SIZE, TUAB_REG_ALLOWED_EXTENSIONS, ALLOWED_IMAGE_EXTENSIONS, IMAGE_COMPRESSION_QUALITY
 from .services.location_service import get_city_and_barangay
 from django.core.files.storage import default_storage
@@ -142,3 +144,56 @@ class TUABRegisterSerializer(serializers.ModelSerializer):
             validated_data['documentation'] = Upload.objects.create(file_path=path, name=documentation.name)
 
         return User.objects.create_user(password=password, **validated_data)
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    otp_code = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+    default_error_messages = {
+        'no_active_account': 'Invalid email or password.',
+        'invalid_otp': 'Invalid 2FA code.'
+    }
+
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        # Add custom claims
+        token['role'] = user.role
+        token['email'] = user.email
+        token['name'] = user.business_name if user.role == 'TUAB' else f"{user.first_name} {user.last_name}"
+        return token
+
+    def validate(self, attrs):
+        # This will now use our new 'no_active_account' message if auth fails
+        data = super().validate(attrs)
+        
+        # Check if the account is ACTIVE
+        if self.user.status != UserAccountStatus.ACTIVE:
+            if self.user.status == UserAccountStatus.UNDER_REVIEW:
+                error_msg = "Your account is still under review."
+            elif self.user.status == UserAccountStatus.REJECTED:
+                error_msg = "Your registration was rejected."
+            else:
+                # Use the generic message for ARCHIVED or other statuses
+                error_msg = self.error_messages['no_active_account']
+            raise serializers.ValidationError({"detail": error_msg})
+
+        # --- 2FA CHECK ---
+        if self.user.is_2fa_enabled:
+            otp_code = attrs.get('otp_code')
+            if not otp_code:
+                # Signal to frontend that 2FA is needed
+                raise serializers.ValidationError({
+                    "2fa_required": True,
+                    "detail": "2FA code required."
+                })
+            
+            # Verify the OTP code
+            totp = pyotp.TOTP(self.user.totp_secret)
+            if not totp.verify(otp_code):
+                raise serializers.ValidationError({"detail": self.error_messages['invalid_otp']})
+
+        # Add extra info to the JSON response
+        data['role'] = self.user.role
+        data['email'] = self.user.email
+        data['name'] = self.user.business_name if self.user.role == 'TUAB' else f"{self.user.first_name} {self.user.last_name}"
+        return data

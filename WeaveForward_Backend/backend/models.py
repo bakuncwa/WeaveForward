@@ -169,7 +169,8 @@ class User(AbstractBaseUser):
 
     @property
     def is_active(self):
-        return self.status == UserAccountStatus.ACTIVE
+        # Allow ACTIVE and UNDER_REVIEW users to authenticate
+        return self.status in [UserAccountStatus.ACTIVE, UserAccountStatus.UNDER_REVIEW]
 
     @property
     def is_staff(self):

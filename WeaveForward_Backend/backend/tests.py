@@ -178,3 +178,54 @@ class LocationLookupTest(TestCase):
     def test_invalid_location_lookup(self):
         response = self.client.get(reverse('location_lookup'), {'lat': 0, 'lng': 0})
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+class AuthenticationTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.password = "Password123"
+        self.user = User.objects.create_user(
+            email="tester@example.com",
+            password=self.password,
+            role="Donor",
+            first_name="John",
+            last_name="Doe",
+            contact_no="+639123456789",
+            status="ACTIVE"
+        )
+        self.login_url = reverse('token_obtain_pair')
+        self.logout_url = reverse('token_blacklist')
+
+    def test_login_success(self):
+        response = self.client.post(self.login_url, {
+            "email": "tester@example.com",
+            "password": self.password
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('access', response.data)
+        self.assertIn('refresh', response.data)
+        self.assertEqual(response.data['role'], "Donor")
+        self.assertEqual(response.data['name'], "John Doe")
+
+    def test_login_blocked_if_not_active(self):
+        self.user.status = "UNDER_REVIEW"
+        self.user.save()
+        response = self.client.post(self.login_url, {
+            "email": "tester@example.com",
+            "password": self.password
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_logout_success(self):
+        # Login to get tokens
+        login_res = self.client.post(self.login_url, {
+            "email": "tester@example.com",
+            "password": self.password
+        }, format='json')
+        access = login_res.data['access']
+        refresh = login_res.data['refresh']
+
+        # Call logout
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access}')
+        response = self.client.post(self.logout_url, {"refresh": refresh}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_205_RESET_CONTENT)
+        self.assertEqual(response.data['message'], "Successfully logged out")
