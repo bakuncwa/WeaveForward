@@ -10,7 +10,6 @@ from PIL import Image
 class DonorRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
     confirm_password = serializers.CharField(write_only=True)
-    contact_no = serializers.CharField()
     display_address = serializers.CharField()
     latitude = serializers.DecimalField(max_digits=10, decimal_places=7)
     longitude = serializers.DecimalField(max_digits=10, decimal_places=7)
@@ -60,7 +59,6 @@ class TUABRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
     confirm_password = serializers.CharField(write_only=True)
     business_name = serializers.CharField()
-    contact_no = serializers.CharField()
     display_address = serializers.CharField()
     latitude = serializers.DecimalField(max_digits=10, decimal_places=7)
     longitude = serializers.DecimalField(max_digits=10, decimal_places=7)

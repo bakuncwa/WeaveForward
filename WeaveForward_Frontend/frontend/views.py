@@ -48,7 +48,9 @@ def donor_registration(request):
                 messages.success(request, "Registration successful!")
                 return redirect('home')
             else:
-                print(f"DEBUG: Donor Error: {response.status_code} - {response.text}")
+                # Safely print a snippet of the error to avoid UnicodeEncodeError on Windows
+                error_snippet = (response.text[:200] + '...') if len(response.text) > 200 else response.text
+                print(f"DEBUG: Donor Error {response.status_code}: {error_snippet.encode('ascii', 'replace').decode('ascii')}")
                 return render(request, 'frontend/donor_registration.html', {'errors': format_errors(response.json()), 'form_data': raw_data})
         except requests.exceptions.ConnectionError:
             messages.error(request, "Backend API is offline.")
@@ -104,7 +106,9 @@ def tuab_registration(request):
                 messages.success(request, "TUAB Application Submitted!")
                 return redirect('home')
             else:
-                print(f"DEBUG: TUAB Error: {response.status_code} - {response.text}")
+                # Safely print a snippet of the error to avoid UnicodeEncodeError on Windows
+                error_snippet = (response.text[:200] + '...') if len(response.text) > 200 else response.text
+                print(f"DEBUG: TUAB Error {response.status_code}: {error_snippet.encode('ascii', 'replace').decode('ascii')}")
                 return render(request, 'frontend/tuab_registration.html', {
                     'errors': format_errors(response.json()),
                     'form_data': raw_data,
