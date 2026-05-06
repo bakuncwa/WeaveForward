@@ -4,14 +4,19 @@ __pycache__/
 *$py.class
 
 # Django
-# db.sqlite3 and media/staticfiles are NOT ignored
 db.sqlite3-journal
+# Ignore local SQLite DB for frontend if you want, but usually kept for sessions if small.
+# WeaveForward_Frontend/db.sqlite3
 
 # Environment variables
-# .env is NOT ignored
+# .env is NOT ignored as per user preference
+# .env
 
 # Virtual environments
-# venv/ and env/ are NOT ignored
+venv/
+env/
+ENV/
+.venv/
 
 # OS files
 .DS_Store
