@@ -65,10 +65,15 @@ DATABASES = {
         'NAME': os.getenv('DB_NAME', 'weaveforward_db'),
         'USER': os.getenv('DB_USER', 'root'),
         'PASSWORD': os.getenv('DB_PASSWORD', ''),
-        'HOST': os.getenv('DB_HOST', '127.0.0.1'),
-        'PORT': os.getenv('DB_PORT', '3306'),
     }
 }
+
+# If running on GCP Cloud Run, connect via Unix Socket
+if os.getenv('CLOUD_SQL_CONNECTION_NAME'):
+    DATABASES['default']['HOST'] = f'/cloudsql/{os.getenv("CLOUD_SQL_CONNECTION_NAME")}'
+else:
+    DATABASES['default']['HOST'] = os.getenv('DB_HOST', '127.0.0.1')
+    DATABASES['default']['PORT'] = os.getenv('DB_PORT', '3306')
 
 PASSWORD_HASHERS = [
     'django.contrib.auth.hashers.BCryptPasswordHasher',

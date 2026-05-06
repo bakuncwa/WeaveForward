@@ -24,5 +24,8 @@ COPY . /app/
 # Collect static files
 RUN python manage.py collectstatic --noinput
 
-# Run gunicorn (Cloud Run expects apps to listen on $PORT)
-CMD exec gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 0 WeaveForward_Backend.wsgi:application
+# Make entrypoint script executable
+RUN chmod +x /app/entrypoint.sh
+
+# Run the entrypoint script
+CMD ["/app/entrypoint.sh"]

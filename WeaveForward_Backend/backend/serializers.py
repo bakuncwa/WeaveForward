@@ -1,6 +1,6 @@
 import re, os, io
 import pyotp
-from rest_framework import serializers
+from rest_framework import serializers, exceptions
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import User, Upload, UserAccountStatus
 from .constants import ALLOWED_FIBERS, TUAB_REG_MAX_SIZE, TUAB_REG_ALLOWED_EXTENSIONS, ALLOWED_IMAGE_EXTENSIONS, IMAGE_COMPRESSION_QUALITY
@@ -175,7 +175,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             else:
                 # Use the generic message for ARCHIVED or other statuses
                 error_msg = self.error_messages['no_active_account']
-            raise serializers.ValidationError({"detail": error_msg})
+            raise exceptions.AuthenticationFailed({"detail": error_msg})
 
         # --- 2FA CHECK ---
         if self.user.is_2fa_enabled:
