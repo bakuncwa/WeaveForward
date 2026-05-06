@@ -1,0 +1,23 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Django
+# db.sqlite3  <-- Commented out or removed so it stays tracked if you want
+db.sqlite3-journal
+media/
+staticfiles/
+
+# Environment variables
+# .env <-- Removed from here so it stays tracked
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# OS files
+.DS_Store
+Thumbs.db
