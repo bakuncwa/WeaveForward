@@ -47,6 +47,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'frontend.middleware.JWTSessionMiddleware',  # Manages token refreshing & session cleanup
+    'frontend.middleware.GuestOnlyMiddleware',   # Protects guest paths from logged-in users
 ]
 
 ROOT_URLCONF = 'WeaveForward_Frontend.urls'

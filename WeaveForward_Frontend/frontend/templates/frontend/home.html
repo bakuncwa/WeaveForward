@@ -32,10 +32,21 @@
 <body>
     <div class="container">
         <h1>WeaveForward</h1>
-        <p>Your Frontend Web Application is officially Online.</p>
-        <div class="badge">Connected to Backend API</div>
-        <br><br>
-        <a href="{% url 'role_select' %}" class="btn" style="text-decoration:none; display:inline-block; margin-top:20px; padding: 12px 30px; background: #3b82f6; border-radius: 50px; color: white; font-weight: 600;">Get Started</a>
+        
+        {% if request.COOKIES.user_name %}
+            <p>Welcome back, <strong>{{ request.COOKIES.user_name }}</strong>!</p>
+            <div class="badge" style="background: #10b981;">{{ request.COOKIES.user_role }} Account</div>
+            <p style="font-size: 0.9rem; margin-top: 10px; color: #94a3b8;">Logged in as: {{ request.COOKIES.user_email }}</p>
+            <br>
+            <br><br>
+            <a href="{% url 'logout' %}" style="text-decoration:none; display:inline-block; padding: 12px 30px; background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; border-radius: 50px; color: #fecaca; font-weight: 600; transition: 0.3s;" onmouseover="this.style.background='#ef4444'; this.style.color='white'" onmouseout="this.style.background='rgba(239, 68, 68, 0.2)'; this.style.color='#fecaca'">Logout</a>
+        {% else %}
+            <p>Your Frontend Web Application is officially Online.</p>
+            <div class="badge">Guest Access</div>
+            <br><br>
+            <a href="{% url 'login' %}" style="text-decoration:none; display:inline-block; margin-top:20px; padding: 12px 30px; background: #3b82f6; border-radius: 50px; color: white; font-weight: 600;">Log In</a>
+            <a href="{% url 'role_select' %}" style="text-decoration:none; display:inline-block; margin-top:20px; margin-left: 10px; padding: 12px 30px; background: rgba(255,255,255,0.1); border-radius: 50px; color: white; font-weight: 600;">Register</a>
+        {% endif %}
     </div>
 </body>
 </html>

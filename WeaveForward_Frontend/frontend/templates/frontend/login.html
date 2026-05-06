@@ -1,0 +1,96 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>WeaveForward - Login</title>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500&family=Poppins:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--b:#3C6591;--bd:#2d5478}
+*{box-sizing:border-box;margin:0;padding:0;font-family:Poppins,sans-serif}
+body{min-height:100vh;display:flex;align-items:center;justify-content:center;background: url('{% static "frontend/role_select_background.png" %}') center/cover no-repeat;}
+
+.card{background:#fff;border-radius:16px;padding:40px 40px 44px;width:420px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.18);position:relative}
+
+.icon{width:68px;height:68px;border-radius:50%;background:var(--b);display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
+.icon svg{fill:#E6DBC7}
+
+.title{font-family:'Pixelify Sans',monospace;font-size:34px;font-weight:500;color:var(--b);text-align:center;margin-bottom:28px}
+
+.group{margin-bottom:18px}
+.lbl-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.lbl{font-size:13px;color:#444;font-weight:400}
+.toggle{background:none;border:none;cursor:pointer;font-size:13px;color:var(--b);display:flex;align-items:center;gap:4px;padding:0}
+
+.in{width:100%;border:0.5px solid #000;border-radius:8px;padding:11px 14px;font-size:14px;outline:none;transition:.15s;color:#3C6591}
+.in:focus{border-color:var(--b)}
+.in::placeholder{color:#bbb}
+
+.links{display:flex;flex-direction:column;align-items:flex-end;gap:4px;margin-bottom:22px}
+.links a{color:#555;font-size:13px;text-decoration:underline;cursor:pointer}
+.links a:hover{text-decoration:underline}
+
+.btn{width:100%;background:var(--b);color:#E6DBC7;border-radius:30px;padding:14px;border:none;font-size:15px;font-weight:500;cursor:pointer;transition:.15s}
+.btn:hover{background:var(--bd)}
+</style>
+</head>
+<body>
+<div class="card">
+    <div class="icon">
+        <svg width="30" height="30" viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/></svg>
+    </div>
+    <div class="title">Login</div>
+    
+    {% if error %}
+    <div style="background:#fee2e2; border:1px solid #ef4444; color:#991b1b; padding:10px; border-radius:8px; font-size:13px; margin-bottom:20px; text-align:center;">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <form method="POST" action="{% url 'login' %}">
+        {% csrf_token %}
+        
+        {% if not show_2fa %}
+            <div class="group">
+                <div class="lbl-row"><label class="lbl" for="em">Your email</label></div>
+                <input class="in" type="email" id="em" name="email" placeholder="juan.delacruz@gmail.com" value="{{ email|default:'' }}" required>
+            </div>
+            <div class="group">
+                <div class="lbl-row">
+                    <label class="lbl" for="pw">Your password</label>
+                    <button type="button" class="toggle" onclick="togglePw()">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <span id="ptxt">Show</span>
+                    </button>
+                </div>
+                <input class="in" type="password" id="pw" name="password" required>
+            </div>
+        {% else %}
+            <!-- Hidden fields to maintain credentials for the OTP step -->
+            <input type="hidden" name="email" value="{{ email }}">
+            <input type="hidden" name="password" value="{{ password }}">
+            
+            <div class="group">
+                <div class="lbl-row"><label class="lbl" for="otp">2FA Verification Code</label></div>
+                <input class="in" type="text" id="otp" name="otp_code" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code" autofocus required>
+                <p style="font-size: 11px; color: #666; margin-top: 8px;">Enter the 6-digit code from your authenticator app.</p>
+            </div>
+        {% endif %}
+
+        <div class="links">
+            <a href="#">Forgot Password</a>
+            <a href="{% url 'role_select' %}">Register</a>
+        </div>
+        <button class="btn" type="submit">{% if show_2fa %}Verify & Log in{% else %}Log in{% endif %}</button>
+    </form>
+</div>
+<script>
+function togglePw(){
+    const i=document.getElementById('pw'),t=document.getElementById('ptxt');
+    const show=i.type==='password';
+    i.type=show?'text':'password';
+    t.textContent=show?'Hide':'Show';
+}
+</script>
+</body>
+</html>

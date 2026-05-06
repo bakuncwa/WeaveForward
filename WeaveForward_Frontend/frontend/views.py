@@ -5,11 +5,84 @@ from django.contrib import messages
 from .constants import ALLOWED_FIBERS, BACKEND_BASE_URL
 from .services.form_utils import format_errors
 
-def home(request):
-    return render(request, 'frontend/home.html')
-
 def role_select(request):
     return render(request, 'frontend/role_select.html')
+
+def login_view(request):
+    if request.method == 'POST':
+        email = request.POST.get('email')
+        password = request.POST.get('password')
+        otp_code = request.POST.get('otp_code')
+        
+        try:
+            response = requests.post(f"{BACKEND_BASE_URL}login/", json={
+                'email': email,
+                'password': password,
+                'otp_code': otp_code
+            })
+            
+            if response.status_code == 200:
+                data = response.json()
+                res = render(request, 'frontend/home.html') # Render dashboard immediately
+                
+                # Set HttpOnly cookies for tokens
+                res.set_cookie('access_token', data['access'], httponly=True, samesite='Lax')
+                res.set_cookie('refresh_token', data['refresh'], httponly=True, samesite='Lax')
+                
+                # Set plain cookies for UI data
+                res.set_cookie('user_role', data['role'], samesite='Lax')
+                res.set_cookie('user_name', data['name'], samesite='Lax')
+                res.set_cookie('user_email', data['email'], samesite='Lax')
+                
+                return res
+            else:
+                # Handle login failure
+                error_data = response.json()
+                
+                # Check for 2FA requirement
+                if error_data.get('2fa_required'):
+                    return render(request, 'frontend/login.html', {
+                        'show_2fa': True, 
+                        'email': email, 
+                        'password': password
+                    })
+
+                backend_error = error_data.get('detail', 'Invalid email or password.')
+                error_msg = backend_error[0] if isinstance(backend_error, list) else backend_error
+                return render(request, 'frontend/login.html', {'error': error_msg, 'email': email})
+                
+        except requests.exceptions.ConnectionError:
+            return render(request, 'frontend/login.html', {'error': 'Backend API is offline.'})
+
+    # GET request - If we have an access token (or the middleware just refreshed it),
+    # we show the home (dashboard). Otherwise, show login.
+    if request.COOKIES.get('access_token'):
+        return render(request, 'frontend/home.html')
+    
+    return render(request, 'frontend/login.html')
+
+def logout_view(request):
+    access_token = request.COOKIES.get('access_token')
+    refresh_token = request.COOKIES.get('refresh_token')
+    
+    if access_token and refresh_token:
+        try:
+            # Tell backend to blacklist the refresh token
+            requests.post(
+                f"{BACKEND_BASE_URL}logout/",
+                json={'refresh': refresh_token},
+                headers={'Authorization': f'Bearer {access_token}'}
+            )
+        except Exception:
+            pass # Proceed with local logout regardless
+
+    response = redirect('login')
+    # Clean up all cookies on the browser
+    for cookie in ['access_token', 'refresh_token', 'user_role', 'user_name', 'user_email']:
+        response.delete_cookie(cookie)
+    
+    messages.success(request, "Successfully logged out.")
+    return response
 
 def location_lookup_proxy(request):
     """SSR Proxy for location lookup."""
@@ -46,11 +119,8 @@ def donor_registration(request):
             response = requests.post(f"{BACKEND_BASE_URL}register/", json=payload)
             if response.status_code == 201:
                 messages.success(request, "Registration successful!")
-                return redirect('home')
+                return redirect('login')
             else:
-                # Safely print a snippet of the error to avoid UnicodeEncodeError on Windows
-                error_snippet = (response.text[:200] + '...') if len(response.text) > 200 else response.text
-                print(f"DEBUG: Donor Error {response.status_code}: {error_snippet.encode('ascii', 'replace').decode('ascii')}")
                 return render(request, 'frontend/donor_registration.html', {'errors': format_errors(response.json()), 'form_data': raw_data})
         except requests.exceptions.ConnectionError:
             messages.error(request, "Backend API is offline.")
@@ -104,11 +174,8 @@ def tuab_registration(request):
             response = requests.post(f"{BACKEND_BASE_URL}register/", data=payload, files=files)
             if response.status_code == 201:
                 messages.success(request, "TUAB Application Submitted!")
-                return redirect('home')
+                return redirect('login')
             else:
-                # Safely print a snippet of the error to avoid UnicodeEncodeError on Windows
-                error_snippet = (response.text[:200] + '...') if len(response.text) > 200 else response.text
-                print(f"DEBUG: TUAB Error {response.status_code}: {error_snippet.encode('ascii', 'replace').decode('ascii')}")
                 return render(request, 'frontend/tuab_registration.html', {
                     'errors': format_errors(response.json()),
                     'form_data': raw_data,
