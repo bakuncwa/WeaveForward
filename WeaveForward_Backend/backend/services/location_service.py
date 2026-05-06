@@ -61,6 +61,13 @@ def get_city_and_barangay(lat, lon):
     """
     Given lat/lon, return {'barangay': str, 'city': str} or None if outside NCR.
     """
+    # Convert to float to avoid Decimal vs float math errors
+    try:
+        lat = float(lat)
+        lon = float(lon)
+    except (TypeError, ValueError):
+        return None
+
     features = load_ncr_features()
     for geometry, barangay, city in features:
         if _in_geometry(lon, lat, geometry):
