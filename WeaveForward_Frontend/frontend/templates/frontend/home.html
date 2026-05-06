@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WeaveForward | Welcome</title>
+    <style>
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            height: 100vh;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        .container {
+            padding: 2rem;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        h1 { font-size: 3rem; margin-bottom: 0.5rem; background: linear-gradient(to right, #4facfe 0%, #00f2fe 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        p { font-size: 1.2rem; color: #94a3b8; }
+        .badge { background: #3b82f6; color: white; padding: 0.5rem 1rem; border-radius: 50px; font-weight: bold; display: inline-block; margin-top: 1rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>WeaveForward</h1>
+        <p>Your Frontend Web Application is officially Online.</p>
+        <div class="badge">Connected to Backend API</div>
+        <br><br>
+        <a href="{% url 'role_select' %}" class="btn" style="text-decoration:none; display:inline-block; margin-top:20px; padding: 12px 30px; background: #3b82f6; border-radius: 50px; color: white; font-weight: 600;">Get Started</a>
+    </div>
+</body>
+</html>

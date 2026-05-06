@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from .serializers import DonorRegisterSerializer, TUABRegisterSerializer
-from .services.location_service import get_city_and_barangay
+from .services.location_service import get_city_and_barangay as _get_location_data
 from .services.audit_service import get_client_ip, log_audit
 
 class RegisterView(APIView):
@@ -22,15 +22,18 @@ class RegisterView(APIView):
         if serializer.is_valid():
             with transaction.atomic():
                 user = serializer.save(role=role)
-                log_audit(actor=user, entity_type='User', action='REGISTER', ip_address=ip_address)
+                log_audit(actor=user, entity_type='User', action='POST', ip_address=ip_address)
             return Response({'message': f'{role} registered', 'user_id': user.user_id, 'email': user.email}, status=201)
         
         return Response(serializer.errors, status=400)
 
-def get_city_and_barangay_view(request):
+def lookup_location(request):
+    """
+    RESTful endpoint to lookup city and barangay based on lat/lng.
+    """
     try:
         lat, lng = float(request.GET.get('lat')), float(request.GET.get('lng'))
     except (TypeError, ValueError): return JsonResponse({'error': 'Invalid coordinates'}, status=400)
     
-    location = get_city_and_barangay(lat, lng)
+    location = _get_location_data(lat, lng)
     return JsonResponse(location) if location else JsonResponse({'error': 'Location not found in NCR'}, status=404)
