@@ -4,19 +4,14 @@ __pycache__/
 *$py.class
 
 # Django
-# db.sqlite3  <-- Commented out or removed so it stays tracked if you want
+# db.sqlite3 and media/staticfiles are NOT ignored
 db.sqlite3-journal
-media/
-staticfiles/
 
 # Environment variables
-# .env <-- Removed from here so it stays tracked
+# .env is NOT ignored
 
 # Virtual environments
-venv/
-ENV/
-env/
-.venv/
+# venv/ and env/ are NOT ignored
 
 # OS files
 .DS_Store
