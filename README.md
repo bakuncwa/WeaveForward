@@ -36,6 +36,14 @@ The application connects to MySQL using the following default credentials (confi
 | **DB_HOST** | `127.0.0.1` |
 | **DB_PORT** | `3306` |
 
+### Default Admin Credentials
+After initializing the database (see Backend Step 4), you can log in with the following system administrator account:
+
+| Field | Value |
+| :--- | :--- |
+| **Email** | `admin@weaveforward.com` |
+| **Password** | `SecureAdminPassword123` |
+
 > [!IMPORTANT]
 > Ensure your local MySQL `root` user has the password set to `1234` or update the `.env` file to match your configuration.
 
@@ -65,7 +73,7 @@ The application connects to MySQL using the following default credentials (confi
    ```
 
 4. **Initialize the Database**:
-   Execute the database initialization script to automate the creation of the required MySQL schema:
+   Execute the database initialization script to automate the creation of the MySQL schema and seed the initial administrator account:
    ```powershell
    python init_db.py
    ```
