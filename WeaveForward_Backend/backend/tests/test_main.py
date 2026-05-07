@@ -6,8 +6,9 @@ from django.db import IntegrityError
 from django.urls import reverse
 from rest_framework.test import APIClient
 from rest_framework import status
-from .models import User, Upload, Donation, DonationItem, BrandFiberLookup
-from .serializers import DonorRegisterSerializer, TUABRegisterSerializer
+from backend.models import User, Upload, Donation, DonationItem, BrandFiberLookup, MatchPrediction, UserOperationalStatus
+from backend.serializers import DonorRegisterSerializer, TUABRegisterSerializer
+from backend.services.prediction_service import run_predictions_for_donation
 
 class UserModelTest(TestCase):
     def setUp(self):
@@ -259,7 +260,7 @@ class PasswordResetTest(TestCase):
         self.assertEqual(response.data['message'], "Password reset email sent.")
 
         # 2. Generate token (simulating what would be in the email)
-        from .services.auth_service import generate_reset_token
+        from backend.services.auth_service import generate_reset_token
         uidb64, token = generate_reset_token(self.user)
 
         # 3. Confirm reset
@@ -295,17 +296,26 @@ class UserAPITest(TestCase):
         self.donor = User.objects.create_user(
             email="donor_test@example.com", password="Pass", role="Donor", contact_no="+639002", status="ACTIVE"
         )
+        self.tuab_active = User.objects.create_user(
+            email="tuab_active@example.com", password="Pass", role="TUAB", contact_no="+639003", status="ACTIVE", operational_status="ACTIVE"
+        )
+        self.tuab_inactive = User.objects.create_user(
+            email="tuab_inactive@example.com", password="Pass", role="TUAB", contact_no="+639004", status="ACTIVE", operational_status="HIBERNATING"
+        )
 
-    def test_user_list_admin_only(self):
-        # Admin can list
+    def test_user_list_visibility(self):
+        # Admin can list all
         self.client.force_authenticate(user=self.admin)
         res = self.client.get(reverse('user-list'))
         self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res.data), 4) # Admin, Donor, TUAB Active, TUAB Inactive
         
-        # Donor blocked
+        # Donor sees active TUABs
         self.client.force_authenticate(user=self.donor)
         res = self.client.get(reverse('user-list'))
-        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res.data), 1)
+        self.assertEqual(res.data[0]['email'], self.tuab_active.email)
 
     def test_user_retrieve_logic(self):
         # Donor can see self
@@ -316,8 +326,16 @@ class UserAPITest(TestCase):
         # Donor cannot see admin
         res = self.client.get(reverse('user-detail', kwargs={'pk': self.admin.user_id}))
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+        
+        # Donor can see active TUAB
+        res = self.client.get(reverse('user-detail', kwargs={'pk': self.tuab_active.user_id}))
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        
+        # Donor cannot see inactive TUAB
+        res = self.client.get(reverse('user-detail', kwargs={'pk': self.tuab_inactive.user_id}))
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
 
-        # Admin can see donor
+        # Admin can see everyone
         self.client.force_authenticate(user=self.admin)
         res = self.client.get(reverse('user-detail', kwargs={'pk': self.donor.user_id}))
         self.assertEqual(res.status_code, status.HTTP_200_OK)
@@ -399,3 +417,100 @@ class DonationAPITest(TestCase):
         self.client.force_authenticate(user=self.donor)
         res = self.client.get(reverse('donation-list'))
         self.assertEqual(len(res.data), 0)
+
+class PredictionServiceTest(TestCase):
+    def setUp(self):
+        self.donor = User.objects.create_user(
+            email="prediction_donor@test.com", password="Password123", role="Donor", contact_no="+639019991", status="ACTIVE"
+        )
+        self.tuab_multi = User.objects.create_user(
+            email="prediction_multi@test.com", password="Password123", role="TUAB", contact_no="+639019992", status="ACTIVE",
+            operational_status=UserOperationalStatus.ACTIVE, target_fibers="cotton,polyester",
+            latitude=Decimal('14.5'), longitude=Decimal('121.0'),
+            min_biodeg_score=0, max_distance_km=100
+        )
+        # Use real lookup data if available, fallback only if empty
+        self.lookup_cotton = BrandFiberLookup.objects.filter(fiber_json__contains='cotton').first()
+        if not self.lookup_cotton:
+            self.lookup_cotton = BrandFiberLookup.objects.create(
+                brand="BrandA", clothing_type="T-shirt", 
+                fiber_json='{"cotton": 100.0}', biodeg_score=100.0, dominant_fiber="cotton"
+            )
+            
+        self.lookup_poly = BrandFiberLookup.objects.filter(fiber_json__contains='polyester').first()
+        if not self.lookup_poly:
+            self.lookup_poly = BrandFiberLookup.objects.create(
+                brand="BrandB", clothing_type="Shirt", 
+                fiber_json='{"polyester": 100.0}', biodeg_score=0.0, dominant_fiber="polyester"
+            )
+
+    def test_multi_fiber_matching(self):
+        # Create donation with two items (one cotton, one poly)
+        donation = Donation.objects.create(
+            donor=self.donor, pickup_barangay='B', pickup_city='C', pickup_display_address='D',
+            pickup_latitude=Decimal('14.5'), pickup_longitude=Decimal('121.0'),
+            preferred_pickup_date='2026-05-10', preferred_pickup_window_start='09:00:00',
+            preferred_pickup_window_end='12:00:00'
+        )
+        DonationItem.objects.create(donation=donation, lookup=self.lookup_cotton, condition_rating='GOOD', weight_kg=1.0)
+        DonationItem.objects.create(donation=donation, lookup=self.lookup_poly, condition_rating='GOOD', weight_kg=1.0)
+
+        # Run prediction
+        preds = run_predictions_for_donation(donation.donation_id)
+        
+        # Should have 2 predictions for our TUAB
+        tuab_preds = [p for p in preds if p.tuab_id == self.tuab_multi.user_id]
+        self.assertEqual(len(tuab_preds), 2)
+        
+        # Both should be matches because TUAB targets both cotton and polyester
+        for p in tuab_preds:
+            self.assertTrue(p.is_match)
+            self.assertGreater(p.match_prob, 0.8)
+
+    def test_distance_constraint(self):
+        # Create a TUAB with a very small radius (1km)
+        tuab_close = User.objects.create_user(
+            email="close@test.com", password="Password123", role="TUAB", contact_no="+639019993", status="ACTIVE",
+            operational_status=UserOperationalStatus.ACTIVE, target_fibers="cotton",
+            latitude=Decimal('14.5'), longitude=Decimal('121.0'),
+            min_biodeg_score=0, max_distance_km=1 # 1km radius
+        )
+        # Create a donation far away (~50km)
+        donation_far = Donation.objects.create(
+            donor=self.donor, pickup_barangay='Far', pickup_city='C', pickup_display_address='D',
+            pickup_latitude=Decimal('15.0'), pickup_longitude=Decimal('121.0'), # ~55km away
+            preferred_pickup_date='2026-05-10', preferred_pickup_window_start='09:00:00',
+            preferred_pickup_window_end='12:00:00'
+        )
+        DonationItem.objects.create(donation=donation_far, lookup=self.lookup_cotton, condition_rating='GOOD', weight_kg=1.0)
+        
+        preds = run_predictions_for_donation(donation_far.donation_id)
+        tuab_preds = [p for p in preds if p.tuab_id == tuab_close.user_id]
+        
+        # Should NOT be a match due to distance
+        self.assertFalse(tuab_preds[0].is_match)
+        self.assertLess(tuab_preds[0].match_prob, 0.5)
+
+    def test_biodeg_constraint(self):
+        # Create a TUAB with a high biodeg requirement (90)
+        tuab_strict = User.objects.create_user(
+            email="strict@test.com", password="Password123", role="TUAB", contact_no="+639019994", status="ACTIVE",
+            operational_status=UserOperationalStatus.ACTIVE, target_fibers="polyester",
+            latitude=Decimal('14.5'), longitude=Decimal('121.0'),
+            min_biodeg_score=90, max_distance_km=100
+        )
+        # Polyester item has biodeg_score 0 (from setUp)
+        donation = Donation.objects.create(
+            donor=self.donor, pickup_barangay='B', pickup_city='C', pickup_display_address='D',
+            pickup_latitude=Decimal('14.5'), pickup_longitude=Decimal('121.0'),
+            preferred_pickup_date='2026-05-10', preferred_pickup_window_start='09:00:00',
+            preferred_pickup_window_end='12:00:00'
+        )
+        DonationItem.objects.create(donation=donation, lookup=self.lookup_poly, condition_rating='GOOD', weight_kg=1.0)
+        
+        preds = run_predictions_for_donation(donation.donation_id)
+        tuab_preds = [p for p in preds if p.tuab_id == tuab_strict.user_id]
+        
+        # Should NOT be a match because polyester (0) < requirement (90)
+        self.assertFalse(tuab_preds[0].is_match)
+        self.assertLess(tuab_preds[0].match_prob, 0.5)

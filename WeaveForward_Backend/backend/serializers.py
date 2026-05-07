@@ -2,7 +2,7 @@ import re, os, io, json
 import pyotp
 from rest_framework import serializers, exceptions
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .models import User, Upload, UserAccountStatus, Donation, DonationItem, BrandFiberLookup, Order, OrderPayment
+from .models import User, Upload, UserAccountStatus, Donation, DonationItem, BrandFiberLookup
 from .services.auth_service import validate_reset_token, reset_user_password
 from .constants import ALLOWED_FIBERS, TUAB_REG_MAX_SIZE, TUAB_REG_ALLOWED_EXTENSIONS, ALLOWED_IMAGE_EXTENSIONS, IMAGE_COMPRESSION_QUALITY
 from .services.location_service import get_city_and_barangay
@@ -239,26 +239,56 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         reset_user_password(self.user, self.validated_data['new_password'])
         return self.user
 
+class UploadSerializer(serializers.ModelSerializer):
+    """Full metadata for uploaded files with absolute URLs."""
+    file_path = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Upload
+        fields = ['upload_id', 'file_path', 'name']
+
+    def get_file_path(self, obj):
+        if not obj.file_path: return None
+        url = default_storage.url(obj.file_path)
+        if url.startswith(('http://', 'https://')): return url
+        request = self.context.get('request')
+        return request.build_absolute_uri(url) if request else url
+
 # --- USER RELATED SERIALIZERS ---
 
 class UserSerializer(serializers.ModelSerializer):
     """Full user profile serializer."""
+    upload = UploadSerializer(read_only=True)
+    
     class Meta:
         model = User
         exclude = ['password', 'totp_secret']
+
+class PublicUserSerializer(serializers.ModelSerializer):
+    """Limited profile serializer for non-admin views."""
+    upload = UploadSerializer(read_only=True)
+    
+    class Meta:
+        model = User
+        exclude = [
+            'password', 'totp_secret', 'maya_customer_id', 'maya_card_id',
+            'is_2fa_enabled', 'created_at', 'updated_at', 'documentation'
+        ]
 
 # --- DONATION RELATED SERIALIZERS ---
 
 class DonationUserSerializer(serializers.ModelSerializer):
     """Minimal user data for nesting in donations."""
+    upload = UploadSerializer(read_only=True)
+    
     class Meta:
         model = User
-        fields = ['user_id', 'email', 'role', 'first_name', 'last_name', 'business_name', 'contact_no']
+        fields = ['user_id', 'email', 'role', 'first_name', 'last_name', 'business_name', 'contact_no', 'upload']
 
 class BrandFiberLookupSerializer(serializers.ModelSerializer):
     class Meta:
         model = BrandFiberLookup
-        fields = ['category', 'brand', 'clothing_type', 'dominant_fiber', 'biodeg_score', 'biodeg_tier', 'is_active', 'scraped_at']
+        fields = '__all__'
 
 class DonationItemSerializer(serializers.ModelSerializer):
     lookup_details = BrandFiberLookupSerializer(source='lookup', read_only=True)
@@ -267,22 +297,14 @@ class DonationItemSerializer(serializers.ModelSerializer):
         model = DonationItem
         fields = ['item_id', 'condition_rating', 'weight_kg', 'lookup_details']
 
-class OrderPaymentSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = OrderPayment
-        fields = ['order_payment_id', 'amount', 'status', 'payment_reference', 'created_at']
-
-class OrderSerializer(serializers.ModelSerializer):
-    payments = OrderPaymentSerializer(many=True, read_only=True)
-    class Meta:
-        model = Order
-        fields = ['order_id', 'lalamove_order_id', 'status', 'dropoff_display_address', 'scheduled_at', 'payments']
 
 class DonationSerializer(serializers.ModelSerializer):
     donor = DonationUserSerializer(read_only=True)
     claimed_by_tuab = DonationUserSerializer(read_only=True)
     items = DonationItemSerializer(many=True, read_only=True)
-    orders = OrderSerializer(many=True, read_only=True)
+    upload = UploadSerializer(read_only=True)
+    pickup_latitude = serializers.DecimalField(max_digits=18, decimal_places=15, read_only=True)
+    pickup_longitude = serializers.DecimalField(max_digits=18, decimal_places=15, read_only=True)
 
     class Meta:
         model = Donation

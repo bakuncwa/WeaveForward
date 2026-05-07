@@ -1,9 +1,12 @@
-import requests
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.contrib import messages
-from .constants import ALLOWED_FIBERS, BACKEND_BASE_URL
-from .services.form_utils import format_errors
+from ..services import api_call, get_user_profile
+
+# Import role-based views for convenience
+from .admin import admin_view_donations, admin_view_donors
+from .donor import donor_dashboard
+from .tuab import tuab_dashboard
 
 def role_select(request):
     return render(request, 'frontend/role_select.html')
@@ -15,7 +18,7 @@ def login_view(request):
         otp_code = request.POST.get('otp_code')
         
         try:
-            response = requests.post(f"{BACKEND_BASE_URL}login/", json={
+            response = api_call(request, 'POST', 'login/', json={
                 'email': email,
                 'password': password,
                 'otp_code': otp_code
@@ -23,16 +26,21 @@ def login_view(request):
             
             if response.status_code == 200:
                 data = response.json()
-                res = render(request, 'frontend/home.html') # Render dashboard immediately
+                
+                # Determine redirect URL based on role
+                role = data.get('role')
+                if role == 'Admin':
+                    redirect_url = 'admin_view_donors'
+                elif role == 'TUAB':
+                    redirect_url = 'tuab_dashboard'
+                else:
+                    redirect_url = 'donor_dashboard'
+                
+                res = redirect(redirect_url)
                 
                 # Set HttpOnly cookies for tokens
                 res.set_cookie('access_token', data['access'], httponly=True, samesite='Lax')
                 res.set_cookie('refresh_token', data['refresh'], httponly=True, samesite='Lax')
-                
-                # Set plain cookies for UI data
-                res.set_cookie('user_role', data['role'], samesite='Lax')
-                res.set_cookie('user_name', data['name'], samesite='Lax')
-                res.set_cookie('user_email', data['email'], samesite='Lax')
                 
                 return res
             else:
@@ -51,33 +59,32 @@ def login_view(request):
                 error_msg = backend_error[0] if isinstance(backend_error, list) else backend_error
                 return render(request, 'frontend/login.html', {'error': error_msg, 'email': email})
                 
-        except requests.exceptions.ConnectionError:
-            return render(request, 'frontend/login.html', {'error': 'Backend API is offline.'})
+        except Exception:
+            return render(request, 'frontend/login.html', {'error': 'Backend API is offline or unreachable.'})
 
-    # GET request - If we have an access token (or the middleware just refreshed it),
-    # we show the home (dashboard). Otherwise, show login.
+    # GET request - If we have an access token, redirect to role-specific dashboard.
     if request.COOKIES.get('access_token'):
-        return render(request, 'frontend/home.html')
+        profile = get_user_profile(request)
+        if profile:
+            role = profile.get('role')
+            if role == 'Admin': return redirect('/admin/donors/')
+            elif role == 'TUAB':
+                return redirect('tuab_dashboard')
+            else:
+                return redirect('donor_dashboard')
     
     return render(request, 'frontend/login.html')
 
 def logout_view(request):
-    access_token = request.COOKIES.get('access_token')
     refresh_token = request.COOKIES.get('refresh_token')
     
-    if access_token and refresh_token:
+    if refresh_token:
         try:
-            # Tell backend to blacklist the refresh token
-            requests.post(
-                f"{BACKEND_BASE_URL}logout/",
-                json={'refresh': refresh_token},
-                headers={'Authorization': f'Bearer {access_token}'}
-            )
+            api_call(request, 'POST', 'logout/', json={'refresh': refresh_token})
         except Exception:
-            pass # Proceed with local logout regardless
+            pass 
 
     response = redirect('login')
-    # Clean up all cookies on the browser
     for cookie in ['access_token', 'refresh_token', 'user_role', 'user_name', 'user_email']:
         response.delete_cookie(cookie)
     
@@ -89,10 +96,71 @@ def location_lookup_proxy(request):
     lat = request.GET.get('lat')
     lng = request.GET.get('lng')
     try:
-        response = requests.get(f"{BACKEND_BASE_URL}location/lookup/", params={'lat': lat, 'lng': lng})
+        response = api_call(request, 'GET', 'location/lookup/', params={'lat': lat, 'lng': lng})
         return JsonResponse(response.json(), status=response.status_code)
     except Exception:
         return JsonResponse({'error': 'Backend location service unreachable'}, status=503)
+
+def forgot_password(request):
+    if request.method == 'POST':
+        email = request.POST.get('email')
+        try:
+            response = api_call(request, 'POST', 'password-reset/', json={'email': email})
+            if response.status_code == 200:
+                return render(request, 'frontend/forgot_password.html', {'success': "If that email exists in our system, we've sent a password reset link to it."})
+            else:
+                data = response.json()
+                error_msg = data.get('email', data.get('error', ['Error requesting reset.']))
+                if isinstance(error_msg, list): error_msg = error_msg[0]
+                return render(request, 'frontend/forgot_password.html', {'error': error_msg})
+        except Exception:
+            return render(request, 'frontend/forgot_password.html', {'error': "Backend service unreachable."})
+    return render(request, 'frontend/forgot_password.html')
+
+def reset_password_confirm(request):
+    if request.method == 'GET':
+        uidb64 = request.GET.get('uidb64')
+        token = request.GET.get('token')
+        if not uidb64 or not token:
+            return redirect('login')
+        return render(request, 'frontend/reset_password_confirm.html', {'uidb64': uidb64, 'token': token})
+
+    if request.method == 'POST':
+        uidb64 = request.POST.get('uidb64')
+        token = request.POST.get('token')
+        new_password = request.POST.get('new_password')
+        confirm_password = request.POST.get('confirm_password')
+
+        payload = {
+            'uidb64': uidb64,
+            'token': token,
+            'new_password': new_password,
+            'confirm_password': confirm_password
+        }
+
+        try:
+            response = api_call(request, 'POST', 'password-reset/confirm/', json=payload)
+            if response.status_code == 200:
+                messages.success(request, "Password reset successful! 2FA has been disabled. You can now log in.")
+                return redirect('login')
+            else:
+                errors = response.json()
+                error_msg = "Invalid data."
+                if 'password' in errors: error_msg = errors['password'][0]
+                elif 'token' in errors: error_msg = errors['token'][0]
+                elif 'non_field_errors' in errors: error_msg = errors['non_field_errors'][0]
+                
+                return render(request, 'frontend/reset_password_confirm.html', {
+                    'error': error_msg,
+                    'uidb64': uidb64,
+                    'token': token
+                })
+        except Exception:
+                return render(request, 'frontend/reset_password_confirm.html', {
+                    'error': "Backend service unreachable.",
+                    'uidb64': uidb64,
+                    'token': token
+                })
 
 def donor_registration(request):
     if request.method == 'POST':
@@ -116,14 +184,15 @@ def donor_registration(request):
         elif not payload['contact_no'].startswith('+'):
             payload['contact_no'] = '+63' + payload['contact_no']
         try:
-            response = requests.post(f"{BACKEND_BASE_URL}register/", json=payload)
+            response = api_call(request, 'POST', 'register/', json=payload)
             if response.status_code == 201:
                 messages.success(request, "Registration successful!")
                 return redirect('login')
             else:
+                from ..services import format_errors
                 return render(request, 'frontend/donor_registration.html', {'errors': format_errors(response.json()), 'form_data': raw_data})
-        except requests.exceptions.ConnectionError:
-            messages.error(request, "Backend API is offline.")
+        except Exception:
+            messages.error(request, "Backend API is offline or unreachable.")
     return render(request, 'frontend/donor_registration.html')
 
 def tuab_registration(request):
@@ -171,80 +240,20 @@ def tuab_registration(request):
         files = {'documentation': request.FILES.get('documentation')} if request.FILES.get('documentation') else None
 
         try:
-            response = requests.post(f"{BACKEND_BASE_URL}register/", data=payload, files=files)
+            response = api_call(request, 'POST', 'register/', data=payload, files=files)
             if response.status_code == 201:
                 messages.success(request, "TUAB Application Submitted!")
                 return redirect('login')
             else:
+                from ..services import format_errors
+                from ..constants import ALLOWED_FIBERS
                 return render(request, 'frontend/tuab_registration.html', {
                     'errors': format_errors(response.json()),
                     'form_data': raw_data,
                     'fibers': ALLOWED_FIBERS
                 })
-        except requests.exceptions.ConnectionError:
-            messages.error(request, "Backend API is offline.")
+        except Exception:
+            messages.error(request, "Backend API is offline or unreachable.")
 
+    from ..constants import ALLOWED_FIBERS
     return render(request, 'frontend/tuab_registration.html', {'fibers': ALLOWED_FIBERS})
-
-def forgot_password(request):
-    if request.method == 'POST':
-        email = request.POST.get('email')
-        try:
-            response = requests.post(f"{BACKEND_BASE_URL}password-reset/", json={'email': email})
-            if response.status_code == 200:
-                return render(request, 'frontend/forgot_password.html', {'success': "If that email exists in our system, we've sent a password reset link to it."})
-            else:
-                data = response.json()
-                # Check for field-specific errors first, then generic errors
-                error_msg = data.get('email', data.get('error', ['Error requesting reset.']))
-                if isinstance(error_msg, list): error_msg = error_msg[0]
-                return render(request, 'frontend/forgot_password.html', {'error': error_msg})
-        except Exception:
-            return render(request, 'frontend/forgot_password.html', {'error': "Backend service unreachable."})
-    return render(request, 'frontend/forgot_password.html')
-
-def reset_password_confirm(request):
-    if request.method == 'GET':
-        uidb64 = request.GET.get('uidb64')
-        token = request.GET.get('token')
-        if not uidb64 or not token:
-            return redirect('login')
-        return render(request, 'frontend/reset_password_confirm.html', {'uidb64': uidb64, 'token': token})
-
-    if request.method == 'POST':
-        uidb64 = request.POST.get('uidb64')
-        token = request.POST.get('token')
-        new_password = request.POST.get('new_password')
-        confirm_password = request.POST.get('confirm_password')
-
-        payload = {
-            'uidb64': uidb64,
-            'token': token,
-            'new_password': new_password,
-            'confirm_password': confirm_password
-        }
-
-        try:
-            response = requests.post(f"{BACKEND_BASE_URL}password-reset/confirm/", json=payload)
-            if response.status_code == 200:
-                messages.success(request, "Password reset successful! 2FA has been disabled. You can now log in.")
-                return redirect('login')
-            else:
-                errors = response.json()
-                # Extract first error message
-                error_msg = "Invalid data."
-                if 'password' in errors: error_msg = errors['password'][0]
-                elif 'token' in errors: error_msg = errors['token'][0]
-                elif 'non_field_errors' in errors: error_msg = errors['non_field_errors'][0]
-                
-                return render(request, 'frontend/reset_password_confirm.html', {
-                    'error': error_msg,
-                    'uidb64': uidb64,
-                    'token': token
-                })
-        except Exception:
-            return render(request, 'frontend/reset_password_confirm.html', {
-                'error': "Backend service unreachable.",
-                'uidb64': uidb64,
-                'token': token
-            })

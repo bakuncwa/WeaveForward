@@ -2,16 +2,23 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    # --- Public ---
     path('', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
     path('select-role/', views.role_select, name='role_select'),
     path('register/donor/', views.donor_registration, name='donor_registration'),
     path('register/tuab/', views.tuab_registration, name='tuab_registration'),
-    
-    # Internal Proxy for Location Lookup
-    path('api/location/lookup/', views.location_lookup_proxy, name='location_lookup_proxy'),
-    
-    # Password Reset
     path('forgot-password/', views.forgot_password, name='forgot_password'),
     path('reset-password-confirm/', views.reset_password_confirm, name='reset_password_confirm'),
+    path('api/location/lookup/', views.location_lookup_proxy, name='location_lookup_proxy'),
+    
+    # --- Donor ---
+    path('donor/dashboard/', views.donor_dashboard, name='donor_dashboard'),
+    
+    # --- TUAB ---
+    path('tuab/dashboard/', views.tuab_dashboard, name='tuab_dashboard'),
+    
+    # --- Admin ---
+    path('admin/donations/', views.admin_view_donations, name='admin_view_donations'),
+    path('admin/donors/', views.admin_view_donors, name='admin_view_donors'),
 ]

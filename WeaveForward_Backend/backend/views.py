@@ -12,11 +12,11 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import User, Donation
+from .models import User, Donation, UserRole
 from .serializers import (
     DonorRegisterSerializer, TUABRegisterSerializer, CustomTokenObtainPairSerializer,
     PasswordResetRequestSerializer, PasswordResetConfirmSerializer, DonationSerializer,
-    UserSerializer
+    UserSerializer, PublicUserSerializer
 )
 from .services.location_service import get_city_and_barangay as _get_location_data
 from .services.audit_service import get_client_ip, log_audit
@@ -77,23 +77,37 @@ class PasswordResetConfirmView(APIView):
 
 class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
     permission_classes = [IsAuthenticated]
-    serializer_class = UserSerializer
+
+    def get_serializer_class(self):
+        if hasattr(self, 'request') and hasattr(self.request, 'user'):
+            if self.request.user.role != 'Admin' and self.action in ['list', 'retrieve']:
+                return PublicUserSerializer
+        return UserSerializer
 
     def get_queryset(self):
         # We define a broad queryset here; the list/retrieve methods handle the role-based blocking
         return User.objects.all().order_by('user_id')
 
     def list(self, request, *args, **kwargs):
-        # Only Admins can list all users
-        if request.user.role != 'Admin':
-            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
-        return super().list(request, *args, **kwargs)
+        queryset = self.filter_queryset(self.get_queryset())
+        if request.user.role == UserRole.ADMIN:
+            role_filter = request.query_params.get('role')
+            if role_filter:
+                queryset = queryset.filter(role=role_filter)
+        else:
+            queryset = queryset.filter(role=UserRole.TUAB, status='ACTIVE', operational_status='ACTIVE')
+            
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
     def retrieve(self, request, *args, **kwargs):
-        # Only Admins can retrieve ANY user; others can only retrieve THEMSELVES
+        # Admins can retrieve ANY user; others can retrieve THEMSELVES or active TUABs
         instance = self.get_object()
-        if request.user.role != 'Admin' and instance.user_id != request.user.user_id:
-            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        if request.user.role != UserRole.ADMIN:
+            is_self = instance.user_id == request.user.user_id
+            is_active_tuab = instance.role == UserRole.TUAB and instance.status == 'ACTIVE' and instance.operational_status == 'ACTIVE'
+            if not (is_self or is_active_tuab):
+                return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         return super().retrieve(request, *args, **kwargs)
 
     @action(detail=False, methods=['get'])
@@ -108,9 +122,9 @@ class RegisterView(APIView):
 
     def post(self, request):
         role = request.data.get('role')
-        if role == 'Donor':
+        if role == UserRole.DONOR:
             serializer = DonorRegisterSerializer(data=request.data)
-        elif role == 'TUAB':
+        elif role == UserRole.TUAB:
             serializer = TUABRegisterSerializer(data=request.data)
         else:
             return Response({"error": "Invalid role specified."}, status=status.HTTP_400_BAD_REQUEST)
