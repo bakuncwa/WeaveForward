@@ -1,19 +1,19 @@
 from django.db import transaction
 from django.http import JsonResponse
-from rest_framework import status
+from rest_framework import status, viewsets, mixins
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from .serializers import (
     DonorRegisterSerializer, TUABRegisterSerializer, CustomTokenObtainPairSerializer,
-    PasswordResetRequestSerializer, PasswordResetConfirmSerializer
+    PasswordResetRequestSerializer, PasswordResetConfirmSerializer, DonationSerializer
 )
 from .services.location_service import get_city_and_barangay as _get_location_data
 from .services.audit_service import get_client_ip, log_audit
 from .services.email_service import send_password_reset_email
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import User
+from .models import User, Donation
 from .constants import FRONTEND_URL
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
@@ -102,3 +102,8 @@ class PasswordResetConfirmView(APIView):
                 log_audit(actor=user, entity_type='User', action='PATCH', ip_address=ip_address)
             return Response({"message": "Password has been reset successfully. 2FA has been disabled."}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class DonationViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = Donation.objects.all().order_by('-submitted_at')
+    serializer_class = DonationSerializer

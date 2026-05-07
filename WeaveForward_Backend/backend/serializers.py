@@ -2,7 +2,7 @@ import re, os, io, json
 import pyotp
 from rest_framework import serializers, exceptions
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .models import User, Upload, UserAccountStatus
+from .models import User, Upload, UserAccountStatus, Donation, DonationItem, BrandFiberLookup
 from .services.auth_service import validate_reset_token, reset_user_password
 from .constants import ALLOWED_FIBERS, TUAB_REG_MAX_SIZE, TUAB_REG_ALLOWED_EXTENSIONS, ALLOWED_IMAGE_EXTENSIONS, IMAGE_COMPRESSION_QUALITY
 from .services.location_service import get_city_and_barangay
@@ -237,3 +237,32 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     def save(self):
         reset_user_password(self.user, self.validated_data['new_password'])
         return self.user
+
+class BrandFiberLookupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BrandFiberLookup
+        fields = ['category', 'brand', 'clothing_type', 'dominant_fiber', 'biodeg_score', 'biodeg_tier']
+
+class DonationItemSerializer(serializers.ModelSerializer):
+    lookup_details = BrandFiberLookupSerializer(source='lookup', read_only=True)
+    
+    class Meta:
+        model = DonationItem
+        fields = ['item_id', 'condition_rating', 'weight_kg', 'lookup_details']
+
+class DonationSerializer(serializers.ModelSerializer):
+    donor_name = serializers.SerializerMethodField()
+    items = DonationItemSerializer(many=True, read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    
+    class Meta:
+        model = Donation
+        fields = [
+            'donation_id', 'donor_name', 'status', 'status_display', 
+            'submitted_at', 'items', 'pickup_display_address',
+            'preferred_pickup_date', 'preferred_pickup_window_start',
+            'preferred_pickup_window_end'
+        ]
+
+    def get_donor_name(self, obj):
+        return f"{obj.donor.first_name} {obj.donor.last_name}"
