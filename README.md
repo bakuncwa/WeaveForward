@@ -8,8 +8,36 @@ To ensure cross-platform compatibility and avoid path-related errors, this repos
 
 ### Prerequisites
 * **Python 3.12**: Ensure Python 3.12 is installed on your system.
-* **MySQL Server**: A local MySQL instance must be running for the Backend.
-* **Database Credentials**: The included `.env` expects a MySQL `root` user with the password `1234`.
+* **MySQL Server**: A local MySQL instance must be running.
+  * **Windows**: [Download MySQL Installer](https://dev.mysql.com/downloads/installer/)
+  * **macOS**: [Download MySQL DMG Installer](https://dev.mysql.com/downloads/mysql/) or install via Homebrew: `brew install mysql`.
+
+### macOS Help Notes
+If `pip install` fails with a `mysql_config` error, you need to install the client libraries and point Python to them:
+```bash
+brew install mysql-client pkg-config
+
+# For Apple Silicon (M1/M2/M3):
+export PKG_CONFIG_PATH="/opt/homebrew/opt/mysql-client/lib/pkgconfig"
+
+# For Intel Macs:
+export PKG_CONFIG_PATH="/usr/local/opt/mysql-client/lib/pkgconfig"
+```
+*Note: The activation command for virtual environments on macOS/Linux is `source venv/bin/activate`.*
+
+### Database Credentials
+The application connects to MySQL using the following default credentials (configured in `.env`):
+
+| Variable | Value |
+| :--- | :--- |
+| **DB_NAME** | `weave_db` |
+| **DB_USER** | `root` |
+| **DB_PASSWORD** | `1234` |
+| **DB_HOST** | `127.0.0.1` |
+| **DB_PORT** | `3306` |
+
+> [!IMPORTANT]
+> Ensure your local MySQL `root` user has the password set to `1234` or update the `.env` file to match your configuration.
 
 ---
 
@@ -22,8 +50,13 @@ To ensure cross-platform compatibility and avoid path-related errors, this repos
 
 2. **Initialize and Activate Virtual Environment**:
    ```powershell
+   # Windows
    python -m venv venv
    .\venv\Scripts\activate
+
+   # macOS / Linux
+   python3 -m venv venv
+   source venv/bin/activate
    ```
 
 3. **Install Dependencies**:
@@ -59,8 +92,13 @@ To ensure cross-platform compatibility and avoid path-related errors, this repos
 
 2. **Initialize and Activate Virtual Environment**:
    ```powershell
+   # Windows
    python -m venv venv
    .\venv\Scripts\activate
+
+   # macOS / Linux
+   python3 -m venv venv
+   source venv/bin/activate
    ```
 
 3. **Install Dependencies**:

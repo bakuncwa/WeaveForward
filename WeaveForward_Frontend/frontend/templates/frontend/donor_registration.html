@@ -52,10 +52,8 @@
     .left {
       width: 380px;
       min-width: 380px;
-      background: var(--g) repeating-linear-gradient(45deg, rgba(255, 255, 255, .04) 0, rgba(255, 255, 255, .04) 2px, transparent 2px, transparent 14px);
-      flex-shrink: 0;
-      background-size: cover;
-      background-position: center
+      background: var(--g) url('{% static "frontend/donor_sidebar.jpeg" %}') center/cover;
+      flex-shrink: 0
     }
 
     .right {
@@ -311,7 +309,7 @@
 <body>
   <form id="frm" class="layout" method="post">
     {% csrf_token %}
-    <div class="left" style="background-image:url('{% static " frontend/donor_sidebar.jpeg" %}')"></div>
+    <div class="left"></div>
     <div class="right">
       <div class="form-wrap">
         <div class="title">DONOR</div>

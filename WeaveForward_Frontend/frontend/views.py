@@ -185,3 +185,66 @@ def tuab_registration(request):
             messages.error(request, "Backend API is offline.")
 
     return render(request, 'frontend/tuab_registration.html', {'fibers': ALLOWED_FIBERS})
+
+def forgot_password(request):
+    if request.method == 'POST':
+        email = request.POST.get('email')
+        try:
+            response = requests.post(f"{BACKEND_BASE_URL}password-reset/", json={'email': email})
+            if response.status_code == 200:
+                return render(request, 'frontend/forgot_password.html', {'success': "If that email exists in our system, we've sent a password reset link to it."})
+            else:
+                data = response.json()
+                # Check for field-specific errors first, then generic errors
+                error_msg = data.get('email', data.get('error', ['Error requesting reset.']))
+                if isinstance(error_msg, list): error_msg = error_msg[0]
+                return render(request, 'frontend/forgot_password.html', {'error': error_msg})
+        except Exception:
+            return render(request, 'frontend/forgot_password.html', {'error': "Backend service unreachable."})
+    return render(request, 'frontend/forgot_password.html')
+
+def reset_password_confirm(request):
+    if request.method == 'GET':
+        uidb64 = request.GET.get('uidb64')
+        token = request.GET.get('token')
+        if not uidb64 or not token:
+            return redirect('login')
+        return render(request, 'frontend/reset_password_confirm.html', {'uidb64': uidb64, 'token': token})
+
+    if request.method == 'POST':
+        uidb64 = request.POST.get('uidb64')
+        token = request.POST.get('token')
+        new_password = request.POST.get('new_password')
+        confirm_password = request.POST.get('confirm_password')
+
+        payload = {
+            'uidb64': uidb64,
+            'token': token,
+            'new_password': new_password,
+            'confirm_password': confirm_password
+        }
+
+        try:
+            response = requests.post(f"{BACKEND_BASE_URL}password-reset/confirm/", json=payload)
+            if response.status_code == 200:
+                messages.success(request, "Password reset successful! 2FA has been disabled. You can now log in.")
+                return redirect('login')
+            else:
+                errors = response.json()
+                # Extract first error message
+                error_msg = "Invalid data."
+                if 'password' in errors: error_msg = errors['password'][0]
+                elif 'token' in errors: error_msg = errors['token'][0]
+                elif 'non_field_errors' in errors: error_msg = errors['non_field_errors'][0]
+                
+                return render(request, 'frontend/reset_password_confirm.html', {
+                    'error': error_msg,
+                    'uidb64': uidb64,
+                    'token': token
+                })
+        except Exception:
+            return render(request, 'frontend/reset_password_confirm.html', {
+                'error': "Backend service unreachable.",
+                'uidb64': uidb64,
+                'token': token
+            })

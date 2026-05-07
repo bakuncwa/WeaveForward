@@ -1,3 +1,9 @@
+import os
+
+# Environment-based settings
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:8001")
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+
 # Registration Constants
 ALLOWED_FIBERS = {
     'cotton', 'polyester', 'nylon', 'wool', 'linen', 'silk', 'rayon', 

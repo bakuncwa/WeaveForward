@@ -1,3 +1,4 @@
+from unittest.mock import patch
 from django.test import TestCase
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
@@ -229,3 +230,57 @@ class AuthenticationTest(TestCase):
         response = self.client.post(self.logout_url, {"refresh": refresh}, format='json')
         self.assertEqual(response.status_code, status.HTTP_205_RESET_CONTENT)
         self.assertEqual(response.data['message'], "Successfully logged out")
+
+class PasswordResetTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.email = "joshua.vinson@benilde.edu.ph"
+        # Ensure the user doesn't exist before we create them
+        User.objects.filter(email=self.email).delete()
+        
+        self.password = "OldPassword123"
+        self.user = User.objects.create_user(
+            email=self.email,
+            password=self.password,
+            role="Donor",
+            contact_no="+639150000005",
+            is_2fa_enabled=True,
+            totp_secret="JBSWY3DPEHPK3PXP",
+            status="ACTIVE"
+        )
+        self.request_url = reverse('password_reset_request')
+        self.confirm_url = reverse('password_reset_confirm')
+
+    def test_password_reset_flow(self):
+        # 1. Request reset (This will now send a REAL email to you)
+        response = self.client.post(self.request_url, {'email': self.email}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['message'], "Password reset email sent.")
+
+        # 2. Generate token (simulating what would be in the email)
+        from .services.auth_service import generate_reset_token
+        uidb64, token = generate_reset_token(self.user)
+
+        # 3. Confirm reset
+        new_pw = "NewSecret123"
+        confirm_payload = {
+            'uidb64': uidb64,
+            'token': token,
+            'new_password': new_pw,
+            'confirm_password': new_pw
+        }
+        response = self.client.post(self.confirm_url, confirm_payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("Password has been reset successfully", response.data['message'])
+
+        # 4. Verify user state (2FA should be disabled)
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.is_2fa_enabled)
+        self.assertIsNone(self.user.totp_secret)
+        
+        # 5. Verify login works with new password
+        login_res = self.client.post(reverse('token_obtain_pair'), {
+            "email": self.email,
+            "password": new_pw
+        }, format='json')
+        self.assertEqual(login_res.status_code, status.HTTP_200_OK)

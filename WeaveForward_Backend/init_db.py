@@ -1,10 +1,48 @@
 import MySQLdb
 import os
 import sys
+import subprocess
 from dotenv import load_dotenv
 
+# Setup Django environment for ORM access
+def setup_django():
+    import django
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'WeaveForward_Backend.settings')
+    django.setup()
+
+def seed_admins():
+    from backend.models import User, UserRole
+    # ==============================================================================
+    # HARDCODED ADMINS
+    # ==============================================================================
+    admins = [
+        {
+            "email": "admin@weaveforward.com",
+            "password": "SecureAdminPassword123",
+            "first_name": "System",
+            "last_name": "Admin",
+            "contact_no": "+639000000000"
+        }
+    ]
+    
+    for admin_data in admins:
+        user = User.objects.filter(email=admin_data["email"]).first()
+        if not user:
+            User.objects.create_superuser(
+                email=admin_data["email"],
+                password=admin_data["password"],
+                first_name=admin_data["first_name"],
+                last_name=admin_data["last_name"],
+                contact_no=admin_data["contact_no"]
+            )
+            print(f"[OK] Created admin: {admin_data['email']}")
+        else:
+            # Update password for existing admin to ensure it's always valid
+            user.set_password(admin_data["password"])
+            user.save()
+            print(f"[OK] Updated existing admin: {admin_data['email']}")
+
 def main():
-    # Load environment variables from .env file
     load_dotenv()
     
     db_name = os.getenv('DB_NAME')
@@ -12,48 +50,49 @@ def main():
     db_password = os.getenv('DB_PASSWORD', '')
     db_host = os.getenv('DB_HOST', '127.0.0.1')
     db_port = int(os.getenv('DB_PORT', 3306))
-    
-    # GCP Cloud SQL specific: Connection Name (e.g., project:region:instance)
     instance_connection_name = os.getenv('CLOUD_SQL_CONNECTION_NAME')
 
     if not db_name:
-        print("Error: DB_NAME not found in environment variables.")
+        print("[ERROR] DB_NAME not found in environment.")
         sys.exit(1)
 
+    # 1. Ensure Database Exists
     try:
         if instance_connection_name:
-            # GCP/Cloud Run Connection via Unix Socket
-            print(f"Checking database '{db_name}' via Cloud SQL Socket: /cloudsql/{instance_connection_name}...")
-            conn = MySQLdb.connect(
-                user=db_user,
-                passwd=db_password,
-                unix_socket=f'/cloudsql/{instance_connection_name}'
-            )
+            print(f"[CONNECT] Connecting via Cloud SQL Socket: /cloudsql/{instance_connection_name}...")
+            conn = MySQLdb.connect(user=db_user, passwd=db_password, unix_socket=f'/cloudsql/{instance_connection_name}')
         else:
-            # Local/TCP Connection
-            print(f"Checking database '{db_name}' at {db_host}:{db_port}...")
-            conn = MySQLdb.connect(
-                host=db_host,
-                user=db_user,
-                passwd=db_password,
-                port=db_port
-            )
+            print(f"[CONNECT] Connecting to local MySQL at {db_host}:{db_port}...")
+            conn = MySQLdb.connect(host=db_host, user=db_user, passwd=db_password, port=db_port)
         
         cursor = conn.cursor()
-        
-        # Create database if it doesn't exist
         cursor.execute(f"CREATE DATABASE IF NOT EXISTS `{db_name}`")
-        
-        print(f"Successfully ensured database '{db_name}' exists.")
-        
+        print(f"[OK] Database '{db_name}' is ready.")
         cursor.close()
         conn.close()
-    except MySQLdb.Error as e:
-        print(f"MySQL Error: {e}")
-        sys.exit(1)
     except Exception as e:
-        print(f"Unexpected Error: {e}")
+        print(f"[ERROR] Database Creation Error: {e}")
+        # We don't exit here because on GCP the DB might already exist and user might not have CREATE permissions
+        print("Attempting to proceed with migrations anyway...")
+
+    # 2. Run Migrations
+    print("[MIGRATE] Running migrations...")
+    try:
+        subprocess.run([sys.executable, "manage.py", "migrate"], check=True)
+    except subprocess.CalledProcessError:
+        print("[ERROR] Migration failed.")
         sys.exit(1)
+
+    # 3. Seed Admins
+    print("[SEED] Seeding admin accounts...")
+    try:
+        setup_django()
+        seed_admins()
+    except Exception as e:
+        print(f"[ERROR] Seeding Error: {e}")
+        sys.exit(1)
+
+    print("\nInitialization complete!")
 
 if __name__ == "__main__":
     main()

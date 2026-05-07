@@ -10,4 +10,8 @@ urlpatterns = [
     
     # Internal Proxy for Location Lookup
     path('api/location/lookup/', views.location_lookup_proxy, name='location_lookup_proxy'),
+    
+    # Password Reset
+    path('forgot-password/', views.forgot_password, name='forgot_password'),
+    path('reset-password-confirm/', views.reset_password_confirm, name='reset_password_confirm'),
 ]

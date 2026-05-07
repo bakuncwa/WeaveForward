@@ -1,6 +1,6 @@
 import os
 
-# Base Backend URL (No specific endpoints here)
+# Base Backend URL
 BACKEND_BASE_URL = os.getenv("BACKEND_BASE_URL", "http://127.0.0.1:8000/api/")
 
 # Strict Fiber Whitelist (Must match backend/constants.py)

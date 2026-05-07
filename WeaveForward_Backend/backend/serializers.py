@@ -1,8 +1,9 @@
-import re, os, io
+import re, os, io, json
 import pyotp
 from rest_framework import serializers, exceptions
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import User, Upload, UserAccountStatus
+from .services.auth_service import validate_reset_token, reset_user_password
 from .constants import ALLOWED_FIBERS, TUAB_REG_MAX_SIZE, TUAB_REG_ALLOWED_EXTENSIONS, ALLOWED_IMAGE_EXTENSIONS, IMAGE_COMPRESSION_QUALITY
 from .services.location_service import get_city_and_barangay
 from django.core.files.storage import default_storage
@@ -197,3 +198,42 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         data['email'] = self.user.email
         data['name'] = self.user.business_name if self.user.role == 'TUAB' else f"{self.user.first_name} {self.user.last_name}"
         return data
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        try:
+            user = User.objects.get(email=value)
+            if not user.is_active:
+                raise serializers.ValidationError("This account is not eligible for password reset.")
+        except User.DoesNotExist:
+            raise serializers.ValidationError("No user found with this email.")
+        return value
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    uidb64 = serializers.CharField()
+    token = serializers.CharField()
+    new_password = serializers.CharField(write_only=True)
+    confirm_password = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        if data['new_password'] != data['confirm_password']:
+            raise serializers.ValidationError({"password": "Passwords do not match."})
+        
+        if len(data['new_password']) < 8 or not any(c.isalpha() for c in data['new_password']) or not any(c.isdigit() for c in data['new_password']):
+            raise serializers.ValidationError({"password": "Password must be at least 8 characters and contain both letters and numbers."})
+
+        user = validate_reset_token(data['uidb64'], data['token'])
+        if not user:
+            raise serializers.ValidationError({"token": "Invalid or expired token."})
+
+        if not user.is_active:
+            raise serializers.ValidationError({"token": "This account is no longer eligible for password reset."})
+
+        self.user = user
+        return data
+
+    def save(self):
+        reset_user_password(self.user, self.validated_data['new_password'])
+        return self.user
