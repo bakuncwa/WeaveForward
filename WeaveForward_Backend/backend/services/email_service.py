@@ -1,8 +1,8 @@
 import resend
-from ..constants import RESEND_API_KEY
+from django.conf import settings
 
 def send_password_reset_email(to_email, reset_link):
-    resend.api_key = RESEND_API_KEY
+    resend.api_key = settings.RESEND_API_KEY
     
     params = {
         "from": "WeaveForward <onboarding@resend.dev>", # Default for free tier

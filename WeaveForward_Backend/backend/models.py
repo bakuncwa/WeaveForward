@@ -206,7 +206,7 @@ class Donation(models.Model):
     delivery_method               = EnumField(choices=DonationDeliveryMethod.choices, null=True, default=None)
     flag_reason                   = models.TextField(null=True, default=None)
     auto_archive_at               = models.DateTimeField(null=True, default=None)
-    submitted_at                  = models.DateTimeField(auto_now_add=True)
+    submitted_at                  = models.DateTimeField(auto_now_add=True, db_index=True)
     rejection_reason              = models.CharField(max_length=200, null=True, default=None)
     updated_at                    = models.DateTimeField(auto_now=True)
     pickup_barangay               = models.CharField(max_length=50)

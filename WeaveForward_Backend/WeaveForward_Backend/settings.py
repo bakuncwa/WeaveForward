@@ -95,8 +95,19 @@ TIME_ZONE = 'Asia/Manila'
 USE_I18N = True
 USE_TZ = True
 
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/5.0/howto/static-files/
+
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# Environment-based settings
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:8001")
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+CATALOG_CSV_PATH = os.getenv("CATALOG_CSV_PATH", "backend/data/webscraped_data/webscraped_catalog_archive.csv")
+
+# Default primary key field type
+# https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

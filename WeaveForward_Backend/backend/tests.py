@@ -1,3 +1,4 @@
+from decimal import Decimal
 from unittest.mock import patch
 from django.test import TestCase
 from django.core.exceptions import ValidationError
@@ -5,7 +6,7 @@ from django.db import IntegrityError
 from django.urls import reverse
 from rest_framework.test import APIClient
 from rest_framework import status
-from .models import User, Upload
+from .models import User, Upload, Donation, DonationItem, BrandFiberLookup
 from .serializers import DonorRegisterSerializer, TUABRegisterSerializer
 
 class UserModelTest(TestCase):
@@ -284,3 +285,117 @@ class PasswordResetTest(TestCase):
             "password": new_pw
         }, format='json')
         self.assertEqual(login_res.status_code, status.HTTP_200_OK)
+
+class UserAPITest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.admin = User.objects.create_user(
+            email="admin_test@example.com", password="Pass", role="Admin", contact_no="+639001", status="ACTIVE"
+        )
+        self.donor = User.objects.create_user(
+            email="donor_test@example.com", password="Pass", role="Donor", contact_no="+639002", status="ACTIVE"
+        )
+
+    def test_user_list_admin_only(self):
+        # Admin can list
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.get(reverse('user-list'))
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        
+        # Donor blocked
+        self.client.force_authenticate(user=self.donor)
+        res = self.client.get(reverse('user-list'))
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_user_retrieve_logic(self):
+        # Donor can see self
+        self.client.force_authenticate(user=self.donor)
+        res = self.client.get(reverse('user-detail', kwargs={'pk': self.donor.user_id}))
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+        # Donor cannot see admin
+        res = self.client.get(reverse('user-detail', kwargs={'pk': self.admin.user_id}))
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Admin can see donor
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.get(reverse('user-detail', kwargs={'pk': self.donor.user_id}))
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+    def test_user_me_shortcut(self):
+        self.client.force_authenticate(user=self.donor)
+        res = self.client.get(reverse('user-me'))
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['email'], self.donor.email)
+
+class DonationAPITest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.admin = User.objects.create_user(
+            email="admin_don@example.com", password="Pass", role="Admin", contact_no="+639003", status="ACTIVE"
+        )
+        self.donor = User.objects.create_user(
+            email="donor_don@example.com", password="Pass", role="Donor", contact_no="+639004", status="ACTIVE"
+        )
+        self.tuab = User.objects.create_user(
+            email="tuab_don@example.com", password="Pass", role="TUAB", contact_no="+639005", status="ACTIVE"
+        )
+        
+        # Create a donation
+        self.donation = Donation.objects.create(
+            donor=self.donor,
+            delivery_method='PICKUP',
+            status='PENDING',
+            pickup_barangay='San Lorenzo',
+            pickup_city='Makati',
+            pickup_display_address='123 Main St',
+            pickup_latitude=Decimal('14.5547'),
+            pickup_longitude=Decimal('121.0244'),
+            preferred_pickup_date='2026-05-10',
+            preferred_pickup_window_start='09:00:00',
+            preferred_pickup_window_end='12:00:00'
+        )
+
+    def test_donation_list_visibility(self):
+        # Admin sees all (including potentially archived if we added a check, but currently all non-archived)
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.get(reverse('donation-list'))
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        
+        # Donor sees all (public feed)
+        self.client.force_authenticate(user=self.donor)
+        res = self.client.get(reverse('donation-list'))
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+    def test_donation_me_filtering(self):
+        # Create another donation for someone else
+        other_donor = User.objects.create_user(email="other@ex.com", password="P", role="Donor", contact_no="+63999")
+        Donation.objects.create(
+            donor=other_donor, 
+            delivery_method='DELIVERY', 
+            status='PENDING',
+            pickup_barangay='Legazpi',
+            pickup_city='Makati',
+            pickup_display_address='456 Oak St',
+            pickup_latitude=Decimal('14.5500'),
+            pickup_longitude=Decimal('121.0200'),
+            preferred_pickup_date='2026-05-11',
+            preferred_pickup_window_start='13:00:00',
+            preferred_pickup_window_end='16:00:00'
+        )
+
+        self.client.force_authenticate(user=self.donor)
+        res = self.client.get(reverse('donation-me'))
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        # Should only see 1 donation (theirs)
+        self.assertEqual(len(res.data), 1)
+        self.assertEqual(res.data[0]['donation_id'], self.donation.donation_id)
+
+    def test_archived_donations_excluded_for_non_admin(self):
+        self.donation.status = 'ARCHIVED'
+        self.donation.save()
+        
+        # Donor should NOT see archived donations
+        self.client.force_authenticate(user=self.donor)
+        res = self.client.get(reverse('donation-list'))
+        self.assertEqual(len(res.data), 0)

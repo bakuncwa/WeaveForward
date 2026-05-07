@@ -92,6 +92,14 @@ def main():
         print(f"[ERROR] Seeding Error: {e}")
         sys.exit(1)
 
+    # 4. Populate Product Catalog
+    print("[CATALOG] Populating product catalog...")
+    try:
+        subprocess.run([sys.executable, "manage.py", "populate_catalog"], check=True)
+    except subprocess.CalledProcessError:
+        print("[ERROR] Catalog population failed.")
+        sys.exit(1)
+
     print("\nInitialization complete!")
 
 if __name__ == "__main__":

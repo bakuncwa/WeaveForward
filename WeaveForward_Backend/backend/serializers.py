@@ -2,7 +2,7 @@ import re, os, io, json
 import pyotp
 from rest_framework import serializers, exceptions
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .models import User, Upload, UserAccountStatus, Donation, DonationItem, BrandFiberLookup
+from .models import User, Upload, UserAccountStatus, Donation, DonationItem, BrandFiberLookup, Order, OrderPayment
 from .services.auth_service import validate_reset_token, reset_user_password
 from .constants import ALLOWED_FIBERS, TUAB_REG_MAX_SIZE, TUAB_REG_ALLOWED_EXTENSIONS, ALLOWED_IMAGE_EXTENSIONS, IMAGE_COMPRESSION_QUALITY
 from .services.location_service import get_city_and_barangay
@@ -194,6 +194,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 raise serializers.ValidationError({"detail": self.error_messages['invalid_otp']})
 
         # Add extra info to the JSON response
+        data['user_id'] = self.user.user_id
         data['role'] = self.user.role
         data['email'] = self.user.email
         data['name'] = self.user.business_name if self.user.role == 'TUAB' else f"{self.user.first_name} {self.user.last_name}"
@@ -238,10 +239,26 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         reset_user_password(self.user, self.validated_data['new_password'])
         return self.user
 
+# --- USER RELATED SERIALIZERS ---
+
+class UserSerializer(serializers.ModelSerializer):
+    """Full user profile serializer."""
+    class Meta:
+        model = User
+        exclude = ['password', 'totp_secret']
+
+# --- DONATION RELATED SERIALIZERS ---
+
+class DonationUserSerializer(serializers.ModelSerializer):
+    """Minimal user data for nesting in donations."""
+    class Meta:
+        model = User
+        fields = ['user_id', 'email', 'role', 'first_name', 'last_name', 'business_name', 'contact_no']
+
 class BrandFiberLookupSerializer(serializers.ModelSerializer):
     class Meta:
         model = BrandFiberLookup
-        fields = ['category', 'brand', 'clothing_type', 'dominant_fiber', 'biodeg_score', 'biodeg_tier']
+        fields = ['category', 'brand', 'clothing_type', 'dominant_fiber', 'biodeg_score', 'biodeg_tier', 'is_active', 'scraped_at']
 
 class DonationItemSerializer(serializers.ModelSerializer):
     lookup_details = BrandFiberLookupSerializer(source='lookup', read_only=True)
@@ -250,19 +267,23 @@ class DonationItemSerializer(serializers.ModelSerializer):
         model = DonationItem
         fields = ['item_id', 'condition_rating', 'weight_kg', 'lookup_details']
 
+class OrderPaymentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderPayment
+        fields = ['order_payment_id', 'amount', 'status', 'payment_reference', 'created_at']
+
+class OrderSerializer(serializers.ModelSerializer):
+    payments = OrderPaymentSerializer(many=True, read_only=True)
+    class Meta:
+        model = Order
+        fields = ['order_id', 'lalamove_order_id', 'status', 'dropoff_display_address', 'scheduled_at', 'payments']
+
 class DonationSerializer(serializers.ModelSerializer):
-    donor_name = serializers.SerializerMethodField()
+    donor = DonationUserSerializer(read_only=True)
+    claimed_by_tuab = DonationUserSerializer(read_only=True)
     items = DonationItemSerializer(many=True, read_only=True)
-    status_display = serializers.CharField(source='get_status_display', read_only=True)
-    
+    orders = OrderSerializer(many=True, read_only=True)
+
     class Meta:
         model = Donation
-        fields = [
-            'donation_id', 'donor_name', 'status', 'status_display', 
-            'submitted_at', 'items', 'pickup_display_address',
-            'preferred_pickup_date', 'preferred_pickup_window_start',
-            'preferred_pickup_window_end'
-        ]
-
-    def get_donor_name(self, obj):
-        return f"{obj.donor.first_name} {obj.donor.last_name}"
+        fields = '__all__'
