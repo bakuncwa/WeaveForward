@@ -3,7 +3,7 @@ from django.db import transaction
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -19,6 +19,7 @@ from ..serializers import (
 )
 from ..services.audit_service import get_client_ip, log_audit
 from ..services.etag_service import build_updated_at_etag, matches_if_match
+from ..services.user_archive_service import archive_user
 
 
 
@@ -69,6 +70,11 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
         instance = self.get_object()
         if request.user.role != UserRole.ADMIN and instance.user_id != request.user.user_id:
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        if instance.status == 'ARCHIVED':
+            return Response(
+                {"detail": "Archived users cannot be edited."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         if_match = request.headers.get('If-Match')
         current_etag = build_updated_at_etag(instance)
@@ -90,10 +96,10 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
             user = serializer.save()
             log_audit(
                 actor=request.user,
-                entity_type='User',
-                action='PATCH',
+                entity_type='users',
+                action='CREDENTIAL_UPDATE',
                 ip_address=ip_address,
-                fields_modified=','.join(fields_modified) if fields_modified else None
+                fields_modified=fields_modified or None
             )
 
         response = Response(self.get_serializer(user).data, status=status.HTTP_200_OK)
@@ -119,12 +125,48 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
             return Response({"error": "Only Donor creation is supported via this endpoint."}, status=status.HTTP_400_BAD_REQUEST)
 
         if serializer.is_valid():
-            ip_address = get_client_ip(request)
-            with transaction.atomic():
-                user = serializer.save()
-                log_audit(actor=user, entity_type='User', action='POST', ip_address=ip_address)
+            serializer.save()
             return Response({"message": "Registration successful."}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def destroy(self, request, *args, **kwargs):
+        if request.user.role != UserRole.ADMIN:
+            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+
+        ip_address = get_client_ip(request)
+        with transaction.atomic():
+            result = archive_user(target_user_id=kwargs['pk'])
+            if result.detail is not None:
+                return Response({"detail": result.detail}, status=result.status_code)
+
+            if result.user_updated:
+                log_audit(
+                    actor=request.user,
+                    entity_type='users',
+                    action='STATUS_CHANGE',
+                    ip_address=ip_address,
+                    fields_modified=['status', 'maya_customer_id', 'maya_card_id']
+                )
+
+            for donation in result.changed_donations or []:
+                log_audit(
+                    actor=request.user,
+                    entity_type='donations',
+                    action='STATUS_CHANGE',
+                    ip_address=ip_address,
+                    fields_modified=['status']
+                )
+
+            for inventory_ledger in result.changed_inventory_ledgers or []:
+                log_audit(
+                    actor=request.user,
+                    entity_type='inventory_ledger',
+                    action='STATUS_CHANGE',
+                    ip_address=ip_address,
+                    fields_modified=['lifecycle_status', 'was_forced_archived', 'archived_at']
+                )
+
+        return Response(status=result.status_code)
 
 
 class TwoFactorSetupView(APIView):
@@ -164,10 +206,10 @@ class TwoFactorView(APIView):
             request.user.save(update_fields=['is_2fa_enabled', 'totp_secret'])
             log_audit(
                 actor=request.user,
-                entity_type='User',
-                action='POST',
+                entity_type='users',
+                action='CREDENTIAL_UPDATE',
                 ip_address=ip_address,
-                fields_modified='is_2fa_enabled,totp_secret'
+                fields_modified=['is_2fa_enabled', 'totp_secret']
             )
 
         return Response({"message": "2FA enabled successfully."}, status=status.HTTP_200_OK)
@@ -188,10 +230,10 @@ class TwoFactorView(APIView):
             target_user.save(update_fields=['is_2fa_enabled', 'totp_secret'])
             log_audit(
                 actor=request.user,
-                entity_type='User',
-                action='DELETE',
+                entity_type='users',
+                action='CREDENTIAL_UPDATE',
                 ip_address=ip_address,
-                fields_modified='is_2fa_enabled,totp_secret'
+                fields_modified=['is_2fa_enabled', 'totp_secret']
             )
 
         return Response({"message": "2FA disabled successfully."}, status=status.HTTP_200_OK)

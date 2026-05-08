@@ -124,7 +124,9 @@
     .action-btns {
       display: flex;
       flex-direction: row;
+      align-items: center;
       gap: 6px;
+      flex-wrap: wrap;
     }
     .btn-outline {
       background: #f4f4f4;
@@ -138,6 +140,58 @@
       white-space: nowrap;
     }
     .btn-outline:hover { border-color: #cfcfcf; background: #ebebeb; }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: transparent;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+    }
+    .modal-backdrop.is-open { display: flex; }
+    .modal-box {
+      width: min(360px, calc(100vw - 32px));
+      background: #fff;
+      border: 1px solid #ebe6df;
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 10px 24px rgba(34, 34, 34, 0.08);
+    }
+    .modal-title {
+      font-family: Poppins, sans-serif;
+      font-size: 16px;
+      font-weight: 400;
+      color: #222;
+      margin-bottom: 16px;
+      text-align: left;
+    }
+    .modal-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .modal-actions .btn {
+      width: 100%;
+      min-height: 40px;
+      border-radius: 20px;
+      font-family: Poppins, sans-serif;
+      font-size: 13px;
+      font-weight: 400;
+      padding: 10px 14px;
+    }
+    .modal-btn-cancel {
+      background: #f7f3ea;
+      color: var(--gold);
+      border: 1px solid #eadfcb;
+    }
+    .modal-btn-cancel:hover { background: #f7f3ea; border-color: #eadfcb; }
+    .modal-btn-archive {
+      background: var(--red);
+      color: #fff;
+      border: 1px solid var(--red);
+    }
+    .modal-btn-archive:hover { background: var(--red); border-color: var(--red); }
     
     .pagination-wrap {
       display: flex;
@@ -167,6 +221,14 @@
 </style>
 
 <p class="count" id="donor-count">{{ count }} Total Donors</p>
+
+{% if messages %}
+  {% for message in messages %}
+  <div class="flash-message" style="margin-bottom: 16px; padding: 12px 14px; border-radius: 10px; background: {% if message.tags == 'success' %}#edf7ef{% else %}#fff2f0{% endif %}; border: 1px solid {% if message.tags == 'success' %}#cfe6d4{% else %}#f0c9c2{% endif %}; color: {% if message.tags == 'success' %}#2f6b3b{% else %}#9f3a2d{% endif %}; font-family: Poppins, sans-serif;">
+    {{ message }}
+  </div>
+  {% endfor %}
+{% endif %}
 
 <div class="search-bar-row">
   <form method="GET" class="search-wrap">
@@ -208,9 +270,14 @@
           <td>
             <div class="action-btns">
               <a href="{% url 'admin_view_donor' donor.user_id %}" class="btn btn-outline">View</a>
+              {% if donor.status != 'ARCHIVED' %}
               <a href="{% url 'admin_edit_donor' donor.user_id %}" class="btn btn-outline">Edit</a>
+              {% endif %}
               {% if donor.status == 'ACTIVE' %}
-              <button class="btn btn-outline" type="button">Archive</button>
+              <form method="post" action="{% url 'admin_archive_user' donor.user_id %}" style="margin: 0;">
+                {% csrf_token %}
+                <button class="btn btn-outline archive-btn" type="submit" data-default-text="Archive">Archive</button>
+              </form>
               {% endif %}
             </div>
           </td>
@@ -237,7 +304,51 @@
   </div>
 </div>
 
+<div id="archive-modal" class="modal-backdrop" aria-hidden="true">
+  <div class="modal-box">
+    <div class="modal-title">Archive Donor?</div>
+    <div class="modal-actions">
+      <button id="archive-cancel" class="btn modal-btn-cancel" type="button">Cancel</button>
+      <button id="archive-confirm" class="btn modal-btn-archive" type="button">Archive</button>
+    </div>
+  </div>
+</div>
+
 <script>
   // JS filtering removed in favor of Server-Side search for paginated results.
+  document.querySelectorAll('.flash-message').forEach((el) => {
+    setTimeout(() => {
+      el.remove();
+    }, 3200);
+  });
+
+  const archiveModal = document.getElementById('archive-modal');
+  const archiveCancel = document.getElementById('archive-cancel');
+  const archiveConfirm = document.getElementById('archive-confirm');
+  let pendingArchiveForm = null;
+
+  document.querySelectorAll('.archive-btn').forEach((button) => {
+    button.form?.addEventListener('submit', (event) => {
+      event.preventDefault();
+      pendingArchiveForm = button.form;
+      archiveModal.classList.add('is-open');
+      archiveModal.setAttribute('aria-hidden', 'false');
+    });
+  });
+
+  archiveCancel?.addEventListener('click', () => {
+    pendingArchiveForm = null;
+    archiveModal.classList.remove('is-open');
+    archiveModal.setAttribute('aria-hidden', 'true');
+  });
+
+  archiveConfirm?.addEventListener('click', () => {
+    if (!pendingArchiveForm) return;
+    const formToSubmit = pendingArchiveForm;
+    pendingArchiveForm = null;
+    archiveModal.classList.remove('is-open');
+    archiveModal.setAttribute('aria-hidden', 'true');
+    formToSubmit.submit();
+  });
 </script>
 {% endblock %}

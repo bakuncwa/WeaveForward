@@ -61,6 +61,32 @@ def admin_view_donor(request, user_id):
     })
 
 
+def admin_archive_user(request, user_id):
+    profile = get_user_profile(request)
+    if not profile or profile.get('role') != 'Admin':
+        return redirect('login')
+
+    if request.method != 'POST':
+        return redirect('admin_view_donors')
+
+    try:
+        response = api_call(request, 'DELETE', f'users/{user_id}/')
+    except Exception:
+        messages.error(request, "Backend API is offline or unreachable.")
+        return redirect('admin_view_donors')
+
+    if response.status_code == 204:
+        messages.success(request, "User archived successfully.")
+    else:
+        try:
+            data = response.json()
+        except ValueError:
+            data = {}
+        messages.error(request, data.get('detail', "We couldn't archive this user right now."))
+
+    return redirect('admin_view_donors')
+
+
 def admin_edit_donor(request, user_id):
     profile = get_user_profile(request)
     if not profile or profile.get('role') != 'Admin':
@@ -78,6 +104,9 @@ def admin_edit_donor(request, user_id):
             return redirect('admin_view_donors')
         donor = response.json()
         current_etag = response.headers.get('ETag')
+        if donor.get('status') == 'ARCHIVED':
+            messages.error(request, "Archived donors can no longer be edited.")
+            return redirect('admin_view_donors')
 
         if password != confirm_password:
             return render(request, 'frontend/admin/admin_edit_donor.html', {
@@ -129,14 +158,16 @@ def admin_edit_donor(request, user_id):
         if response.status_code == 412:
             return redirect(f"/admin/donors/{user_id}/edit/?stale=1")
 
+        response_data = response.json() if response.status_code == 400 else {}
+        detail_message = response_data.get('detail') if isinstance(response_data, dict) else None
         return render(request, 'frontend/admin/admin_edit_donor.html', {
             'page_title': 'Edit Donor',
             'user': profile,
             'donor': donor,
             'form_data': raw_data,
             'current_etag': submitted_etag or current_etag,
-            'errors': format_errors(response.json()) if response.status_code == 400 else None,
-            'error_message': "We couldn't verify the donor's latest version. Please try again." if response.status_code == 428 else None,
+            'errors': format_errors(response_data) if response.status_code == 400 and not detail_message else None,
+            'error_message': detail_message or ("We couldn't verify the donor's latest version. Please try again." if response.status_code == 428 else None),
         })
 
     response = api_call(request, 'GET', f'users/{user_id}/')
@@ -145,6 +176,9 @@ def admin_edit_donor(request, user_id):
         return redirect('admin_view_donors')
     donor = response.json()
     current_etag = response.headers.get('ETag')
+    if donor.get('status') == 'ARCHIVED':
+        messages.error(request, "Archived donors can no longer be edited.")
+        return redirect('admin_view_donors')
 
     return render(request, 'frontend/admin/admin_edit_donor.html', {
         'page_title': 'Edit Donor',

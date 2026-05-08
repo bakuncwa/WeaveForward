@@ -22,6 +22,7 @@ urlpatterns = [
     path('admin/donations/', views.admin_view_donations, name='admin_view_donations'),
     path('admin/donors/', views.admin_view_donors, name='admin_view_donors'),
     path('admin/donors/add/', views.admin_add_donor, name='admin_add_donor'),
+    path('admin/users/<int:user_id>/archive/', views.admin_archive_user, name='admin_archive_user'),
     path('admin/donors/<int:user_id>/', views.admin_view_donor, name='admin_view_donor'),
     path('admin/donors/<int:user_id>/edit/', views.admin_edit_donor, name='admin_edit_donor'),
 ]

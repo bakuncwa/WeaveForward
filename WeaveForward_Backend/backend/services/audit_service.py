@@ -1,3 +1,5 @@
+import json
+
 from ..models import AuditTrail
 
 def get_client_ip(request):
@@ -15,9 +17,16 @@ def log_audit(actor, entity_type, action, ip_address=None, fields_modified=None)
     """
     Utility to create an AuditTrail record.
     """
-    # Ensure fields_modified does not exceed the 100-char limit in models.py
-    if fields_modified and len(fields_modified) > 100:
-        fields_modified = fields_modified[:97] + "..."
+    if fields_modified is not None:
+        if isinstance(fields_modified, str):
+            serialized_fields_modified = fields_modified
+        else:
+            serialized_fields_modified = json.dumps(fields_modified, separators=(',', ':'))
+
+        max_length = AuditTrail._meta.get_field('fields_modified').max_length
+        if max_length and len(serialized_fields_modified) > max_length:
+            serialized_fields_modified = serialized_fields_modified[:max_length - 3] + "..."
+        fields_modified = serialized_fields_modified
 
     return AuditTrail.objects.create(
         actor=actor,

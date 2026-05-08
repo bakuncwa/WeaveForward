@@ -1,5 +1,6 @@
 from datetime import timedelta
 from decimal import Decimal
+import json
 from unittest.mock import patch
 import pyotp
 from django.test import TestCase
@@ -9,8 +10,9 @@ from django.urls import reverse
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 from rest_framework import status
-from backend.models import User, Upload, Donation, DonationItem, BrandFiberLookup, MatchPrediction, UserOperationalStatus, AuditTrail
+from backend.models import User, Upload, Donation, DonationItem, BrandFiberLookup, MatchPrediction, Subscription, InventoryLedger, UserOperationalStatus, AuditTrail
 from backend.serializers import DonorRegisterSerializer, TUABRegisterSerializer
+from backend.services.audit_service import log_audit
 from backend.services.etag_service import build_updated_at_etag
 from backend.services.prediction_service import run_predictions_for_donation
 
@@ -343,7 +345,7 @@ class TwoFactorEndpointTest(TestCase):
         self.assertIn('provisioning_uri', response.data)
         self.assertIn('otpauth://totp/', response.data['provisioning_uri'])
         self.assertIn('issuer=WeaveForward', response.data['provisioning_uri'])
-        self.assertFalse(AuditTrail.objects.filter(entity_type='User', actor=self.owner).exists())
+        self.assertFalse(AuditTrail.objects.filter(entity_type='users', actor=self.owner).exists())
 
     def test_owner_can_enable_2fa_with_valid_otp(self):
         self.client.force_authenticate(user=self.owner)
@@ -363,10 +365,10 @@ class TwoFactorEndpointTest(TestCase):
         self.assertEqual(self.owner.totp_secret, secret)
         self.assertTrue(
             AuditTrail.objects.filter(
-                entity_type='User',
-                action='POST',
+                entity_type='users',
+                action='CREDENTIAL_UPDATE',
                 actor=self.owner,
-                fields_modified='is_2fa_enabled,totp_secret'
+                fields_modified='["is_2fa_enabled","totp_secret"]'
             ).exists()
         )
 
@@ -433,10 +435,10 @@ class TwoFactorEndpointTest(TestCase):
         self.assertIsNone(self.owner.totp_secret)
         self.assertTrue(
             AuditTrail.objects.filter(
-                entity_type='User',
-                action='DELETE',
+                entity_type='users',
+                action='CREDENTIAL_UPDATE',
                 actor=self.owner,
-                fields_modified='is_2fa_enabled,totp_secret'
+                fields_modified='["is_2fa_enabled","totp_secret"]'
             ).exists()
         )
 
@@ -454,10 +456,10 @@ class TwoFactorEndpointTest(TestCase):
         self.assertIsNone(self.other_user.totp_secret)
         self.assertTrue(
             AuditTrail.objects.filter(
-                entity_type='User',
-                action='DELETE',
+                entity_type='users',
+                action='CREDENTIAL_UPDATE',
                 actor=self.admin,
-                fields_modified='is_2fa_enabled,totp_secret'
+                fields_modified='["is_2fa_enabled","totp_secret"]'
             ).exists()
         )
 
@@ -582,7 +584,14 @@ class UserAPITest(TestCase):
         self.assertTrue(self.donor.check_password("NewPass123"))
         self.assertEqual(self.donor.upload_id, self.upload.upload_id)
         self.assertEqual(self.donor.first_name, "Updated")
-        self.assertEqual(AuditTrail.objects.filter(entity_type='User', action='PATCH', actor=self.donor).count(), 1)
+        self.assertEqual(
+            AuditTrail.objects.filter(
+                entity_type='users',
+                action='CREDENTIAL_UPDATE',
+                actor=self.donor
+            ).count(),
+            1
+        )
         self.assertEqual(res['ETag'], build_updated_at_etag(self.donor))
 
     @patch('backend.serializers.users.default_storage.save', return_value='profile_photos/new-profile.png')
@@ -617,10 +626,10 @@ class UserAPITest(TestCase):
         self.assertEqual(res.data['upload']['name'], self.donor.upload.name)
         self.assertTrue(
             AuditTrail.objects.filter(
-                entity_type='User',
-                action='PATCH',
+                entity_type='users',
+                action='CREDENTIAL_UPDATE',
                 actor=self.donor,
-                fields_modified='first_name,upload'
+                fields_modified='["first_name","upload"]'
             ).exists()
         )
 
@@ -654,7 +663,14 @@ class UserAPITest(TestCase):
         self.assertTrue(self.donor.check_password("AdminSet123"))
         self.assertEqual(self.donor.upload_id, self.upload.upload_id)
         self.assertEqual(self.donor.last_name, "Changed")
-        self.assertEqual(AuditTrail.objects.filter(entity_type='User', action='PATCH', actor=self.admin).count(), 1)
+        self.assertEqual(
+            AuditTrail.objects.filter(
+                entity_type='users',
+                action='CREDENTIAL_UPDATE',
+                actor=self.admin
+            ).count(),
+            1
+        )
         self.assertEqual(res['ETag'], build_updated_at_etag(self.donor))
 
     def test_user_patch_password_only_returns_new_etag(self):
@@ -689,7 +705,13 @@ class UserAPITest(TestCase):
 
         self.donor.refresh_from_db()
         self.assertTrue(self.donor.check_password(original_password))
-        self.assertFalse(AuditTrail.objects.filter(entity_type='User', action='PATCH', actor=self.donor).exists())
+        self.assertFalse(
+            AuditTrail.objects.filter(
+                entity_type='users',
+                action='CREDENTIAL_UPDATE',
+                actor=self.donor
+            ).exists()
+        )
 
     def test_user_patch_rejects_letters_only_password(self):
         self.client.force_authenticate(user=self.donor)
@@ -708,7 +730,13 @@ class UserAPITest(TestCase):
 
         self.donor.refresh_from_db()
         self.assertTrue(self.donor.check_password(original_password))
-        self.assertFalse(AuditTrail.objects.filter(entity_type='User', action='PATCH', actor=self.donor).exists())
+        self.assertFalse(
+            AuditTrail.objects.filter(
+                entity_type='users',
+                action='CREDENTIAL_UPDATE',
+                actor=self.donor
+            ).exists()
+        )
 
     def test_user_patch_rejects_numbers_only_password(self):
         self.client.force_authenticate(user=self.donor)
@@ -727,7 +755,13 @@ class UserAPITest(TestCase):
 
         self.donor.refresh_from_db()
         self.assertTrue(self.donor.check_password(original_password))
-        self.assertFalse(AuditTrail.objects.filter(entity_type='User', action='PATCH', actor=self.donor).exists())
+        self.assertFalse(
+            AuditTrail.objects.filter(
+                entity_type='users',
+                action='CREDENTIAL_UPDATE',
+                actor=self.donor
+            ).exists()
+        )
 
     def test_user_patch_populates_city_and_barangay_from_coordinates(self):
         self.client.force_authenticate(user=self.donor)
@@ -791,6 +825,28 @@ class UserAPITest(TestCase):
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(res.data['status'][0], "This field cannot be updated through this endpoint.")
 
+    def test_user_patch_rejects_updates_for_archived_user(self):
+        self.donor.status = 'ARCHIVED'
+        self.donor.save(update_fields=['status'])
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.patch(
+            reverse('user-detail', kwargs={'pk': self.donor.user_id}),
+            {"first_name": "Updated"},
+            format='json',
+            HTTP_IF_MATCH=build_updated_at_etag(self.donor)
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data['detail'], "Archived users cannot be edited.")
+        self.donor.refresh_from_db()
+        self.assertNotEqual(self.donor.first_name, "Updated")
+        self.assertFalse(
+            AuditTrail.objects.filter(
+                entity_type='users',
+                action='CREDENTIAL_UPDATE',
+                actor=self.admin
+            ).exists()
+        )
+
     def test_user_patch_rejects_manual_city_and_barangay(self):
         self.client.force_authenticate(user=self.donor)
         res = self.client.patch(
@@ -812,7 +868,13 @@ class UserAPITest(TestCase):
         )
         self.assertEqual(res.status_code, status.HTTP_428_PRECONDITION_REQUIRED)
         self.assertEqual(res.data['detail'], "If-Match header is required.")
-        self.assertFalse(AuditTrail.objects.filter(entity_type='User', action='PATCH', actor=self.donor).exists())
+        self.assertFalse(
+            AuditTrail.objects.filter(
+                entity_type='users',
+                action='CREDENTIAL_UPDATE',
+                actor=self.donor
+            ).exists()
+        )
 
     def test_user_patch_rejects_stale_if_match_header(self):
         self.client.force_authenticate(user=self.donor)
@@ -830,7 +892,13 @@ class UserAPITest(TestCase):
         self.assertEqual(res.data['detail'], "ETag does not match the current resource version.")
         self.donor.refresh_from_db()
         self.assertNotEqual(self.donor.last_name, "Client Change")
-        self.assertFalse(AuditTrail.objects.filter(entity_type='User', action='PATCH', actor=self.donor).exists())
+        self.assertFalse(
+            AuditTrail.objects.filter(
+                entity_type='users',
+                action='CREDENTIAL_UPDATE',
+                actor=self.donor
+            ).exists()
+        )
 
 
 class ETagServiceTest(TestCase):
@@ -920,6 +988,301 @@ class ETagServiceTest(TestCase):
         payload = {'role': 'Donor', 'email': 'hacker@ex.com', 'password': 'Password123'}
         res = self.client.post(reverse('user-list'), payload, format='json')
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class UserArchiveAPITest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.admin = User.objects.create_user(
+            email="archive_admin@example.com",
+            password="Password123",
+            role="Admin",
+            contact_no="+639150000301",
+            status="ACTIVE"
+        )
+        self.donor = User.objects.create_user(
+            email="archive_donor@example.com",
+            password="Password123",
+            role="Donor",
+            contact_no="+639150000302",
+            status="ACTIVE",
+            maya_customer_id="maya-customer-1",
+            maya_card_id="maya-card-1"
+        )
+        self.tuab = User.objects.create_user(
+            email="archive_tuab@example.com",
+            password="Password123",
+            role="TUAB",
+            contact_no="+639150000303",
+            status="ACTIVE",
+            operational_status=UserOperationalStatus.ACTIVE,
+            maya_customer_id="maya-customer-2",
+            maya_card_id="maya-card-2"
+        )
+
+    def create_donation(self, donor, status_value, delivery_method='PICKUP', claimed_by_tuab=None):
+        return Donation.objects.create(
+            donor=donor,
+            claimed_by_tuab=claimed_by_tuab,
+            delivery_method=delivery_method,
+            status=status_value,
+            pickup_barangay='San Lorenzo',
+            pickup_city='Makati',
+            pickup_display_address='123 Main St',
+            pickup_latitude=Decimal('14.5547'),
+            pickup_longitude=Decimal('121.0244'),
+            preferred_pickup_date='2026-05-10',
+            preferred_pickup_window_start='09:00:00',
+            preferred_pickup_window_end='12:00:00'
+        )
+
+    def test_admin_can_archive_donor_and_archive_related_records(self):
+        pending = self.create_donation(self.donor, 'PENDING')
+        claimed_delivery = self.create_donation(self.donor, 'CLAIMED', delivery_method='DELIVERY')
+        received = self.create_donation(self.donor, 'RECEIVED')
+        active_subscription = Subscription.objects.create(
+            user=self.donor,
+            status='ACTIVE',
+            subscription_tier='PRO',
+            start_date='2026-05-01T00:00:00Z',
+            end_date='2026-06-01T00:00:00Z'
+        )
+        cancelled_subscription = Subscription.objects.create(
+            user=self.donor,
+            status='CANCELLED',
+            subscription_tier='FREE',
+            start_date='2026-04-01T00:00:00Z',
+            end_date='2026-05-01T00:00:00Z'
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.delete(reverse('user-detail', kwargs={'pk': self.donor.user_id}))
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.donor.refresh_from_db()
+        pending.refresh_from_db()
+        claimed_delivery.refresh_from_db()
+        received.refresh_from_db()
+        active_subscription.refresh_from_db()
+        cancelled_subscription.refresh_from_db()
+
+        self.assertEqual(self.donor.status, 'ARCHIVED')
+        self.assertIsNone(self.donor.maya_customer_id)
+        self.assertIsNone(self.donor.maya_card_id)
+        self.assertEqual(pending.status, 'ARCHIVED')
+        self.assertEqual(claimed_delivery.status, 'ARCHIVED')
+        self.assertEqual(received.status, 'RECEIVED')
+        self.assertEqual(active_subscription.status, 'CANCELLED')
+        self.assertEqual(cancelled_subscription.status, 'CANCELLED')
+        self.assertEqual(
+            AuditTrail.objects.filter(
+                actor=self.admin,
+                entity_type='users',
+                action='STATUS_CHANGE',
+                fields_modified='["status","maya_customer_id","maya_card_id"]'
+            ).count(),
+            1
+        )
+        self.assertEqual(
+            AuditTrail.objects.filter(
+                actor=self.admin,
+                entity_type='donations',
+                action='STATUS_CHANGE',
+                fields_modified='["status"]'
+            ).count(),
+            2
+        )
+        self.assertEqual(
+            AuditTrail.objects.filter(
+                actor=self.admin,
+                entity_type='inventory_ledger',
+                action='STATUS_CHANGE'
+            ).count(),
+            0
+        )
+
+    def test_admin_can_archive_tuab_without_changing_operational_status(self):
+        claimed = self.create_donation(self.donor, 'CLAIMED', claimed_by_tuab=self.tuab)
+        pending = self.create_donation(self.donor, 'PENDING', claimed_by_tuab=self.tuab)
+        inventory_one = InventoryLedger.objects.create(
+            source_donation=claimed,
+            usage_amount_kg=Decimal('1.000'),
+            weight_before_kg=Decimal('3.000'),
+            current_weight_kg=Decimal('2.000'),
+        )
+        inventory_two = InventoryLedger.objects.create(
+            source_donation=claimed,
+            usage_amount_kg=Decimal('0.500'),
+            weight_before_kg=Decimal('2.500'),
+            current_weight_kg=Decimal('2.000'),
+        )
+        inventory_three = InventoryLedger.objects.create(
+            source_donation=pending,
+            usage_amount_kg=Decimal('0.250'),
+            weight_before_kg=Decimal('1.250'),
+            current_weight_kg=Decimal('1.000'),
+        )
+        active_subscription = Subscription.objects.create(
+            user=self.tuab,
+            status='ACTIVE',
+            subscription_tier='PRO',
+            start_date='2026-05-01T00:00:00Z',
+            end_date='2026-06-01T00:00:00Z'
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.delete(reverse('user-detail', kwargs={'pk': self.tuab.user_id}))
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.tuab.refresh_from_db()
+        claimed.refresh_from_db()
+        pending.refresh_from_db()
+        inventory_one.refresh_from_db()
+        inventory_two.refresh_from_db()
+        inventory_three.refresh_from_db()
+        active_subscription.refresh_from_db()
+
+        self.assertEqual(self.tuab.status, 'ARCHIVED')
+        self.assertEqual(self.tuab.operational_status, UserOperationalStatus.ACTIVE)
+        self.assertIsNone(self.tuab.maya_customer_id)
+        self.assertIsNone(self.tuab.maya_card_id)
+        self.assertEqual(claimed.status, 'ARCHIVED')
+        self.assertEqual(pending.status, 'ARCHIVED')
+        self.assertEqual(active_subscription.status, 'CANCELLED')
+        self.assertEqual(inventory_one.lifecycle_status, 'ARCHIVED')
+        self.assertTrue(inventory_one.was_forced_archived)
+        self.assertIsNotNone(inventory_one.archived_at)
+        self.assertEqual(inventory_two.lifecycle_status, 'ARCHIVED')
+        self.assertTrue(inventory_two.was_forced_archived)
+        self.assertIsNotNone(inventory_two.archived_at)
+        self.assertEqual(inventory_three.lifecycle_status, 'ARCHIVED')
+        self.assertTrue(inventory_three.was_forced_archived)
+        self.assertIsNotNone(inventory_three.archived_at)
+        self.assertEqual(
+            AuditTrail.objects.filter(
+                actor=self.admin,
+                entity_type='users',
+                action='STATUS_CHANGE',
+                fields_modified='["status","maya_customer_id","maya_card_id"]'
+            ).count(),
+            1
+        )
+        self.assertEqual(
+            AuditTrail.objects.filter(
+                actor=self.admin,
+                entity_type='donations',
+                action='STATUS_CHANGE',
+                fields_modified='["status"]'
+            ).count(),
+            2
+        )
+        self.assertEqual(
+            AuditTrail.objects.filter(
+                actor=self.admin,
+                entity_type='inventory_ledger',
+                action='STATUS_CHANGE',
+                fields_modified='["lifecycle_status","was_forced_archived","archived_at"]'
+            ).count(),
+            3
+        )
+
+    def test_archive_rejected_when_associated_delivery_is_in_transit(self):
+        blocked_donation = self.create_donation(self.donor, 'IN_TRANSIT', delivery_method='DELIVERY')
+        pending = self.create_donation(self.donor, 'PENDING')
+        active_subscription = Subscription.objects.create(
+            user=self.donor,
+            status='ACTIVE',
+            subscription_tier='PRO',
+            start_date='2026-05-01T00:00:00Z',
+            end_date='2026-06-01T00:00:00Z'
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.delete(reverse('user-detail', kwargs={'pk': self.donor.user_id}))
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data['detail'],
+            "Archiving is not allowed while an associated delivery donation is in transit."
+        )
+        self.donor.refresh_from_db()
+        blocked_donation.refresh_from_db()
+        pending.refresh_from_db()
+        active_subscription.refresh_from_db()
+
+        self.assertEqual(self.donor.status, 'ACTIVE')
+        self.assertEqual(self.donor.maya_customer_id, 'maya-customer-1')
+        self.assertEqual(self.donor.maya_card_id, 'maya-card-1')
+        self.assertEqual(blocked_donation.status, 'IN_TRANSIT')
+        self.assertEqual(pending.status, 'PENDING')
+        self.assertEqual(active_subscription.status, 'ACTIVE')
+        self.assertEqual(AuditTrail.objects.filter(actor=self.admin).count(), 0)
+
+    def test_archive_forbidden_for_non_admin(self):
+        self.client.force_authenticate(user=self.donor)
+        response = self.client.delete(reverse('user-detail', kwargs={'pk': self.tuab.user_id}))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_archive_rejects_admin_target(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.delete(reverse('user-detail', kwargs={'pk': self.admin.user_id}))
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data['detail'],
+            "Admin users cannot be archived through this endpoint."
+        )
+
+    def test_archive_is_idempotent_for_archived_user(self):
+        self.donor.status = 'ARCHIVED'
+        self.donor.save(update_fields=['status'])
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.delete(reverse('user-detail', kwargs={'pk': self.donor.user_id}))
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.donor.refresh_from_db()
+        self.assertEqual(self.donor.status, 'ARCHIVED')
+        self.assertEqual(AuditTrail.objects.filter(actor=self.admin).count(), 0)
+
+
+class AuditServiceTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="audit_service@example.com",
+            password="Password123",
+            role="Admin",
+            contact_no="+639150000401",
+            status="ACTIVE"
+        )
+
+    def test_log_audit_serializes_fields_modified_as_json_array(self):
+        audit = log_audit(
+            actor=self.user,
+            entity_type='users',
+            action='CREDENTIAL_UPDATE',
+            fields_modified=['first_name', 'last_name', 'contact_no']
+        )
+
+        self.assertEqual(
+            audit.fields_modified,
+            json.dumps(['first_name', 'last_name', 'contact_no'], separators=(',', ':'))
+        )
+
+    def test_log_audit_truncates_long_serialized_fields_modified(self):
+        field_names = [f'field_name_number_{index}' for index in range(8)]
+        serialized_fields = json.dumps(field_names, separators=(',', ':'))
+        self.assertGreater(len(serialized_fields), 100)
+
+        audit = log_audit(
+            actor=self.user,
+            entity_type='users',
+            action='CREDENTIAL_UPDATE',
+            fields_modified=field_names
+        )
+
+        self.assertEqual(audit.fields_modified, serialized_fields[:97] + '...')
+        self.assertEqual(len(audit.fields_modified), 100)
+
 
 class DonationAPITest(TestCase):
     def setUp(self):

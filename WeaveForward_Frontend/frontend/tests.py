@@ -112,3 +112,19 @@ class AdminEditDonorViewTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(mocked_api_call.call_count, 2)
+
+    @patch('frontend.views.admin.api_call')
+    @patch('frontend.views.admin.get_user_profile')
+    def test_archived_donor_edit_page_redirects_to_list(self, mocked_profile, mocked_api_call):
+        mocked_profile.return_value = self.profile
+        archived_payload = dict(self.donor_payload, status='ARCHIVED')
+        mocked_api_call.return_value = make_response(
+            200,
+            archived_payload,
+            {'ETag': '"etag-1"'}
+        )
+
+        response = self.client.get(reverse('admin_edit_donor', kwargs={'user_id': 7}))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('admin_view_donors'))
