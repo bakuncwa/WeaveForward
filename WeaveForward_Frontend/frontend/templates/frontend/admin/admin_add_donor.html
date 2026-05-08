@@ -1,0 +1,152 @@
+{% extends 'frontend/base.html' %}
+
+{% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root { --g: #e8a020; --bg: #f5f4f0; --brd: #e0dbd4; --lt: #fdf6e8; }
+  .hidden { display: none !important; }
+  .panel { background: #fff; border: 1.5px solid var(--brd); border-radius: 14px; padding: 24px; width: 100%; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+  .group { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
+  .up { font-family: 'Poppins', sans-serif; font-size: 10px; color: #888; text-transform: uppercase; }
+  .in { width: 100%; height: 44px; border: 1.5px solid #d5d5d5; border-radius: 8px; padding: 10px 14px; font-size: 14px; outline: none; font-family: 'Poppins', sans-serif; }
+  .in:focus { border-color: var(--g); }
+  .pin-wrap { position: relative; }
+  .pin-wrap .in { padding-right: 42px; }
+  .pin { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--g); cursor: pointer; }
+  .ac-list { position: absolute; z-index: 50; top: 100%; left: 0; width: 100%; max-height: 180px; overflow: auto; background: #fff; border: 1.5px solid var(--brd); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.1); }
+  .ac-item { padding: 10px 14px; font-size: 13px; cursor: pointer; border-bottom: 1px solid #f5f5f5; font-family: 'Poppins', sans-serif; }
+  .ac-item:hover { background: var(--lt); }
+  hr { border: none; border-top: 1px solid var(--brd); margin: 20px 0; }
+  .btn-submit { width: 100%; padding: 12px; border-radius: 30px; border: none; background: var(--g); color: #fff; font-weight: 600; font-size: 14px; cursor: pointer; margin-top: 20px; font-family: 'Poppins', sans-serif; }
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 999; }
+  .modal-box { background: #f3f3f3; border-radius: 16px; overflow: hidden; width: min(640px, 95vw); box-shadow: 0 20px 60px rgba(0,0,0,.22); }
+  .map-head { display: flex; justify-content: space-between; align-items: flex-start; padding: 14px 16px 10px; }
+  .map-title { display: flex; align-items: center; gap: 7px; color: var(--g); }
+  .map-title-text { font-family: 'Poppins', sans-serif; font-size: 20px; color: #1f1f1f; }
+  .map-caption { font-family: 'Poppins', sans-serif; font-size: 12px; color: #7a7a7a; margin-top: 4px; }
+  .map-close { border: none; background: none; color: #333; cursor: pointer; }
+  #picker-map { width: 100%; height: 300px; }
+  .map-actions { display: flex; justify-content: center; padding: 12px 16px 16px; }
+</style>
+
+<form id="frm" method="post" autocomplete="off" novalidate>
+  {% csrf_token %}
+  <div class="panel">
+    <div class="group"><label class="up">First Name *</label><input class="in" name="first_name" value="{{ form_data.first_name }}"></div>
+    <div class="group"><label class="up">Middle Name</label><input class="in" name="middle_name" value="{{ form_data.middle_name }}"></div>
+    <div class="group"><label class="up">Last Name *</label><input class="in" name="last_name" value="{{ form_data.last_name }}"></div>
+
+    <hr>
+
+    <div class="group"><label class="up">Email Address *</label><input class="in" type="email" name="email" value="{{ form_data.email }}" autocomplete="off"></div>
+    <div class="group"><label class="up">Phone Number *</label><input class="in" type="tel" name="contact_no" value="{{ form_data.contact_no }}" placeholder="+639..."></div>
+
+    <hr>
+
+    <div class="group"><label class="up">Password *</label><input class="in" type="password" name="password" autocomplete="new-password"></div>
+    <div class="group"><label class="up">Confirm Password *</label><input class="in" type="password" name="confirm_password" autocomplete="new-password"></div>
+
+    <hr>
+
+    <div class="group" style="position:relative">
+      <label class="up">Pickup Address *</label>
+      <div class="pin-wrap">
+        <input id="addr" class="in" name="display_address" value="{{ form_data.display_address }}" oninput="srchAddr(this.value)" onblur="hideAc()">
+        <button type="button" class="pin" onclick="openMap()">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+            <circle cx="12" cy="10" r="3" />
+          </svg>
+        </button>
+      </div>
+      <div id="ac" class="ac-list hidden"></div>
+      <input id="lat" name="latitude" type="hidden" value="{{ form_data.latitude }}">
+      <input id="lng" name="longitude" type="hidden" value="{{ form_data.longitude }}">
+    </div>
+
+    {% if errors %}
+    <div style="background:#fee2e2; border:1px solid #ef4444; color:#991b1b; padding:12px; border-radius:8px; font-size:13px; margin-top:14px; font-family: 'Poppins', sans-serif;">
+        <strong>Error:</strong>
+        <ul style="margin-top:4px; padding-left:18px;">
+            {% for field, error_list in errors.items %}
+                <li>{{ field|title }}: {{ error_list.0 }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <button type="submit" class="btn-submit">Create Donor Account</button>
+  </div>
+</form>
+
+<div id="map-modal" class="modal hidden">
+  <div class="modal-box">
+    <div class="map-head">
+      <div>
+        <div class="map-title">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+            <circle cx="12" cy="10" r="3" />
+          </svg>
+          <span class="map-title-text">Pick on Map</span>
+        </div>
+        <div class="map-caption">Click or drag the marker to set the pickup location.</div>
+      </div>
+      <button type="button" class="map-close" onclick="closeMap()">×</button>
+    </div>
+    <div id="picker-map"></div>
+    <div class="map-actions">
+      <button type="button" class="btn-submit" style="width:min(220px,100%);margin:0" onclick="confirmMap()">Confirm Location</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const getEl = id => document.getElementById(id);
+  const hideAc = () => setTimeout(() => getEl('ac').classList.add('hidden'), 200);
+  let acTmr, acRes = [], map, mrk, tmpLat, tmpLng;
+
+  function srchAddr(v) {
+    const ac = getEl('ac');
+    if (v.length < 3) return ac.classList.add('hidden');
+    clearTimeout(acTmr);
+    acTmr = setTimeout(async () => {
+      try {
+        acRes = await (await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${v}, Philippines&limit=5&countrycodes=ph`)).json();
+        ac.innerHTML = acRes.map((r, i) => `<div class="ac-item" onmousedown="selAddr(${i})">${r.display_name}</div>`).join('');
+        ac.classList.remove('hidden');
+      } catch { }
+    }, 350);
+  }
+
+  function selAddr(i) {
+    const lat = (+acRes[i].lat).toFixed(7), lng = (+acRes[i].lon).toFixed(7);
+    getEl('addr').value = acRes[i].display_name;
+    getEl('lat').value = lat; getEl('lng').value = lng;
+  }
+
+  function openMap() {
+    getEl('map-modal').classList.remove('hidden');
+    tmpLat = +getEl('lat').value || 14.56;
+    tmpLng = +getEl('lng').value || 120.99;
+    if (!map) {
+      map = L.map('picker-map').setView([tmpLat, tmpLng], 15);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+      mrk = L.marker([tmpLat, tmpLng], { draggable: true }).addTo(map);
+      mrk.on('dragend', e => { tmpLat = e.target.getLatLng().lat; tmpLng = e.target.getLatLng().lng; });
+      map.on('click', e => { tmpLat = e.latlng.lat; tmpLng = e.latlng.lng; mrk.setLatLng(e.latlng); });
+    } else { map.setView([tmpLat, tmpLng]); mrk.setLatLng([tmpLat, tmpLng]); setTimeout(() => map.invalidateSize(), 100); }
+  }
+
+  async function confirmMap() {
+    getEl('lat').value = (+tmpLat).toFixed(7); getEl('lng').value = (+tmpLng).toFixed(7);
+    const lat = getEl('lat').value, lng = getEl('lng').value;
+    closeMap();
+    try { getEl('addr').value = (await (await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)).json()).display_name || `${lat}, ${lng}`; } catch { }
+  }
+
+  function closeMap() { getEl('map-modal').classList.add('hidden'); }
+
+</script>
+{% endblock %}

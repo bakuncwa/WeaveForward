@@ -138,22 +138,44 @@
       white-space: nowrap;
     }
     .btn-outline:hover { border-color: #cfcfcf; background: #ebebeb; }
+    
+    .pagination-wrap {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 16px;
+      padding: 0 4px;
+    }
+    .pg-info {
+      font-family: Poppins, sans-serif;
+      font-size: 13px;
+      color: #666;
+    }
+    .pg-btns {
+      display: flex;
+      gap: 8px;
+    }
+    .pg-btns .btn-outline {
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+    }
 
     @media (max-width: 768px) {
       .btn-primary { width: 100%; border-radius: 10px; }
     }
 </style>
 
-<p class="count" id="donor-count">{{ donors|length }} Donors</p>
+<p class="count" id="donor-count">{{ count }} Total Donors</p>
 
 <div class="search-bar-row">
-  <div class="search-wrap">
+  <form method="GET" class="search-wrap">
     <div class="search-icon">
       <svg width="17" height="17" fill="none" stroke="#aaa" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
     </div>
-    <input id="donor-search" placeholder="Search Donors" oninput="filterDonors()"/>
-  </div>
-  <a href="#" class="btn btn-primary">Add Donor</a>
+    <input name="q" value="{{ q }}" placeholder="Search Donors..."/>
+  </form>
+  <a href="{% url 'admin_add_donor' %}" class="btn btn-primary">Add Donor</a>
 </div>
 
 <div class="table-wrap">
@@ -172,7 +194,7 @@
         {% for donor in donors %}
         <tr data-status="{{ donor.status|lower }}">
           <td>{{ donor.user_id }}</td>
-          <td>{{ donor.first_name }} {{ donor.last_name }}</td>
+          <td>{{ donor.first_name }}{% if donor.middle_name %} {{ donor.middle_name }}{% endif %} {{ donor.last_name }}</td>
           <td>{{ donor.email }}</td>
           <td>
             {% if donor.status == 'ACTIVE' %}
@@ -185,7 +207,7 @@
           </td>
           <td>
             <div class="action-btns">
-              <a href="#" class="btn btn-outline">View</a>
+              <a href="{% url 'admin_view_donor' donor.user_id %}" class="btn btn-outline">View</a>
               <a href="#" class="btn btn-outline">Edit</a>
               {% if donor.status == 'ACTIVE' %}
               <button class="btn btn-outline" type="button">Archive</button>
@@ -203,21 +225,19 @@
   </div>
 </div>
 
+<div class="pagination-wrap">
+  <div class="pg-info">Page {{ current_page }} of {{ total_pages }}</div>
+  <div class="pg-btns">
+    {% if has_prev %}
+      <a href="?page={{ current_page|add:-1 }}{% if q %}&q={{ q }}{% endif %}" class="btn-outline">❮ Previous</a>
+    {% endif %}
+    {% if has_next %}
+      <a href="?page={{ current_page|add:1 }}{% if q %}&q={{ q }}{% endif %}" class="btn-outline">Next ❯</a>
+    {% endif %}
+  </div>
+</div>
+
 <script>
-  function filterDonors() {
-    const q = document.getElementById('donor-search').value.toLowerCase().trim();
-    const rows = document.querySelectorAll('#donor-tbody tr');
-    let visible = 0;
-
-    rows.forEach(row => {
-      if (row.cells.length === 1) return;
-      const match = !q || row.textContent.toLowerCase().includes(q);
-      row.style.display = match ? '' : 'none';
-      if (match) visible++;
-    });
-
-    document.getElementById('donor-count').textContent =
-      `${visible} Donor${visible === 1 ? '' : 's'}`;
-  }
+  // JS filtering removed in favor of Server-Side search for paginated results.
 </script>
 {% endblock %}

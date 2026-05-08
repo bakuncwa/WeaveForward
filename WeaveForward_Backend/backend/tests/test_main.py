@@ -4,6 +4,7 @@ from django.test import TestCase
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.urls import reverse
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 from rest_framework import status
 from backend.models import User, Upload, Donation, DonationItem, BrandFiberLookup, MatchPrediction, UserOperationalStatus
@@ -81,7 +82,6 @@ class DonorRegistrationTest(TestCase):
             'email': 'juan@example.com',
             'contact_no': '+639171234567',
             'password': 'Password123',
-            'confirm_password': 'Password123',
             'latitude': '14.5995120',
             'longitude': '120.9842220',
             'display_address': 'Manila'
@@ -91,13 +91,6 @@ class DonorRegistrationTest(TestCase):
         response = self.client.post(reverse('register'), self.valid_payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(User.objects.filter(email='juan@example.com').exists())
-
-    def test_password_mismatch(self):
-        payload = self.valid_payload.copy()
-        payload['confirm_password'] = 'Mismatch123'
-        response = self.client.post(reverse('register'), payload, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('password', response.json())
 
     def test_invalid_phone_format(self):
         payload = self.valid_payload.copy()
@@ -131,7 +124,6 @@ class TUABRegistrationTest(TestCase):
             'email': 'tuab@example.com',
             'contact_no': '+639181234567',
             'password': 'Password123',
-            'confirm_password': 'Password123',
             'latitude': '14.5995120',
             'longitude': '120.9842220',
             'display_address': 'Manila',
@@ -141,29 +133,48 @@ class TUABRegistrationTest(TestCase):
         }
 
     def test_valid_tuab_registration(self):
-        response = self.client.post(reverse('register'), self.valid_payload, format='json')
+        payload = self.valid_payload.copy()
+        payload['documentation'] = SimpleUploadedFile("test.pdf", b"file_content", content_type="application/pdf")
+        response = self.client.post(reverse('register'), payload, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         user = User.objects.get(email='tuab@example.com')
         self.assertEqual(user.role, 'TUAB')
         self.assertEqual(user.status, 'UNDER_REVIEW')
 
+    def test_missing_tuab_required_fields(self):
+        payload = self.valid_payload.copy()
+        payload.pop('target_fibers')
+        # documentation is already missing from valid_payload in setUp
+        response = self.client.post(reverse('register'), payload, format='multipart')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        data = response.json()
+        self.assertIn('target_fibers', data)
+        self.assertIn('documentation', data)
+
     def test_invalid_fibers(self):
         payload = self.valid_payload.copy()
         payload['target_fibers'] = 'cotton,adamantium'
-        response = self.client.post(reverse('register'), payload, format='json')
+        payload['documentation'] = SimpleUploadedFile("test.pdf", b"file_content", content_type="application/pdf")
+        response = self.client.post(reverse('register'), payload, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('target_fibers', response.json())
 
     def test_fiber_formatting(self):
         payload = self.valid_payload.copy()
         payload['target_fibers'] = 'Cotton, wool'
-        response = self.client.post(reverse('register'), payload, format='json')
+        payload['documentation'] = SimpleUploadedFile("test.pdf", b"file_content", content_type="application/pdf")
+        response = self.client.post(reverse('register'), payload, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('target_fibers', response.json())
 
     def test_duplicate_email(self):
-        self.client.post(reverse('register'), self.valid_payload, format='json')
-        response = self.client.post(reverse('register'), self.valid_payload, format='json')
+        payload = self.valid_payload.copy()
+        payload['documentation'] = SimpleUploadedFile("test.pdf", b"file_content", content_type="application/pdf")
+        self.client.post(reverse('register'), payload, format='multipart')
+        
+        payload2 = self.valid_payload.copy()
+        payload2['documentation'] = SimpleUploadedFile("test.pdf", b"file_content", content_type="application/pdf")
+        response = self.client.post(reverse('register'), payload2, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('email', response.json())
 
@@ -268,8 +279,7 @@ class PasswordResetTest(TestCase):
         confirm_payload = {
             'uidb64': uidb64,
             'token': token,
-            'new_password': new_pw,
-            'confirm_password': new_pw
+            'new_password': new_pw
         }
         response = self.client.post(self.confirm_url, confirm_payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -308,14 +318,14 @@ class UserAPITest(TestCase):
         self.client.force_authenticate(user=self.admin)
         res = self.client.get(reverse('user-list'))
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(res.data), 4) # Admin, Donor, TUAB Active, TUAB Inactive
+        self.assertEqual(res.data['count'], 4) # Admin, Donor, TUAB Active, TUAB Inactive
         
         # Donor sees active TUABs
         self.client.force_authenticate(user=self.donor)
         res = self.client.get(reverse('user-list'))
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(res.data), 1)
-        self.assertEqual(res.data[0]['email'], self.tuab_active.email)
+        self.assertEqual(len(res.data['results']), 1)
+        self.assertEqual(res.data['results'][0]['email'], self.tuab_active.email)
 
     def test_user_retrieve_logic(self):
         # Donor can see self
@@ -345,6 +355,55 @@ class UserAPITest(TestCase):
         res = self.client.get(reverse('user-me'))
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.data['email'], self.donor.email)
+
+    def test_create_donor_via_users_endpoint(self):
+        payload = {
+            'role': 'Donor',
+            'first_name': 'New',
+            'last_name': 'Donor',
+            'email': 'new_donor@example.com',
+            'contact_no': '+639179999999',
+            'password': 'Password123',
+            'latitude': '14.5995120',
+            'longitude': '120.9842220',
+            'display_address': 'Manila'
+        }
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.post(reverse('user-list'), payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(User.objects.filter(email='new_donor@example.com').exists())
+
+    def test_create_tuab_via_users_endpoint(self):
+        payload = {
+            'role': 'TUAB',
+            'business_name': 'New TUAB',
+            'email': 'new_tuab@example.com',
+            'contact_no': '+639189999999',
+            'password': 'Password123',
+            'latitude': '14.5995120',
+            'longitude': '120.9842220',
+            'display_address': 'Manila',
+            'target_fibers': 'cotton,wool',
+            'max_distance_km': '50.00',
+            'min_biodeg_score': '70.00'
+        }
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.post(reverse('user-list'), payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data['error'], "Only Donor creation is supported via this endpoint.")
+
+    def test_create_user_invalid_role(self):
+        payload = {'role': 'Admin', 'email': 'admin2@ex.com'}
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.post(reverse('user-list'), payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data['error'], "Only Donor creation is supported via this endpoint.")
+
+    def test_create_user_forbidden_for_donor(self):
+        self.client.force_authenticate(user=self.donor)
+        payload = {'role': 'Donor', 'email': 'hacker@ex.com', 'password': 'Password123'}
+        res = self.client.post(reverse('user-list'), payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
 
 class DonationAPITest(TestCase):
     def setUp(self):
@@ -406,8 +465,8 @@ class DonationAPITest(TestCase):
         res = self.client.get(reverse('donation-me'))
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         # Should only see 1 donation (theirs)
-        self.assertEqual(len(res.data), 1)
-        self.assertEqual(res.data[0]['donation_id'], self.donation.donation_id)
+        self.assertEqual(len(res.data['results']), 1)
+        self.assertEqual(res.data['results'][0]['donation_id'], self.donation.donation_id)
 
     def test_archived_donations_excluded_for_non_admin(self):
         self.donation.status = 'ARCHIVED'
@@ -416,7 +475,7 @@ class DonationAPITest(TestCase):
         # Donor should NOT see archived donations
         self.client.force_authenticate(user=self.donor)
         res = self.client.get(reverse('donation-list'))
-        self.assertEqual(len(res.data), 0)
+        self.assertEqual(res.data['count'], 0)
 
 class PredictionServiceTest(TestCase):
     def setUp(self):

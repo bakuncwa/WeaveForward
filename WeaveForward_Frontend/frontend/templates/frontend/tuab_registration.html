@@ -468,7 +468,7 @@
 <body>
   <div class="layout">
     <div class="left"></div>
-    <form class="right" id="reg-form" method="POST" enctype="multipart/form-data">
+    <form class="right" id="reg-form" method="POST" enctype="multipart/form-data" autocomplete="off" novalidate>
       {% csrf_token %}
       <input type="hidden" id="action-status" name="action_status" value="">
       <div class="scroll">
@@ -479,18 +479,18 @@
           <!-- Step 1 -->
           <div id="st1">
             <div class="group"><label class="cap-lbl">Business Name</label><input class="in" name="business_name"
-                id="bn">
+                id="bn" value="{{ form_data.business_name }}">
             </div>
             <div class="group"><label class="cap-lbl">Email Address</label><input class="in" type="email" name="email"
-                id="em"></div>
+                id="em" value="{{ form_data.email }}" autocomplete="off"></div>
             <div class="group"><label class="cap-lbl">Phone Number</label>
-              <div class="p-row"><input class="in" value="+63" readonly><input class="in" name="contact_no" id="ph">
+              <div class="p-row"><input class="in" value="+63" readonly><input class="in" name="contact_no" id="ph" value="{{ form_data.contact_no }}">
               </div>
             </div>
             <div class="group"><label class="cap-lbl">Password</label><input class="in" type="password" name="password"
-                id="pw"></div>
+                id="pw" autocomplete="new-password"></div>
             <div class="group"><label class="cap-lbl">Confirm Password</label><input class="in" type="password"
-                name="confirm_password" id="cp"></div>
+                name="confirm_password" id="cp" autocomplete="new-password"></div>
           </div>
 
           <!-- Step 2 -->
@@ -498,17 +498,17 @@
             <div class="col">
               <div class="sec-lbl">ABOUT</div>
               <div class="group"><label class="cap-lbl">Description</label><textarea class="in" name="description"
-                  style="height:100px;resize:none"></textarea></div>
+                  id="desc" style="height:110px;resize:none" placeholder="What do you do with the waste?">{{ form_data.description }}</textarea></div>
               <p class="hint">Displayed publicly on your TUAB profile card.</p>
               <div class="group"><label class="cap-lbl">Social / Website Link</label><input class="in"
-                  name="social_link">
+                  name="social_link" value="{{ form_data.social_link }}">
               </div>
               <p class="hint">Optional — helps donors learn more about you.</p>
               <div class="sec-lbl">LOCATION</div>
               <div class="group"><label class="cap-lbl">Display Address *</label>
                 <div class="ac">
                   <div class="pin-wrap">
-                    <input id="addr" name="display_address" class="in" oninput="srAddr(this.value)" onblur="hAc('ac')">
+                    <input id="addr" name="display_address" class="in" value="{{ form_data.display_address }}" oninput="srAddr(this.value)" onblur="hAc('ac')">
                     <button type="button" class="pin" onclick="opMap()">
                       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
                         viewBox="0 0 24 24">
@@ -521,12 +521,12 @@
                 </div>
               </div>
               <p class="hint" style="margin-bottom:14px">Shown to donors. Must be within Metro Manila (NCR).</p>
-              <input type="hidden" id="lat" name="latitude"><input type="hidden" id="lng" name="longitude">
+              <input type="hidden" id="lat" name="latitude" value="{{ form_data.latitude }}"><input type="hidden" id="lng" name="longitude" value="{{ form_data.longitude }}">
               <div class="g2" style="gap:14px">
                 <div class="group"><label class="cap-lbl">Barangay *</label><input id="brgy" name="brgy" class="in"
-                    readonly></div>
+                    value="{{ form_data.brgy }}" readonly></div>
                 <div class="group"><label class="cap-lbl">City *</label><input id="city" name="city" class="in"
-                    readonly></div>
+                    value="{{ form_data.city }}" readonly></div>
               </div>
             </div>
             <div class="col">
@@ -538,14 +538,14 @@
                     onblur="hAc('f-ac')">
                   <div id="f-ac" class="ac-list hidden"></div>
                 </div>
-                <input type="hidden" id="fibs" name="target_fibers">
+                <input type="hidden" id="fibs" name="target_fibers" value="{{ form_data.target_fibers }}">
               </div>
               <div class="sec-lbl">OPERATIONS</div>
               <div class="group"><label class="cap-lbl">Max Distance</label><input class="in grey-in" type="number"
-                  name="max_distance_km" id="md"></div>
+                  name="max_distance_km" id="md" value="{{ form_data.max_distance_km }}"></div>
               <p class="hint">Furthest pickup radius</p>
               <div class="group"><label class="cap-lbl">Min. Biodegradability Score</label><input class="in grey-in"
-                  type="number" step="0.01" name="min_biodeg_score" id="mbs"></div>
+                  type="number" step="0.01" name="min_biodeg_score" id="mbs" value="{{ form_data.min_biodeg_score }}"></div>
             </div>
           </div>
 
@@ -564,7 +564,7 @@
                     </svg>
                   </div>
                   <div>
-                    <div style="font-weight:500;font-size:16px;color:#E8A020">Upload files</div>
+                    <div style="font-weight:500;font-size:16px;color:#E8A020">Upload files *</div>
                     <div style="font-size:13px;color:#E8A020">Select and upload the files of your choice</div>
                   </div>
                 </div>
@@ -587,7 +587,7 @@
             </div>
             <div class="sub-wrap">
               <button type="button" class="btn" style="padding:16px 80px;font-weight:600;font-size:18px"
-                onclick="document.getElementById('reg-form').submit()">Submit</button>
+                onclick="subFrm()">Submit</button>
             </div>
             {% if errors %}
             <div
@@ -595,7 +595,7 @@
               <strong style="display:block; margin-bottom: 5px;">Wait! Please fix these errors:</strong>
               <ul style="padding-left: 20px;">
                 {% for field, error_list in errors.items %}
-                <li><strong>{{ field }}</strong>: {{ error_list.0 }}</li>
+                <li><strong>{{ field|title }}</strong>: {{ error_list.0 }}</li>
                 {% endfor %}
               </ul>
             </div>
@@ -627,7 +627,7 @@
   <script>
     const gE = i => document.getElementById(i);
     const hAc = id => setTimeout(() => gE(id)?.classList.add('hidden'), 200);
-    let cS = {% if errors %}3{% else %} 1{% endif %}, aT, aR = [], m, mk, tLt, tLg, tgs = [];
+    let cS = {% if errors %}3{% else %} 1{% endif %}, aT, aR = [], m, mk, tLt, tLg, tgs = gE('fibs')?.value ? gE('fibs').value.split(',').filter(x => x) : [];
 
 
     const fiberLookup = {{ fibers| safe }};
@@ -741,10 +741,17 @@
 
     function toggleTag(f) {
       tgs = tgs.includes(f) ? tgs.filter(x => x !== f) : [...tgs, f];
+      renderTags();
+    }
+
+    function renderTags() {
       gE('tags').innerHTML = tgs.map(t => `<div class="t-chip">${toTitle(t)}<span onclick="toggleTag('${t}')">×</span></div>`).join('');
       gE('fibs').value = tgs.join(',');
       gE('ti').value = ''; gE('f-ac').classList.add('hidden');
     }
+
+    // Initial render for tags
+    if (tgs.length) renderTags();
 
     // File upload
     function uF(input) {
@@ -765,6 +772,9 @@
           <div class="p-bar"></div>
         </div>`;
       });
+    }
+    function subFrm() {
+      gE('reg-form').submit();
     }
   </script>
 </body>

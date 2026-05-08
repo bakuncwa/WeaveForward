@@ -307,7 +307,7 @@
 </head>
 
 <body>
-  <form id="frm" class="layout" method="post">
+  <form id="frm" class="layout" method="post" autocomplete="off" novalidate>
     {% csrf_token %}
     <div class="left"></div>
     <div class="right">
@@ -316,23 +316,23 @@
         <div class="sub">Personal Information</div>
         <div id="step1">
           <div class="grid-3">
-            <div class="group"><label class="up">First Name</label><input class="in" name="first_name"></div>
-            <div class="group"><label class="up">Middle Name</label><input class="in" name="middle_name"></div>
-            <div class="group"><label class="up">Last Name</label><input class="in" name="last_name"></div>
+            <div class="group"><label class="up">First Name</label><input class="in" name="first_name" value="{{ form_data.first_name }}"></div>
+            <div class="group"><label class="up">Middle Name</label><input class="in" name="middle_name" value="{{ form_data.middle_name }}"></div>
+            <div class="group"><label class="up">Last Name</label><input class="in" name="last_name" value="{{ form_data.last_name }}"></div>
           </div>
-          <div class="group"><label class="up">Email Address</label><input class="in" type="email" name="email"></div>
+          <div class="group"><label class="up">Email Address</label><input class="in" type="email" name="email" value="{{ form_data.email }}" autocomplete="off"></div>
           <div class="group"><label class="up">Phone Number</label>
-            <div class="phone-row"><input class="in" value="+63" readonly><input class="in" name="contact_no"></div>
+            <div class="phone-row"><input class="in" value="+63" readonly><input class="in" name="contact_no" value="{{ form_data.contact_no }}"></div>
           </div>
-          <div class="group"><label class="up">Password</label><input class="in" type="password" name="password"></div>
+          <div class="group"><label class="up">Password</label><input class="in" type="password" name="password" autocomplete="new-password"></div>
           <div class="group"><label class="up">Confirm Password</label><input class="in" type="password"
-              name="confirm_password"></div>
+              name="confirm_password" autocomplete="new-password"></div>
         </div>
         <div id="step2" class="hidden">
           <div class="group"><label class="up">Pickup Address</label>
             <div class="ac">
               <div class="pin-wrap"><input id="addr" name="display_address" class="in"
-                  value="{{ form_data.display_address|default:'' }}" oninput="srAddr(this.value)"
+                  value="{{ form_data.display_address }}" oninput="srAddr(this.value)"
                   onblur="hdAc()"><button type="button" class="pin" onclick="opMap()"><svg width="18" height="18"
                     fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
@@ -341,12 +341,12 @@
               <div id="ac" class="ac-list hidden"></div>
             </div>
           </div>
-          <input type="hidden" id="lat" name="latitude" value="{{ form_data.latitude|default:'' }}"><input type="hidden"
-            id="lng" name="longitude" value="{{ form_data.longitude|default:'' }}">
+          <input type="hidden" id="lat" name="latitude" value="{{ form_data.latitude }}"><input type="hidden"
+            id="lng" name="longitude" value="{{ form_data.longitude }}">
           <div class="group"><label class="up">City</label><input id="city" name="city" class="in"
-              value="{{ form_data.city|default:'' }}" readonly></div>
+              value="{{ form_data.city }}" readonly></div>
           <div class="group" style="margin-bottom:8px"><label class="up">Barangay</label><input id="brgy"
-              name="barangay" class="in" value="{{ form_data.barangay|default:'' }}" readonly></div>
+              name="barangay" class="in" value="{{ form_data.barangay }}" readonly></div>
           <button type="submit" class="btn">Register</button>
         </div>
         {% if errors %}
@@ -355,7 +355,7 @@
           <strong style="display:block;margin-bottom:5px;">Please fix these errors:</strong>
           <ul style="padding-left:20px;">
             {% for field, error_list in errors.items %}
-            <li><strong>{{ field }}</strong>: {{ error_list.0 }}</li>
+            <li><strong>{{ field|title }}</strong>: {{ error_list.0 }}</li>
             {% endfor %}
           </ul>
         </div>

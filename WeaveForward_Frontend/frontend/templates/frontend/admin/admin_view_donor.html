@@ -1,0 +1,148 @@
+{% extends 'frontend/base.html' %}
+
+{% block content %}
+<style>
+    /* Force Poppins on everything within this content block */
+    .donor-detail-container, 
+    .donor-detail-container *,
+    .donor-detail-container .card-title,
+    .donor-detail-container .btn,
+    .donor-detail-container .profile-name,
+    .donor-detail-container .form-label-upper {
+        font-family: 'Poppins', sans-serif !important;
+    }
+
+    .donor-detail-container {
+        color: #222;
+    }
+
+    /* ── Cards ── */
+    .card { background: #fff; border-radius: 14px; padding: 24px; margin-bottom: 16px; border: 1.5px solid #ebe6df; }
+    .card-title { font-weight: 600; font-size: 15px; margin-bottom: 16px; }
+
+    /* ── Button ── */
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: none; cursor: pointer; font-weight: 500; transition: all .2s; text-decoration: none; }
+    .btn-primary { background: var(--gold); color: #fff; border-radius: 8px; padding: 10px 20px; font-size: 14px; white-space: nowrap; }
+    .btn-primary:hover { background: var(--gold-dark); }
+
+    /* ── Profile hero ── */
+    .profile-hero { display: flex; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
+    .profile-avatar-lg {
+      width: 68px; height: 68px; border-radius: 50%;
+      background: #e8d5a8; display: flex; align-items: center; justify-content: center;
+      color: #8b6914; font-weight: 600; font-size: 17px; flex-shrink: 0;
+      overflow: hidden;
+    }
+    .profile-avatar-lg img { width: 100%; height: 100%; object-fit: cover; }
+    
+    .profile-info { flex: 1; min-width: 0; }
+    .profile-name  { font-weight: 600; font-size: 20px; margin-bottom: 4px; }
+    .profile-email { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--gold); margin-bottom: 8px; }
+    .profile-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+    .chip-outline { border: 1.5px solid var(--gold); color: var(--gold); border-radius: 20px; padding: 3px 12px; font-size: 12px; }
+    .chip-filled  { background: var(--gold); color: #fff; border-radius: 20px; padding: 3px 12px; font-size: 12px; }
+    .chip-grey    { border: 1.5px solid #ccc; color: #888; border-radius: 20px; padding: 3px 12px; font-size: 12px; }
+
+    /* ── Info grid ── */
+    .form-label-upper { font-size: 10px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 5px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+    /* ── Mobile ── */
+    @media (max-width: 768px) {
+      .profile-hero { gap: 14px; }
+      .grid-2 { grid-template-columns: 1fr; }
+      .btn-primary { width: 100%; justify-content: center; }
+    }
+</style>
+
+<div class="donor-detail-container">
+    <!-- Hero card -->
+    <div class="card">
+      <div class="profile-hero">
+        <div class="profile-avatar-lg">
+            {% if donor.upload %}
+                <img src="{{ donor.upload.file_path }}" alt="Profile">
+            {% endif %}
+        </div>
+        <div class="profile-info">
+          <div class="profile-name">{{ donor.first_name }} {{ donor.last_name }}</div>
+          <div class="profile-email">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            {{ donor.email }}
+          </div>
+          <div class="profile-chips">
+            <span class="chip-outline">{{ donor.role|lower }}</span>
+            <span class="chip-filled">{{ donor.status|title }}</span>
+            <span class="chip-grey">Member since {{ donor.created_at|date:"F j Y" }}</span>
+          </div>
+        </div>
+        <a href="{% url 'admin_view_donors' %}" class="btn btn-primary" style="background: #f5f4f0; color: #666; border: 1px solid #e2e2e2;">Back to Donors List</a>
+      </div>
+    </div>
+
+    <!-- Personal info -->
+    <div class="card">
+      <div class="card-title">Personal Information</div>
+      <div class="grid-2">
+        <div>
+          <label class="form-label-upper">First Name</label>
+          <p style="font-size:14px;margin-top:2px">{{ donor.first_name }}</p>
+        </div>
+        <div>
+          <label class="form-label-upper">Middle Name</label>
+          <p style="font-size:14px;margin-top:2px">{{ donor.middle_name|default:"" }}</p>
+        </div>
+        <div>
+          <label class="form-label-upper">Last Name</label>
+          <p style="font-size:14px;margin-top:2px">{{ donor.last_name }}</p>
+        </div>
+        <div>
+          <label class="form-label-upper">Phone Number</label>
+          <p style="font-size:14px;margin-top:2px">{{ donor.contact_no }}</p>
+        </div>
+        <div>
+            <label class="form-label-upper">User ID</label>
+            <p style="font-size:14px;margin-top:2px">#{{ donor.user_id }}</p>
+        </div>
+        <div>
+            <label class="form-label-upper">2FA Enabled</label>
+            <p style="font-size:14px;margin-top:2px">{{ donor.is_2fa_enabled|yesno:"Yes,No" }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Address -->
+    <div class="card">
+      <div class="card-title">Address</div>
+      <div class="grid-2" style="margin-bottom:14px">
+        <div>
+          <label class="form-label-upper">Barangay</label>
+          <p style="font-size:14px;margin-top:2px">{{ donor.barangay|default:"" }}</p>
+        </div>
+        <div>
+          <label class="form-label-upper">City</label>
+          <p style="font-size:14px;margin-top:2px">{{ donor.city|default:"" }}</p>
+        </div>
+      </div>
+      <div>
+        <label class="form-label-upper">Display Address</label>
+        <p style="font-size:13px;color:#555;line-height:1.6;margin-top:4px">{{ donor.display_address|default:"" }}</p>
+      </div>
+    </div>
+
+    <!-- Timestamps -->
+    <div class="card">
+        <div class="card-title">System Information</div>
+        <div class="grid-2">
+          <div>
+            <label class="form-label-upper">Registration Date</label>
+            <p style="font-size:14px;margin-top:2px">{{ donor.created_at|date:"M d, Y H:i" }}</p>
+          </div>
+          <div>
+            <label class="form-label-upper">Last Updated</label>
+            <p style="font-size:14px;margin-top:2px">{{ donor.updated_at|date:"M d, Y H:i" }}</p>
+          </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

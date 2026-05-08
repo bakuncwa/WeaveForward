@@ -161,15 +161,15 @@
     }
 </style>
 
-<p class="count" id="don-count">{{ donations|length }} Donation Request{{ donations|length|pluralize }}</p>
+<p class="count" id="don-count">{{ count }} Donation Request{{ count|pluralize }}</p>
 
 <div class="search-bar-row">
-    <div class="search-wrap">
+    <form method="GET" class="search-wrap">
         <div class="search-icon">
             <svg width="17" height="17" fill="none" stroke="#aaa" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </div>
-        <input id="don-search" placeholder="Search Donations" oninput="filterDonations()"/>
-    </div>
+        <input name="q" value="{{ q|default:'' }}" placeholder="Search by Donation ID..." />
+    </form>
     <a href="#" class="btn btn-primary">Add Donation</a>
 </div>
 
@@ -234,20 +234,40 @@
     </div>
 </div>
 
-<script>
-    function filterDonations() {
-        const q = document.getElementById('don-search').value.toLowerCase().trim();
-        const rows = document.querySelectorAll('#don-tbody tr');
-        let visible = 0;
+<div class="pagination-wrap">
+  <div class="pg-info">Page {{ current_page }} of {{ total_pages }}</div>
+  <div class="pg-btns">
+    {% if has_prev %}
+      <a href="?page={{ current_page|add:-1 }}{% if q %}&q={{ q }}{% endif %}" class="btn-outline">❮ Previous</a>
+    {% endif %}
+    {% if has_next %}
+      <a href="?page={{ current_page|add:1 }}{% if q %}&q={{ q }}{% endif %}" class="btn-outline">Next ❯</a>
+    {% endif %}
+  </div>
+</div>
 
-        rows.forEach((row) => {
-            if (row.cells.length < 2) return; // Skip "No donations found" row
-            const match = !q || row.textContent.toLowerCase().includes(q);
-            row.style.display = match ? '' : 'none';
-            if (match) visible += 1;
-        });
-
-        document.getElementById('don-count').textContent = `${visible} Donation Request${visible === 1 ? '' : 's'}`;
-    }
-</script>
+<style>
+  .pagination-wrap {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 24px;
+    padding: 0 4px;
+  }
+  .pg-info {
+    font-family: Poppins, sans-serif;
+    font-size: 13px;
+    color: #888;
+  }
+  .pg-btns {
+    display: flex;
+    gap: 8px;
+  }
+  .pg-btns .btn-outline {
+    width: auto;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 500;
+  }
+</style>
 {% endblock %}

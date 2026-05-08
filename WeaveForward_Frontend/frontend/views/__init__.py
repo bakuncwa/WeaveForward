@@ -1,10 +1,11 @@
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.contrib import messages
-from ..services import api_call, get_user_profile
+from ..services import api_call, get_user_profile, format_errors
+from ..constants import ALLOWED_FIBERS
 
 # Import role-based views for convenience
-from .admin import admin_view_donations, admin_view_donors
+from .admin import admin_view_donations, admin_view_donors, admin_add_donor, admin_view_donor
 from .donor import donor_dashboard
 from .tuab import tuab_dashboard
 
@@ -114,7 +115,7 @@ def forgot_password(request):
                 if isinstance(error_msg, list): error_msg = error_msg[0]
                 return render(request, 'frontend/forgot_password.html', {'error': error_msg})
         except Exception:
-            return render(request, 'frontend/forgot_password.html', {'error': "Backend service unreachable."})
+            return render(request, 'forgot_password.html', {'error': "Backend service unreachable."})
     return render(request, 'frontend/forgot_password.html')
 
 def reset_password_confirm(request):
@@ -134,8 +135,7 @@ def reset_password_confirm(request):
         payload = {
             'uidb64': uidb64,
             'token': token,
-            'new_password': new_password,
-            'confirm_password': confirm_password
+            'new_password': new_password
         }
 
         try:
@@ -165,15 +165,24 @@ def reset_password_confirm(request):
 def donor_registration(request):
     if request.method == 'POST':
         raw_data = request.POST
+        password = raw_data.get('password')
+        confirm_password = raw_data.get('confirm_password')
+
+        if password != confirm_password:
+            return render(request, 'frontend/donor_registration.html', {
+                'errors': {'password': ["Passwords do not match."]}, 
+                'form_data': raw_data
+            })
+
         lat = raw_data.get('latitude') or 0
         lng = raw_data.get('longitude') or 0
         payload = {
             'role': 'Donor',
             'first_name': raw_data.get('first_name'),
+            'middle_name': raw_data.get('middle_name'),
             'last_name': raw_data.get('last_name'),
             'email': raw_data.get('email'),
             'password': raw_data.get('password'),
-            'confirm_password': raw_data.get('confirm_password') or raw_data.get('password'),
             'contact_no': raw_data.get('contact_no', ''),
             'display_address': raw_data.get('display_address'),
             'latitude': "{:.7f}".format(float(lat)),
@@ -189,7 +198,6 @@ def donor_registration(request):
                 messages.success(request, "Registration successful!")
                 return redirect('login')
             else:
-                from ..services import format_errors
                 return render(request, 'frontend/donor_registration.html', {'errors': format_errors(response.json()), 'form_data': raw_data})
         except Exception:
             messages.error(request, "Backend API is offline or unreachable.")
@@ -198,6 +206,15 @@ def donor_registration(request):
 def tuab_registration(request):
     if request.method == 'POST':
         raw_data = request.POST
+        password = raw_data.get('password')
+        confirm_password = raw_data.get('confirm_password')
+
+        if password != confirm_password:
+            return render(request, 'frontend/tuab_registration.html', {
+                'errors': {'password': ["Passwords do not match."]}, 
+                'form_data': raw_data,
+                'fibers': ALLOWED_FIBERS
+            })
 
         # Fiber Cleaning
         target_fibers = raw_data.get('target_fibers', '').lower().replace(' ', '')
@@ -227,7 +244,6 @@ def tuab_registration(request):
             'email': raw_data.get('email'),
             'contact_no': contact_no,
             'password': raw_data.get('password'),
-            'confirm_password': raw_data.get('confirm_password') or raw_data.get('password'),
             'display_address': raw_data.get('display_address'),
             'latitude': "{:.7f}".format(float(lat)),
             'longitude': "{:.7f}".format(float(lng)),
@@ -245,8 +261,6 @@ def tuab_registration(request):
                 messages.success(request, "TUAB Application Submitted!")
                 return redirect('login')
             else:
-                from ..services import format_errors
-                from ..constants import ALLOWED_FIBERS
                 return render(request, 'frontend/tuab_registration.html', {
                     'errors': format_errors(response.json()),
                     'form_data': raw_data,
@@ -255,5 +269,4 @@ def tuab_registration(request):
         except Exception:
             messages.error(request, "Backend API is offline or unreachable.")
 
-    from ..constants import ALLOWED_FIBERS
     return render(request, 'frontend/tuab_registration.html', {'fibers': ALLOWED_FIBERS})

@@ -10,6 +10,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-default-key-change-me')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
+USE_GCS = os.getenv('USE_GCS', 'False') == 'True'
 
 ALLOWED_HOSTS = ['*']
 
@@ -25,6 +26,9 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     'backend',
 ]
+
+if USE_GCS:
+    INSTALLED_APPS.append('storages')
 
 AUTH_USER_MODEL = 'backend.User'
 
@@ -115,10 +119,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-if os.getenv('USE_GCS', 'False') == 'True':
+if USE_GCS:
     DEFAULT_FILE_STORAGE = 'storages.backends.gcloud.GoogleCloudStorage'
     GS_BUCKET_NAME = os.getenv('GS_BUCKET_NAME')
     GS_PROJECT_ID = os.getenv('GS_PROJECT_ID') # Optional, uses default cred project if not set
+    GS_DEFAULT_ACL = None
+    GS_QUERYSTRING_AUTH = False
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -127,6 +133,8 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10,
 }
 
 SIMPLE_JWT = {
