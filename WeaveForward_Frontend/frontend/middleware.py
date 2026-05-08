@@ -45,7 +45,7 @@ class JWTSessionMiddleware:
                     else:
                         request._auth_failed = True
                 except Exception:
-                    pass
+                    request._auth_failed = True
 
         response = self.get_response(request)
 

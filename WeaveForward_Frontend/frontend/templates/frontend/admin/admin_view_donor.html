@@ -76,7 +76,10 @@
             <span class="chip-grey">Member since {{ donor.created_at|date:"F j Y" }}</span>
           </div>
         </div>
-        <a href="{% url 'admin_view_donors' %}" class="btn btn-primary" style="background: #f5f4f0; color: #666; border: 1px solid #e2e2e2;">Back to Donors List</a>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <a href="{% url 'admin_edit_donor' donor.user_id %}" class="btn btn-primary">Edit Donor</a>
+          <a href="{% url 'admin_view_donors' %}" class="btn btn-primary" style="background: #f5f4f0; color: #666; border: 1px solid #e2e2e2;">Back to Donors List</a>
+        </div>
       </div>
     </div>
 

@@ -45,18 +45,19 @@ class PasswordResetRequestView(APIView):
         serializer = PasswordResetRequestSerializer(data=request.data)
         if serializer.is_valid():
             email = serializer.validated_data['email']
-            user = User.objects.get(email=email)
+            user = User.objects.filter(email=email).first()
 
-            uidb64, token = generate_reset_token(user)
-            reset_link = f"{settings.FRONTEND_URL}/reset-password-confirm/?uidb64={uidb64}&token={token}"
+            if user and user.is_active:
+                uidb64, token = generate_reset_token(user)
+                reset_link = f"{settings.FRONTEND_URL}/reset-password-confirm/?uidb64={uidb64}&token={token}"
+                email_sent = send_password_reset_email(email, reset_link)
+                if email_sent:
+                    log_audit(actor=user, entity_type='User', action='POST', ip_address=get_client_ip(request))
 
-            email_sent = send_password_reset_email(email, reset_link)
-
-            if email_sent:
-                log_audit(actor=user, entity_type='User', action='POST', ip_address=get_client_ip(request))
-                return Response({"message": "Password reset email sent."}, status=status.HTTP_200_OK)
-            else:
-                return Response({"error": "Failed to send email. Resend may be restricting recipients on this API key."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"message": "If that email exists, a password reset link has been sent."},
+                status=status.HTTP_200_OK
+            )
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

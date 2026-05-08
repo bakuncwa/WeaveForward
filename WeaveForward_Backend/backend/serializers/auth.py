@@ -3,12 +3,14 @@ import os
 import re
 
 import pyotp
+from django.contrib.auth import authenticate
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from PIL import Image
 from rest_framework import exceptions, serializers
 from rest_framework.validators import UniqueValidator
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.settings import api_settings
 
 from ..constants import (
     ALLOWED_FIBERS,
@@ -178,8 +180,20 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         return token
 
     def validate(self, attrs):
-        # This will now use our new 'no_active_account' message if auth fails
-        data = super().validate(attrs)
+        authenticate_kwargs = {
+            self.username_field: attrs[self.username_field],
+            'password': attrs['password'],
+        }
+        request = self.context.get('request')
+        if request is not None:
+            authenticate_kwargs['request'] = request
+
+        self.user = authenticate(**authenticate_kwargs)
+        if not api_settings.USER_AUTHENTICATION_RULE(self.user):
+            raise exceptions.AuthenticationFailed(
+                self.error_messages['no_active_account'],
+                'no_active_account'
+            )
 
         # Check if the account is ACTIVE
         if self.user.status != UserAccountStatus.ACTIVE:
@@ -207,6 +221,12 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             if not totp.verify(otp_code):
                 raise serializers.ValidationError({"detail": self.error_messages['invalid_otp']})
 
+        refresh = self.get_token(self.user)
+        data = {
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+        }
+
         # Add extra info to the JSON response
         data['user_id'] = self.user.user_id
         data['role'] = self.user.role
@@ -217,15 +237,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
-
-    def validate_email(self, value):
-        try:
-            user = User.objects.get(email=value)
-            if not user.is_active:
-                raise serializers.ValidationError("This account is not eligible for password reset.")
-        except User.DoesNotExist:
-            raise serializers.ValidationError("No user found with this email.")
-        return value
 
 
 class PasswordResetConfirmSerializer(serializers.Serializer):

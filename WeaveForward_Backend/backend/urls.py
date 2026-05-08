@@ -14,7 +14,9 @@ urlpatterns = [
     # --- USERS ---
     path('users/', views.UserViewSet.as_view({'get': 'list', 'post': 'create'}), name='user-list'),
     path('users/me/', views.UserViewSet.as_view({'get': 'me'}), name='user-me'),
-    path('users/<int:pk>/', views.UserViewSet.as_view({'get': 'retrieve'}), name='user-detail'),
+    path('users/me/2fa/setup/', views.TwoFactorSetupView.as_view(), name='user-2fa-setup'),
+    path('users/<int:pk>/2fa/', views.TwoFactorView.as_view(), name='user-2fa-detail'),
+    path('users/<int:pk>/', views.UserViewSet.as_view({'get': 'retrieve', 'patch': 'partial_update'}), name='user-detail'),
 
     # --- LOCATIONS ---
     path('location/lookup/', views.lookup_location, name='location_lookup'),
