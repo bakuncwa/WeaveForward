@@ -100,7 +100,11 @@ def admin_edit_donor(request, user_id):
 
         if 'contact_no' in payload and payload['contact_no']:
             c = payload['contact_no']
-            payload['contact_no'] = '+63' + (c[1:] if c.startswith('0') else c if c.startswith('+63') else c)
+            if c.startswith('0'):
+                payload['contact_no'] = '+63' + c[1:]
+            elif not c.startswith('+63'):
+                payload['contact_no'] = '+63' + c
+            # if it already starts with +63, leave it alone
 
         if password:
             payload['password'] = password
@@ -178,7 +182,10 @@ def admin_add_donor(request):
         
         if payload['contact_no']:
             c = payload['contact_no']
-            payload['contact_no'] = '+63' + (c[1:] if c.startswith('0') else c if c.startswith('+63') else c)
+            if c.startswith('0'):
+                payload['contact_no'] = '+63' + c[1:]
+            elif not c.startswith('+63'):
+                payload['contact_no'] = '+63' + c
 
         response = api_call(request, 'POST', 'users/', json=payload)
         if response.status_code == 201:
