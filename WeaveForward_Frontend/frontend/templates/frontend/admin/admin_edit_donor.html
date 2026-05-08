@@ -1,0 +1,347 @@
+{% extends 'frontend/base.html' %}
+
+{% block content %}
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root { --g: #e8a020; --bg: #f5f4f0; --brd: #e0dbd4; --lt: #fdf6e8; }
+    .edit-donor-page { box-sizing: border-box; margin: 0; padding: 0; font-family: Poppins, sans-serif; background: var(--bg); color: #222; }
+    .edit-donor-page * { box-sizing: border-box; }
+    .hidden { display: none !important; }
+
+    .panel { background: #fff; border: 1.5px solid var(--brd); border-radius: 14px; padding: 24px; width: 100%; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+    
+    .group { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
+    .group:last-of-type { margin-bottom: 0; }
+    .up { font-size: 10px; color: #888; text-transform: uppercase; }
+    
+    .in { width: 100%; height: 44px; border: 1.5px solid #d5d5d5; border-radius: 8px; padding: 10px 14px; font-size: 14px; outline: none; background: #fff; }
+    .in:focus { border-color: var(--g); }
+    select.in { appearance: none; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23e8a020' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpolyline points='6,9 12,15 18,9'/%3E%3C/svg%3E") no-repeat right 14px center; padding-right: 34px; }
+
+    .pin-wrap { position: relative; }
+    .pin-wrap .in { padding-right: 42px; }
+    .pin { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--g); cursor: pointer; }
+    .ac-list { position: absolute; z-index: 50; top: 100%; left: 0; width: 100%; max-height: 180px; overflow: auto; background: #fff; border: 1.5px solid var(--brd); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.1); }
+    .ac-item { padding: 10px 14px; font-size: 13px; cursor: pointer; border-bottom: 1px solid #f5f5f5; }
+    .ac-item:hover { background: var(--lt); }
+
+    hr { border: none; border-top: 1px solid var(--brd); margin: 20px 0; }
+
+    .btn-submit { width: 100%; padding: 12px; border-radius: 30px; border: none; background: var(--g); color: #fff; font-weight: 600; font-size: 14px; cursor: pointer; margin-top: 20px; }
+    
+    .pfp-area { display: flex; align-items: center; gap: 16px; }
+    .pfp-img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 2px solid var(--brd); }
+    .pfp-change { font-size: 12px; color: var(--g); cursor: pointer; font-weight: 600; border: none; background: none; }
+    
+    .tfa-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border: 1.5px solid #d5d5d5; border-radius: 8px; height: 44px; }
+    .tfa-status { font-size: 13px; font-weight: 600; }
+    .btn-disable { font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 6px; border: 1px solid #e2e2e2; background: #f4f4f4; color: #c0392b; cursor: pointer; }
+
+    .modal { position: fixed; inset: 0; background: transparent; display: flex; align-items: center; justify-content: center; z-index: 999; }
+    .modal-box { background: #f3f3f3; border-radius: 16px; overflow: hidden; width: min(640px, 95vw); box-shadow: 0 20px 60px rgba(0,0,0,.22); }
+    .map-head { display: flex; justify-content: space-between; align-items: flex-start; padding: 14px 16px 10px; }
+    .map-title { display: flex; align-items: center; gap: 7px; color: var(--g); }
+    .map-title-text { font-size: 20px; color: #1f1f1f; }
+    .map-caption { font-size: 12px; color: #7a7a7a; margin-top: 4px; }
+    .map-close { border: none; background: none; color: #333; cursor: pointer; }
+    #picker-map { width: 100%; height: 300px; }
+    .map-actions { display: flex; justify-content: center; padding: 12px 16px 16px; }
+  </style>
+
+<div class="edit-donor-page">
+  <form id="frm" method="post" action="{% url 'admin_edit_donor' donor.user_id %}" enctype="multipart/form-data" novalidate autocomplete="off">
+    {% csrf_token %}
+    <div class="panel">
+      {% if success_message %}
+      <div style="margin-bottom: 16px; padding: 12px 14px; border-radius: 10px; background: #edf7ef; border: 1px solid #cfe6d4; color: #2f6b3b;">
+        {{ success_message }}
+      </div>
+      {% endif %}
+      {% if error_message %}
+      <div style="margin-bottom: 16px; padding: 12px 14px; border-radius: 10px; background: #fff2f0; border: 1px solid #f0c9c2; color: #9f3a2d;">
+        {{ error_message }}
+      </div>
+      {% endif %}
+      {% if errors %}
+      <div style="margin-bottom: 16px; padding: 12px 14px; border-radius: 10px; background: #fffaf0; border: 1px solid #edd9ab; color: #6d571a;">
+        {% for field, field_errors in errors.items %}
+          <div style="margin-bottom: 6px;"><strong>{{ field }}:</strong> {{ field_errors|join:", " }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <input type="hidden" name="current_etag" value="{{ current_etag }}">
+
+      <div class="group">
+        <label class="up">Profile Picture</label>
+        <div class="pfp-area">
+          <img id="pfp-preview" class="pfp-img" src="{% if donor.upload %}{{ donor.upload.file_path }}{% else %}https://ui-avatars.com/api/?name={{ donor.first_name }}+{{ donor.last_name }}&background=e8d5a8&color=8b6914&size=64{% endif %}" alt="Profile" onerror="this.src='https://ui-avatars.com/api/?name={{ donor.first_name }}+{{ donor.last_name }}&background=e8d5a8&color=8b6914&size=64'">
+          <button type="button" class="pfp-change" onclick="getEl('pfp-in').click()">Change Photo</button>
+          <input id="pfp-in" name="profile_picture" type="file" accept=".png,.jpeg,.jpg" class="hidden" onchange="previewPfp(this.files[0])">
+        </div>
+      </div>
+
+      <hr>
+
+      <div class="group"><label class="up">First Name</label><input class="in" name="first_name" value="{{ donor.first_name|default:'' }}"></div>
+      <div class="group"><label class="up">Middle Name</label><input class="in" name="middle_name" value="{{ donor.middle_name|default:'' }}"></div>
+      <div class="group"><label class="up">Last Name</label><input class="in" name="last_name" value="{{ donor.last_name|default:'' }}"></div>
+
+      <hr>
+
+      <div class="group"><label class="up">Phone Number</label><input class="in" name="contact_no" autocomplete="tel" value="{{ donor.contact_no|default:'' }}"></div>
+
+      <div class="group">
+        <label class="up">Two-Factor Authentication</label>
+        <input id="disable-2fa" name="disable_2fa" type="hidden" value="{% if form_data and form_data.disable_2fa %}{{ form_data.disable_2fa }}{% else %}0{% endif %}">
+        <div class="tfa-row">
+          {% if donor.is_2fa_enabled %}
+          <span id="tfa-status" class="tfa-status" style="color: #4a7c59;">Enabled</span>
+          <button id="disable-2fa-btn" type="button" class="btn-disable" onclick="disable2FA(this)">Disable 2FA</button>
+          {% else %}
+          <span class="tfa-status" style="color: #888;">Disabled</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <hr>
+
+      <div class="group"><label class="up">New Password (leave blank to keep current)</label><input class="in"
+          type="password" name="password" autocomplete="new-password"></div>
+      <div class="group"><label class="up">Confirm New Password</label><input class="in" type="password"
+          name="confirm_password" autocomplete="new-password"></div>
+
+      <hr>
+
+      <div class="group" style="position:relative">
+        <label class="up">Pickup Address</label>
+        <div class="pin-wrap">
+          <input id="addr" class="in" name="display_address" autocomplete="off" value="{{ donor.display_address|default:'' }}" placeholder="Loading address..."
+            oninput="srchAddr(this.value)" onblur="hideAc()">
+          <button type="button" class="pin" onclick="openMap()">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+          </button>
+        </div>
+        <div id="ac" class="ac-list hidden"></div>
+        <input id="lat" name="latitude" type="hidden" value="{{ donor.latitude|default:'' }}">
+        <input id="lng" name="longitude" type="hidden" value="{{ donor.longitude|default:'' }}">
+      </div>
+
+      <button type="submit" class="btn-submit">Save Changes</button>
+    </div>
+  </form>
+
+  <div id="map-modal" class="modal hidden">
+    <div class="modal-box">
+      <div class="map-head">
+        <div>
+          <div class="map-title">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            <span class="map-title-text">Pick on Map</span>
+          </div>
+          <div class="map-caption">Click or drag the marker to set the pickup location.</div>
+        </div>
+        <button type="button" class="map-close" onclick="closeMap()">
+          <svg style="display:block" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2"
+            viewBox="0 0 24 24">
+            <path d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div id="picker-map"></div>
+      <div class="map-actions">
+        <button type="button" class="btn-submit" style="width:min(220px,100%);margin:0" onclick="confirmMap()">Confirm Location</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <script>
+    // --- 1. Helpers & Baselines ---
+    const getEl = id => document.getElementById(id);
+    const hideAc = () => setTimeout(() => getEl('ac').classList.add('hidden'), 200);
+    const initialNamedFieldValues = {};
+    const normalizeComparableValue = (name, value, el = null) => {
+      if (el?.type === 'file') return '';
+      if (el?.type === 'checkbox' || el?.type === 'radio') return String(!!el.checked);
+      if (value === '' || value == null) return '';
+      if (['latitude', 'longitude'].includes(name) || el?.type === 'number') {
+        const numericValue = Number(value);
+        return Number.isNaN(numericValue) ? '' : String(numericValue);
+      }
+      return String(value);
+    };
+    const snapshotNamedFieldValue = el => {
+      if (!el?.name) return '';
+      return normalizeComparableValue(el.name, el.value ?? '', el);
+    };
+    const syncInitialNamedFieldValue = el => {
+      if (el?.name) initialNamedFieldValues[el.name] = snapshotNamedFieldValue(el);
+    };
+    const syncInitialNamedFields = () => {
+      document.querySelectorAll('#frm input[name], #frm select[name], #frm textarea[name]').forEach(syncInitialNamedFieldValue);
+    };
+
+    // --- 2. Location ---
+    let acTmr, acRes = [], map, mrk, tmpLat, tmpLng;
+    const rawLat = parseFloat(getEl('lat').value);
+    const rawLng = parseFloat(getEl('lng').value);
+    const hasValidLocation = !isNaN(rawLat) && !isNaN(rawLng);
+    const normalizedInitialLat = hasValidLocation ? rawLat.toFixed(7) : '';
+    const normalizedInitialLng = hasValidLocation ? rawLng.toFixed(7) : '';
+    if (hasValidLocation) {
+      getEl('lat').value = normalizedInitialLat;
+      getEl('lng').value = normalizedInitialLng;
+    }
+
+    async function syncAddressFromCoords(latitude, longitude, syncInitial = false) {
+      try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+        const data = await response.json();
+        if (data.display_name) {
+          getEl('addr').value = data.display_name;
+          if (syncInitial) syncInitialNamedFieldValue(getEl('addr'));
+        }
+      } catch { }
+    }
+
+    function previewPfp(file) {
+      if (!file) return;
+      const validTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+      if (!validTypes.includes(file.type)) {
+        alert('Invalid file type. Please upload a PNG or JPEG image.');
+        getEl('pfp-in').value = '';
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File is too large. Maximum size is 5MB.');
+        getEl('pfp-in').value = '';
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = e => getEl('pfp-preview').src = e.target.result;
+      reader.readAsDataURL(file);
+    }
+
+    function srchAddr(v) {
+      const ac = getEl('ac');
+      if (v.length < 3) return ac.classList.add('hidden');
+      clearTimeout(acTmr);
+      acTmr = setTimeout(async () => {
+        try {
+          acRes = await (await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${v}, Philippines&limit=5&countrycodes=ph`)).json();
+          ac.innerHTML = acRes.map((r, i) => `<div class="ac-item" onmousedown="selAddr(${i})">${r.display_name}</div>`).join('');
+          ac.classList.remove('hidden');
+        } catch { }
+      }, 350);
+    }
+
+    function selAddr(i) {
+      getEl('addr').value = acRes[i].display_name;
+      getEl('lat').value = (+acRes[i].lat).toFixed(7);
+      getEl('lng').value = (+acRes[i].lon).toFixed(7);
+    }
+
+    function openMap() {
+      getEl('map-modal').classList.remove('hidden');
+      tmpLat = parseFloat(getEl('lat').value) || 14.56;
+      tmpLng = parseFloat(getEl('lng').value) || 120.99;
+      if (!map) {
+        map = L.map('picker-map').setView([tmpLat, tmpLng], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        mrk = L.marker([tmpLat, tmpLng], { draggable: true }).addTo(map);
+        mrk.on('dragend', e => { tmpLat = e.target.getLatLng().lat; tmpLng = e.target.getLatLng().lng; });
+        map.on('click', e => { tmpLat = e.latlng.lat; tmpLng = e.latlng.lng; mrk.setLatLng(e.latlng); });
+      } else {
+        map.setView([tmpLat, tmpLng]);
+        mrk.setLatLng([tmpLat, tmpLng]);
+      }
+    }
+
+    async function confirmMap() {
+      getEl('lat').value = (+tmpLat).toFixed(7);
+      getEl('lng').value = (+tmpLng).toFixed(7);
+      closeMap();
+      await syncAddressFromCoords(getEl('lat').value, getEl('lng').value);
+    }
+
+    function closeMap() { getEl('map-modal').classList.add('hidden'); }
+
+    // --- 3. Actions & Submit ---
+    function disable2FA(btn) {
+      getEl('disable-2fa').value = '1';
+      const statusLabel = getEl('tfa-status');
+      if (statusLabel) statusLabel.textContent = 'Will be disabled on save';
+      btn.textContent = 'Will be disabled on save';
+      btn.disabled = true;
+      btn.style.opacity = '0.5';
+    }
+
+    getEl('frm').onsubmit = e => {
+      const form = e.target;
+      const pw = form.password.value;
+      const cpw = form.confirm_password.value;
+      if ((pw || cpw) && pw !== cpw) {
+        e.preventDefault();
+        alert('Passwords do not match.');
+        return;
+      }
+
+      const setDisabled = (el, disabled) => {
+        if (el) el.disabled = disabled;
+      };
+      const hasUnchangedValue = el => {
+        if (el.type === 'file') return el.files.length === 0;
+        const previousValue = Object.prototype.hasOwnProperty.call(initialNamedFieldValues, el.name)
+          ? initialNamedFieldValues[el.name]
+          : snapshotNamedFieldValue(el);
+        const currentValue = snapshotNamedFieldValue(el);
+        return currentValue === previousValue;
+      };
+
+      const passwordInput = form.querySelector('[name="password"]');
+      const confirmPasswordInput = form.querySelector('[name="confirm_password"]');
+      if (passwordInput && !passwordInput.value) setDisabled(passwordInput, true);
+      if (confirmPasswordInput && !confirmPasswordInput.value) setDisabled(confirmPasswordInput, true);
+
+      const photoInput = getEl('pfp-in');
+      if (photoInput && photoInput.files.length === 0) setDisabled(photoInput, true);
+
+      form.querySelectorAll('input[name], select[name], textarea[name]').forEach(el => {
+        if (el.disabled) return;
+        if (el.name === 'csrfmiddlewaretoken') return;
+        if (el.name === 'current_etag' || el.name === 'disable_2fa') return;
+        if (hasUnchangedValue(el)) setDisabled(el, true);
+      });
+    };
+
+    // --- 4. Init ---
+    document.addEventListener('click', e => {
+      if (e.target === getEl('map-modal')) closeMap();
+    });
+
+    window.addEventListener('load', async () => {
+      syncInitialNamedFields();
+      initialNamedFieldValues.latitude = normalizedInitialLat;
+      initialNamedFieldValues.longitude = normalizedInitialLng;
+      if (hasValidLocation) await syncAddressFromCoords(rawLat, rawLng, true);
+      if (getEl('disable-2fa')?.value === '1') {
+        const disableButton = getEl('disable-2fa-btn');
+        const statusLabel = getEl('tfa-status');
+        if (statusLabel) statusLabel.textContent = 'Will be disabled on save';
+        if (disableButton) {
+          disableButton.textContent = 'Will be disabled on save';
+          disableButton.disabled = true;
+          disableButton.style.opacity = '0.5';
+        }
+      }
+    });
+  </script>
+{% endblock %}

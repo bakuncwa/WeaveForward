@@ -47,10 +47,8 @@ def admin_view_donor(request, user_id):
     if response.status_code != 200:
         messages.error(request, "Donor not found.")
         return redirect('admin_view_donors')
-        
-    donor = response.json()
     
-    # Parse dates so Django template filters can work
+    donor = response.json()
     if donor.get('created_at'):
         donor['created_at'] = parse_datetime(donor['created_at'])
     if donor.get('updated_at'):
@@ -62,28 +60,113 @@ def admin_view_donor(request, user_id):
         'donor': donor
     })
 
+
+def admin_edit_donor(request, user_id):
+    profile = get_user_profile(request)
+    if not profile or profile.get('role') != 'Admin':
+        return redirect('login')
+
+    if request.method == 'POST':
+        raw_data = request.POST
+        password = raw_data.get('password')
+        confirm_password = raw_data.get('confirm_password')
+        submitted_etag = raw_data.get('current_etag')
+
+        response = api_call(request, 'GET', f'users/{user_id}/')
+        if response.status_code != 200:
+            messages.error(request, "Donor not found.")
+            return redirect('admin_view_donors')
+        donor = response.json()
+        current_etag = response.headers.get('ETag')
+
+        if password != confirm_password:
+            return render(request, 'frontend/admin/admin_edit_donor.html', {
+                'page_title': 'Edit Donor',
+                'user': profile,
+                'donor': donor,
+                'form_data': raw_data,
+                'current_etag': submitted_etag or current_etag,
+                'errors': {'Password': ["Passwords do not match."]},
+            })
+
+        payload = {}
+        for field in ['first_name', 'middle_name', 'last_name', 'contact_no', 'display_address', 'latitude', 'longitude']:
+            if field in raw_data:
+                payload[field] = raw_data.get(field)
+
+        # Handle middle_name: send empty string if blank
+        if 'middle_name' in payload and payload['middle_name'] is None:
+            payload['middle_name'] = ''
+
+        if 'contact_no' in payload and payload['contact_no']:
+            c = payload['contact_no']
+            payload['contact_no'] = '+63' + (c[1:] if c.startswith('0') else c if c.startswith('+63') else c)
+
+        if password:
+            payload['password'] = password
+
+        files = {}
+        if request.FILES.get('profile_picture'):
+            files['profile_picture'] = request.FILES['profile_picture']
+
+        headers = {'If-Match': submitted_etag} if submitted_etag else {}
+        patch_kwargs = {'headers': headers, 'data': payload}
+        if files:
+            patch_kwargs['files'] = files
+
+        response = api_call(request, 'PATCH', f'users/{user_id}/', **patch_kwargs)
+
+        if response.status_code == 200:
+            if raw_data.get('disable_2fa') == '1' and donor.get('is_2fa_enabled'):
+                try: api_call(request, 'DELETE', f'users/{user_id}/2fa/')
+                except: pass
+            return redirect(f"/admin/donors/{user_id}/edit/?saved=1")
+
+        if response.status_code == 412:
+            return redirect(f"/admin/donors/{user_id}/edit/?stale=1")
+
+        return render(request, 'frontend/admin/admin_edit_donor.html', {
+            'page_title': 'Edit Donor',
+            'user': profile,
+            'donor': donor,
+            'form_data': raw_data,
+            'current_etag': submitted_etag or current_etag,
+            'errors': format_errors(response.json()) if response.status_code == 400 else None,
+            'error_message': "We couldn't verify the donor's latest version. Please try again." if response.status_code == 428 else None,
+        })
+
+    response = api_call(request, 'GET', f'users/{user_id}/')
+    if response.status_code != 200:
+        messages.error(request, "Donor not found.")
+        return redirect('admin_view_donors')
+    donor = response.json()
+    current_etag = response.headers.get('ETag')
+
+    return render(request, 'frontend/admin/admin_edit_donor.html', {
+        'page_title': 'Edit Donor',
+        'user': profile,
+        'donor': donor,
+        'current_etag': current_etag,
+        'success_message': "Donor profile updated successfully." if request.GET.get('saved') == '1' else None,
+        'error_message': "This donor was updated somewhere else. Refresh the page and try again." if request.GET.get('stale') == '1' else None,
+    })
+
 def admin_add_donor(request):
     profile = get_user_profile(request)
     if not profile or profile.get('role') != 'Admin': return redirect('login')
     
     if request.method == 'POST':
         raw_data = request.POST
-        password = raw_data.get('password')
-        confirm_password = raw_data.get('confirm_password')
-
-        if password != confirm_password:
+        if raw_data.get('password') != raw_data.get('confirm_password'):
             return render(request, 'frontend/admin/admin_add_donor.html', {
-                'page_title': 'Add Donor',
-                'user': profile,
-                'errors': {'Password': ["Passwords do not match."]},
-                'form_data': raw_data
+                'page_title': 'Add Donor', 'user': profile, 'errors': {'Password': ["Passwords do not match."]}, 'form_data': raw_data
             })
-        lat = raw_data.get('latitude') or 0
-        lng = raw_data.get('longitude') or 0
+        
+        lat, lng = raw_data.get('latitude') or 0, raw_data.get('longitude') or 0
         payload = {
             'role': 'Donor',
             'first_name': raw_data.get('first_name'),
-            'middle_name': raw_data.get('middle_name'),
+            'middle_name': raw_data.get('middle_name') or '',
             'last_name': raw_data.get('last_name'),
             'email': raw_data.get('email'),
             'password': raw_data.get('password'),
@@ -93,24 +176,17 @@ def admin_add_donor(request):
             'longitude': "{:.7f}".format(float(lng)),
         }
         
-        # Phone cleaning
-        contact_no = payload['contact_no']
-        if contact_no:
-            if contact_no.startswith('0'): contact_no = '+63' + contact_no[1:]
-            elif not contact_no.startswith('+'): contact_no = '+63' + contact_no
-            payload['contact_no'] = contact_no
+        if payload['contact_no']:
+            c = payload['contact_no']
+            payload['contact_no'] = '+63' + (c[1:] if c.startswith('0') else c if c.startswith('+63') else c)
 
         response = api_call(request, 'POST', 'users/', json=payload)
         if response.status_code == 201:
             messages.success(request, "Donor account created successfully.")
             return redirect('admin_view_donors')
-        else:
-            errors = format_errors(response.json())
-            return render(request, 'frontend/admin/admin_add_donor.html', {
-                'page_title': 'Add Donor', 
-                'user': profile, 
-                'errors': errors, 
-                'form_data': raw_data
-            })
+        
+        return render(request, 'frontend/admin/admin_add_donor.html', {
+            'page_title': 'Add Donor', 'user': profile, 'errors': format_errors(response.json()), 'form_data': raw_data
+        })
 
     return render(request, 'frontend/admin/admin_add_donor.html', {'page_title': 'Add Donor', 'user': profile})

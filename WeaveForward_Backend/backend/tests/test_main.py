@@ -1,5 +1,7 @@
+from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
+import pyotp
 from django.test import TestCase
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
@@ -7,8 +9,9 @@ from django.urls import reverse
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 from rest_framework import status
-from backend.models import User, Upload, Donation, DonationItem, BrandFiberLookup, MatchPrediction, UserOperationalStatus
+from backend.models import User, Upload, Donation, DonationItem, BrandFiberLookup, MatchPrediction, UserOperationalStatus, AuditTrail
 from backend.serializers import DonorRegisterSerializer, TUABRegisterSerializer
+from backend.services.etag_service import build_updated_at_etag
 from backend.services.prediction_service import run_predictions_for_donation
 
 class UserModelTest(TestCase):
@@ -268,7 +271,10 @@ class PasswordResetTest(TestCase):
         # 1. Request reset (This will now send a REAL email to you)
         response = self.client.post(self.request_url, {'email': self.email}, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['message'], "Password reset email sent.")
+        self.assertEqual(
+            response.data['message'],
+            "If that email exists, a password reset link has been sent."
+        )
 
         # 2. Generate token (simulating what would be in the email)
         from backend.services.auth_service import generate_reset_token
@@ -297,9 +303,206 @@ class PasswordResetTest(TestCase):
         }, format='json')
         self.assertEqual(login_res.status_code, status.HTTP_200_OK)
 
+
+class TwoFactorEndpointTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.owner_password = "Password123"
+        self.owner = User.objects.create_user(
+            email="twofa_owner@example.com",
+            password=self.owner_password,
+            role="Donor",
+            contact_no="+639150000101",
+            status="ACTIVE"
+        )
+        self.admin = User.objects.create_user(
+            email="twofa_admin@example.com",
+            password="Password123",
+            role="Admin",
+            contact_no="+639150000102",
+            status="ACTIVE"
+        )
+        self.other_user = User.objects.create_user(
+            email="twofa_other@example.com",
+            password="Password123",
+            role="Donor",
+            contact_no="+639150000103",
+            status="ACTIVE"
+        )
+        self.setup_url = reverse('user-2fa-setup')
+        self.owner_2fa_url = reverse('user-2fa-detail', kwargs={'pk': self.owner.user_id})
+        self.other_2fa_url = reverse('user-2fa-detail', kwargs={'pk': self.other_user.user_id})
+        self.login_url = reverse('token_obtain_pair')
+
+    def test_owner_can_get_2fa_setup_data_without_audit_log(self):
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.post(self.setup_url, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('secret', response.data)
+        self.assertIn('provisioning_uri', response.data)
+        self.assertIn('otpauth://totp/', response.data['provisioning_uri'])
+        self.assertIn('issuer=WeaveForward', response.data['provisioning_uri'])
+        self.assertFalse(AuditTrail.objects.filter(entity_type='User', actor=self.owner).exists())
+
+    def test_owner_can_enable_2fa_with_valid_otp(self):
+        self.client.force_authenticate(user=self.owner)
+        setup_response = self.client.post(self.setup_url, format='json')
+        secret = setup_response.data['secret']
+        otp_code = pyotp.TOTP(secret).now()
+
+        response = self.client.post(
+            self.owner_2fa_url,
+            {"secret": secret, "otp_code": otp_code},
+            format='json'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.owner.refresh_from_db()
+        self.assertTrue(self.owner.is_2fa_enabled)
+        self.assertEqual(self.owner.totp_secret, secret)
+        self.assertTrue(
+            AuditTrail.objects.filter(
+                entity_type='User',
+                action='POST',
+                actor=self.owner,
+                fields_modified='is_2fa_enabled,totp_secret'
+            ).exists()
+        )
+
+    def test_owner_cannot_enable_2fa_with_invalid_otp(self):
+        self.client.force_authenticate(user=self.owner)
+        setup_response = self.client.post(self.setup_url, format='json')
+        secret = setup_response.data['secret']
+
+        response = self.client.post(
+            self.owner_2fa_url,
+            {"secret": secret, "otp_code": "000000"},
+            format='json'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['detail'][0], 'Invalid 2FA code.')
+        self.owner.refresh_from_db()
+        self.assertFalse(self.owner.is_2fa_enabled)
+        self.assertIsNone(self.owner.totp_secret)
+
+    def test_admin_cannot_enable_2fa_for_another_user(self):
+        self.client.force_authenticate(user=self.admin)
+        secret = pyotp.random_base32()
+        otp_code = pyotp.TOTP(secret).now()
+
+        response = self.client.post(
+            self.other_2fa_url,
+            {"secret": secret, "otp_code": otp_code},
+            format='json'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.other_user.refresh_from_db()
+        self.assertFalse(self.other_user.is_2fa_enabled)
+        self.assertIsNone(self.other_user.totp_secret)
+
+    def test_non_owner_non_admin_cannot_enable_2fa_for_another_user(self):
+        self.client.force_authenticate(user=self.owner)
+        secret = pyotp.random_base32()
+        otp_code = pyotp.TOTP(secret).now()
+
+        response = self.client.post(
+            self.other_2fa_url,
+            {"secret": secret, "otp_code": otp_code},
+            format='json'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.other_user.refresh_from_db()
+        self.assertFalse(self.other_user.is_2fa_enabled)
+        self.assertIsNone(self.other_user.totp_secret)
+
+    def test_owner_can_disable_own_2fa_and_clear_secret(self):
+        self.owner.is_2fa_enabled = True
+        self.owner.totp_secret = pyotp.random_base32()
+        self.owner.save()
+
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.delete(self.owner_2fa_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.owner.refresh_from_db()
+        self.assertFalse(self.owner.is_2fa_enabled)
+        self.assertIsNone(self.owner.totp_secret)
+        self.assertTrue(
+            AuditTrail.objects.filter(
+                entity_type='User',
+                action='DELETE',
+                actor=self.owner,
+                fields_modified='is_2fa_enabled,totp_secret'
+            ).exists()
+        )
+
+    def test_admin_can_disable_any_users_2fa(self):
+        self.other_user.is_2fa_enabled = True
+        self.other_user.totp_secret = pyotp.random_base32()
+        self.other_user.save()
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.delete(self.other_2fa_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.other_user.refresh_from_db()
+        self.assertFalse(self.other_user.is_2fa_enabled)
+        self.assertIsNone(self.other_user.totp_secret)
+        self.assertTrue(
+            AuditTrail.objects.filter(
+                entity_type='User',
+                action='DELETE',
+                actor=self.admin,
+                fields_modified='is_2fa_enabled,totp_secret'
+            ).exists()
+        )
+
+    def test_non_owner_non_admin_cannot_disable_another_users_2fa(self):
+        self.other_user.is_2fa_enabled = True
+        self.other_user.totp_secret = pyotp.random_base32()
+        self.other_user.save()
+
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.delete(self.other_2fa_url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.other_user.refresh_from_db()
+        self.assertTrue(self.other_user.is_2fa_enabled)
+        self.assertIsNotNone(self.other_user.totp_secret)
+
+    def test_login_requires_otp_only_when_2fa_is_enabled(self):
+        secret = pyotp.random_base32()
+        self.owner.is_2fa_enabled = True
+        self.owner.totp_secret = secret
+        self.owner.save()
+
+        response = self.client.post(
+            self.login_url,
+            {"email": self.owner.email, "password": self.owner_password},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(response.data['2fa_required'])
+
+        response = self.client.post(
+            self.login_url,
+            {
+                "email": self.owner.email,
+                "password": self.owner_password,
+                "otp_code": pyotp.TOTP(secret).now()
+            },
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
 class UserAPITest(TestCase):
     def setUp(self):
         self.client = APIClient()
+        self.upload = Upload.objects.create(file_path="profile/test.png", name="Test Upload")
         self.admin = User.objects.create_user(
             email="admin_test@example.com", password="Pass", role="Admin", contact_no="+639001", status="ACTIVE"
         )
@@ -332,6 +535,7 @@ class UserAPITest(TestCase):
         self.client.force_authenticate(user=self.donor)
         res = self.client.get(reverse('user-detail', kwargs={'pk': self.donor.user_id}))
         self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res['ETag'], build_updated_at_etag(self.donor))
 
         # Donor cannot see admin
         res = self.client.get(reverse('user-detail', kwargs={'pk': self.admin.user_id}))
@@ -349,12 +553,324 @@ class UserAPITest(TestCase):
         self.client.force_authenticate(user=self.admin)
         res = self.client.get(reverse('user-detail', kwargs={'pk': self.donor.user_id}))
         self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn('ETag', res)
 
     def test_user_me_shortcut(self):
         self.client.force_authenticate(user=self.donor)
         res = self.client.get(reverse('user-me'))
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.data['email'], self.donor.email)
+        self.assertEqual(res['ETag'], build_updated_at_etag(self.donor))
+
+    def test_user_patch_self_password_and_upload(self):
+        self.client.force_authenticate(user=self.donor)
+        etag = build_updated_at_etag(self.donor)
+        payload = {
+            "password": "NewPass123",
+            "upload": self.upload.upload_id,
+            "first_name": "Updated",
+        }
+        res = self.client.patch(
+            reverse('user-detail', kwargs={'pk': self.donor.user_id}),
+            payload,
+            format='json',
+            HTTP_IF_MATCH=etag
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+        self.donor.refresh_from_db()
+        self.assertTrue(self.donor.check_password("NewPass123"))
+        self.assertEqual(self.donor.upload_id, self.upload.upload_id)
+        self.assertEqual(self.donor.first_name, "Updated")
+        self.assertEqual(AuditTrail.objects.filter(entity_type='User', action='PATCH', actor=self.donor).count(), 1)
+        self.assertEqual(res['ETag'], build_updated_at_etag(self.donor))
+
+    @patch('backend.serializers.users.default_storage.save', return_value='profile_photos/new-profile.png')
+    def test_user_patch_accepts_profile_picture_file(self, mocked_save):
+        self.client.force_authenticate(user=self.donor)
+        etag = build_updated_at_etag(self.donor)
+        profile_picture = SimpleUploadedFile(
+            "avatar.png",
+            b"fake-image-bytes",
+            content_type="image/png"
+        )
+
+        res = self.client.patch(
+            reverse('user-detail', kwargs={'pk': self.donor.user_id}),
+            {
+                "first_name": "WithPhoto",
+                "profile_picture": profile_picture,
+            },
+            format='multipart',
+            HTTP_IF_MATCH=etag
+        )
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        mocked_save.assert_called_once()
+
+        self.donor.refresh_from_db()
+        self.assertEqual(self.donor.first_name, "WithPhoto")
+        self.assertIsNotNone(self.donor.upload)
+        self.assertEqual(self.donor.upload.file_path, 'profile_photos/new-profile.png')
+        self.assertEqual(self.donor.upload.name, 'avatar.png')
+        self.assertTrue(res.data['upload']['file_path'].endswith(self.donor.upload.file_path))
+        self.assertEqual(res.data['upload']['name'], self.donor.upload.name)
+        self.assertTrue(
+            AuditTrail.objects.filter(
+                entity_type='User',
+                action='PATCH',
+                actor=self.donor,
+                fields_modified='first_name,upload'
+            ).exists()
+        )
+
+    def test_user_patch_forbidden_for_other_user(self):
+        self.client.force_authenticate(user=self.donor)
+        res = self.client.patch(
+            reverse('user-detail', kwargs={'pk': self.admin.user_id}),
+            {"first_name": "Hacker"},
+            format='json',
+            HTTP_IF_MATCH=build_updated_at_etag(self.admin)
+        )
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_patch_other_user(self):
+        self.client.force_authenticate(user=self.admin)
+        etag = build_updated_at_etag(self.donor)
+        payload = {
+            "password": "AdminSet123",
+            "upload": self.upload.upload_id,
+            "last_name": "Changed",
+        }
+        res = self.client.patch(
+            reverse('user-detail', kwargs={'pk': self.donor.user_id}),
+            payload,
+            format='json',
+            HTTP_IF_MATCH=etag
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+        self.donor.refresh_from_db()
+        self.assertTrue(self.donor.check_password("AdminSet123"))
+        self.assertEqual(self.donor.upload_id, self.upload.upload_id)
+        self.assertEqual(self.donor.last_name, "Changed")
+        self.assertEqual(AuditTrail.objects.filter(entity_type='User', action='PATCH', actor=self.admin).count(), 1)
+        self.assertEqual(res['ETag'], build_updated_at_etag(self.donor))
+
+    def test_user_patch_password_only_returns_new_etag(self):
+        self.client.force_authenticate(user=self.donor)
+        original_etag = build_updated_at_etag(self.donor)
+        res = self.client.patch(
+            reverse('user-detail', kwargs={'pk': self.donor.user_id}),
+            {"password": "Password456"},
+            format='json',
+            HTTP_IF_MATCH=original_etag
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.donor.refresh_from_db()
+        self.assertTrue(self.donor.check_password("Password456"))
+        self.assertNotEqual(res['ETag'], original_etag)
+        self.assertEqual(res['ETag'], build_updated_at_etag(self.donor))
+
+    def test_user_patch_rejects_short_password(self):
+        self.client.force_authenticate(user=self.donor)
+        original_password = "Pass"
+        res = self.client.patch(
+            reverse('user-detail', kwargs={'pk': self.donor.user_id}),
+            {"password": "Short1"},
+            format='json',
+            HTTP_IF_MATCH=build_updated_at_etag(self.donor)
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            res.data['password'][0],
+            "Password must be at least 8 characters and contain both letters and numbers."
+        )
+
+        self.donor.refresh_from_db()
+        self.assertTrue(self.donor.check_password(original_password))
+        self.assertFalse(AuditTrail.objects.filter(entity_type='User', action='PATCH', actor=self.donor).exists())
+
+    def test_user_patch_rejects_letters_only_password(self):
+        self.client.force_authenticate(user=self.donor)
+        original_password = "Pass"
+        res = self.client.patch(
+            reverse('user-detail', kwargs={'pk': self.donor.user_id}),
+            {"password": "LettersOnly"},
+            format='json',
+            HTTP_IF_MATCH=build_updated_at_etag(self.donor)
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            res.data['password'][0],
+            "Password must be at least 8 characters and contain both letters and numbers."
+        )
+
+        self.donor.refresh_from_db()
+        self.assertTrue(self.donor.check_password(original_password))
+        self.assertFalse(AuditTrail.objects.filter(entity_type='User', action='PATCH', actor=self.donor).exists())
+
+    def test_user_patch_rejects_numbers_only_password(self):
+        self.client.force_authenticate(user=self.donor)
+        original_password = "Pass"
+        res = self.client.patch(
+            reverse('user-detail', kwargs={'pk': self.donor.user_id}),
+            {"password": "12345678"},
+            format='json',
+            HTTP_IF_MATCH=build_updated_at_etag(self.donor)
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            res.data['password'][0],
+            "Password must be at least 8 characters and contain both letters and numbers."
+        )
+
+        self.donor.refresh_from_db()
+        self.assertTrue(self.donor.check_password(original_password))
+        self.assertFalse(AuditTrail.objects.filter(entity_type='User', action='PATCH', actor=self.donor).exists())
+
+    def test_user_patch_populates_city_and_barangay_from_coordinates(self):
+        self.client.force_authenticate(user=self.donor)
+        res = self.client.patch(
+            reverse('user-detail', kwargs={'pk': self.donor.user_id}),
+            {
+                "latitude": "14.5995120",
+                "longitude": "120.9842220",
+                "display_address": "Manila"
+            },
+            format='json',
+            HTTP_IF_MATCH=build_updated_at_etag(self.donor)
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+        self.donor.refresh_from_db()
+        self.assertIsNotNone(self.donor.city)
+        self.assertIsNotNone(self.donor.barangay)
+        self.assertEqual(res.data['city'], self.donor.city)
+        self.assertEqual(res.data['barangay'], self.donor.barangay)
+
+    def test_user_patch_rejects_email_updates(self):
+        self.client.force_authenticate(user=self.donor)
+        res = self.client.patch(
+            reverse('user-detail', kwargs={'pk': self.donor.user_id}),
+            {"email": "new_email@example.com"},
+            format='json',
+            HTTP_IF_MATCH=build_updated_at_etag(self.donor)
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data['email'][0], "This field cannot be updated through this endpoint.")
+
+    def test_donor_patch_rejects_blank_required_profile_fields(self):
+        self.client.force_authenticate(user=self.donor)
+        res = self.client.patch(
+            reverse('user-detail', kwargs={'pk': self.donor.user_id}),
+            {
+                "first_name": "   ",
+                "last_name": "",
+                "contact_no": "",
+                "display_address": "",
+                "latitude": None,
+                "longitude": None,
+            },
+            format='json',
+            HTTP_IF_MATCH=build_updated_at_etag(self.donor)
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data['first_name'][0], "This field may not be blank.")
+        self.assertEqual(res.data['last_name'][0], "This field may not be blank.")
+        self.assertEqual(res.data['contact_no'][0], "This field may not be blank.")
+
+    def test_user_patch_rejects_status_updates(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.patch(
+            reverse('user-detail', kwargs={'pk': self.donor.user_id}),
+            {"status": "ARCHIVED"},
+            format='json',
+            HTTP_IF_MATCH=build_updated_at_etag(self.donor)
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data['status'][0], "This field cannot be updated through this endpoint.")
+
+    def test_user_patch_rejects_manual_city_and_barangay(self):
+        self.client.force_authenticate(user=self.donor)
+        res = self.client.patch(
+            reverse('user-detail', kwargs={'pk': self.donor.user_id}),
+            {"city": "Manual City", "barangay": "Manual Barangay"},
+            format='json',
+            HTTP_IF_MATCH=build_updated_at_etag(self.donor)
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data['city'][0], "This field cannot be updated through this endpoint.")
+        self.assertEqual(res.data['barangay'][0], "This field cannot be updated through this endpoint.")
+
+    def test_user_patch_requires_if_match_header(self):
+        self.client.force_authenticate(user=self.donor)
+        res = self.client.patch(
+            reverse('user-detail', kwargs={'pk': self.donor.user_id}),
+            {"first_name": "Updated"},
+            format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_428_PRECONDITION_REQUIRED)
+        self.assertEqual(res.data['detail'], "If-Match header is required.")
+        self.assertFalse(AuditTrail.objects.filter(entity_type='User', action='PATCH', actor=self.donor).exists())
+
+    def test_user_patch_rejects_stale_if_match_header(self):
+        self.client.force_authenticate(user=self.donor)
+        stale_etag = build_updated_at_etag(self.donor)
+        self.donor.first_name = "Server Change"
+        self.donor.save()
+
+        res = self.client.patch(
+            reverse('user-detail', kwargs={'pk': self.donor.user_id}),
+            {"last_name": "Client Change"},
+            format='json',
+            HTTP_IF_MATCH=stale_etag
+        )
+        self.assertEqual(res.status_code, status.HTTP_412_PRECONDITION_FAILED)
+        self.assertEqual(res.data['detail'], "ETag does not match the current resource version.")
+        self.donor.refresh_from_db()
+        self.assertNotEqual(self.donor.last_name, "Client Change")
+        self.assertFalse(AuditTrail.objects.filter(entity_type='User', action='PATCH', actor=self.donor).exists())
+
+
+class ETagServiceTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.admin = User.objects.create_user(
+            email="etag_admin@example.com", password="Pass", role="Admin", contact_no="+639150000203", status="ACTIVE"
+        )
+        self.donor = User.objects.create_user(
+            email="etag_donor@example.com", password="Pass", role="Donor", contact_no="+639150000204", status="ACTIVE"
+        )
+
+    def test_build_updated_at_etag_is_stable_and_quoted(self):
+        user = User.objects.create_user(
+            email="etag_test@example.com",
+            password="Password123",
+            role="Donor",
+            contact_no="+639150000201",
+            status="ACTIVE"
+        )
+        etag_one = build_updated_at_etag(user)
+        etag_two = build_updated_at_etag(user)
+
+        self.assertEqual(etag_one, etag_two)
+        self.assertTrue(etag_one.startswith('W/"'))
+        self.assertTrue(etag_one.endswith('"'))
+
+    def test_build_updated_at_etag_changes_when_updated_at_changes(self):
+        user = User.objects.create_user(
+            email="etag_change@example.com",
+            password="Password123",
+            role="Donor",
+            contact_no="+639150000202",
+            status="ACTIVE"
+        )
+        old_etag = build_updated_at_etag(user)
+        User.objects.filter(pk=user.pk).update(updated_at=user.updated_at + timedelta(seconds=1))
+        user.refresh_from_db()
+
+        self.assertNotEqual(old_etag, build_updated_at_etag(user))
 
     def test_create_donor_via_users_endpoint(self):
         payload = {
