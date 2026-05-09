@@ -147,6 +147,7 @@ class TUABRegistrationTest(TestCase):
         user = User.objects.get(email='tuab@example.com')
         self.assertEqual(user.role, 'TUAB')
         self.assertEqual(user.status, 'UNDER_REVIEW')
+        self.assertEqual(user.operational_status, UserOperationalStatus.ACTIVE)
 
     def test_missing_tuab_required_fields(self):
         payload = self.valid_payload.copy()
@@ -222,10 +223,12 @@ class AuthenticationTest(TestCase):
             "password": self.password
         }, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('access', response.data)
-        self.assertIn('refresh', response.data)
+        self.assertNotIn('access', response.data)
+        self.assertNotIn('refresh', response.data)
         self.assertEqual(response.data['role'], "Donor")
         self.assertEqual(response.data['name'], "John Doe")
+        self.assertIn('access_token', response.cookies)
+        self.assertIn('refresh_token', response.cookies)
 
     def test_login_blocked_if_not_active(self):
         self.user.status = "UNDER_REVIEW"
@@ -237,19 +240,24 @@ class AuthenticationTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_logout_success(self):
-        # Login to get tokens
         login_res = self.client.post(self.login_url, {
             "email": "tester@example.com",
             "password": self.password
         }, format='json')
-        access = login_res.data['access']
-        refresh = login_res.data['refresh']
 
-        # Call logout
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access}')
-        response = self.client.post(self.logout_url, {"refresh": refresh}, format='json')
+        cookie_client = APIClient(enforce_csrf_checks=True)
+        cookie_client.cookies['refresh_token'] = login_res.cookies['refresh_token'].value
+        cookie_client.cookies['csrftoken'] = 'a' * 32
+        response = cookie_client.post(
+            self.logout_url,
+            {},
+            format='json',
+            HTTP_X_CSRFTOKEN='a' * 32
+        )
         self.assertEqual(response.status_code, status.HTTP_205_RESET_CONTENT)
         self.assertEqual(response.data['message'], "Successfully logged out")
+        self.assertEqual(response.cookies['access_token'].value, '')
+        self.assertEqual(response.cookies['refresh_token'].value, '')
 
     def test_cookie_auth_can_access_protected_endpoint(self):
         login_res = self.client.post(self.login_url, {
@@ -258,7 +266,7 @@ class AuthenticationTest(TestCase):
         }, format='json')
 
         cookie_client = APIClient(enforce_csrf_checks=True)
-        cookie_client.cookies['access_token'] = login_res.data['access']
+        cookie_client.cookies['access_token'] = login_res.cookies['access_token'].value
         response = cookie_client.get(reverse('user-me'))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -271,7 +279,7 @@ class AuthenticationTest(TestCase):
         }, format='json')
 
         cookie_client = APIClient(enforce_csrf_checks=True)
-        cookie_client.cookies['refresh_token'] = login_res.data['refresh']
+        cookie_client.cookies['refresh_token'] = login_res.cookies['refresh_token'].value
         cookie_client.cookies['csrftoken'] = 'a' * 32
 
         response = cookie_client.post(
@@ -282,7 +290,7 @@ class AuthenticationTest(TestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('access', response.data)
+        self.assertNotIn('access', response.data)
         self.assertIn('access_token', response.cookies)
 
     def test_cookie_refresh_requires_csrf_when_refresh_cookie_is_used(self):
@@ -292,7 +300,7 @@ class AuthenticationTest(TestCase):
         }, format='json')
 
         cookie_client = APIClient(enforce_csrf_checks=True)
-        cookie_client.cookies['refresh_token'] = login_res.data['refresh']
+        cookie_client.cookies['refresh_token'] = login_res.cookies['refresh_token'].value
 
         response = cookie_client.post(reverse('token_refresh'), {}, format='json')
 
@@ -569,10 +577,12 @@ class UserAPITest(TestCase):
             email="admin_test@example.com", password="Pass", role="Admin", contact_no="+639001", status="ACTIVE"
         )
         self.donor = User.objects.create_user(
-            email="donor_test@example.com", password="Pass", role="Donor", contact_no="+639002", status="ACTIVE"
+            email="donor_test@example.com", password="Pass", role="Donor", contact_no="+639002", status="ACTIVE",
+            latitude=Decimal('14.771562800000000'), longitude=Decimal('121.066589400000000')
         )
         self.tuab_active = User.objects.create_user(
-            email="tuab_active@example.com", password="Pass", role="TUAB", contact_no="+639003", status="ACTIVE", operational_status="ACTIVE"
+            email="tuab_active@example.com", password="Pass", role="TUAB", contact_no="+639003", status="ACTIVE", operational_status="ACTIVE",
+            latitude=Decimal('14.771562800000000'), longitude=Decimal('121.066589400000000')
         )
         self.tuab_inactive = User.objects.create_user(
             email="tuab_inactive@example.com", password="Pass", role="TUAB", contact_no="+639004", status="ACTIVE", operational_status="HIBERNATING"
@@ -649,12 +659,27 @@ class UserAPITest(TestCase):
         self.assertEqual(res.data['email'], self.donor.email)
         self.assertEqual(res['ETag'], build_updated_at_etag(self.donor))
         self.assertFalse(res.data['is_subscribed'])
+        self.assertEqual(res.data['latitude'], '14.7715628')
+        self.assertEqual(res.data['longitude'], '121.0665894')
 
         self.client.force_authenticate(user=self.tuab_active)
         res = self.client.get(reverse('user-me'))
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.data['email'], self.tuab_active.email)
         self.assertTrue(res.data['is_subscribed'])
+
+    def test_user_endpoints_serialize_coordinates_with_exactly_7_decimal_places(self):
+        self.client.force_authenticate(user=self.admin)
+        detail_res = self.client.get(reverse('user-detail', kwargs={'pk': self.donor.user_id}))
+        self.assertEqual(detail_res.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_res.data['latitude'], '14.7715628')
+        self.assertEqual(detail_res.data['longitude'], '121.0665894')
+
+        self.client.force_authenticate(user=self.donor)
+        list_res = self.client.get(reverse('user-list'))
+        self.assertEqual(list_res.status_code, status.HTTP_200_OK)
+        self.assertEqual(list_res.data['results'][0]['latitude'], '14.7715628')
+        self.assertEqual(list_res.data['results'][0]['longitude'], '121.0665894')
 
     def test_user_patch_self_password_and_upload(self):
         self.client.force_authenticate(user=self.donor)

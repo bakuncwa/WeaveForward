@@ -2,6 +2,7 @@ from unittest.mock import Mock, patch
 
 from django.test import TestCase
 from django.urls import reverse
+from requests.cookies import RequestsCookieJar
 
 
 def make_response(status_code, payload=None, headers=None):
@@ -9,7 +10,47 @@ def make_response(status_code, payload=None, headers=None):
     response.status_code = status_code
     response.json.return_value = payload if payload is not None else {}
     response.headers = headers or {}
+    response.cookies = RequestsCookieJar()
     return response
+
+
+class AuthViewsTest(TestCase):
+    @patch('frontend.views.api_call')
+    def test_login_mirrors_backend_auth_cookies(self, mocked_api_call):
+        backend_response = make_response(200, {
+            'user_id': 1,
+            'role': 'Donor',
+            'email': 'user@example.com',
+            'name': 'Test User',
+        })
+        backend_response.cookies.set('access_token', 'access-cookie')
+        backend_response.cookies.set('refresh_token', 'refresh-cookie')
+        mocked_api_call.return_value = backend_response
+
+        response = self.client.post(reverse('login'), {
+            'email': 'user@example.com',
+            'password': 'password123',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('donor_dashboard'))
+        self.assertEqual(response.cookies['access_token'].value, 'access-cookie')
+        self.assertEqual(response.cookies['refresh_token'].value, 'refresh-cookie')
+
+    @patch('frontend.views.api_call')
+    def test_logout_calls_backend_without_refresh_body(self, mocked_api_call):
+        mocked_api_call.return_value = make_response(205, {'message': 'Successfully logged out'})
+        self.client.cookies['access_token'] = 'access-cookie'
+        self.client.cookies['refresh_token'] = 'refresh-cookie'
+
+        response = self.client.get(reverse('logout'))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('login'))
+        self.assertEqual(mocked_api_call.call_args.args[1:], ('POST', 'logout/'))
+        self.assertNotIn('json', mocked_api_call.call_args.kwargs)
+        self.assertEqual(response.cookies['access_token'].value, '')
+        self.assertEqual(response.cookies['refresh_token'].value, '')
 
 
 class AdminEditDonorViewTest(TestCase):
@@ -163,24 +204,116 @@ class AdminViewTuabsTest(TestCase):
         self.assertContains(response, 'Weave Lab')
         self.assertContains(response, 'Pro')
         self.assertContains(response, 'Search TUABs...')
-        self.assertContains(response, 'function authFetch')
-        self.assertContains(response, 'data-api-url="http://127.0.0.1:8000/api/users/11/"')
+        self.assertNotContains(response, 'function authFetch')
+        self.assertContains(response, 'data-api-url="/admin/users/11/archive/"')
+        self.assertContains(response, 'href="/admin/tuabs/11/"')
 
-    @patch('frontend.views.admin.get_paginated_data')
-    @patch('frontend.views.admin.get_user_profile')
-    def test_archive_feedback_query_param_is_rendered_on_tuab_list(self, mocked_profile, mocked_page_data):
-        mocked_profile.return_value = self.profile
-        mocked_page_data.return_value = {
-            'results': [],
-            'count': 0,
-            'total_pages': 1,
-            'current_page': 1,
-            'has_next': False,
-            'has_prev': False,
-            'search_query': '',
+
+
+class AdminViewTuabDetailTest(TestCase):
+    def setUp(self):
+        self.profile = {'role': 'Admin', 'first_name': 'Admin'}
+        self.tuab_payload = {
+            'user_id': 11,
+            'role': 'TUAB',
+            'business_name': 'Weave Lab',
+            'email': 'weave@example.com',
+            'description': 'Community textile upcycling studio.',
+            'social_link': 'https://example.com/weavelab',
+            'contact_no': '+639171234567',
+            'barangay': 'Pinyahan',
+            'city': 'Quezon City',
+            'display_address': 'V. Luna Road',
+            'latitude': '14.6500000',
+            'longitude': '121.0500000',
+            'status': 'ACTIVE',
+            'operational_status': 'HIBERNATING',
+            'is_subscribed': True,
+            'max_active_claims': 5,
+            'target_fibers': 'denim, cotton',
+            'min_biodeg_score': '65.00',
+            'max_distance_km': '10.00',
+            'is_2fa_enabled': True,
+            'upload': {'file_path': 'http://127.0.0.1:8000/media/profile.jpg', 'name': 'profile.jpg'},
+            'created_at': '2026-05-01T08:30:00Z',
+            'updated_at': '2026-05-02T09:45:00Z',
         }
 
-        response = self.client.get(reverse('admin_view_tuabs'), {'archived': '1'})
+    @patch('frontend.views.admin.api_call')
+    @patch('frontend.views.admin.get_user_profile')
+    def test_admin_view_tuab_renders_enriched_detail_fields(self, mocked_profile, mocked_api_call):
+        mocked_profile.return_value = self.profile
+        mocked_api_call.return_value = make_response(200, self.tuab_payload)
+
+        response = self.client.get(reverse('admin_view_tuab', kwargs={'user_id': 11}))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'User archived successfully.')
+        self.assertContains(response, 'Weave Lab')
+        self.assertContains(response, 'Hibernating')
+        self.assertContains(response, 'denim')
+        self.assertContains(response, 'cotton')
+        self.assertContains(response, '10.00')
+        self.assertContains(response, 'Pro')
+        self.assertContains(response, 'Community textile upcycling studio.')
+        self.assertContains(response, 'https://example.com/weavelab')
+
+    @patch('frontend.views.admin.api_call')
+    @patch('frontend.views.admin.get_user_profile')
+    def test_admin_view_tuab_renders_fallbacks_for_optional_fields(self, mocked_profile, mocked_api_call):
+        mocked_profile.return_value = self.profile
+        payload = dict(self.tuab_payload)
+        payload.update({
+            'description': None,
+            'social_link': '',
+            'target_fibers': '',
+            'latitude': None,
+            'longitude': None,
+            'barangay': None,
+            'city': None,
+            'display_address': None,
+            'is_subscribed': False,
+        })
+        mocked_api_call.return_value = make_response(200, payload)
+
+        response = self.client.get(reverse('admin_view_tuab', kwargs={'user_id': 11}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'No business description provided.')
+        self.assertContains(response, 'No social link provided.')
+        self.assertContains(response, 'No target fibers set.')
+        self.assertContains(response, 'Free')
+
+    @patch('frontend.views.admin.api_call')
+    @patch('frontend.views.admin.get_user_profile')
+    def test_admin_view_tuab_redirects_to_list_when_backend_record_missing(self, mocked_profile, mocked_api_call):
+        mocked_profile.return_value = self.profile
+        mocked_api_call.return_value = make_response(404, {'detail': 'Not found.'})
+
+        response = self.client.get(reverse('admin_view_tuab', kwargs={'user_id': 11}))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('admin_view_tuabs'))
+
+class AdminArchiveProxyTest(TestCase):
+    def setUp(self):
+        self.profile = {'role': 'Admin', 'first_name': 'Admin'}
+
+    @patch('frontend.views.admin.api_call')
+    @patch('frontend.views.admin.get_user_profile')
+    def test_admin_archive_proxy_calls_backend_delete(self, mocked_profile, mocked_api_call):
+        mocked_profile.return_value = self.profile
+        mocked_api_call.return_value = make_response(204)
+        
+        response = self.client.post(reverse('admin_archive_user_proxy', kwargs={'user_id': 11}))
+        
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(mocked_api_call.call_args.args[1:], ('DELETE', 'users/11/'))
+
+    @patch('frontend.views.admin.get_user_profile')
+    def test_admin_archive_proxy_denies_non_admin(self, mocked_profile):
+        mocked_profile.return_value = {'role': 'Donor'}
+        
+        response = self.client.post(reverse('admin_archive_user_proxy', kwargs={'user_id': 11}))
+        
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('login'))

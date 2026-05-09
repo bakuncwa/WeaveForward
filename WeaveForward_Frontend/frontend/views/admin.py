@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect
+from django.http import JsonResponse
 from django.contrib import messages
 from django.utils.dateparse import parse_datetime
 from ..constants import BACKEND_BASE_URL
@@ -25,11 +26,6 @@ def admin_view_donations(request):
 def admin_view_donors(request):
     profile = get_user_profile(request)
     if not profile or profile.get('role') != 'Admin': return redirect('login')
-
-    if request.GET.get('archived') == '1':
-        messages.success(request, "User archived successfully.")
-    if request.GET.get('error'):
-        messages.error(request, request.GET.get('error'))
     
     page_data = get_paginated_data(request, 'users/', params={'role': 'Donor'})
     
@@ -50,11 +46,6 @@ def admin_view_tuabs(request):
     profile = get_user_profile(request)
     if not profile or profile.get('role') != 'Admin': return redirect('login')
 
-    if request.GET.get('archived') == '1':
-        messages.success(request, "User archived successfully.")
-    if request.GET.get('error'):
-        messages.error(request, request.GET.get('error'))
-
     page_data = get_paginated_data(request, 'users/', params={'role': 'TUAB'})
 
     return render(request, 'frontend/admin/admin_view_tuabs.html', {
@@ -68,6 +59,31 @@ def admin_view_tuabs(request):
         'has_next': page_data['has_next'],
         'has_prev': page_data['has_prev'],
         'q': page_data['search_query']
+    })
+
+def admin_view_tuab(request, user_id):
+    profile = get_user_profile(request)
+    if not profile or profile.get('role') != 'Admin': return redirect('login')
+
+    response = api_call(request, 'GET', f'users/{user_id}/')
+    if response.status_code != 200:
+        messages.error(request, "TUAB not found.")
+        return redirect('admin_view_tuabs')
+
+    tuab = response.json()
+    if tuab.get('created_at'):
+        tuab['created_at'] = parse_datetime(tuab['created_at'])
+    if tuab.get('updated_at'):
+        tuab['updated_at'] = parse_datetime(tuab['updated_at'])
+
+    target_fibers = tuab.get('target_fibers') or ''
+    target_fibers_list = [fiber.strip() for fiber in target_fibers.split(',') if fiber.strip()]
+
+    return render(request, 'frontend/admin/admin_view_tuab.html', {
+        'page_title': 'View Textile Upcycing Artisan Business',
+        'user': profile,
+        'tuab': tuab,
+        'target_fibers_list': target_fibers_list,
     })
 
 def admin_view_donor(request, user_id):
@@ -86,7 +102,7 @@ def admin_view_donor(request, user_id):
         donor['updated_at'] = parse_datetime(donor['updated_at'])
         
     return render(request, 'frontend/admin/admin_view_donor.html', {
-        'page_title': 'Donor Detail',
+        'page_title': 'View Donor',
         'user': profile,
         'donor': donor
     })
@@ -235,3 +251,20 @@ def admin_add_donor(request):
         })
 
     return render(request, 'frontend/admin/admin_add_donor.html', {'page_title': 'Add Donor', 'user': profile})
+def admin_archive_user_proxy(request, user_id):
+    """Admin-only SSR Proxy for archiving/deleting a user."""
+    profile = get_user_profile(request)
+    if not profile or profile.get('role') != 'Admin':
+        return redirect('login')
+    
+    if request.method == 'POST':
+        try:
+            api_call(request, 'DELETE', f'users/{user_id}/')
+        except Exception:
+            pass
+            
+    # Redirect back to the referring page or a fallback
+    referer = request.META.get('HTTP_REFERER')
+    if referer:
+        return redirect(referer)
+    return redirect('admin_view_donors')

@@ -109,7 +109,7 @@ STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # Environment-based settings
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:8001")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://127.0.0.1:8001")
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 CATALOG_CSV_PATH = os.getenv("CATALOG_CSV_PATH", "backend/data/webscraped_data/webscraped_catalog_archive.csv")
 
@@ -136,6 +136,7 @@ AUTH_REFRESH_COOKIE_NAME = os.getenv("AUTH_REFRESH_COOKIE_NAME", "refresh_token"
 AUTH_COOKIE_SECURE = os.getenv("AUTH_COOKIE_SECURE", "False") == "True"
 AUTH_COOKIE_SAMESITE = os.getenv("AUTH_COOKIE_SAMESITE", "Lax")
 AUTH_COOKIE_DOMAIN = os.getenv("AUTH_COOKIE_DOMAIN") or None
+AUTH_COOKIE_PATH = os.getenv("AUTH_COOKIE_PATH", "/")
 CORS_ALLOW_CREDENTIALS = True
 
 # Default primary key field type
@@ -164,14 +165,18 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 10,
 }
 
+AUTH_ACCESS_TOKEN_LIFETIME = timedelta(minutes=60)
+AUTH_REFRESH_TOKEN_LIFETIME = timedelta(days=1)
+AUTH_ACCESS_COOKIE_MAX_AGE = int(AUTH_ACCESS_TOKEN_LIFETIME.total_seconds())
+AUTH_REFRESH_COOKIE_MAX_AGE = int(AUTH_REFRESH_TOKEN_LIFETIME.total_seconds())
+
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ACCESS_TOKEN_LIFETIME': AUTH_ACCESS_TOKEN_LIFETIME,
+    'REFRESH_TOKEN_LIFETIME': AUTH_REFRESH_TOKEN_LIFETIME,
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'UPDATE_LAST_LOGIN': False,
 
-    'AUTH_HEADER_TYPES': ('Bearer',),
     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
     'TOKEN_TYPE_CLAIM': 'token_type',
 

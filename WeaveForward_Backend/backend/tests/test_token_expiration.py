@@ -28,33 +28,26 @@ class TokenExpirationTest(TestCase):
         """
         Test that an access token becomes invalid after its lifetime expires.
         """
-        # 1. Get token
         response = self.client.post(self.login_url, {
             'email': 'test@example.com',
             'password': 'password123'
         })
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        access_token_str = response.data['access']
+        access_token_str = response.cookies['access_token'].value
 
-        # 2. Use token immediately (should work)
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token_str}')
+        self.client.cookies['access_token'] = access_token_str
         response = self.client.get(self.protected_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        # 3. Manually expire the token by creating a new one with a past expiry
-        # We use the same user and token class
         from rest_framework_simplejwt.tokens import AccessToken
         from django.utils import timezone
         
         token = AccessToken.for_user(self.user)
-        # Set 'exp' claim to 1 hour ago
         past_time = timezone.now() - timedelta(hours=1)
         token.payload['exp'] = int(past_time.timestamp())
-        
         expired_token_str = str(token)
 
-        # 4. Use expired token (should fail)
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {expired_token_str}')
+        self.client.cookies['access_token'] = expired_token_str
         response = self.client.get(self.protected_url)
         
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
@@ -67,10 +60,15 @@ class TokenExpirationTest(TestCase):
         """
         Test that a completely invalid token is rejected.
         """
-        self.client.credentials(HTTP_AUTHORIZATION='Bearer invalid_token_here')
+        self.client.cookies['access_token'] = 'invalid_token_here'
         response = self.client.get(self.protected_url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertEqual(response.data['code'], 'token_not_valid')
+
+    def test_bearer_header_is_not_supported(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer invalid_token_here')
+        response = self.client.get(self.protected_url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_no_token(self):
         """

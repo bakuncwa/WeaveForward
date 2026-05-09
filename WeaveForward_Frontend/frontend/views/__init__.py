@@ -1,11 +1,17 @@
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.contrib import messages
-from ..services import api_call, get_user_profile, format_errors
+from ..services import (
+    api_call,
+    apply_backend_auth_cookies,
+    clear_frontend_auth_cookies,
+    format_errors,
+    get_user_profile,
+)
 from ..constants import ALLOWED_FIBERS
 
 # Import role-based views for convenience
-from .admin import admin_view_donations, admin_view_donors, admin_view_tuabs, admin_add_donor, admin_view_donor, admin_edit_donor
+from .admin import admin_view_donations, admin_view_donors, admin_view_tuabs, admin_view_tuab, admin_add_donor, admin_view_donor, admin_edit_donor, admin_archive_user_proxy
 from .donor import donor_dashboard
 from .tuab import tuab_dashboard
 
@@ -27,8 +33,6 @@ def login_view(request):
             
             if response.status_code == 200:
                 data = response.json()
-                
-                # Determine redirect URL based on role
                 role = data.get('role')
                 if role == 'Admin':
                     redirect_url = 'admin_view_donors'
@@ -36,19 +40,12 @@ def login_view(request):
                     redirect_url = 'tuab_dashboard'
                 else:
                     redirect_url = 'donor_dashboard'
-                
+
                 res = redirect(redirect_url)
-                
-                # Set HttpOnly cookies for tokens
-                res.set_cookie('access_token', data['access'], httponly=True, samesite='Lax')
-                res.set_cookie('refresh_token', data['refresh'], httponly=True, samesite='Lax')
-                
+                apply_backend_auth_cookies(res, response)
                 return res
             else:
-                # Handle login failure
                 error_data = response.json()
-                
-                # Check for 2FA requirement
                 if error_data.get('2fa_required'):
                     return render(request, 'frontend/login.html', {
                         'show_2fa': True, 
@@ -77,18 +74,13 @@ def login_view(request):
     return render(request, 'frontend/login.html')
 
 def logout_view(request):
-    refresh_token = request.COOKIES.get('refresh_token')
-    
-    if refresh_token:
-        try:
-            api_call(request, 'POST', 'logout/', json={'refresh': refresh_token})
-        except Exception:
-            pass 
+    try:
+        api_call(request, 'POST', 'logout/')
+    except Exception:
+        pass
 
     response = redirect('login')
-    for cookie in ['access_token', 'refresh_token', 'user_role', 'user_name', 'user_email']:
-        response.delete_cookie(cookie)
-    
+    clear_frontend_auth_cookies(response)
     messages.success(request, "Successfully logged out.")
     return response
 

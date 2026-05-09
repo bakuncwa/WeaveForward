@@ -19,7 +19,7 @@ from ..constants import (
     TUAB_REG_ALLOWED_EXTENSIONS,
     TUAB_REG_MAX_SIZE,
 )
-from ..models import Upload, User, UserAccountStatus
+from ..models import Upload, User, UserAccountStatus, UserOperationalStatus
 from ..services.auth_service import reset_user_password, validate_reset_token
 from ..services.location_service import get_city_and_barangay
 
@@ -144,6 +144,7 @@ class TUABRegisterSerializer(serializers.ModelSerializer):
         documentation = validated_data.pop('documentation', None)
         role, password = validated_data.pop('role', 'TUAB'), validated_data.pop('password')
         validated_data['role'], validated_data['status'] = role, 'UNDER_REVIEW'
+        validated_data['operational_status'] = UserOperationalStatus.ACTIVE
 
         # Process and Minify image files
         if documentation:

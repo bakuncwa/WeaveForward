@@ -526,14 +526,16 @@
           <span>Donations</span>
         </a>
 
-        <a class="wf-nav-item {% if '/admin/tuabs' in request.path %}active{% endif %}" id="anav-tuabs" href="{% url 'admin_view_tuabs' %}">
+        <a class="wf-nav-item {% if '/admin/tuabs' in request.path %}active{% endif %}" id="anav-tuabs"
+          href="{% url 'admin_view_tuabs' %}">
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path d="M3 21h18M3 7v1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7H3m2 4h14v10H5V11z" />
           </svg>
           <span>Textile Upcycling Artisan Businesses</span>
         </a>
 
-        <a class="wf-nav-item {% if '/admin/circular' in request.path %}active{% endif %}" id="anav-circular" href="/admin/circular">
+        <a class="wf-nav-item {% if '/admin/circular' in request.path %}active{% endif %}" id="anav-circular"
+          href="/admin/circular">
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="10" />
             <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
@@ -551,7 +553,8 @@
           <span>Donation Impact Dashboard</span>
         </a>
 
-        <a class="wf-nav-item {% if '/admin/payments' in request.path %}active{% endif %}" id="anav-payments" href="/admin/payments">
+        <a class="wf-nav-item {% if '/admin/payments' in request.path %}active{% endif %}" id="anav-payments"
+          href="/admin/payments">
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <rect x="2" y="5" width="20" height="14" rx="2" />
             <line x1="2" y1="10" x2="22" y2="10" />
@@ -608,45 +611,6 @@
     </div><!-- /.wf-main -->
   </div><!-- /.wf-layout -->
 
-
-  <script>
-    async function authFetch(url, options = {}) {
-      const method = (options.method || 'GET').toUpperCase();
-      const headers = new Headers(options.headers || {});
-      const csrfMatch = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
-      const csrfToken = csrfMatch ? decodeURIComponent(csrfMatch[1]) : null;
-      const apiRoot = `${new URL(url).origin}/api/`;
-
-      if (!['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(method) && csrfToken && !headers.has('X-CSRFToken')) {
-        headers.set('X-CSRFToken', csrfToken);
-      }
-
-      const requestOptions = {
-        ...options,
-        method,
-        credentials: 'include',
-        headers,
-      };
-
-      const refreshHeaders = new Headers();
-      if (csrfToken) {
-        refreshHeaders.set('X-CSRFToken', csrfToken);
-      }
-
-      const refreshResponse = await fetch(`${apiRoot}token/refresh/`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: refreshHeaders,
-      });
-
-      if (!refreshResponse.ok) {
-        window.location.assign("{% url 'login' %}");
-        return null;
-      }
-
-      return fetch(url, requestOptions);
-    }
-  </script>
 
   <script>
     (function () {

@@ -32,6 +32,8 @@ class UploadSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     """Full user profile serializer."""
     is_subscribed = serializers.SerializerMethodField(read_only=True)
+    latitude = serializers.DecimalField(max_digits=18, decimal_places=7, required=False, allow_null=True)
+    longitude = serializers.DecimalField(max_digits=18, decimal_places=7, required=False, allow_null=True)
     upload = serializers.PrimaryKeyRelatedField(queryset=Upload.objects.all(), required=False, allow_null=True)
     profile_picture = serializers.FileField(write_only=True, required=False, allow_null=True)
     password = serializers.CharField(write_only=True, required=False, allow_blank=False)
@@ -168,6 +170,8 @@ class UserSerializer(serializers.ModelSerializer):
 
 class PublicUserSerializer(serializers.ModelSerializer):
     """Limited profile serializer for non-admin views."""
+    latitude = serializers.DecimalField(max_digits=18, decimal_places=7, required=False, allow_null=True)
+    longitude = serializers.DecimalField(max_digits=18, decimal_places=7, required=False, allow_null=True)
     upload = UploadSerializer(read_only=True)
 
     class Meta:

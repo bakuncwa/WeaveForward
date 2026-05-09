@@ -18,12 +18,29 @@ from ..serializers import (
     TUABRegisterSerializer,
 )
 from ..services.audit_service import get_client_ip, log_audit
-from ..services.auth_service import enforce_csrf, generate_reset_token, set_js_auth_cookies
+from ..services.auth_service import (
+    clear_auth_cookies,
+    enforce_csrf,
+    generate_reset_token,
+    set_auth_cookies,
+)
 from ..services.email_service import send_password_reset_email
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        validated_data = serializer.validated_data.copy()
+        access_token = validated_data.pop("access", None)
+        refresh_token = validated_data.pop("refresh", None)
+
+        response = Response(validated_data, status=status.HTTP_200_OK)
+        set_auth_cookies(response, access_token, refresh_token)
+        return response
 
 
 class CookieTokenRefreshView(APIView):
@@ -31,19 +48,22 @@ class CookieTokenRefreshView(APIView):
 
     def post(self, request):
         refresh_cookie = request.COOKIES.get(settings.AUTH_REFRESH_COOKIE_NAME)
-        if refresh_cookie:
-            try:
-                enforce_csrf(request)
-            except Exception as exc:
-                return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+        if not refresh_cookie:
+            return Response({"detail": "Refresh cookie is required."}, status=status.HTTP_401_UNAUTHORIZED)
 
-        refresh_token = request.data.get("refresh") or refresh_cookie
-        serializer = TokenRefreshSerializer(data={"refresh": refresh_token})
+        try:
+            enforce_csrf(request)
+        except Exception as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = TokenRefreshSerializer(data={"refresh": refresh_cookie})
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_401_UNAUTHORIZED)
+            response = Response(serializer.errors, status=status.HTTP_401_UNAUTHORIZED)
+            clear_auth_cookies(response)
+            return response
 
-        response = Response(serializer.validated_data, status=status.HTTP_200_OK)
-        set_js_auth_cookies(
+        response = Response({"message": "Session refreshed."}, status=status.HTTP_200_OK)
+        set_auth_cookies(
             response,
             serializer.validated_data.get("access"),
             serializer.validated_data.get("refresh"),
@@ -55,14 +75,24 @@ class LogoutView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        try:
-            refresh_token = request.data.get("refresh") or request.COOKIES.get(settings.AUTH_REFRESH_COOKIE_NAME)
-            if refresh_token:
-                token = RefreshToken(refresh_token)
+        refresh_cookie = request.COOKIES.get(settings.AUTH_REFRESH_COOKIE_NAME)
+        if refresh_cookie:
+            try:
+                enforce_csrf(request)
+            except Exception as exc:
+                response = Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+                clear_auth_cookies(response)
+                return response
+
+            try:
+                token = RefreshToken(refresh_cookie)
                 token.blacklist()
-        except Exception:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
-        return Response({"message": "Successfully logged out"}, status=status.HTTP_205_RESET_CONTENT)
+            except Exception:
+                pass
+
+        response = Response({"message": "Successfully logged out"}, status=status.HTTP_205_RESET_CONTENT)
+        clear_auth_cookies(response)
+        return response
 
 
 class PasswordResetRequestView(APIView):

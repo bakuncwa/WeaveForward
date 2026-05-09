@@ -19,24 +19,18 @@ def enforce_csrf(request):
 
 class CookieJWTAuthentication(JWTAuthentication):
     def authenticate(self, request):
-        header = self.get_header(request)
-        raw_token = self.get_raw_token(header) if header is not None else None
-        used_cookie = raw_token is None
-
-        if raw_token is None:
-            raw_token = request.COOKIES.get(settings.AUTH_ACCESS_COOKIE_NAME)
+        raw_token = request.COOKIES.get(settings.AUTH_ACCESS_COOKIE_NAME)
 
         if raw_token is None:
             return None
 
-        if used_cookie:
-            enforce_csrf(request)
+        enforce_csrf(request)
 
         validated_token = self.get_validated_token(raw_token)
         return self.get_user(validated_token), validated_token
 
 
-def set_js_auth_cookies(response, access_token, refresh_token=None):
+def set_auth_cookies(response, access_token, refresh_token=None):
     if access_token:
         response.set_cookie(
             settings.AUTH_ACCESS_COOKIE_NAME,
@@ -45,6 +39,8 @@ def set_js_auth_cookies(response, access_token, refresh_token=None):
             secure=settings.AUTH_COOKIE_SECURE,
             samesite=settings.AUTH_COOKIE_SAMESITE,
             domain=settings.AUTH_COOKIE_DOMAIN,
+            path=settings.AUTH_COOKIE_PATH,
+            max_age=settings.AUTH_ACCESS_COOKIE_MAX_AGE,
         )
     if refresh_token:
         response.set_cookie(
@@ -54,7 +50,24 @@ def set_js_auth_cookies(response, access_token, refresh_token=None):
             secure=settings.AUTH_COOKIE_SECURE,
             samesite=settings.AUTH_COOKIE_SAMESITE,
             domain=settings.AUTH_COOKIE_DOMAIN,
+            path=settings.AUTH_COOKIE_PATH,
+            max_age=settings.AUTH_REFRESH_COOKIE_MAX_AGE,
         )
+
+
+def clear_auth_cookies(response):
+    response.delete_cookie(
+        settings.AUTH_ACCESS_COOKIE_NAME,
+        path=settings.AUTH_COOKIE_PATH,
+        domain=settings.AUTH_COOKIE_DOMAIN,
+        samesite=settings.AUTH_COOKIE_SAMESITE,
+    )
+    response.delete_cookie(
+        settings.AUTH_REFRESH_COOKIE_NAME,
+        path=settings.AUTH_COOKIE_PATH,
+        domain=settings.AUTH_COOKIE_DOMAIN,
+        samesite=settings.AUTH_COOKIE_SAMESITE,
+    )
 
 
 def generate_reset_token(user):
