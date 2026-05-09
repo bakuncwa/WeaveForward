@@ -347,7 +347,7 @@
           <td>
             <div class="action-btns">
               <a href="{% url 'admin_view_tuab' tuab.user_id %}" class="btn btn-outline">View</a>
-              <button class="btn btn-outline" type="button" disabled>Edit</button>
+              <a href="{% url 'admin_edit_tuab' tuab.user_id %}" class="btn btn-outline">Edit</a>
               {% if tuab.status != 'ARCHIVED' %}
               <button class="btn btn-outline archive-btn" type="button"
                 data-api-url="/admin/users/{{ tuab.user_id }}/archive/">

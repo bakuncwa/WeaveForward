@@ -317,9 +317,10 @@
       {% endif %}
     </div>
 
-    <div class="hero-actions">
-      <a href="{% url 'admin_view_tuabs' %}" class="btn btn-secondary">Back to TUAB List</a>
-    </div>
+      <div class="hero-actions">
+        <a href="{% url 'admin_edit_tuab' tuab.user_id %}" class="btn btn-secondary" style="background: var(--gold); color: #fff; border-color: var(--gold);">Edit TUAB Profile</a>
+        <a href="{% url 'admin_view_tuabs' %}" class="btn btn-secondary">Back to TUAB List</a>
+      </div>
   </div>
 </div>
 

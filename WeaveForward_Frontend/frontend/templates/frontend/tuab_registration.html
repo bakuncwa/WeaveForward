@@ -728,14 +728,12 @@
     function clMap() { gE('map-modal').classList.add('hidden') }
 
     // Fiber tags
-    const toTitle = s => s.replace(/\b\w/g, l => l.toUpperCase());
-
     function fIn(v) {
       const ac = gE('f-ac');
       if (!v) return ac.classList.add('hidden');
       const matches = fiberLookup.filter(f => f.toLowerCase().includes(v.toLowerCase()) && !tgs.includes(f));
       if (!matches.length) return ac.classList.add('hidden');
-      ac.innerHTML = matches.map(f => `<div class="ac-item" onmousedown="toggleTag('${f}')">${toTitle(f)}</div>`).join('');
+      ac.innerHTML = matches.map(f => `<div class="ac-item" onmousedown="toggleTag('${f}')">${f}</div>`).join('');
       ac.classList.remove('hidden');
     }
 
@@ -745,7 +743,7 @@
     }
 
     function renderTags() {
-      gE('tags').innerHTML = tgs.map(t => `<div class="t-chip">${toTitle(t)}<span onclick="toggleTag('${t}')">×</span></div>`).join('');
+      gE('tags').innerHTML = tgs.map(t => `<div class="t-chip">${t}<span onclick="toggleTag('${t}')">×</span></div>`).join('');
       gE('fibs').value = tgs.join(',');
       gE('ti').value = ''; gE('f-ac').classList.add('hidden');
     }

@@ -268,3 +268,96 @@ def admin_archive_user_proxy(request, user_id):
     if referer:
         return redirect(referer)
     return redirect('admin_view_donors')
+
+from ..services import get_fiber_choices
+
+def admin_edit_tuab(request, user_id):
+    profile = get_user_profile(request)
+    if not profile or profile.get('role') != 'Admin':
+        return redirect('login')
+
+    fibers = get_fiber_choices(request)
+
+    if request.method == 'POST':
+        raw_data = request.POST
+        password = raw_data.get('password')
+        confirm_password = raw_data.get('confirm_password')
+        submitted_etag = raw_data.get('current_etag')
+
+        if password and password != confirm_password:
+            # Re-fetch or use old data? Usually re-fetch to ensure fresh state if they failed validation
+            response = api_call(request, 'GET', f'users/{user_id}/')
+            tuab = response.json()
+            return render(request, 'frontend/admin/admin_edit_tuab.html', {
+                'page_title': 'Edit TUAB', 
+                'user': profile,
+                'tuab': tuab, 
+                'errors': {'Password': ["Passwords do not match."]}, 
+                'form_data': raw_data,
+                'current_etag': submitted_etag or response.headers.get('ETag'),
+                'fibers': fibers
+            })
+
+        payload = raw_data.dict()
+        # Remove internal frontend-only fields and blocked fields
+        for key in ['csrfmiddlewaretoken', 'current_etag', 'confirm_password', 'photo', 'is_2fa_enabled', 'email', 'status', 'remove_payment_method']:
+            payload.pop(key, None)
+        
+        if not payload.get('password'):
+            payload.pop('password', None)
+
+        files = {}
+        if request.FILES.get('photo'):
+            files['profile_picture'] = request.FILES['photo']
+
+        headers = {'If-Match': submitted_etag} if submitted_etag else {}
+        response = api_call(request, 'PATCH', f'users/{user_id}/', data=payload, files=files, headers=headers)
+
+        if response.status_code == 200:
+            # If successful update, handle secondary actions
+            if raw_data.get('is_2fa_enabled') == 'false':
+                api_call(request, 'DELETE', f'users/{user_id}/2fa/')
+            
+            if raw_data.get('remove_payment_method') == '1':
+                # Placeholder for future payment method removal endpoint
+                # api_call(request, 'DELETE', f'users/{user_id}/payment-method/')
+                pass
+
+            messages.success(request, "TUAB profile updated successfully.")
+            return redirect('admin_view_tuabs')
+        
+        # Handle errors (400, 412, etc.)
+        if response.status_code == 412: # Precondition Failed (Stale ETag)
+            messages.error(request, "The profile was updated by someone else. Please refresh and try again.")
+            return redirect(request.path)
+
+        response_data = response.json() if response.status_code == 400 else {}
+        # We need the TUAB data again to re-render the form
+        get_res = api_call(request, 'GET', f'users/{user_id}/')
+        tuab = get_res.json()
+        
+        return render(request, 'frontend/admin/admin_edit_tuab.html', {
+            'page_title': 'Edit TUAB', 
+            'user': profile,
+            'tuab': tuab, 
+            'errors': format_errors(response_data), 
+            'form_data': raw_data,
+            'current_etag': submitted_etag or get_res.headers.get('ETag'),
+            'fibers': fibers
+        })
+
+    # GET Request
+    response = api_call(request, 'GET', f'users/{user_id}/')
+    if response.status_code != 200:
+        messages.error(request, "TUAB not found.")
+        return redirect('admin_view_tuabs')
+    
+    tuab = response.json()
+    current_etag = response.headers.get('ETag')
+    return render(request, 'frontend/admin/admin_edit_tuab.html', {
+        'page_title': 'Edit TUAB', 
+        'user': profile,
+        'tuab': tuab,
+        'current_etag': current_etag,
+        'fibers': fibers
+    })

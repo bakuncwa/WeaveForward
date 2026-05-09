@@ -7,11 +7,12 @@ from ..services import (
     clear_frontend_auth_cookies,
     format_errors,
     get_user_profile,
+    get_fiber_choices,
 )
 from ..constants import ALLOWED_FIBERS
 
 # Import role-based views for convenience
-from .admin import admin_view_donations, admin_view_donors, admin_view_tuabs, admin_view_tuab, admin_add_donor, admin_view_donor, admin_edit_donor, admin_archive_user_proxy
+from .admin import admin_view_donations, admin_view_donors, admin_view_tuabs, admin_view_tuab, admin_add_donor, admin_view_donor, admin_edit_donor, admin_archive_user_proxy, admin_edit_tuab
 from .donor import donor_dashboard
 from .tuab import tuab_dashboard
 
@@ -196,6 +197,7 @@ def donor_registration(request):
     return render(request, 'frontend/donor_registration.html')
 
 def tuab_registration(request):
+    fibers = get_fiber_choices(request)
     if request.method == 'POST':
         raw_data = request.POST
         password = raw_data.get('password')
@@ -205,7 +207,7 @@ def tuab_registration(request):
             return render(request, 'frontend/tuab_registration.html', {
                 'errors': {'password': ["Passwords do not match."]}, 
                 'form_data': raw_data,
-                'fibers': ALLOWED_FIBERS
+                'fibers': fibers
             })
 
         # Fiber Cleaning
@@ -256,9 +258,9 @@ def tuab_registration(request):
                 return render(request, 'frontend/tuab_registration.html', {
                     'errors': format_errors(response.json()),
                     'form_data': raw_data,
-                    'fibers': ALLOWED_FIBERS
+                    'fibers': fibers
                 })
         except Exception:
             messages.error(request, "Backend API is offline or unreachable.")
 
-    return render(request, 'frontend/tuab_registration.html', {'fibers': ALLOWED_FIBERS})
+    return render(request, 'frontend/tuab_registration.html', {'fibers': fibers})
