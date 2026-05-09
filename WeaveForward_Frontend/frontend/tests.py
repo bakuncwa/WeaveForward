@@ -128,3 +128,59 @@ class AdminEditDonorViewTest(TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse('admin_view_donors'))
+
+
+class AdminViewTuabsTest(TestCase):
+    def setUp(self):
+        self.profile = {'role': 'Admin', 'first_name': 'Admin'}
+
+    @patch('frontend.views.admin.get_paginated_data')
+    @patch('frontend.views.admin.get_user_profile')
+    def test_admin_view_tuabs_renders_expected_columns_and_rows(self, mocked_profile, mocked_page_data):
+        mocked_profile.return_value = self.profile
+        mocked_page_data.return_value = {
+            'results': [{
+                'user_id': 11,
+                'business_name': 'Weave Lab',
+                'contact_no': '+639171234567',
+                'is_subscribed': True,
+                'status': 'ACTIVE',
+            }],
+            'count': 1,
+            'total_pages': 1,
+            'current_page': 1,
+            'has_next': False,
+            'has_prev': False,
+            'search_query': 'weave@example.com',
+        }
+
+        response = self.client.get(reverse('admin_view_tuabs'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Business Name')
+        self.assertContains(response, 'Contact No')
+        self.assertContains(response, 'Subscription Tier')
+        self.assertContains(response, 'Weave Lab')
+        self.assertContains(response, 'Pro')
+        self.assertContains(response, 'Search TUABs...')
+        self.assertContains(response, 'function authFetch')
+        self.assertContains(response, 'data-api-url="http://127.0.0.1:8000/api/users/11/"')
+
+    @patch('frontend.views.admin.get_paginated_data')
+    @patch('frontend.views.admin.get_user_profile')
+    def test_archive_feedback_query_param_is_rendered_on_tuab_list(self, mocked_profile, mocked_page_data):
+        mocked_profile.return_value = self.profile
+        mocked_page_data.return_value = {
+            'results': [],
+            'count': 0,
+            'total_pages': 1,
+            'current_page': 1,
+            'has_next': False,
+            'has_prev': False,
+            'search_query': '',
+        }
+
+        response = self.client.get(reverse('admin_view_tuabs'), {'archived': '1'})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'User archived successfully.')

@@ -1,4 +1,5 @@
 from .auth import (
+    CookieTokenRefreshView,
     CustomTokenObtainPairView,
     LogoutView,
     PasswordResetRequestView,

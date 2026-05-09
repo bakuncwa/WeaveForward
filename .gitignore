@@ -21,3 +21,8 @@ ENV/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Logs and Scratch
+*.log
+WeaveForward_Backend/scratch/
+WeaveForward_Backend/media/

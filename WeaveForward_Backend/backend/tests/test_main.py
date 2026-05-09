@@ -15,6 +15,8 @@ from backend.serializers import DonorRegisterSerializer, TUABRegisterSerializer
 from backend.services.audit_service import log_audit
 from backend.services.etag_service import build_updated_at_etag
 from backend.services.prediction_service import run_predictions_for_donation
+from backend.services.user_archive_service import archive_user
+from backend.services.unclaim_donation_service import unclaim_tuab_donations
 
 class UserModelTest(TestCase):
     def setUp(self):
@@ -248,6 +250,64 @@ class AuthenticationTest(TestCase):
         response = self.client.post(self.logout_url, {"refresh": refresh}, format='json')
         self.assertEqual(response.status_code, status.HTTP_205_RESET_CONTENT)
         self.assertEqual(response.data['message'], "Successfully logged out")
+
+    def test_cookie_auth_can_access_protected_endpoint(self):
+        login_res = self.client.post(self.login_url, {
+            "email": "tester@example.com",
+            "password": self.password
+        }, format='json')
+
+        cookie_client = APIClient(enforce_csrf_checks=True)
+        cookie_client.cookies['access_token'] = login_res.data['access']
+        response = cookie_client.get(reverse('user-me'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['email'], "tester@example.com")
+
+    def test_cookie_refresh_uses_refresh_cookie_and_rotates_access_cookie(self):
+        login_res = self.client.post(self.login_url, {
+            "email": "tester@example.com",
+            "password": self.password
+        }, format='json')
+
+        cookie_client = APIClient(enforce_csrf_checks=True)
+        cookie_client.cookies['refresh_token'] = login_res.data['refresh']
+        cookie_client.cookies['csrftoken'] = 'a' * 32
+
+        response = cookie_client.post(
+            reverse('token_refresh'),
+            {},
+            format='json',
+            HTTP_X_CSRFTOKEN='a' * 32
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('access', response.data)
+        self.assertIn('access_token', response.cookies)
+
+    def test_cookie_refresh_requires_csrf_when_refresh_cookie_is_used(self):
+        login_res = self.client.post(self.login_url, {
+            "email": "tester@example.com",
+            "password": self.password
+        }, format='json')
+
+        cookie_client = APIClient(enforce_csrf_checks=True)
+        cookie_client.cookies['refresh_token'] = login_res.data['refresh']
+
+        response = cookie_client.post(reverse('token_refresh'), {}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_preflight_request_returns_cors_headers_for_frontend_origin(self):
+        response = self.client.options(
+            reverse('user-me'),
+            HTTP_ORIGIN='http://127.0.0.1:8001',
+            HTTP_ACCESS_CONTROL_REQUEST_METHOD='DELETE'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response['Access-Control-Allow-Origin'], 'http://127.0.0.1:8001')
+        self.assertEqual(response['Access-Control-Allow-Credentials'], 'true')
 
 class PasswordResetTest(TestCase):
     def setUp(self):
@@ -517,6 +577,20 @@ class UserAPITest(TestCase):
         self.tuab_inactive = User.objects.create_user(
             email="tuab_inactive@example.com", password="Pass", role="TUAB", contact_no="+639004", status="ACTIVE", operational_status="HIBERNATING"
         )
+        Subscription.objects.create(
+            user=self.tuab_active,
+            status='ACTIVE',
+            subscription_tier='PRO',
+            start_date='2026-05-01T00:00:00Z',
+            end_date='2026-06-01T00:00:00Z'
+        )
+        Subscription.objects.create(
+            user=self.donor,
+            status='CANCELLED',
+            subscription_tier='FREE',
+            start_date='2026-04-01T00:00:00Z',
+            end_date='2026-05-01T00:00:00Z'
+        )
 
     def test_user_list_visibility(self):
         # Admin can list all
@@ -524,6 +598,12 @@ class UserAPITest(TestCase):
         res = self.client.get(reverse('user-list'))
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.data['count'], 4) # Admin, Donor, TUAB Active, TUAB Inactive
+        admin_row = next(row for row in res.data['results'] if row['user_id'] == self.admin.user_id)
+        donor_row = next(row for row in res.data['results'] if row['user_id'] == self.donor.user_id)
+        tuab_active_row = next(row for row in res.data['results'] if row['user_id'] == self.tuab_active.user_id)
+        self.assertFalse(admin_row['is_subscribed'])
+        self.assertFalse(donor_row['is_subscribed'])
+        self.assertTrue(tuab_active_row['is_subscribed'])
         
         # Donor sees active TUABs
         self.client.force_authenticate(user=self.donor)
@@ -531,21 +611,21 @@ class UserAPITest(TestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(len(res.data['results']), 1)
         self.assertEqual(res.data['results'][0]['email'], self.tuab_active.email)
+        self.assertNotIn('is_subscribed', res.data['results'][0])
 
     def test_user_retrieve_logic(self):
-        # Donor can see self
+        # Non-admins cannot use user-detail, even for self.
         self.client.force_authenticate(user=self.donor)
         res = self.client.get(reverse('user-detail', kwargs={'pk': self.donor.user_id}))
-        self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertEqual(res['ETag'], build_updated_at_etag(self.donor))
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
 
         # Donor cannot see admin
         res = self.client.get(reverse('user-detail', kwargs={'pk': self.admin.user_id}))
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
         
-        # Donor can see active TUAB
+        # Donor cannot see active TUAB here either.
         res = self.client.get(reverse('user-detail', kwargs={'pk': self.tuab_active.user_id}))
-        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
         
         # Donor cannot see inactive TUAB
         res = self.client.get(reverse('user-detail', kwargs={'pk': self.tuab_inactive.user_id}))
@@ -556,6 +636,11 @@ class UserAPITest(TestCase):
         res = self.client.get(reverse('user-detail', kwargs={'pk': self.donor.user_id}))
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertIn('ETag', res)
+        self.assertFalse(res.data['is_subscribed'])
+
+        res = self.client.get(reverse('user-detail', kwargs={'pk': self.tuab_active.user_id}))
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertTrue(res.data['is_subscribed'])
 
     def test_user_me_shortcut(self):
         self.client.force_authenticate(user=self.donor)
@@ -563,6 +648,13 @@ class UserAPITest(TestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.data['email'], self.donor.email)
         self.assertEqual(res['ETag'], build_updated_at_etag(self.donor))
+        self.assertFalse(res.data['is_subscribed'])
+
+        self.client.force_authenticate(user=self.tuab_active)
+        res = self.client.get(reverse('user-me'))
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['email'], self.tuab_active.email)
+        self.assertTrue(res.data['is_subscribed'])
 
     def test_user_patch_self_password_and_upload(self):
         self.client.force_authenticate(user=self.donor)
@@ -1038,6 +1130,8 @@ class UserArchiveAPITest(TestCase):
 
     def test_admin_can_archive_donor_and_archive_related_records(self):
         pending = self.create_donation(self.donor, 'PENDING')
+        claimed_pickup = self.create_donation(self.donor, 'CLAIMED', delivery_method='PICKUP')
+        in_transit_pickup = self.create_donation(self.donor, 'IN_TRANSIT', delivery_method='PICKUP')
         claimed_delivery = self.create_donation(self.donor, 'CLAIMED', delivery_method='DELIVERY')
         received = self.create_donation(self.donor, 'RECEIVED')
         active_subscription = Subscription.objects.create(
@@ -1061,6 +1155,8 @@ class UserArchiveAPITest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.donor.refresh_from_db()
         pending.refresh_from_db()
+        claimed_pickup.refresh_from_db()
+        in_transit_pickup.refresh_from_db()
         claimed_delivery.refresh_from_db()
         received.refresh_from_db()
         active_subscription.refresh_from_db()
@@ -1070,6 +1166,8 @@ class UserArchiveAPITest(TestCase):
         self.assertIsNone(self.donor.maya_customer_id)
         self.assertIsNone(self.donor.maya_card_id)
         self.assertEqual(pending.status, 'ARCHIVED')
+        self.assertEqual(claimed_pickup.status, 'ARCHIVED')
+        self.assertEqual(in_transit_pickup.status, 'ARCHIVED')
         self.assertEqual(claimed_delivery.status, 'ARCHIVED')
         self.assertEqual(received.status, 'RECEIVED')
         self.assertEqual(active_subscription.status, 'CANCELLED')
@@ -1090,7 +1188,7 @@ class UserArchiveAPITest(TestCase):
                 action='STATUS_CHANGE',
                 fields_modified='["status"]'
             ).count(),
-            2
+            4
         )
         self.assertEqual(
             AuditTrail.objects.filter(
@@ -1102,25 +1200,39 @@ class UserArchiveAPITest(TestCase):
         )
 
     def test_admin_can_archive_tuab_without_changing_operational_status(self):
-        claimed = self.create_donation(self.donor, 'CLAIMED', claimed_by_tuab=self.tuab)
+        claimed_pickup = self.create_donation(self.donor, 'CLAIMED', claimed_by_tuab=self.tuab)
+        in_transit_pickup = self.create_donation(
+            self.donor, 'IN_TRANSIT', claimed_by_tuab=self.tuab
+        )
+        claimed_delivery = self.create_donation(
+            self.donor, 'CLAIMED', delivery_method='DELIVERY', claimed_by_tuab=self.tuab
+        )
         pending = self.create_donation(self.donor, 'PENDING', claimed_by_tuab=self.tuab)
         inventory_one = InventoryLedger.objects.create(
-            source_donation=claimed,
+            source_donation=claimed_pickup,
             usage_amount_kg=Decimal('1.000'),
             weight_before_kg=Decimal('3.000'),
             current_weight_kg=Decimal('2.000'),
         )
         inventory_two = InventoryLedger.objects.create(
-            source_donation=claimed,
+            source_donation=in_transit_pickup,
             usage_amount_kg=Decimal('0.500'),
             weight_before_kg=Decimal('2.500'),
             current_weight_kg=Decimal('2.000'),
         )
         inventory_three = InventoryLedger.objects.create(
-            source_donation=pending,
+            source_donation=claimed_delivery,
             usage_amount_kg=Decimal('0.250'),
             weight_before_kg=Decimal('1.250'),
             current_weight_kg=Decimal('1.000'),
+        )
+        already_archived_ledger = InventoryLedger.objects.create(
+            source_donation=pending,
+            usage_amount_kg=Decimal('0.125'),
+            weight_before_kg=Decimal('0.625'),
+            current_weight_kg=Decimal('0.500'),
+            lifecycle_status='ARCHIVED',
+            archived_at='2026-05-01T00:00:00Z',
         )
         active_subscription = Subscription.objects.create(
             user=self.tuab,
@@ -1135,19 +1247,31 @@ class UserArchiveAPITest(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.tuab.refresh_from_db()
-        claimed.refresh_from_db()
+        claimed_pickup.refresh_from_db()
+        in_transit_pickup.refresh_from_db()
+        claimed_delivery.refresh_from_db()
         pending.refresh_from_db()
         inventory_one.refresh_from_db()
         inventory_two.refresh_from_db()
         inventory_three.refresh_from_db()
+        already_archived_ledger.refresh_from_db()
         active_subscription.refresh_from_db()
 
         self.assertEqual(self.tuab.status, 'ARCHIVED')
         self.assertEqual(self.tuab.operational_status, UserOperationalStatus.ACTIVE)
         self.assertIsNone(self.tuab.maya_customer_id)
         self.assertIsNone(self.tuab.maya_card_id)
-        self.assertEqual(claimed.status, 'ARCHIVED')
-        self.assertEqual(pending.status, 'ARCHIVED')
+        self.assertEqual(claimed_pickup.status, 'PENDING')
+        self.assertIsNone(claimed_pickup.claimed_by_tuab)
+        self.assertIsNone(claimed_pickup.delivery_method)
+        self.assertEqual(in_transit_pickup.status, 'PENDING')
+        self.assertIsNone(in_transit_pickup.claimed_by_tuab)
+        self.assertIsNone(in_transit_pickup.delivery_method)
+        self.assertEqual(claimed_delivery.status, 'PENDING')
+        self.assertIsNone(claimed_delivery.claimed_by_tuab)
+        self.assertIsNone(claimed_delivery.delivery_method)
+        self.assertEqual(pending.status, 'PENDING')
+        self.assertEqual(pending.claimed_by_tuab_id, self.tuab.user_id)
         self.assertEqual(active_subscription.status, 'CANCELLED')
         self.assertEqual(inventory_one.lifecycle_status, 'ARCHIVED')
         self.assertTrue(inventory_one.was_forced_archived)
@@ -1158,6 +1282,12 @@ class UserArchiveAPITest(TestCase):
         self.assertEqual(inventory_three.lifecycle_status, 'ARCHIVED')
         self.assertTrue(inventory_three.was_forced_archived)
         self.assertIsNotNone(inventory_three.archived_at)
+        self.assertEqual(already_archived_ledger.lifecycle_status, 'ARCHIVED')
+        self.assertFalse(already_archived_ledger.was_forced_archived)
+        self.assertEqual(
+            str(already_archived_ledger.archived_at),
+            '2026-05-01 00:00:00+00:00'
+        )
         self.assertEqual(
             AuditTrail.objects.filter(
                 actor=self.admin,
@@ -1174,7 +1304,7 @@ class UserArchiveAPITest(TestCase):
                 action='STATUS_CHANGE',
                 fields_modified='["status"]'
             ).count(),
-            2
+            3
         )
         self.assertEqual(
             AuditTrail.objects.filter(
@@ -1186,7 +1316,7 @@ class UserArchiveAPITest(TestCase):
             3
         )
 
-    def test_archive_rejected_when_associated_delivery_is_in_transit(self):
+    def test_archive_rejected_when_donor_has_delivery_in_transit(self):
         blocked_donation = self.create_donation(self.donor, 'IN_TRANSIT', delivery_method='DELIVERY')
         pending = self.create_donation(self.donor, 'PENDING')
         active_subscription = Subscription.objects.create(
@@ -1218,6 +1348,42 @@ class UserArchiveAPITest(TestCase):
         self.assertEqual(active_subscription.status, 'ACTIVE')
         self.assertEqual(AuditTrail.objects.filter(actor=self.admin).count(), 0)
 
+    def test_archive_rejected_when_tuab_has_delivery_in_transit(self):
+        blocked_donation = self.create_donation(
+            self.donor, 'IN_TRANSIT', delivery_method='DELIVERY', claimed_by_tuab=self.tuab
+        )
+        claimable_pickup = self.create_donation(
+            self.donor, 'CLAIMED', delivery_method='PICKUP', claimed_by_tuab=self.tuab
+        )
+        active_subscription = Subscription.objects.create(
+            user=self.tuab,
+            status='ACTIVE',
+            subscription_tier='PRO',
+            start_date='2026-05-01T00:00:00Z',
+            end_date='2026-06-01T00:00:00Z'
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.delete(reverse('user-detail', kwargs={'pk': self.tuab.user_id}))
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data['detail'],
+            "Archiving is not allowed while an associated delivery donation is in transit."
+        )
+        self.tuab.refresh_from_db()
+        blocked_donation.refresh_from_db()
+        claimable_pickup.refresh_from_db()
+        active_subscription.refresh_from_db()
+
+        self.assertEqual(self.tuab.status, 'ACTIVE')
+        self.assertEqual(blocked_donation.status, 'IN_TRANSIT')
+        self.assertEqual(blocked_donation.claimed_by_tuab_id, self.tuab.user_id)
+        self.assertEqual(claimable_pickup.status, 'CLAIMED')
+        self.assertEqual(claimable_pickup.claimed_by_tuab_id, self.tuab.user_id)
+        self.assertEqual(active_subscription.status, 'ACTIVE')
+        self.assertEqual(AuditTrail.objects.filter(actor=self.admin).count(), 0)
+
     def test_archive_forbidden_for_non_admin(self):
         self.client.force_authenticate(user=self.donor)
         response = self.client.delete(reverse('user-detail', kwargs={'pk': self.tuab.user_id}))
@@ -1243,6 +1409,121 @@ class UserArchiveAPITest(TestCase):
         self.donor.refresh_from_db()
         self.assertEqual(self.donor.status, 'ARCHIVED')
         self.assertEqual(AuditTrail.objects.filter(actor=self.admin).count(), 0)
+
+
+class UserArchiveServiceTest(TestCase):
+    def setUp(self):
+        self.donor = User.objects.create_user(
+            email="service_donor@example.com",
+            password="Password123",
+            role="Donor",
+            contact_no="+639150000351",
+            status="ACTIVE"
+        )
+        self.tuab = User.objects.create_user(
+            email="service_tuab@example.com",
+            password="Password123",
+            role="TUAB",
+            contact_no="+639150000352",
+            status="ACTIVE",
+            operational_status=UserOperationalStatus.ACTIVE
+        )
+
+    def create_donation(self, donor, status_value, delivery_method='PICKUP', claimed_by_tuab=None):
+        return Donation.objects.create(
+            donor=donor,
+            claimed_by_tuab=claimed_by_tuab,
+            delivery_method=delivery_method,
+            status=status_value,
+            pickup_barangay='San Lorenzo',
+            pickup_city='Makati',
+            pickup_display_address='123 Main St',
+            pickup_latitude=Decimal('14.5547'),
+            pickup_longitude=Decimal('121.0244'),
+            preferred_pickup_date='2026-05-10',
+            preferred_pickup_window_start='09:00:00',
+            preferred_pickup_window_end='12:00:00'
+        )
+
+    def test_archive_user_handles_donor_mixed_statuses(self):
+        pending = self.create_donation(self.donor, 'PENDING')
+        claimed_pickup = self.create_donation(self.donor, 'CLAIMED', delivery_method='PICKUP')
+        in_transit_pickup = self.create_donation(self.donor, 'IN_TRANSIT', delivery_method='PICKUP')
+        claimed_delivery = self.create_donation(self.donor, 'CLAIMED', delivery_method='DELIVERY')
+        received = self.create_donation(self.donor, 'RECEIVED')
+
+        result = archive_user(target_user_id=self.donor.user_id)
+
+        self.assertEqual(result["status_code"], 204)
+        self.assertIsNone(result["detail"])
+        pending.refresh_from_db()
+        claimed_pickup.refresh_from_db()
+        in_transit_pickup.refresh_from_db()
+        claimed_delivery.refresh_from_db()
+        received.refresh_from_db()
+        self.donor.refresh_from_db()
+        self.assertEqual(pending.status, 'ARCHIVED')
+        self.assertEqual(claimed_pickup.status, 'ARCHIVED')
+        self.assertEqual(in_transit_pickup.status, 'ARCHIVED')
+        self.assertEqual(claimed_delivery.status, 'ARCHIVED')
+        self.assertEqual(received.status, 'RECEIVED')
+        self.assertEqual(self.donor.status, 'ARCHIVED')
+        self.assertEqual(len(result["changed_donations"]), 4)
+        self.assertEqual(result["changed_inventory_ledgers"], [])
+        self.assertTrue(result["user_updated"])
+
+    def test_unclaim_tuab_donations_clears_expected_fields(self):
+        claimed_pickup = self.create_donation(
+            self.donor, 'CLAIMED', delivery_method='PICKUP', claimed_by_tuab=self.tuab
+        )
+        in_transit_pickup = self.create_donation(
+            self.donor, 'IN_TRANSIT', delivery_method='PICKUP', claimed_by_tuab=self.tuab
+        )
+        claimed_delivery = self.create_donation(
+            self.donor, 'CLAIMED', delivery_method='DELIVERY', claimed_by_tuab=self.tuab
+        )
+        untouched = self.create_donation(
+            self.donor, 'PENDING', delivery_method='PICKUP', claimed_by_tuab=self.tuab
+        )
+
+        result = unclaim_tuab_donations(tuab=self.tuab)
+
+        self.assertEqual(result["status_code"], 204)
+        self.assertIsNone(result["detail"])
+        claimed_pickup.refresh_from_db()
+        in_transit_pickup.refresh_from_db()
+        claimed_delivery.refresh_from_db()
+        untouched.refresh_from_db()
+        for donation in (claimed_pickup, in_transit_pickup, claimed_delivery):
+            self.assertEqual(donation.status, 'PENDING')
+            self.assertIsNone(donation.claimed_by_tuab)
+            self.assertIsNone(donation.delivery_method)
+        self.assertEqual(untouched.status, 'PENDING')
+        self.assertEqual(untouched.claimed_by_tuab_id, self.tuab.user_id)
+        self.assertEqual(len(result["changed_donations"]), 3)
+
+    def test_unclaim_tuab_donations_blocks_delivery_in_transit(self):
+        blocked = self.create_donation(
+            self.donor, 'IN_TRANSIT', delivery_method='DELIVERY', claimed_by_tuab=self.tuab
+        )
+        claimable = self.create_donation(
+            self.donor, 'CLAIMED', delivery_method='PICKUP', claimed_by_tuab=self.tuab
+        )
+
+        result = unclaim_tuab_donations(tuab=self.tuab)
+
+        self.assertEqual(result["status_code"], 400)
+        self.assertEqual(
+            result["detail"],
+            "Archiving is not allowed while an associated delivery donation is in transit."
+        )
+        blocked.refresh_from_db()
+        claimable.refresh_from_db()
+        self.assertEqual(blocked.status, 'IN_TRANSIT')
+        self.assertEqual(blocked.claimed_by_tuab_id, self.tuab.user_id)
+        self.assertEqual(claimable.status, 'CLAIMED')
+        self.assertEqual(claimable.claimed_by_tuab_id, self.tuab.user_id)
+        self.assertEqual(result["changed_donations"], [])
 
 
 class AuditServiceTest(TestCase):

@@ -1,12 +1,11 @@
 from django.urls import path
 from . import views
-from rest_framework_simplejwt.views import TokenRefreshView
 
 urlpatterns = [
     # --- AUTH ---
     path('login/', views.CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('logout/', views.LogoutView.as_view(), name='token_blacklist'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('token/refresh/', views.CookieTokenRefreshView.as_view(), name='token_refresh'),
     path('password-reset/', views.PasswordResetRequestView.as_view(), name='password_reset_request'),
     path('password-reset/confirm/', views.PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
     path('register/', views.RegisterView.as_view(), name='register'),

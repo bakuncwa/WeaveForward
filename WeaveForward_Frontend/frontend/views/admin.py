@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.utils.dateparse import parse_datetime
+from ..constants import BACKEND_BASE_URL
 from ..services import api_call, get_user_profile, get_paginated_data, format_errors
 
 def admin_view_donations(request):
@@ -24,13 +25,43 @@ def admin_view_donations(request):
 def admin_view_donors(request):
     profile = get_user_profile(request)
     if not profile or profile.get('role') != 'Admin': return redirect('login')
+
+    if request.GET.get('archived') == '1':
+        messages.success(request, "User archived successfully.")
+    if request.GET.get('error'):
+        messages.error(request, request.GET.get('error'))
     
     page_data = get_paginated_data(request, 'users/', params={'role': 'Donor'})
     
     return render(request, 'frontend/admin/admin_view_donors.html', {
         'page_title': 'Donors', 
         'user': profile, 
+        'backend_base_url': BACKEND_BASE_URL,
         'donors': page_data['results'],
+        'count': page_data['count'],
+        'total_pages': page_data['total_pages'],
+        'current_page': page_data['current_page'],
+        'has_next': page_data['has_next'],
+        'has_prev': page_data['has_prev'],
+        'q': page_data['search_query']
+    })
+
+def admin_view_tuabs(request):
+    profile = get_user_profile(request)
+    if not profile or profile.get('role') != 'Admin': return redirect('login')
+
+    if request.GET.get('archived') == '1':
+        messages.success(request, "User archived successfully.")
+    if request.GET.get('error'):
+        messages.error(request, request.GET.get('error'))
+
+    page_data = get_paginated_data(request, 'users/', params={'role': 'TUAB'})
+
+    return render(request, 'frontend/admin/admin_view_tuabs.html', {
+        'page_title': 'Textile Upcycling Artisan Businesses',
+        'user': profile,
+        'backend_base_url': BACKEND_BASE_URL,
+        'tuabs': page_data['results'],
         'count': page_data['count'],
         'total_pages': page_data['total_pages'],
         'current_page': page_data['current_page'],
@@ -59,33 +90,6 @@ def admin_view_donor(request, user_id):
         'user': profile,
         'donor': donor
     })
-
-
-def admin_archive_user(request, user_id):
-    profile = get_user_profile(request)
-    if not profile or profile.get('role') != 'Admin':
-        return redirect('login')
-
-    if request.method != 'POST':
-        return redirect('admin_view_donors')
-
-    try:
-        response = api_call(request, 'DELETE', f'users/{user_id}/')
-    except Exception:
-        messages.error(request, "Backend API is offline or unreachable.")
-        return redirect('admin_view_donors')
-
-    if response.status_code == 204:
-        messages.success(request, "User archived successfully.")
-    else:
-        try:
-            data = response.json()
-        except ValueError:
-            data = {}
-        messages.error(request, data.get('detail', "We couldn't archive this user right now."))
-
-    return redirect('admin_view_donors')
-
 
 def admin_edit_donor(request, user_id):
     profile = get_user_profile(request)

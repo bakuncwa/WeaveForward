@@ -5,7 +5,7 @@ from ..services import api_call, get_user_profile, format_errors
 from ..constants import ALLOWED_FIBERS
 
 # Import role-based views for convenience
-from .admin import admin_view_donations, admin_view_donors, admin_add_donor, admin_view_donor, admin_edit_donor, admin_archive_user
+from .admin import admin_view_donations, admin_view_donors, admin_view_tuabs, admin_add_donor, admin_view_donor, admin_edit_donor
 from .donor import donor_dashboard
 from .tuab import tuab_dashboard
 

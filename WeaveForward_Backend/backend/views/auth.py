@@ -2,9 +2,10 @@ from django.conf import settings
 from django.db import transaction
 
 from rest_framework import status
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
@@ -17,7 +18,7 @@ from ..serializers import (
     TUABRegisterSerializer,
 )
 from ..services.audit_service import get_client_ip, log_audit
-from ..services.auth_service import generate_reset_token
+from ..services.auth_service import enforce_csrf, generate_reset_token, set_js_auth_cookies
 from ..services.email_service import send_password_reset_email
 
 
@@ -25,17 +26,43 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
 
+class CookieTokenRefreshView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        refresh_cookie = request.COOKIES.get(settings.AUTH_REFRESH_COOKIE_NAME)
+        if refresh_cookie:
+            try:
+                enforce_csrf(request)
+            except Exception as exc:
+                return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+
+        refresh_token = request.data.get("refresh") or refresh_cookie
+        serializer = TokenRefreshSerializer(data={"refresh": refresh_token})
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_401_UNAUTHORIZED)
+
+        response = Response(serializer.validated_data, status=status.HTTP_200_OK)
+        set_js_auth_cookies(
+            response,
+            serializer.validated_data.get("access"),
+            serializer.validated_data.get("refresh"),
+        )
+        return response
+
+
 class LogoutView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def post(self, request):
         try:
-            refresh_token = request.data["refresh"]
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-            return Response({"message": "Successfully logged out"}, status=status.HTTP_205_RESET_CONTENT)
+            refresh_token = request.data.get("refresh") or request.COOKIES.get(settings.AUTH_REFRESH_COOKIE_NAME)
+            if refresh_token:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
         except Exception:
             return Response(status=status.HTTP_400_BAD_REQUEST)
+        return Response({"message": "Successfully logged out"}, status=status.HTTP_205_RESET_CONTENT)
 
 
 class PasswordResetRequestView(APIView):

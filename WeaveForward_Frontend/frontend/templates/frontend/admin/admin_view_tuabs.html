@@ -70,6 +70,11 @@
       min-width: 120px;
     }
     .btn-primary:hover { background: var(--gold-dark); }
+    .btn-primary[disabled] {
+      background: #e2ded7;
+      color: #8d8d8d;
+      cursor: not-allowed;
+    }
 
     .table-wrap {
       background: #fff;
@@ -84,7 +89,7 @@
     table.dt {
       width: 100%;
       border-collapse: collapse;
-      min-width: 640px;
+      min-width: 760px;
     }
     table.dt th {
       font-family: Poppins, sans-serif;
@@ -140,6 +145,12 @@
       white-space: nowrap;
     }
     .btn-outline:hover { border-color: #cfcfcf; background: #ebebeb; }
+    .btn-outline[disabled] {
+      background: #f4f4f4;
+      color: #a8a8a8;
+      border-color: #e7e7e7;
+      cursor: not-allowed;
+    }
     .modal-backdrop {
       position: fixed;
       inset: 0;
@@ -192,7 +203,7 @@
       border: 1px solid var(--red);
     }
     .modal-btn-archive:hover { background: var(--red); border-color: var(--red); }
-    
+
     .pagination-wrap {
       display: flex;
       justify-content: space-between;
@@ -220,7 +231,7 @@
     }
 </style>
 
-<p class="count" id="donor-count">{{ count }} Total Donors</p>
+<p class="count">{{ count }} Total TUABs</p>
 
 {% if messages %}
   {% for message in messages %}
@@ -235,49 +246,49 @@
     <div class="search-icon">
       <svg width="17" height="17" fill="none" stroke="#aaa" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
     </div>
-    <input name="q" value="{{ q }}" placeholder="Search Donors..."/>
+    <input name="q" value="{{ q }}" placeholder="Search TUABs..."/>
   </form>
-  <a href="{% url 'admin_add_donor' %}" class="btn btn-primary">Add Donor</a>
+  <button class="btn btn-primary" type="button" disabled>Add TUAB</button>
 </div>
 
 <div class="table-wrap">
   <div class="table-scroll">
-    <table class="dt" id="donor-table">
+    <table class="dt">
       <thead>
         <tr>
           <th>ID</th>
-          <th>Full Name</th>
-          <th>Email</th>
+          <th>Business Name</th>
+          <th>Contact No</th>
+          <th>Subscription Tier</th>
           <th>Status</th>
           <th>Actions</th>
         </tr>
       </thead>
-      <tbody id="donor-tbody">
-        {% for donor in donors %}
-        <tr data-status="{{ donor.status|lower }}">
-          <td>{{ donor.user_id }}</td>
-          <td>{{ donor.first_name }}{% if donor.middle_name %} {{ donor.middle_name }}{% endif %} {{ donor.last_name }}</td>
-          <td>{{ donor.email }}</td>
+      <tbody>
+        {% for tuab in tuabs %}
+        <tr>
+          <td>{{ tuab.user_id }}</td>
+          <td>{{ tuab.business_name|default:"-" }}</td>
+          <td>{{ tuab.contact_no|default:"-" }}</td>
+          <td>{% if tuab.is_subscribed %}Pro{% else %}Free{% endif %}</td>
           <td>
-            {% if donor.status == 'ACTIVE' %}
+            {% if tuab.status == 'ACTIVE' %}
             <span class="badge badge-active">Active</span>
-            {% elif donor.status == 'ARCHIVED' %}
+            {% elif tuab.status == 'ARCHIVED' %}
             <span class="badge badge-archived">Archived</span>
             {% else %}
-            <span class="badge" style="background: #888;">{{ donor.status|title }}</span>
+            <span class="badge" style="background: #888;">{{ tuab.status|title }}</span>
             {% endif %}
           </td>
           <td>
             <div class="action-btns">
-              <a href="{% url 'admin_view_donor' donor.user_id %}" class="btn btn-outline">View</a>
-              {% if donor.status != 'ARCHIVED' %}
-              <a href="{% url 'admin_edit_donor' donor.user_id %}" class="btn btn-outline">Edit</a>
-              {% endif %}
-              {% if donor.status == 'ACTIVE' %}
+              <button class="btn btn-outline" type="button" disabled>View</button>
+              <button class="btn btn-outline" type="button" disabled>Edit</button>
+              {% if tuab.status != 'ARCHIVED' %}
               <button
                 class="btn btn-outline archive-btn"
                 type="button"
-                data-api-url="{{ backend_base_url }}users/{{ donor.user_id }}/"
+                data-api-url="{{ backend_base_url }}users/{{ tuab.user_id }}/"
               >
                 Archive
               </button>
@@ -287,7 +298,7 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="5" style="text-align: center; padding: 40px; color: #888;">No donors found.</td>
+          <td colspan="6" style="text-align: center; padding: 40px; color: #888;">No TUABs found.</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -309,7 +320,7 @@
 
 <div id="archive-modal" class="modal-backdrop" aria-hidden="true">
   <div class="modal-box">
-    <div class="modal-title">Archive Donor?</div>
+    <div class="modal-title">Archive TUAB?</div>
     <div class="modal-actions">
       <button id="archive-cancel" class="btn modal-btn-cancel" type="button">Cancel</button>
       <button id="archive-confirm" class="btn modal-btn-archive" type="button">Archive</button>
@@ -318,7 +329,6 @@
 </div>
 
 <script>
-  // JS filtering removed in favor of Server-Side search for paginated results.
   document.querySelectorAll('.flash-message').forEach((el) => {
     setTimeout(() => {
       el.remove();

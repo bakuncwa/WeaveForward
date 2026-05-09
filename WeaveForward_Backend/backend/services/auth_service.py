@@ -1,7 +1,61 @@
+from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
-from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from rest_framework import exceptions
+from rest_framework.authentication import CSRFCheck
+from rest_framework_simplejwt.authentication import JWTAuthentication
+
 from ..models import User
+
+
+def enforce_csrf(request):
+    check = CSRFCheck(lambda request: None)
+    check.process_request(request)
+    reason = check.process_view(request, None, (), {})
+    if reason:
+        raise exceptions.PermissionDenied(f"CSRF Failed: {reason}")
+
+
+class CookieJWTAuthentication(JWTAuthentication):
+    def authenticate(self, request):
+        header = self.get_header(request)
+        raw_token = self.get_raw_token(header) if header is not None else None
+        used_cookie = raw_token is None
+
+        if raw_token is None:
+            raw_token = request.COOKIES.get(settings.AUTH_ACCESS_COOKIE_NAME)
+
+        if raw_token is None:
+            return None
+
+        if used_cookie:
+            enforce_csrf(request)
+
+        validated_token = self.get_validated_token(raw_token)
+        return self.get_user(validated_token), validated_token
+
+
+def set_js_auth_cookies(response, access_token, refresh_token=None):
+    if access_token:
+        response.set_cookie(
+            settings.AUTH_ACCESS_COOKIE_NAME,
+            access_token,
+            httponly=True,
+            secure=settings.AUTH_COOKIE_SECURE,
+            samesite=settings.AUTH_COOKIE_SAMESITE,
+            domain=settings.AUTH_COOKIE_DOMAIN,
+        )
+    if refresh_token:
+        response.set_cookie(
+            settings.AUTH_REFRESH_COOKIE_NAME,
+            refresh_token,
+            httponly=True,
+            secure=settings.AUTH_COOKIE_SECURE,
+            samesite=settings.AUTH_COOKIE_SAMESITE,
+            domain=settings.AUTH_COOKIE_DOMAIN,
+        )
+
 
 def generate_reset_token(user):
     uid = urlsafe_base64_encode(force_bytes(user.pk))

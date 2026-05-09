@@ -7,7 +7,7 @@ import pyotp
 import re
 from rest_framework import serializers
 
-from ..models import Upload, User, UserRole
+from ..models import SubscriptionStatus, Upload, User, UserRole
 from ..services.location_service import get_city_and_barangay
 
 
@@ -31,6 +31,7 @@ class UploadSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     """Full user profile serializer."""
+    is_subscribed = serializers.SerializerMethodField(read_only=True)
     upload = serializers.PrimaryKeyRelatedField(queryset=Upload.objects.all(), required=False, allow_null=True)
     profile_picture = serializers.FileField(write_only=True, required=False, allow_null=True)
     password = serializers.CharField(write_only=True, required=False, allow_blank=False)
@@ -47,9 +48,15 @@ class UserSerializer(serializers.ModelSerializer):
             'business_name', 'description', 'social_link', 'max_active_claims', 'target_fibers',
             'min_biodeg_score', 'max_distance_km', 'operational_status', 'contact_no',
             'barangay', 'city', 'latitude', 'longitude', 'display_address', 'maya_customer_id',
-            'maya_card_id', 'status', 'is_2fa_enabled', 'upload', 'profile_picture', 'documentation',
+            'maya_card_id', 'status', 'is_2fa_enabled', 'is_subscribed', 'upload', 'profile_picture', 'documentation',
             'created_at', 'updated_at'
         ]
+
+    def get_is_subscribed(self, obj):
+        annotated_value = getattr(obj, 'is_subscribed', None)
+        if annotated_value is not None:
+            return bool(annotated_value)
+        return obj.subscriptions.filter(status=SubscriptionStatus.ACTIVE).exists()
 
     def validate_password(self, value):
         if len(value) < 8 or not any(c.isalpha() for c in value) or not any(c.isdigit() for c in value):

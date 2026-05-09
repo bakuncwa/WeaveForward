@@ -157,7 +157,7 @@ class TUABRegisterSerializer(serializers.ModelSerializer):
                 documentation = ContentFile(buffer.getvalue(), name=os.path.splitext(documentation.name)[0] + ".jpg")
 
             path = default_storage.save(f'documentation/{documentation.name}', documentation)
-            validated_data['documentation'] = Upload.objects.create(file_path=path, name=documentation.name)
+            validated_data['documentation'] = Upload.objects.create(file_path=path, name=documentation.name[:50])
 
         return User.objects.create_user(password=password, **validated_data)
 

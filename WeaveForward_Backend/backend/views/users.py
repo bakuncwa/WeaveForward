@@ -1,4 +1,5 @@
 import pyotp
+from django.db.models import Exists, OuterRef
 from django.db import transaction
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
@@ -9,7 +10,7 @@ from rest_framework.views import APIView
 
 from ..utils.view_mixins import PaginatedResponseMixin
 
-from ..models import User, UserRole
+from ..models import Subscription, SubscriptionStatus, User, UserRole
 from ..serializers import (
     PublicUserSerializer, 
     UserSerializer, 
@@ -28,11 +29,6 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
     search_fields = ['email']
     parser_classes = [JSONParser, FormParser, MultiPartParser]
 
-    def get_permissions(self):
-        if self.action == 'create':
-            return [IsAuthenticated()] # We will check the ADMIN role inside create
-        return [IsAuthenticated()]
-
     def get_serializer_class(self):
         if hasattr(self, 'request') and hasattr(self.request, 'user'):
             if self.request.user.role != 'Admin' and self.action in ['list', 'retrieve']:
@@ -41,7 +37,15 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
 
     def get_queryset(self):
         # We define a broad queryset here; the list/retrieve methods handle the role-based blocking
-        return User.objects.select_related('upload').order_by('user_id')
+        active_subscriptions = Subscription.objects.filter(
+            user=OuterRef('pk'),
+            status=SubscriptionStatus.ACTIVE,
+        )
+        return (
+            User.objects.select_related('upload')
+            .annotate(is_subscribed=Exists(active_subscriptions))
+            .order_by('user_id')
+        )
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
@@ -55,13 +59,10 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
         return self.get_paginated_response_data(queryset)
 
     def retrieve(self, request, *args, **kwargs):
-        # Admins can retrieve ANY user; others can retrieve THEMSELVES or active TUABs
+        # Only admins can retrieve arbitrary user records; non-admins must use /users/me/.
         instance = self.get_object()
         if request.user.role != UserRole.ADMIN:
-            is_self = instance.user_id == request.user.user_id
-            is_active_tuab = instance.role == UserRole.TUAB and instance.status == 'ACTIVE' and instance.operational_status == 'ACTIVE'
-            if not (is_self or is_active_tuab):
-                return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         response = super().retrieve(request, *args, **kwargs)
         response['ETag'] = build_updated_at_etag(instance)
         return response
@@ -136,10 +137,10 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
         ip_address = get_client_ip(request)
         with transaction.atomic():
             result = archive_user(target_user_id=kwargs['pk'])
-            if result.detail is not None:
-                return Response({"detail": result.detail}, status=result.status_code)
+            if result["detail"] is not None:
+                return Response({"detail": result["detail"]}, status=result["status_code"])
 
-            if result.user_updated:
+            if result["user_updated"]:
                 log_audit(
                     actor=request.user,
                     entity_type='users',
@@ -148,7 +149,7 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
                     fields_modified=['status', 'maya_customer_id', 'maya_card_id']
                 )
 
-            for donation in result.changed_donations or []:
+            for donation in result["changed_donations"] or []:
                 log_audit(
                     actor=request.user,
                     entity_type='donations',
@@ -157,7 +158,7 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
                     fields_modified=['status']
                 )
 
-            for inventory_ledger in result.changed_inventory_ledgers or []:
+            for inventory_ledger in result["changed_inventory_ledgers"] or []:
                 log_audit(
                     actor=request.user,
                     entity_type='inventory_ledger',
@@ -166,7 +167,7 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
                     fields_modified=['lifecycle_status', 'was_forced_archived', 'archived_at']
                 )
 
-        return Response(status=result.status_code)
+        return Response(status=result["status_code"])
 
 
 class TwoFactorSetupView(APIView):
