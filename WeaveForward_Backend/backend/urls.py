@@ -24,4 +24,9 @@ urlpatterns = [
     path('donations/', views.DonationViewSet.as_view({'get': 'list'}), name='donation-list'),
     path('donations/me/', views.DonationViewSet.as_view({'get': 'me'}), name='donation-me'),
     path('donations/<int:pk>/', views.DonationViewSet.as_view({'get': 'retrieve'}), name='donation-detail'),
+
+    # --- MATERIALS ---
+    path('brandfiberlookups/', views.BrandFiberLookupViewset.as_view({'get': 'list'}), name='material-list'),
+    path('brandfiberlookups/fibers/', views.BrandFiberLookupViewset.as_view({'get': 'fibers'}), name='material-fibers'),
+    path('brandfiberlookups/<int:pk>/', views.BrandFiberLookupViewset.as_view({'get': 'retrieve'}), name='material-detail'),
 ]

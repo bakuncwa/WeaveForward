@@ -9,6 +9,7 @@ from rest_framework import serializers
 
 from ..models import SubscriptionStatus, Upload, User, UserRole
 from ..services.location_service import get_city_and_barangay
+from ..services.brand_fiber_lookup_service import get_allowed_fibers
 
 
 class UploadSerializer(serializers.ModelSerializer):
@@ -83,9 +84,23 @@ class UserSerializer(serializers.ModelSerializer):
             blocked = sorted(self.blocked_patch_fields.intersection(self.initial_data.keys()))
             for f in blocked: errors[f] = "This field cannot be updated through this endpoint."
 
-        # 2. Donor mandatory fields
-        role = data.get('role', instance.role if instance else None)
-        if role == UserRole.DONOR:
+        # 2. Role-specific validation
+        # Use instance role if updating, otherwise use role from data
+        effective_role = instance.role if instance else data.get('role')
+
+        if effective_role == UserRole.DONOR:
+            # Strict Whitelist for Donor
+            allowed_donor_fields = {
+                'first_name', 'middle_name', 'last_name', 'contact_no',
+                'display_address', 'latitude', 'longitude', 'password',
+                'profile_picture', 'upload'
+            }
+            if instance:
+                incoming_fields = set(self.initial_data.keys())
+                unauthorized = sorted(incoming_fields - allowed_donor_fields - self.blocked_patch_fields)
+                for f in unauthorized:
+                    errors[f] = "This field cannot be updated for Donor users."
+
             for f in ['first_name', 'last_name', 'contact_no', 'display_address', 'latitude', 'longitude']:
                 if f in data:
                     if data[f] is None or not str(data[f]).strip():
@@ -93,9 +108,49 @@ class UserSerializer(serializers.ModelSerializer):
                 elif not instance:
                     errors[f] = "This field is required."
 
+        # 3. TUAB mandatory & whitelist fields
+        if effective_role == UserRole.TUAB:
+            # Strict Whitelist: Only fields present in admin_edit_tuab.html
+            allowed_tuab_fields = {
+                'business_name', 'description',
+                'social_link', 'contact_no', 'max_active_claims', 'max_distance_km',
+                'min_biodeg_score', 'operational_status', 'target_fibers', 'latitude',
+                'longitude', 'display_address', 'password', 'profile_picture', 'upload'
+            }
+            if instance:
+                incoming_fields = set(self.initial_data.keys())
+                unauthorized = sorted(incoming_fields - allowed_tuab_fields - self.blocked_patch_fields)
+                for f in unauthorized:
+                    errors[f] = "This field cannot be updated for TUAB users."
+
+            # Mandatory fields for TUAB
+            tuab_mandatory = [
+                'business_name', 'description', 'social_link', 'contact_no',
+                'max_active_claims', 'max_distance_km', 'min_biodeg_score', 'target_fibers'
+            ]
+            for f in tuab_mandatory:
+                if f in data:
+                    val = data[f]
+                    if val is None or (isinstance(val, str) and not val.strip()):
+                        errors[f] = "This field may not be blank for TUAB."
+                elif not instance:
+                    errors[f] = "This field is required for TUAB."
+
+            # Dynamic Fiber Validation
+            target_fibers = data.get('target_fibers')
+            if target_fibers:
+                # Clean input: strictly lowercase, no spaces
+                fibers = [f.strip().lower() for f in target_fibers.split(',') if f.strip()]
+                data['target_fibers'] = ','.join(fibers)
+                
+                db_fibers = get_allowed_fibers()
+                invalid = [f for f in fibers if f not in db_fibers]
+                if invalid:
+                    errors['target_fibers'] = f"Invalid fibers (not in our database): {', '.join(invalid)}"
+
         if errors: raise serializers.ValidationError(errors)
 
-        # 3. Location Lookup & Coordinate Formatting
+        # 4. Location Lookup & Coordinate Formatting
         lat, lng = data.get('latitude'), data.get('longitude')
         if lat is not None or lng is not None:
             latitude, longitude = lat or (instance.latitude if instance else None), lng or (instance.longitude if instance else None)

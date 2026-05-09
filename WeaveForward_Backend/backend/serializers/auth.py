@@ -13,7 +13,6 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.settings import api_settings
 
 from ..constants import (
-    ALLOWED_FIBERS,
     ALLOWED_IMAGE_EXTENSIONS,
     IMAGE_COMPRESSION_QUALITY,
     TUAB_REG_ALLOWED_EXTENSIONS,
@@ -22,6 +21,7 @@ from ..constants import (
 from ..models import Upload, User, UserAccountStatus, UserOperationalStatus
 from ..services.auth_service import reset_user_password, validate_reset_token
 from ..services.location_service import get_city_and_barangay
+from ..services.brand_fiber_lookup_service import get_allowed_fibers
 
 
 class DonorRegisterSerializer(serializers.ModelSerializer):
@@ -121,9 +121,11 @@ class TUABRegisterSerializer(serializers.ModelSerializer):
         if not input_fibers:
             raise serializers.ValidationError({"target_fibers": "At least one preferred fiber type is required."})
 
-        invalid = [f for f in input_fibers if f not in ALLOWED_FIBERS]
+        # Dynamically validate against fibers in the DB
+        db_fibers = get_allowed_fibers()
+        invalid = [f for f in input_fibers if f not in db_fibers]
         if invalid:
-            raise serializers.ValidationError({"target_fibers": f"Invalid fibers: {', '.join(invalid)}"})
+            raise serializers.ValidationError({"target_fibers": f"Invalid fibers (not in our database): {', '.join(invalid)}"})
         data['target_fibers'] = raw_fibers
 
         # 5. Coordinate precision check
@@ -263,4 +265,3 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     def save(self):
         reset_user_password(self.user, self.validated_data['new_password'])
         return self.user
-
