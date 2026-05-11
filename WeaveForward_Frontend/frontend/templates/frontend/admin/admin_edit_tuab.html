@@ -33,7 +33,7 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, .06);
   }
 
-  .group {
+  .panel .group {
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -81,10 +81,10 @@
     margin-bottom: 0;
   }
 
-  hr {
+  .panel hr {
     border: none;
     border-top: 1px solid var(--brd);
-    margin: 20px 0;
+    margin: 22px 0;
   }
 
   .btn-submit {
@@ -344,14 +344,15 @@
   }
 </style>
 
-<form id="frm" method="post" enctype="multipart/form-data">
+<form id="frm" method="post" enctype="multipart/form-data" autocomplete="off">
   {% csrf_token %}
   <div class="panel">
 
     {% if errors %}
-    <div style="margin-bottom: 16px; padding: 12px 14px; border-radius: 10px; background: #fffaf0; border: 1px solid #edd9ab; color: #6d571a; font-size: 14px;">
+    <div
+      style="margin-bottom: 16px; padding: 12px 14px; border-radius: 10px; background: #fffaf0; border: 1px solid #edd9ab; color: #6d571a; font-size: 14px;">
       {% for field, field_errors in errors.items %}
-        <div style="margin-bottom: 6px;"><strong>{{ field }}:</strong> {{ field_errors|join:", " }}</div>
+      <div style="margin-bottom: 6px;"><strong>{{ field }}:</strong> {{ field_errors|join:", " }}</div>
       {% endfor %}
     </div>
     {% endif %}
@@ -362,10 +363,10 @@
     <div class="group">
       <label class="up">Profile Picture</label>
       <div class="pfp-area">
-        <img id="pfp-preview" class="pfp-img" src="{{ tuab.upload.file_path }}" alt="Profile"
+        <img id="pfp-preview" class="pfp-img" src="{{ tuab.upload }}" alt="Profile"
           onerror="this.src='https://ui-avatars.com/api/?name={{ tuab.business_name }}&background=e8d5a8&color=8b6914&size=64'">
         <button type="button" class="pfp-change" onclick="getEl('pfp-in').click()">Change Photo</button>
-        <input id="pfp-in" name="photo" type="file" accept="image/*" class="hidden"
+        <input id="pfp-in" name="upload" type="file" accept="image/*" class="hidden"
           onchange="previewPfp(this.files[0])">
       </div>
     </div>
@@ -388,8 +389,8 @@
     <div class="g2">
       <div class="group"><label class="up">Max Active Claims</label><input class="in" type="number" step="1" min="0"
           name="max_active_claims" value="{{ tuab.max_active_claims }}"></div>
-      <div class="group"><label class="up">Max Distance (km)</label><input class="in" type="number" step="0.01"
-          min="0" max="100" name="max_distance_km" value="{{ tuab.max_distance_km }}"></div>
+      <div class="group"><label class="up">Max Distance (km)</label><input class="in" type="number" step="0.01" min="0"
+          max="100" name="max_distance_km" value="{{ tuab.max_distance_km }}"></div>
     </div>
     <div class="g2" style="margin-top:14px">
       <div class="group"><label class="up">Min. Biodegradability Score</label><input class="in" type="number"
@@ -408,7 +409,7 @@
       <label class="up">Target Fiber Types</label>
       <div class="t-box" onclick="getEl('ti').focus()">
         <div id="tags"></div>
-        <input id="ti" placeholder="Add fiber…" autocomplete="off" oninput="handleFiberInput(this.value)"
+        <input id="ti" placeholder="Add fiber…" autocomplete="off" autocapitalize="off" spellcheck="false" oninput="handleFiberInput(this.value)"
           onblur="hideDd('f-ac')">
         <div id="f-ac" class="f-dd hidden"></div>
       </div>
@@ -423,10 +424,10 @@
       <input id="2fa-field" name="is_2fa_enabled" type="hidden" value="{{ tuab.is_2fa_enabled|lower }}">
       <div class="tfa-row">
         {% if tuab.is_2fa_enabled %}
-          <span class="tfa-status" style="color: #4a7c59;">Enabled</span>
-          <button type="button" class="btn-disable" onclick="disable2FA(this)">Disable 2FA</button>
+        <span class="tfa-status" style="color: #4a7c59;">Enabled</span>
+        <button type="button" class="btn-disable" onclick="disable2FA(this)">Disable 2FA</button>
         {% else %}
-          <span class="tfa-status" style="color: #888;">Disabled</span>
+        <span class="tfa-status" style="color: #888;">Disabled</span>
         {% endif %}
       </div>
     </div>
@@ -435,9 +436,9 @@
 
     <!-- Password -->
     <div class="group"><label class="up">New Password (leave blank to keep current)</label><input class="in"
-        type="password" name="password"></div>
+        type="password" name="password" autocomplete="new-password"></div>
     <div class="group"><label class="up">Confirm New Password</label><input class="in" type="password"
-        name="confirm_password"></div>
+        name="confirm_password" autocomplete="new-password"></div>
 
     <hr>
 
@@ -446,13 +447,14 @@
       <label class="up">Payment Method</label>
       <input id="remove-pay" name="remove_payment_method" type="hidden" value="0">
       {% if tuab.is_subscribed %}
-        <button type="button" class="btn-remove-pay" id="btn-remove-pay" onclick="stageRemovePayment(this)">
-          Remove Payment Method
-        </button>
+      <button type="button" class="btn-remove-pay" id="btn-remove-pay" onclick="stageRemovePayment(this)">
+        Unsubscribe Business
+      </button>
       {% else %}
-        <button type="button" class="btn-remove-pay" disabled style="opacity: 0.5; cursor: default; background: #f9f9f9; color: #999; border-color: #eee;">
-          No Active Subscription
-        </button>
+      <button type="button" class="btn-remove-pay" disabled
+        style="opacity: 0.5; cursor: default; background: #f9f9f9; color: #999; border-color: #eee;">
+        No Active Subscription
+      </button>
       {% endif %}
     </div>
 
@@ -462,8 +464,8 @@
     <div class="group" style="position:relative;margin-top:14px">
       <label class="up">Display Address *</label>
       <div class="pin-wrap">
-        <input id="addr" class="in" name="display_address" placeholder="Loading address…"
-          oninput="srchAddr(this.value)" onblur="hideDd('ac')" required>
+        <input id="addr" class="in" name="display_address" placeholder="Loading address…" oninput="srchAddr(this.value)"
+          onblur="hideDd('ac')" required>
         <button type="button" class="pin" onclick="openMap()">
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
@@ -515,7 +517,7 @@
   const ENDPOINT = window.location.pathname;
   const API_LOCATION_DETAILS = '/api/get-location-details/';
   const API_FIBER_OPTIONS = '';
-  const FALLBACK_FIBERS = {{ fibers|safe }};
+  const FALLBACK_FIBERS = {{ fibers| safe }};
   let FIBERS = FALLBACK_FIBERS;
 
   // --- 2. Helpers & Baselines ---
@@ -589,7 +591,7 @@
 
   // --- 6. Actions ---
   function disable2FA(btn) { getEl('2fa-field').value = 'false'; btn.textContent = 'Will be disabled on save'; btn.disabled = true; btn.style.opacity = '0.5'; }
-  function stageRemovePayment(btn) { getEl('remove-pay').value = '1'; btn.textContent = 'Will be removed on save'; btn.disabled = true; }
+  function stageRemovePayment(btn) { getEl('remove-pay').value = '1'; btn.textContent = 'Will unsubscribe on save'; btn.disabled = true; }
 
   getEl('frm').onsubmit = e => {
     // Standard form submission. 
@@ -602,7 +604,7 @@
     if (API_FIBER_OPTIONS) { const d = await safeFetch(API_FIBER_OPTIONS); if (Array.isArray(d)) FIBERS = d; else if (Array.isArray(d?.fibers)) FIBERS = d.fibers; }
     renderTags(); syncAll();
     initial.lat = initLat; initial.lng = initLng;
-    if (hasLoc) { await syncLocationMetadata(rawLat, rawLng, false); const el = getEl('addr'); if(el) syncInit(el); }
+    if (hasLoc) { await syncLocationMetadata(rawLat, rawLng, false); const el = getEl('addr'); if (el) syncInit(el); }
   });
 </script>
 {% endblock %}

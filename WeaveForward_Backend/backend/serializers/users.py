@@ -8,26 +8,9 @@ import re
 from rest_framework import serializers
 
 from ..models import SubscriptionStatus, Upload, User, UserRole
+from ..services.upload_service import build_upload_url
 from ..services.location_service import get_city_and_barangay
 from ..services.brand_fiber_lookup_service import get_allowed_fibers
-
-
-class UploadSerializer(serializers.ModelSerializer):
-    """Full metadata for uploaded files with absolute URLs."""
-    file_path = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Upload
-        fields = ['upload_id', 'file_path', 'name']
-
-    def get_file_path(self, obj):
-        if not obj.file_path:
-            return None
-        url = default_storage.url(obj.file_path)
-        if url.startswith(('http://', 'https://')):
-            return url
-        request = self.context.get('request')
-        return request.build_absolute_uri(url) if request else url
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -35,8 +18,7 @@ class UserSerializer(serializers.ModelSerializer):
     is_subscribed = serializers.SerializerMethodField(read_only=True)
     latitude = serializers.DecimalField(max_digits=18, decimal_places=7, required=False, allow_null=True)
     longitude = serializers.DecimalField(max_digits=18, decimal_places=7, required=False, allow_null=True)
-    upload = serializers.PrimaryKeyRelatedField(queryset=Upload.objects.all(), required=False, allow_null=True)
-    profile_picture = serializers.FileField(write_only=True, required=False, allow_null=True)
+    upload = serializers.FileField(write_only=True, required=False, allow_null=True)
     password = serializers.CharField(write_only=True, required=False, allow_blank=False)
     blocked_patch_fields = {
         'email', 'user_id', 'city', 'barangay', 'role',
@@ -51,7 +33,7 @@ class UserSerializer(serializers.ModelSerializer):
             'business_name', 'description', 'social_link', 'max_active_claims', 'target_fibers',
             'min_biodeg_score', 'max_distance_km', 'operational_status', 'contact_no',
             'barangay', 'city', 'latitude', 'longitude', 'display_address', 'maya_customer_id',
-            'maya_card_id', 'status', 'is_2fa_enabled', 'is_subscribed', 'upload', 'profile_picture', 'documentation',
+            'maya_card_id', 'status', 'is_2fa_enabled', 'is_subscribed', 'upload', 'documentation',
             'created_at', 'updated_at'
         ]
 
@@ -68,7 +50,7 @@ class UserSerializer(serializers.ModelSerializer):
             )
         return value
 
-    def validate_profile_picture(self, v):
+    def validate_upload(self, v):
         if v:
             if v.size > 5242880: raise serializers.ValidationError("Image too large (max 5MB).")
             if not v.name.lower().endswith(('.jpg', '.jpeg', '.png')):
@@ -93,7 +75,7 @@ class UserSerializer(serializers.ModelSerializer):
             allowed_donor_fields = {
                 'first_name', 'middle_name', 'last_name', 'contact_no',
                 'display_address', 'latitude', 'longitude', 'password',
-                'profile_picture', 'upload'
+                'upload'
             }
             if instance:
                 incoming_fields = set(self.initial_data.keys())
@@ -115,7 +97,7 @@ class UserSerializer(serializers.ModelSerializer):
                 'business_name', 'description',
                 'social_link', 'contact_no', 'max_active_claims', 'max_distance_km',
                 'min_biodeg_score', 'operational_status', 'target_fibers', 'latitude',
-                'longitude', 'display_address', 'password', 'profile_picture', 'upload'
+                'longitude', 'display_address', 'password', 'upload'
             }
             if instance:
                 incoming_fields = set(self.initial_data.keys())
@@ -172,7 +154,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         password = validated_data.pop('password', None)
-        profile_picture = validated_data.pop('profile_picture', None)
+        upload_file = validated_data.pop('upload', None)
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -180,10 +162,10 @@ class UserSerializer(serializers.ModelSerializer):
         if password:
             instance.set_password(password)
 
-        if profile_picture:
+        if upload_file:
             # Minification/Optimization
             try:
-                img = Image.open(profile_picture)
+                img = Image.open(upload_file)
                 # Convert to RGB if necessary (e.g. for RGBA PNGs being saved as JPEG)
                 if img.mode != 'RGB':
                     img = img.convert('RGB')
@@ -197,7 +179,7 @@ class UserSerializer(serializers.ModelSerializer):
                 buffer.seek(0)
                 
                 # Create a new Django-compatible content file
-                optimized_filename = f"{os.path.splitext(profile_picture.name)[0]}.jpg"
+                optimized_filename = f"{os.path.splitext(upload_file.name)[0]}.jpg"
                 optimized_file = ContentFile(buffer.read(), name=optimized_filename)
                 
                 stored_path = default_storage.save(f"profile_photos/{optimized_filename}", optimized_file)
@@ -207,10 +189,10 @@ class UserSerializer(serializers.ModelSerializer):
                 )
             except Exception as e:
                 # Fallback to original if processing fails
-                stored_path = default_storage.save(f"profile_photos/{profile_picture.name}", profile_picture)
+                stored_path = default_storage.save(f"profile_photos/{upload_file.name}", upload_file)
                 instance.upload = Upload.objects.create(
                     file_path=stored_path,
-                    name=os.path.basename(profile_picture.name)[:50]
+                    name=os.path.basename(upload_file.name)[:50]
                 )
 
         instance.save()
@@ -218,7 +200,8 @@ class UserSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data['upload'] = UploadSerializer(instance.upload, context=self.context).data if instance.upload else None
+        data['upload'] = build_upload_url(instance.upload, self.context)
+        data['documentation'] = build_upload_url(instance.documentation, self.context)
         data.pop('password', None)
         return data
 
@@ -227,7 +210,7 @@ class PublicUserSerializer(serializers.ModelSerializer):
     """Limited profile serializer for non-admin views."""
     latitude = serializers.DecimalField(max_digits=18, decimal_places=7, required=False, allow_null=True)
     longitude = serializers.DecimalField(max_digits=18, decimal_places=7, required=False, allow_null=True)
-    upload = UploadSerializer(read_only=True)
+    upload = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -235,6 +218,9 @@ class PublicUserSerializer(serializers.ModelSerializer):
             'password', 'totp_secret', 'maya_customer_id', 'maya_card_id',
             'is_2fa_enabled', 'created_at', 'updated_at', 'documentation'
         ]
+
+    def get_upload(self, obj):
+        return build_upload_url(obj.upload, self.context)
 
 
 class TwoFactorSerializer(serializers.Serializer):

@@ -12,7 +12,7 @@ from ..services import (
 from ..constants import ALLOWED_FIBERS
 
 # Import role-based views for convenience
-from .admin import admin_view_donations, admin_view_donors, admin_view_tuabs, admin_view_tuab, admin_add_donor, admin_view_donor, admin_edit_donor, admin_archive_user_proxy, admin_edit_tuab
+from .admin import admin_view_donations, admin_view_donors, admin_view_tuabs, admin_view_tuab, admin_add_donor, admin_add_tuab, admin_view_donor, admin_edit_donor, admin_archive_user_proxy, admin_edit_tuab
 from .donor import donor_dashboard
 from .tuab import tuab_dashboard
 
@@ -26,7 +26,7 @@ def login_view(request):
         otp_code = request.POST.get('otp_code')
         
         try:
-            response = api_call(request, 'POST', 'login/', json={
+            response = api_call(request, 'POST', 'login', json={
                 'email': email,
                 'password': password,
                 'otp_code': otp_code
@@ -76,7 +76,7 @@ def login_view(request):
 
 def logout_view(request):
     try:
-        api_call(request, 'POST', 'logout/')
+        api_call(request, 'POST', 'logout')
     except Exception:
         pass
 
@@ -90,7 +90,7 @@ def location_lookup_proxy(request):
     lat = request.GET.get('lat')
     lng = request.GET.get('lng')
     try:
-        response = api_call(request, 'GET', 'location/lookup/', params={'lat': lat, 'lng': lng})
+        response = api_call(request, 'GET', 'location/lookup', params={'lat': lat, 'lng': lng})
         return JsonResponse(response.json(), status=response.status_code)
     except Exception:
         return JsonResponse({'error': 'Backend location service unreachable'}, status=503)
@@ -99,7 +99,7 @@ def forgot_password(request):
     if request.method == 'POST':
         email = request.POST.get('email')
         try:
-            response = api_call(request, 'POST', 'password-reset/', json={'email': email})
+            response = api_call(request, 'POST', 'password-reset', json={'email': email})
             if response.status_code == 200:
                 return render(request, 'frontend/forgot_password.html', {'success': "If that email exists in our system, we've sent a password reset link to it."})
             else:
@@ -132,7 +132,7 @@ def reset_password_confirm(request):
         }
 
         try:
-            response = api_call(request, 'POST', 'password-reset/confirm/', json=payload)
+            response = api_call(request, 'POST', 'password-reset/confirm', json=payload)
             if response.status_code == 200:
                 messages.success(request, "Password reset successful! 2FA has been disabled. You can now log in.")
                 return redirect('login')
@@ -186,7 +186,7 @@ def donor_registration(request):
         elif not payload['contact_no'].startswith('+'):
             payload['contact_no'] = '+63' + payload['contact_no']
         try:
-            response = api_call(request, 'POST', 'register/', json=payload)
+            response = api_call(request, 'POST', 'register', json=payload)
             if response.status_code == 201:
                 messages.success(request, "Registration successful!")
                 return redirect('login')
@@ -250,7 +250,7 @@ def tuab_registration(request):
         files = {'documentation': request.FILES.get('documentation')} if request.FILES.get('documentation') else None
 
         try:
-            response = api_call(request, 'POST', 'register/', data=payload, files=files)
+            response = api_call(request, 'POST', 'register', data=payload, files=files)
             if response.status_code == 201:
                 messages.success(request, "TUAB Application Submitted!")
                 return redirect('login')

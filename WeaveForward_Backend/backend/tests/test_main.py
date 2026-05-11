@@ -125,6 +125,14 @@ class DonorRegistrationTest(TestCase):
 class TUABRegistrationTest(TestCase):
     def setUp(self):
         self.client = APIClient()
+        # Add fibers to database so validation passes
+        BrandFiberLookup.objects.create(
+            category="Test",
+            brand="Test",
+            clothing_type="Test",
+            fiber_json=json.dumps({"cotton": 100, "wool": 0}),
+            is_active=True
+        )
         self.valid_payload = {
             'role': 'TUAB',
             'business_name': 'Recycle Co',
@@ -200,6 +208,61 @@ class LocationLookupTest(TestCase):
     def test_invalid_location_lookup(self):
         response = self.client.get(reverse('location_lookup'), {'lat': 0, 'lng': 0})
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class RoutingStyleTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_named_routes_resolve_without_trailing_slashes(self):
+        self.assertEqual(reverse('token_obtain_pair'), '/api/login')
+        self.assertEqual(reverse('token_blacklist'), '/api/logout')
+        self.assertEqual(reverse('token_refresh'), '/api/token/refresh')
+        self.assertEqual(reverse('password_reset_request'), '/api/password-reset')
+        self.assertEqual(reverse('password_reset_confirm'), '/api/password-reset/confirm')
+        self.assertEqual(reverse('register'), '/api/register')
+        self.assertEqual(reverse('user-list'), '/api/users')
+        self.assertEqual(reverse('user-me'), '/api/users/me')
+        self.assertEqual(reverse('user-2fa-setup'), '/api/users/me/2fa/setup')
+        self.assertEqual(reverse('user-me-2fa'), '/api/users/me/2fa')
+        self.assertEqual(reverse('user-me-subscription'), '/api/users/me/subscription')
+        self.assertEqual(reverse('user-detail', kwargs={'pk': 7}), '/api/users/7')
+        self.assertEqual(reverse('user-2fa-detail', kwargs={'pk': 7}), '/api/users/7/2fa')
+        self.assertEqual(reverse('user-subscription', kwargs={'pk': 7}), '/api/users/7/subscription')
+        self.assertEqual(reverse('location_lookup'), '/api/location/lookup')
+        self.assertEqual(reverse('donation-list'), '/api/donations')
+        self.assertEqual(reverse('donation-me'), '/api/donations/me')
+        self.assertEqual(reverse('donation-detail', kwargs={'pk': 9}), '/api/donations/9')
+        self.assertEqual(reverse('material-list'), '/api/brandfiberlookups')
+        self.assertEqual(reverse('material-fibers'), '/api/brandfiberlookups/fibers')
+        self.assertEqual(reverse('material-detail', kwargs={'pk': 3}), '/api/brandfiberlookups/3')
+
+    def test_trailing_slash_variants_return_404(self):
+        for path in (
+            '/api/login/',
+            '/api/logout/',
+            '/api/token/refresh/',
+            '/api/password-reset/',
+            '/api/password-reset/confirm/',
+            '/api/register/',
+            '/api/users/',
+            '/api/users/me/',
+            '/api/users/me/2fa/setup/',
+            '/api/users/me/2fa/',
+            '/api/users/me/subscription/',
+            '/api/users/7/',
+            '/api/users/7/2fa/',
+            '/api/users/7/subscription/',
+            '/api/location/lookup/',
+            '/api/donations/',
+            '/api/donations/me/',
+            '/api/donations/9/',
+            '/api/brandfiberlookups/',
+            '/api/brandfiberlookups/fibers/',
+            '/api/brandfiberlookups/3/',
+        ):
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND, path)
 
 class AuthenticationTest(TestCase):
     def setUp(self):
@@ -400,6 +463,7 @@ class TwoFactorEndpointTest(TestCase):
             status="ACTIVE"
         )
         self.setup_url = reverse('user-2fa-setup')
+        self.me_2fa_url = reverse('user-me-2fa')
         self.owner_2fa_url = reverse('user-2fa-detail', kwargs={'pk': self.owner.user_id})
         self.other_2fa_url = reverse('user-2fa-detail', kwargs={'pk': self.other_user.user_id})
         self.login_url = reverse('token_obtain_pair')
@@ -510,6 +574,52 @@ class TwoFactorEndpointTest(TestCase):
             ).exists()
         )
 
+    def test_owner_can_enable_2fa_via_me_endpoint(self):
+        self.client.force_authenticate(user=self.owner)
+        setup_response = self.client.post(self.setup_url, format='json')
+        secret = setup_response.data['secret']
+        otp_code = pyotp.TOTP(secret).now()
+
+        response = self.client.post(
+            self.me_2fa_url,
+            {"secret": secret, "otp_code": otp_code},
+            format='json'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.owner.refresh_from_db()
+        self.assertTrue(self.owner.is_2fa_enabled)
+        self.assertEqual(self.owner.totp_secret, secret)
+        self.assertTrue(
+            AuditTrail.objects.filter(
+                entity_type='users',
+                action='CREDENTIAL_UPDATE',
+                actor=self.owner,
+                fields_modified='["is_2fa_enabled","totp_secret"]'
+            ).exists()
+        )
+
+    def test_owner_can_disable_own_2fa_via_me_endpoint(self):
+        self.owner.is_2fa_enabled = True
+        self.owner.totp_secret = pyotp.random_base32()
+        self.owner.save()
+
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.delete(self.me_2fa_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.owner.refresh_from_db()
+        self.assertFalse(self.owner.is_2fa_enabled)
+        self.assertIsNone(self.owner.totp_secret)
+        self.assertTrue(
+            AuditTrail.objects.filter(
+                entity_type='users',
+                action='CREDENTIAL_UPDATE',
+                actor=self.owner,
+                fields_modified='["is_2fa_enabled","totp_secret"]'
+            ).exists()
+        )
+
     def test_admin_can_disable_any_users_2fa(self):
         self.other_user.is_2fa_enabled = True
         self.other_user.totp_secret = pyotp.random_base32()
@@ -587,6 +697,9 @@ class UserAPITest(TestCase):
         self.tuab_inactive = User.objects.create_user(
             email="tuab_inactive@example.com", password="Pass", role="TUAB", contact_no="+639004", status="ACTIVE", operational_status="HIBERNATING"
         )
+        self.tuab_under_review = User.objects.create_user(
+            email="tuab_review@example.com", password="Pass", role="TUAB", contact_no="+639005", status="UNDER_REVIEW", operational_status="ACTIVE"
+        )
         Subscription.objects.create(
             user=self.tuab_active,
             status='ACTIVE',
@@ -607,7 +720,7 @@ class UserAPITest(TestCase):
         self.client.force_authenticate(user=self.admin)
         res = self.client.get(reverse('user-list'))
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertEqual(res.data['count'], 4) # Admin, Donor, TUAB Active, TUAB Inactive
+        self.assertEqual(res.data['count'], 5) # Admin, Donor, TUAB Active, TUAB Inactive, TUAB Under Review
         admin_row = next(row for row in res.data['results'] if row['user_id'] == self.admin.user_id)
         donor_row = next(row for row in res.data['results'] if row['user_id'] == self.donor.user_id)
         tuab_active_row = next(row for row in res.data['results'] if row['user_id'] == self.tuab_active.user_id)
@@ -623,23 +736,38 @@ class UserAPITest(TestCase):
         self.assertEqual(res.data['results'][0]['email'], self.tuab_active.email)
         self.assertNotIn('is_subscribed', res.data['results'][0])
 
+    def test_admin_user_list_can_filter_by_status(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.get(reverse('user-list'), {'role': 'TUAB', 'status': 'UNDER_REVIEW'})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['count'], 1)
+        self.assertEqual(res.data['results'][0]['user_id'], self.tuab_under_review.user_id)
+
     def test_user_retrieve_logic(self):
-        # Non-admins cannot use user-detail, even for self.
+        # Non-admins can only retrieve publicly visible TUABs.
         self.client.force_authenticate(user=self.donor)
         res = self.client.get(reverse('user-detail', kwargs={'pk': self.donor.user_id}))
-        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
 
         # Donor cannot see admin
         res = self.client.get(reverse('user-detail', kwargs={'pk': self.admin.user_id}))
-        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
         
-        # Donor cannot see active TUAB here either.
+        # Donor can see active TUABs with active operational status.
         res = self.client.get(reverse('user-detail', kwargs={'pk': self.tuab_active.user_id}))
-        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['email'], self.tuab_active.email)
+        self.assertNotIn('is_subscribed', res.data)
+        self.assertNotIn('documentation', res.data)
+        self.assertIn('ETag', res)
         
         # Donor cannot see inactive TUAB
         res = self.client.get(reverse('user-detail', kwargs={'pk': self.tuab_inactive.user_id}))
-        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
+
+        # Donor cannot see under-review TUAB
+        res = self.client.get(reverse('user-detail', kwargs={'pk': self.tuab_under_review.user_id}))
+        self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
 
         # Admin can see everyone
         self.client.force_authenticate(user=self.admin)
@@ -681,12 +809,11 @@ class UserAPITest(TestCase):
         self.assertEqual(list_res.data['results'][0]['latitude'], '14.7715628')
         self.assertEqual(list_res.data['results'][0]['longitude'], '121.0665894')
 
-    def test_user_patch_self_password_and_upload(self):
+    def test_user_patch_self_password_only(self):
         self.client.force_authenticate(user=self.donor)
         etag = build_updated_at_etag(self.donor)
         payload = {
             "password": "NewPass123",
-            "upload": self.upload.upload_id,
             "first_name": "Updated",
         }
         res = self.client.patch(
@@ -699,7 +826,6 @@ class UserAPITest(TestCase):
 
         self.donor.refresh_from_db()
         self.assertTrue(self.donor.check_password("NewPass123"))
-        self.assertEqual(self.donor.upload_id, self.upload.upload_id)
         self.assertEqual(self.donor.first_name, "Updated")
         self.assertEqual(
             AuditTrail.objects.filter(
@@ -712,10 +838,10 @@ class UserAPITest(TestCase):
         self.assertEqual(res['ETag'], build_updated_at_etag(self.donor))
 
     @patch('backend.serializers.users.default_storage.save', return_value='profile_photos/new-profile.png')
-    def test_user_patch_accepts_profile_picture_file(self, mocked_save):
+    def test_user_patch_accepts_upload_file(self, mocked_save):
         self.client.force_authenticate(user=self.donor)
         etag = build_updated_at_etag(self.donor)
-        profile_picture = SimpleUploadedFile(
+        upload = SimpleUploadedFile(
             "avatar.png",
             b"fake-image-bytes",
             content_type="image/png"
@@ -725,7 +851,7 @@ class UserAPITest(TestCase):
             reverse('user-detail', kwargs={'pk': self.donor.user_id}),
             {
                 "first_name": "WithPhoto",
-                "profile_picture": profile_picture,
+                "upload": upload,
             },
             format='multipart',
             HTTP_IF_MATCH=etag
@@ -739,8 +865,8 @@ class UserAPITest(TestCase):
         self.assertIsNotNone(self.donor.upload)
         self.assertEqual(self.donor.upload.file_path, 'profile_photos/new-profile.png')
         self.assertEqual(self.donor.upload.name, 'avatar.png')
-        self.assertTrue(res.data['upload']['file_path'].endswith(self.donor.upload.file_path))
-        self.assertEqual(res.data['upload']['name'], self.donor.upload.name)
+        self.assertTrue(res.data['upload'].endswith(self.donor.upload.file_path))
+        self.assertIsNone(res.data['documentation'])
         self.assertTrue(
             AuditTrail.objects.filter(
                 entity_type='users',
@@ -749,6 +875,20 @@ class UserAPITest(TestCase):
                 fields_modified='["first_name","upload"]'
             ).exists()
         )
+
+    def test_user_patch_rejects_upload_id_in_json(self):
+        self.client.force_authenticate(user=self.donor)
+        etag = build_updated_at_etag(self.donor)
+        res = self.client.patch(
+            reverse('user-detail', kwargs={'pk': self.donor.user_id}),
+            {
+                "upload": self.upload.upload_id,
+            },
+            format='json',
+            HTTP_IF_MATCH=etag
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('upload', res.data)
 
     def test_user_patch_forbidden_for_other_user(self):
         self.client.force_authenticate(user=self.donor)
@@ -765,7 +905,6 @@ class UserAPITest(TestCase):
         etag = build_updated_at_etag(self.donor)
         payload = {
             "password": "AdminSet123",
-            "upload": self.upload.upload_id,
             "last_name": "Changed",
         }
         res = self.client.patch(
@@ -778,7 +917,6 @@ class UserAPITest(TestCase):
 
         self.donor.refresh_from_db()
         self.assertTrue(self.donor.check_password("AdminSet123"))
-        self.assertEqual(self.donor.upload_id, self.upload.upload_id)
         self.assertEqual(self.donor.last_name, "Changed")
         self.assertEqual(
             AuditTrail.objects.filter(
@@ -985,6 +1123,59 @@ class UserAPITest(TestCase):
         )
         self.assertEqual(res.status_code, status.HTTP_428_PRECONDITION_REQUIRED)
         self.assertEqual(res.data['detail'], "If-Match header is required.")
+
+    @patch.object(User.objects, 'select_for_update', wraps=User.objects.select_for_update)
+    def test_admin_can_approve_under_review_tuab(self, mocked_select_for_update):
+        self.client.force_authenticate(user=self.admin)
+        original_updated_at = self.tuab_under_review.updated_at
+
+        res = self.client.post(
+            reverse('user-approve', kwargs={'pk': self.tuab_under_review.user_id}),
+            format='json'
+        )
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        mocked_select_for_update.assert_called_once()
+
+        self.tuab_under_review.refresh_from_db()
+        self.assertEqual(self.tuab_under_review.status, 'ACTIVE')
+        self.assertGreater(self.tuab_under_review.updated_at, original_updated_at)
+        self.assertEqual(res.data['status'], 'ACTIVE')
+        self.assertEqual(res['ETag'], build_updated_at_etag(self.tuab_under_review))
+        self.assertTrue(
+            AuditTrail.objects.filter(
+                entity_type='users',
+                action='STATUS_CHANGE',
+                actor=self.admin,
+                fields_modified='["status"]'
+            ).exists()
+        )
+
+    def test_non_admin_cannot_approve_tuab(self):
+        self.client.force_authenticate(user=self.donor)
+        res = self.client.post(
+            reverse('user-approve', kwargs={'pk': self.tuab_under_review.user_id}),
+            format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_cannot_approve_non_tuab_user(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.post(
+            reverse('user-approve', kwargs={'pk': self.donor.user_id}),
+            format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data['detail'], "Only TUAB users can be approved.")
+
+    def test_admin_cannot_approve_tuab_not_under_review(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.post(
+            reverse('user-approve', kwargs={'pk': self.tuab_active.user_id}),
+            format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data['detail'], "Only TUAB users under review can be approved.")
         self.assertFalse(
             AuditTrail.objects.filter(
                 entity_type='users',

@@ -40,14 +40,22 @@ class AuthViewsTest(TestCase):
     @patch('frontend.views.api_call')
     def test_logout_calls_backend_without_refresh_body(self, mocked_api_call):
         mocked_api_call.return_value = make_response(205, {'message': 'Successfully logged out'})
-        self.client.cookies['access_token'] = 'access-cookie'
+        
+        # Create a fake JWT that won't trigger the TokenRefreshMiddleware's expiration check
+        import base64, json, time
+        payload = base64.b64encode(json.dumps({'exp': time.time() + 3600}).encode()).decode().strip('=')
+        fake_access_token = f"header.{payload}.signature"
+        
+        self.client.cookies['access_token'] = fake_access_token
         self.client.cookies['refresh_token'] = 'refresh-cookie'
 
         response = self.client.get(reverse('logout'))
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse('login'))
-        self.assertEqual(mocked_api_call.call_args.args[1:], ('POST', 'logout/'))
+        # Use more robust way to check call arguments
+        args, kwargs = mocked_api_call.call_args
+        self.assertEqual(args[1:], ('POST', 'logout'))
         self.assertNotIn('json', mocked_api_call.call_args.kwargs)
         self.assertEqual(response.cookies['access_token'].value, '')
         self.assertEqual(response.cookies['refresh_token'].value, '')
@@ -115,13 +123,13 @@ class AdminEditDonorViewTest(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, '/admin/donors/7/edit/?saved=1')
+        self.assertEqual(response.url, reverse('admin_view_donors'))
         self.assertEqual(mocked_api_call.call_count, 3)
 
         get_call, patch_call, delete_call = mocked_api_call.call_args_list
-        self.assertEqual(get_call.args[1:], ('GET', 'users/7/'))
-        self.assertEqual(patch_call.args[1:], ('PATCH', 'users/7/'))
-        self.assertEqual(delete_call.args[1:], ('DELETE', 'users/7/2fa/'))
+        self.assertEqual(get_call.args[1:], ('GET', 'users/7'))
+        self.assertEqual(patch_call.args[1:], ('PATCH', 'users/7'))
+        self.assertEqual(delete_call.args[1:], ('DELETE', 'users/7/2fa'))
         self.assertEqual(patch_call.kwargs['headers']['If-Match'], '"etag-1"')
         self.assertEqual(patch_call.kwargs['data']['contact_no'], '+639171234567')
 
@@ -207,6 +215,75 @@ class AdminViewTuabsTest(TestCase):
         self.assertNotContains(response, 'function authFetch')
         self.assertContains(response, 'data-api-url="/admin/users/11/archive/"')
         self.assertContains(response, 'href="/admin/tuabs/11/"')
+        self.assertContains(response, 'href="/admin/tuabs/add/"')
+        self.assertContains(response, 'Add TUAB')
+
+
+class AdminAddTuabViewTest(TestCase):
+    def setUp(self):
+        self.profile = {'role': 'Admin', 'first_name': 'Admin'}
+
+    @patch('frontend.views.admin.get_paginated_data')
+    @patch('frontend.views.admin.get_user_profile')
+    def test_pending_tuab_queue_renders_documentation_and_approve_actions(self, mocked_profile, mocked_page_data):
+        mocked_profile.return_value = self.profile
+        mocked_page_data.return_value = {
+            'results': [{
+                'user_id': 11,
+                'business_name': 'Weave Lab',
+                'email': 'weave@example.com',
+                'contact_no': '+639171234567',
+                'display_address': 'V. Luna Road',
+                'barangay': 'Pinyahan',
+                'city': 'Quezon City',
+                'description': 'Community textile upcycling studio.',
+                'social_link': 'https://example.com/weavelab',
+                'target_fibers': 'denim,cotton',
+                'max_distance_km': '10.00',
+                'min_biodeg_score': '65.00',
+                'documentation': 'http://127.0.0.1:8000/media/documentation/proof.pdf',
+                'status': 'UNDER_REVIEW',
+            }],
+            'count': 1,
+            'total_pages': 1,
+            'current_page': 1,
+            'has_next': False,
+            'has_prev': False,
+            'search_query': '',
+        }
+
+        response = self.client.get(reverse('admin_add_tuab'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(mocked_page_data.call_args.args[1], 'users')
+        self.assertEqual(mocked_page_data.call_args.kwargs['params'], {'role': 'TUAB', 'status': 'UNDER_REVIEW'})
+        self.assertContains(response, 'Pending TUAB Applications')
+        self.assertContains(response, 'Weave Lab')
+        self.assertContains(response, 'View Documentation')
+        self.assertContains(response, 'action="/admin/tuabs/add/"')
+        self.assertContains(response, 'name="user_id" value="11"')
+        self.assertNotContains(response, 'All TUABs')
+        self.assertNotContains(response, 'Under Review')
+        self.assertNotContains(response, 'Open Detail')
+
+    @patch('frontend.views.admin.get_paginated_data')
+    @patch('frontend.views.admin.get_user_profile')
+    def test_pending_tuab_queue_shows_empty_state(self, mocked_profile, mocked_page_data):
+        mocked_profile.return_value = self.profile
+        mocked_page_data.return_value = {
+            'results': [],
+            'count': 0,
+            'total_pages': 1,
+            'current_page': 1,
+            'has_next': False,
+            'has_prev': False,
+            'search_query': '',
+        }
+
+        response = self.client.get(reverse('admin_add_tuab'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'No TUAB applications are waiting for approval.')
 
 
 
@@ -234,7 +311,7 @@ class AdminViewTuabDetailTest(TestCase):
             'min_biodeg_score': '65.00',
             'max_distance_km': '10.00',
             'is_2fa_enabled': True,
-            'upload': {'file_path': 'http://127.0.0.1:8000/media/profile.jpg', 'name': 'profile.jpg'},
+            'upload': 'http://127.0.0.1:8000/media/profile.jpg',
             'created_at': '2026-05-01T08:30:00Z',
             'updated_at': '2026-05-02T09:45:00Z',
         }
@@ -307,7 +384,7 @@ class AdminArchiveProxyTest(TestCase):
         response = self.client.post(reverse('admin_archive_user_proxy', kwargs={'user_id': 11}))
         
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(mocked_api_call.call_args.args[1:], ('DELETE', 'users/11/'))
+        self.assertEqual(mocked_api_call.call_args.args[1:], ('DELETE', 'users/11'))
 
     @patch('frontend.views.admin.get_user_profile')
     def test_admin_archive_proxy_denies_non_admin(self, mocked_profile):
@@ -315,5 +392,42 @@ class AdminArchiveProxyTest(TestCase):
         
         response = self.client.post(reverse('admin_archive_user_proxy', kwargs={'user_id': 11}))
         
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('login'))
+
+
+class AdminApproveTuabPostTest(TestCase):
+    def setUp(self):
+        self.profile = {'role': 'Admin', 'first_name': 'Admin'}
+
+    @patch('frontend.views.admin.api_call')
+    @patch('frontend.views.admin.get_user_profile')
+    def test_admin_add_tuab_post_calls_backend_approve(self, mocked_profile, mocked_api_call):
+        mocked_profile.return_value = self.profile
+        mocked_api_call.return_value = make_response(200, {'status': 'ACTIVE'})
+
+        response = self.client.post(reverse('admin_add_tuab'), {'user_id': 11})
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('admin_add_tuab'))
+        self.assertEqual(mocked_api_call.call_args.args[1:], ('POST', 'users/11/approve'))
+
+    @patch('frontend.views.admin.api_call')
+    @patch('frontend.views.admin.get_user_profile')
+    def test_admin_add_tuab_post_handles_backend_error(self, mocked_profile, mocked_api_call):
+        mocked_profile.return_value = self.profile
+        mocked_api_call.return_value = make_response(400, {'detail': 'Only TUAB users under review can be approved.'})
+
+        response = self.client.post(reverse('admin_add_tuab'), {'user_id': 11})
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('admin_add_tuab'))
+
+    @patch('frontend.views.admin.get_user_profile')
+    def test_admin_add_tuab_post_denies_non_admin(self, mocked_profile):
+        mocked_profile.return_value = {'role': 'Donor'}
+
+        response = self.client.post(reverse('admin_add_tuab'), {'user_id': 11})
+
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse('login'))

@@ -55,7 +55,7 @@ class TokenRefreshMiddleware:
         # SMART CHECK: Refresh if access is missing OR if it is expired
         if refresh and (not access or is_token_expired(access)):
             try:
-                refresh_url = f"{BACKEND_BASE_URL}token/refresh/"
+                refresh_url = f"{BACKEND_BASE_URL.rstrip('/')}/token/refresh"
                 res = requests.post(
                     refresh_url,
                     cookies={'refresh_token': refresh},

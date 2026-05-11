@@ -6,7 +6,7 @@ from .auth import (
     PasswordResetConfirmView,
     RegisterView,
 )
-from .users import UserViewSet, TwoFactorSetupView, TwoFactorView
+from .users import UserViewSet
 from .locations import lookup_location
 from .donations import DonationViewSet
 from .brandfiberlookups import BrandFiberLookupViewset

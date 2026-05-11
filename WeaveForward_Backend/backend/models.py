@@ -178,6 +178,9 @@ class User(AbstractBaseUser):
 
     class Meta:
         db_table = "users"
+        indexes = [
+            models.Index(fields=["role", "status"], name="users_role_status_idx"),
+        ]
 
 
 class BrandFiberLookup(models.Model):
@@ -232,6 +235,9 @@ class DonationItem(models.Model):
 
     class Meta:
         db_table = "donation_items"
+        indexes = [
+            models.Index(fields=["donation", "is_archived"], name="don_item_donation_arch_idx"),
+        ]
 
 
 class MatchPrediction(models.Model):
@@ -250,6 +256,9 @@ class MatchPrediction(models.Model):
 
     class Meta:
         db_table = "match_predictions"
+        indexes = [
+            models.Index(fields=["item", "is_archived_version"], name="match_pred_item_arch_idx"),
+        ]
 
 
 class InventoryLedger(models.Model):

@@ -4,13 +4,11 @@ from django.db import transaction
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.views import APIView
 
 from ..utils.view_mixins import PaginatedResponseMixin
 
-from ..models import Subscription, SubscriptionStatus, User, UserRole
+from ..models import Subscription, SubscriptionStatus, User, UserRole, UserAccountStatus, UserOperationalStatus
 from ..serializers import (
     PublicUserSerializer, 
     UserSerializer, 
@@ -20,7 +18,9 @@ from ..serializers import (
 )
 from ..services.audit_service import get_client_ip, log_audit
 from ..services.etag_service import build_updated_at_etag, matches_if_match
+from ..services.two_factor_service import disable_two_factor, enable_two_factor
 from ..services.user_archive_service import archive_user
+from ..services.subscription_service import unsubscribe_user
 
 
 
@@ -42,7 +42,7 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
             status=SubscriptionStatus.ACTIVE,
         )
         return (
-            User.objects.select_related('upload')
+            User.objects.select_related('upload', 'documentation')
             .annotate(is_subscribed=Exists(active_subscriptions))
             .order_by('user_id')
         )
@@ -51,18 +51,25 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
         queryset = self.filter_queryset(self.get_queryset())
         if request.user.role == UserRole.ADMIN:
             role_filter = request.query_params.get('role')
+            status_filter = request.query_params.get('status')
             if role_filter:
                 queryset = queryset.filter(role=role_filter)
+            if status_filter:
+                queryset = queryset.filter(status=status_filter)
         else:
             queryset = queryset.filter(role=UserRole.TUAB, status='ACTIVE', operational_status='ACTIVE')
 
         return self.get_paginated_response_data(queryset)
 
     def retrieve(self, request, *args, **kwargs):
-        # Only admins can retrieve arbitrary user records; non-admins must use /users/me/.
         instance = self.get_object()
         if request.user.role != UserRole.ADMIN:
-            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+            if (
+                instance.role != UserRole.TUAB
+                or instance.status != UserAccountStatus.ACTIVE
+                or instance.operational_status != UserOperationalStatus.ACTIVE
+            ):
+                return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         response = super().retrieve(request, *args, **kwargs)
         response['ETag'] = build_updated_at_etag(instance)
         return response
@@ -87,10 +94,7 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
 
-        fields_modified = [
-            'upload' if field == 'profile_picture' else field
-            for field in serializer.validated_data.keys()
-        ]
+        fields_modified = list(serializer.validated_data.keys())
 
         ip_address = get_client_ip(request)
         with transaction.atomic():
@@ -113,6 +117,172 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
         response = Response(serializer.data)
         response['ETag'] = build_updated_at_etag(request.user)
         return response
+
+    @action(detail=True, methods=['post'], url_path='approve')
+    def approve(self, request, pk=None):
+        if request.user.role != UserRole.ADMIN:
+            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+
+        ip_address = get_client_ip(request)
+        with transaction.atomic():
+            try:
+                target_user = (
+                    User.objects.select_for_update()
+                    .select_related('upload', 'documentation')
+                    .get(pk=pk)
+                )
+            except User.DoesNotExist:
+                return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            if target_user.role != UserRole.TUAB:
+                return Response({"detail": "Only TUAB users can be approved."}, status=status.HTTP_400_BAD_REQUEST)
+
+            if target_user.status != UserAccountStatus.UNDER_REVIEW:
+                return Response({"detail": "Only TUAB users under review can be approved."}, status=status.HTTP_400_BAD_REQUEST)
+
+            target_user.status = UserAccountStatus.ACTIVE
+            target_user.save(update_fields=['status', 'updated_at'])
+
+            log_audit(
+                actor=request.user,
+                entity_type='users',
+                action='STATUS_CHANGE',
+                ip_address=ip_address,
+                fields_modified=['status']
+            )
+
+        response = Response(self.get_serializer(target_user).data, status=status.HTTP_200_OK)
+        response['ETag'] = build_updated_at_etag(target_user)
+        return response
+
+    @action(detail=False, methods=['post'], url_path='me/2fa/setup')
+    def two_factor_setup(self, request):
+        secret = pyotp.random_base32()
+        provisioning_uri = pyotp.TOTP(secret).provisioning_uri(
+            name=request.user.email,
+            issuer_name="WeaveForward"
+        )
+        return Response(
+            {
+                "secret": secret,
+                "provisioning_uri": provisioning_uri,
+            },
+            status=status.HTTP_200_OK
+        )
+
+    @action(detail=False, methods=['post', 'delete'], url_path='me/2fa')
+    def my_two_factor(self, request):
+        if request.method == 'POST':
+            serializer = TwoFactorSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+
+            ip_address = get_client_ip(request)
+            result = enable_two_factor(
+                target_user=request.user,
+                secret=serializer.validated_data['secret']
+            )
+            log_audit(
+                actor=request.user,
+                entity_type='users',
+                action='CREDENTIAL_UPDATE',
+                ip_address=ip_address,
+                fields_modified=result['fields_modified']
+            )
+            return Response({"message": result["detail"]}, status=status.HTTP_200_OK)
+
+        ip_address = get_client_ip(request)
+        result = disable_two_factor(target_user=request.user)
+        log_audit(
+            actor=request.user,
+            entity_type='users',
+            action='CREDENTIAL_UPDATE',
+            ip_address=ip_address,
+            fields_modified=result['fields_modified']
+        )
+        return Response({"message": result["detail"]}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post', 'delete'], url_path='2fa')
+    def two_factor(self, request, pk=None):
+        target_user = self.get_object()
+
+        if request.method == 'POST':
+            if request.user.user_id != target_user.user_id:
+                return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+
+            serializer = TwoFactorSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+
+            ip_address = get_client_ip(request)
+            result = enable_two_factor(
+                target_user=target_user,
+                secret=serializer.validated_data['secret']
+            )
+            log_audit(
+                actor=request.user,
+                entity_type='users',
+                action='CREDENTIAL_UPDATE',
+                ip_address=ip_address,
+                fields_modified=result['fields_modified']
+            )
+
+            return Response({"message": result["detail"]}, status=status.HTTP_200_OK)
+
+        if request.user.role != UserRole.ADMIN and request.user.user_id != target_user.user_id:
+            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+
+        ip_address = get_client_ip(request)
+        result = disable_two_factor(target_user=target_user)
+        log_audit(
+            actor=request.user,
+            entity_type='users',
+            action='CREDENTIAL_UPDATE',
+            ip_address=ip_address,
+            fields_modified=result['fields_modified']
+        )
+        return Response({"message": result["detail"]}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['delete'], url_path='subscription')
+    def cancel_subscription(self, request, pk=None):
+        """Admin only endpoint to unsubscribe any user."""
+        if request.user.role != UserRole.ADMIN:
+            return Response({"detail": "Only admins can unsubscribe other users."}, status=status.HTTP_403_FORBIDDEN)
+        
+        ip_address = get_client_ip(request)
+        result = unsubscribe_user(target_user_id=pk)
+
+        if result["status_code"] != 200:
+            return Response({"detail": result["detail"]}, status=result["status_code"])
+
+        if result["user_updated"]:
+            log_audit(
+                actor=request.user,
+                entity_type='users',
+                action='CREDENTIAL_UPDATE',
+                ip_address=ip_address,
+                fields_modified=['maya_customer_id', 'maya_card_id']
+            )
+
+        return Response({"detail": result["detail"]}, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['delete'], url_path='me/subscription')
+    def cancel_my_subscription(self, request):
+        """Endpoint for users to unsubscribe themselves."""
+        ip_address = get_client_ip(request)
+        result = unsubscribe_user(target_user_id=request.user.user_id)
+
+        if result["status_code"] != 200:
+            return Response({"detail": result["detail"]}, status=result["status_code"])
+
+        if result["user_updated"]:
+            log_audit(
+                actor=request.user,
+                entity_type='users',
+                action='CREDENTIAL_UPDATE',
+                ip_address=ip_address,
+                fields_modified=['maya_customer_id', 'maya_card_id']
+            )
+
+        return Response({"detail": result["detail"]}, status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
         # Only allow Admins to use this POST endpoint
@@ -168,73 +338,3 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
                 )
 
         return Response(status=result["status_code"])
-
-
-class TwoFactorSetupView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        secret = pyotp.random_base32()
-        provisioning_uri = pyotp.TOTP(secret).provisioning_uri(
-            name=request.user.email,
-            issuer_name="WeaveForward"
-        )
-        return Response(
-            {
-                "secret": secret,
-                "provisioning_uri": provisioning_uri,
-            },
-            status=status.HTTP_200_OK
-        )
-
-
-class TwoFactorView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request, pk):
-        if request.user.role == UserRole.ADMIN and request.user.user_id != pk:
-            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
-        if request.user.user_id != pk:
-            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
-
-        serializer = TwoFactorSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        ip_address = get_client_ip(request)
-        with transaction.atomic():
-            request.user.is_2fa_enabled = True
-            request.user.totp_secret = serializer.validated_data['secret']
-            request.user.save(update_fields=['is_2fa_enabled', 'totp_secret'])
-            log_audit(
-                actor=request.user,
-                entity_type='users',
-                action='CREDENTIAL_UPDATE',
-                ip_address=ip_address,
-                fields_modified=['is_2fa_enabled', 'totp_secret']
-            )
-
-        return Response({"message": "2FA enabled successfully."}, status=status.HTTP_200_OK)
-
-    def delete(self, request, pk):
-        try:
-            target_user = User.objects.get(pk=pk)
-        except User.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        if request.user.role != UserRole.ADMIN and request.user.user_id != target_user.user_id:
-            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
-
-        ip_address = get_client_ip(request)
-        with transaction.atomic():
-            target_user.is_2fa_enabled = False
-            target_user.totp_secret = None
-            target_user.save(update_fields=['is_2fa_enabled', 'totp_secret'])
-            log_audit(
-                actor=request.user,
-                entity_type='users',
-                action='CREDENTIAL_UPDATE',
-                ip_address=ip_address,
-                fields_modified=['is_2fa_enabled', 'totp_secret']
-            )
-
-        return Response({"message": "2FA disabled successfully."}, status=status.HTTP_200_OK)

@@ -1,0 +1,285 @@
+{% extends 'frontend/base.html' %}
+
+{% block content %}
+<style>
+  :root {
+    --gold: #e8a020;
+    --gold-dark: #c8881a;
+    --border: #e0dbd4;
+    --text: #222;
+    --muted: #777;
+  }
+
+  .count {
+    font-family: Poppins, sans-serif;
+    font-weight: 300;
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 10px;
+  }
+
+  .search-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 220px;
+  }
+
+  .search-wrap input {
+    width: 100%;
+    border-radius: 8px;
+    padding: 10px 16px 10px 40px;
+    border: 1.5px solid var(--border);
+    background: #fff;
+    font-family: Poppins, sans-serif;
+    font-size: 14px;
+    outline: none;
+  }
+
+  .search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    cursor: pointer;
+    font-family: Poppins, sans-serif;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all .2s;
+  }
+
+  .btn-primary {
+    background: var(--gold);
+    color: #fff;
+    border-radius: 14px;
+    padding: 10px 20px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  .btn-primary:hover {
+    background: var(--gold-dark);
+  }
+
+  .btn-outline {
+    background: #f4f4f4;
+    color: #555;
+    border: 1px solid #e2e2e2;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+
+  .queue {
+    display: grid;
+    gap: 16px;
+  }
+
+  .card {
+    background: #fff;
+    border: 1.5px solid #ebe6df;
+    border-radius: 18px;
+    padding: 18px;
+    font-family: Poppins, sans-serif;
+    transition: border-color .2s, box-shadow .2s, transform .2s;
+  }
+
+  .card-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+    margin-bottom: 14px;
+  }
+
+  .card-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px 16px;
+    margin-bottom: 14px;
+  }
+
+  .field {
+    min-width: 0;
+  }
+
+  .field-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .field-value {
+    font-size: 14px;
+    color: var(--text);
+    word-break: break-word;
+  }
+
+  .field-value a {
+    color: var(--gold-dark);
+    text-decoration: none;
+  }
+
+  .approve-form {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .empty {
+    background: #fff;
+    border: 1.5px dashed #ddd2bf;
+    border-radius: 16px;
+    padding: 32px 20px;
+    text-align: center;
+    color: #888;
+    font-family: Poppins, sans-serif;
+  }
+
+  .pagination-wrap {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 16px;
+    padding: 0 4px;
+    font-family: Poppins, sans-serif;
+  }
+
+  .pg-info {
+    font-size: 13px;
+    color: #666;
+  }
+
+  .pg-btns {
+    display: flex;
+    gap: 8px;
+  }
+</style>
+
+<p class="count">{{ count }} Pending TUAB Applications</p>
+
+{% if messages %}
+{% for message in messages %}
+<div style="margin-bottom: 16px; padding: 12px 14px; border-radius: 10px; background: {% if message.tags == 'success' %}#edf7ef{% else %}#fff2f0{% endif %}; border: 1px solid {% if message.tags == 'success' %}#cfe6d4{% else %}#f0c9c2{% endif %}; color: {% if message.tags == 'success' %}#2f6b3b{% else %}#9f3a2d{% endif %}; font-family: Poppins, sans-serif;">
+  {{ message }}
+</div>
+{% endfor %}
+{% endif %}
+
+<div class="search-bar-row">
+  <form method="GET" class="search-wrap">
+    <div class="search-icon">
+      <svg width="17" height="17" fill="none" stroke="#aaa" stroke-width="2" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="8" />
+        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+      </svg>
+    </div>
+    <input name="q" value="{{ q }}" placeholder="Search pending TUABs..." />
+  </form>
+</div>
+
+{% if tuabs %}
+<div class="queue">
+  {% for tuab in tuabs %}
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title">{{ tuab.business_name|default:"Unnamed TUAB" }}</div>
+        <div class="field-value">{{ tuab.email|default:"-" }}</div>
+      </div>
+    </div>
+
+    <div class="details">
+      <div class="field">
+        <div class="field-label">Contact Number</div>
+        <div class="field-value">{{ tuab.contact_no|default:"-" }}</div>
+      </div>
+      <div class="field">
+        <div class="field-label">Address</div>
+        <div class="field-value">{{ tuab.display_address|default:"-" }}</div>
+      </div>
+      <div class="field">
+        <div class="field-label">Location</div>
+        <div class="field-value">{{ tuab.barangay|default:"-" }}, {{ tuab.city|default:"-" }}</div>
+      </div>
+      <div class="field">
+        <div class="field-label">Target Fibers</div>
+        <div class="field-value">{{ tuab.target_fibers|default:"-" }}</div>
+      </div>
+      <div class="field">
+        <div class="field-label">Max Distance</div>
+        <div class="field-value">{{ tuab.max_distance_km|default:"-" }}</div>
+      </div>
+      <div class="field">
+        <div class="field-label">Min Biodeg Score</div>
+        <div class="field-value">{{ tuab.min_biodeg_score|default:"-" }}</div>
+      </div>
+      <div class="field">
+        <div class="field-label">Social Link</div>
+        <div class="field-value">
+          {% if tuab.social_link %}
+          <a href="{{ tuab.social_link }}" target="_blank" rel="noopener noreferrer">{{ tuab.social_link }}</a>
+          {% else %}
+          -
+          {% endif %}
+        </div>
+      </div>
+      <div class="field">
+        <div class="field-label">Description</div>
+        <div class="field-value">{{ tuab.description|default:"-" }}</div>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px;">
+      {% if tuab.documentation %}
+      <a href="{{ tuab.documentation }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline">View Documentation</a>
+      {% else %}
+      <span class="field-value">No documentation uploaded.</span>
+      {% endif %}
+    </div>
+
+    <form method="POST" action="{% url 'admin_add_tuab' %}" class="approve-form">
+      {% csrf_token %}
+      <input type="hidden" name="user_id" value="{{ tuab.user_id }}">
+      <button type="submit" class="btn btn-primary">Approve TUAB</button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="pagination-wrap">
+  <div class="pg-info">Page {{ current_page }} of {{ total_pages }}</div>
+  <div class="pg-btns">
+    {% if has_prev %}
+    <a href="?page={{ current_page|add:-1 }}{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline">Previous</a>
+    {% endif %}
+    {% if has_next %}
+    <a href="?page={{ current_page|add:1 }}{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline">Next</a>
+    {% endif %}
+  </div>
+</div>
+{% else %}
+<div class="empty">No TUAB applications are waiting for approval.</div>
+{% endif %}
+{% endblock %}

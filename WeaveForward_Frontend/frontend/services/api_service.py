@@ -19,7 +19,7 @@ def api_call(request, method, endpoint, **kwargs):
     kwargs['cookies'] = dict(request.COOKIES.items())
 
     endpoint = endpoint.lstrip('/')
-    url = f"{BACKEND_BASE_URL}{endpoint}"
+    url = f"{BACKEND_BASE_URL.rstrip('/')}/{endpoint}"
 
     return requests.request(method, url, **kwargs)
 

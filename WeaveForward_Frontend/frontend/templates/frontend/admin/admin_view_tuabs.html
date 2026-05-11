@@ -312,7 +312,7 @@
     </div>
     <input name="q" value="{{ q }}" placeholder="Search TUABs..." />
   </form>
-  <button class="btn btn-primary" type="button" disabled>Add TUAB</button>
+  <a href="{% url 'admin_add_tuab' %}" class="btn btn-primary">Add TUAB</a>
 </div>
 
 <div class="table-wrap">
@@ -347,8 +347,10 @@
           <td>
             <div class="action-btns">
               <a href="{% url 'admin_view_tuab' tuab.user_id %}" class="btn btn-outline">View</a>
-              <a href="{% url 'admin_edit_tuab' tuab.user_id %}" class="btn btn-outline">Edit</a>
               {% if tuab.status != 'ARCHIVED' %}
+              <a href="{% url 'admin_edit_tuab' tuab.user_id %}" class="btn btn-outline">Edit</a>
+              {% endif %}
+              {% if tuab.status == 'ACTIVE' %}
               <button class="btn btn-outline archive-btn" type="button"
                 data-api-url="/admin/users/{{ tuab.user_id }}/archive/">
                 Archive

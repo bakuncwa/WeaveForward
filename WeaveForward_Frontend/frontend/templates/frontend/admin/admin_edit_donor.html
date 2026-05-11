@@ -54,11 +54,6 @@
   <form id="frm" method="post" action="{% url 'admin_edit_donor' donor.user_id %}" enctype="multipart/form-data" novalidate autocomplete="off">
     {% csrf_token %}
     <div class="panel">
-      {% if success_message %}
-      <div style="margin-bottom: 16px; padding: 12px 14px; border-radius: 10px; background: #edf7ef; border: 1px solid #cfe6d4; color: #2f6b3b;">
-        {{ success_message }}
-      </div>
-      {% endif %}
       {% if error_message %}
       <div style="margin-bottom: 16px; padding: 12px 14px; border-radius: 10px; background: #fff2f0; border: 1px solid #f0c9c2; color: #9f3a2d;">
         {{ error_message }}
@@ -76,9 +71,9 @@
       <div class="group">
         <label class="up">Profile Picture</label>
         <div class="pfp-area">
-          <img id="pfp-preview" class="pfp-img" src="{% if donor.upload %}{{ donor.upload.file_path }}{% else %}https://ui-avatars.com/api/?name={{ donor.first_name }}+{{ donor.last_name }}&background=e8d5a8&color=8b6914&size=64{% endif %}" alt="Profile" onerror="this.src='https://ui-avatars.com/api/?name={{ donor.first_name }}+{{ donor.last_name }}&background=e8d5a8&color=8b6914&size=64'">
+          <img id="pfp-preview" class="pfp-img" src="{% if donor.upload %}{{ donor.upload }}{% else %}https://ui-avatars.com/api/?name={{ donor.first_name }}+{{ donor.last_name }}&background=e8d5a8&color=8b6914&size=64{% endif %}" alt="Profile" onerror="this.src='https://ui-avatars.com/api/?name={{ donor.first_name }}+{{ donor.last_name }}&background=e8d5a8&color=8b6914&size=64'">
           <button type="button" class="pfp-change" onclick="getEl('pfp-in').click()">Change Photo</button>
-          <input id="pfp-in" name="profile_picture" type="file" accept=".png,.jpeg,.jpg" class="hidden" onchange="previewPfp(this.files[0])">
+          <input id="pfp-in" name="upload" type="file" accept=".png,.jpeg,.jpg" class="hidden" onchange="previewPfp(this.files[0])">
         </div>
       </div>
 

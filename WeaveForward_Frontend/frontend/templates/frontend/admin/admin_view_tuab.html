@@ -273,7 +273,7 @@
 <div class="card">
   <div class="biz-header">
     {% if tuab.upload %}
-      <img class="biz-avatar" src="{{ tuab.upload.file_path }}" alt="{{ tuab.business_name|default:'TUAB' }}"/>
+      <img class="biz-avatar" src="{{ tuab.upload }}" alt="{{ tuab.business_name|default:'TUAB' }}"/>
     {% else %}
       <div class="biz-avatar-fallback">{{ tuab.business_name|default:"TUAB"|slice:":1"|upper }}</div>
     {% endif %}
