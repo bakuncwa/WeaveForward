@@ -178,6 +178,16 @@ def _activate_subscription_from_maya_verification(payload):
     if not verified:
         return {"status_code": 200, "detail": "Maya webhook acknowledged with no subscription action taken."}
 
+    # Verify-then-Trust: Double check with Maya API
+    v_resp = requests.get(
+        f"https://pg-sandbox.paymaya.com/payments/v1/payments/{payload.get('id')}",
+        headers=_maya_headers(settings.MAYA_SANDBOX_SECRET_BASIC_AUTH),
+        timeout=10
+    )
+    
+    if v_resp.status_code != 200 or v_resp.json().get('status') not in ['PAYMENT_SUCCESS', 'VOIDED']:
+        return {"status_code": 200, "detail": "Maya verification failed."}
+
     maya_card_token_id = payload.get('paymentTokenId') or (payload.get('fundSource') or {}).get('id')
     if not maya_card_token_id:
         return {"status_code": 200, "detail": "Maya webhook ignored because no card token was present."}
