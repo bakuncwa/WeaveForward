@@ -13,6 +13,7 @@ from ..serializers import (
     PublicUserSerializer, 
     UserSerializer, 
     TwoFactorSerializer,
+    SubscribeSetupSerializer,
     DonorRegisterSerializer, 
     TUABRegisterSerializer
 )
@@ -20,7 +21,7 @@ from ..services.audit_service import get_client_ip, log_audit
 from ..services.etag_service import build_updated_at_etag, matches_if_match
 from ..services.two_factor_service import disable_two_factor, enable_two_factor
 from ..services.user_archive_service import archive_user
-from ..services.subscription_service import unsubscribe_user
+from ..services.subscription_service import subscribe_user, unsubscribe_user
 
 
 
@@ -264,6 +265,48 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
 
         return Response({"detail": result["detail"]}, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=['post'], url_path='subscription')
+    def create_subscription(self, request, pk=None):
+        if request.user.user_id != int(pk):
+            return Response({"detail": "You may only subscribe your own account."}, status=status.HTTP_403_FORBIDDEN)
+
+        if request.user.role != UserRole.TUAB:
+            return Response({"detail": "Only TUAB users can subscribe themselves."}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = SubscribeSetupSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        ip_address = get_client_ip(request)
+        result = subscribe_user(
+            target_user_id=pk,
+            first_name=serializer.validated_data['firstName'],
+            last_name=serializer.validated_data['lastName'],
+            card=serializer.validated_data['card'],
+        )
+
+        if result["status_code"] != 200:
+            return Response({"detail": result["detail"]}, status=result["status_code"])
+
+        log_audit(
+            actor=request.user,
+            entity_type='users',
+            action='CREDENTIAL_UPDATE',
+            ip_address=ip_address,
+            fields_modified=result['fields_modified']
+        )
+
+        return Response(
+            {
+                "detail": result["detail"],
+                "maya_customer_id": result["maya_customer_id"],
+                "maya_card_id": result["maya_card_id"],
+                "cardTokenId": result["cardTokenId"],
+                "state": result["state"],
+                "verificationUrl": result["verificationUrl"],
+            },
+            status=status.HTTP_200_OK
+        )
+
     @action(detail=False, methods=['delete'], url_path='me/subscription')
     def cancel_my_subscription(self, request):
         """Endpoint for users to unsubscribe themselves."""
@@ -303,6 +346,18 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
     def destroy(self, request, *args, **kwargs):
         if request.user.role != UserRole.ADMIN:
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            target_user = User.objects.get(pk=kwargs['pk'])
+        except User.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if_match = request.headers.get('If-Match')
+        current_etag = build_updated_at_etag(target_user)
+        if if_match is None:
+            return Response({"detail": "If-Match header is required."}, status=status.HTTP_428_PRECONDITION_REQUIRED)
+        if not matches_if_match(current_etag, if_match):
+            return Response({"detail": "ETag does not match the current resource version."}, status=status.HTTP_412_PRECONDITION_FAILED)
 
         ip_address = get_client_ip(request)
         with transaction.atomic():

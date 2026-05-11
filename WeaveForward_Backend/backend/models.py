@@ -158,7 +158,10 @@ class User(AbstractBaseUser):
     longitude          = models.DecimalField(max_digits=18, decimal_places=15, null=True, blank=True)
     display_address    = models.TextField(null=True, blank=True)
     maya_customer_id   = models.CharField(max_length=50,  null=True, default=None)
-    maya_card_id       = models.CharField(max_length=20,  null=True, default=None)
+    # IMPORTANT: store the real Maya card token id here exactly as returned by the Maya
+    # payment-tokens/cards flow. Do not truncate, hash, or repurpose this field; Maya
+    # card token values are long and must be persisted unchanged for later payment use.
+    maya_card_id       = models.CharField(max_length=255,  null=True, default=None)
     status             = EnumField(choices=UserAccountStatus.choices, default=UserAccountStatus.UNDER_REVIEW)
     is_2fa_enabled     = models.BooleanField(default=False)
     totp_secret        = models.CharField(max_length=64, null=True, default=None)

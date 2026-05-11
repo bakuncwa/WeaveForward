@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
+import base64
 
 load_dotenv()
 
@@ -114,6 +115,11 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://127.0.0.1:8001")
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 CATALOG_CSV_PATH = os.getenv("CATALOG_CSV_PATH", "backend/data/webscraped_data/webscraped_catalog_archive.csv")
+
+MAYA_SANDBOX_BASE_URL = os.getenv("MAYA_SANDBOX_BASE_URL", "https://pg-sandbox.paymaya.com/payments/v1")
+
+MAYA_SANDBOX_SECRET_BASIC_AUTH = f"Basic {base64.b64encode((os.getenv('MAYA_API_SECRET_KEY', '') + ':').encode()).decode()}"
+MAYA_SANDBOX_PUBLIC_BASIC_AUTH = f"Basic {base64.b64encode((os.getenv('MAYA_API_PUBLIC_KEY', '') + ':').encode()).decode()}"
 
 CORS_ALLOWED_ORIGINS = [
     origin.strip()

@@ -8,6 +8,7 @@ import re
 from rest_framework import serializers
 
 from ..models import SubscriptionStatus, Upload, User, UserRole
+from ..services.etag_service import build_updated_at_etag
 from ..services.upload_service import build_upload_url
 from ..services.location_service import get_city_and_barangay
 from ..services.brand_fiber_lookup_service import get_allowed_fibers
@@ -16,6 +17,7 @@ from ..services.brand_fiber_lookup_service import get_allowed_fibers
 class UserSerializer(serializers.ModelSerializer):
     """Full user profile serializer."""
     is_subscribed = serializers.SerializerMethodField(read_only=True)
+    etag = serializers.SerializerMethodField(read_only=True)
     latitude = serializers.DecimalField(max_digits=18, decimal_places=7, required=False, allow_null=True)
     longitude = serializers.DecimalField(max_digits=18, decimal_places=7, required=False, allow_null=True)
     upload = serializers.FileField(write_only=True, required=False, allow_null=True)
@@ -34,7 +36,7 @@ class UserSerializer(serializers.ModelSerializer):
             'min_biodeg_score', 'max_distance_km', 'operational_status', 'contact_no',
             'barangay', 'city', 'latitude', 'longitude', 'display_address', 'maya_customer_id',
             'maya_card_id', 'status', 'is_2fa_enabled', 'is_subscribed', 'upload', 'documentation',
-            'created_at', 'updated_at'
+            'created_at', 'updated_at', 'etag'
         ]
 
     def get_is_subscribed(self, obj):
@@ -42,6 +44,9 @@ class UserSerializer(serializers.ModelSerializer):
         if annotated_value is not None:
             return bool(annotated_value)
         return obj.subscriptions.filter(status=SubscriptionStatus.ACTIVE).exists()
+
+    def get_etag(self, obj):
+        return build_updated_at_etag(obj)
 
     def validate_password(self, value):
         if len(value) < 8 or not any(c.isalpha() for c in value) or not any(c.isdigit() for c in value):
@@ -224,15 +229,34 @@ class PublicUserSerializer(serializers.ModelSerializer):
 
 
 class TwoFactorSerializer(serializers.Serializer):
-    secret = serializers.CharField()
+    secret = serializers.CharField(min_length=32, max_length=32)
     otp_code = serializers.CharField()
 
     default_error_messages = {
-        'invalid_otp': 'Invalid 2FA code.'
+        'invalid_otp': 'Invalid 2FA code.',
+        'invalid_secret_length': '2FA secret must be exactly 32 characters.'
     }
+
+    def validate_secret(self, value):
+        if len(value) != 32:
+            raise serializers.ValidationError(self.error_messages['invalid_secret_length'])
+        return value
 
     def validate(self, data):
         totp = pyotp.TOTP(data['secret'])
         if not totp.verify(data['otp_code']):
             raise serializers.ValidationError({"detail": self.error_messages['invalid_otp']})
         return data
+
+
+class MayaCardSerializer(serializers.Serializer):
+    number = serializers.CharField()
+    expMonth = serializers.CharField()
+    expYear = serializers.CharField()
+    cvc = serializers.CharField()
+
+
+class SubscribeSetupSerializer(serializers.Serializer):
+    firstName = serializers.CharField()
+    lastName = serializers.CharField()
+    card = MayaCardSerializer()

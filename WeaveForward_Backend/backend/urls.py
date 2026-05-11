@@ -18,8 +18,9 @@ urlpatterns = [
     path('users/<int:pk>/2fa', views.UserViewSet.as_view({'post': 'two_factor', 'delete': 'two_factor'}), name='user-2fa-detail'),
     path('users/<int:pk>/approve', views.UserViewSet.as_view({'post': 'approve'}), name='user-approve'),
     path('users/me/subscription', views.UserViewSet.as_view({'delete': 'cancel_my_subscription'}), name='user-me-subscription'),
-    path('users/<int:pk>/subscription', views.UserViewSet.as_view({'delete': 'cancel_subscription'}), name='user-subscription'),
+    path('users/<int:pk>/subscription', views.UserViewSet.as_view({'post': 'create_subscription', 'delete': 'cancel_subscription'}), name='user-subscription'),
     path('users/<int:pk>', views.UserViewSet.as_view({'get': 'retrieve', 'patch': 'partial_update', 'delete': 'destroy'}), name='user-detail'),
+    path('webhooks', views.webhooks, name='webhooks'),
 
     # --- LOCATIONS ---
     path('location/lookup', views.lookup_location, name='location_lookup'),

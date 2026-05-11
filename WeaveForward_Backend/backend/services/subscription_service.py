@@ -1,5 +1,252 @@
+from calendar import monthrange
+from decimal import Decimal, InvalidOperation
+
+import requests
+from django.conf import settings
 from django.db import transaction
-from ..models import User, Subscription, SubscriptionStatus
+from django.utils import timezone
+
+from ..models import (
+    PaymentStatus,
+    Subscription,
+    SubscriptionPayment,
+    SubscriptionStatus,
+    SubscriptionTier,
+    User,
+    UserAccountStatus,
+    UserRole,
+)
+
+MAYA_REQUEST_TIMEOUT_SECONDS = 30
+
+
+def get_active_subscriptions_for_user(*, user):
+    return list(
+        Subscription.objects.select_for_update()
+        .filter(user=user, status=SubscriptionStatus.ACTIVE)
+    )
+
+
+def _maya_headers(authorization_value):
+    return {
+        'Authorization': authorization_value,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+    }
+
+
+def _extract_error_detail(response):
+    try:
+        payload = response.json()
+    except ValueError:
+        return response.text or "Maya request failed."
+
+    if isinstance(payload, dict):
+        return payload.get('error') or payload.get('message') or payload.get('detail') or str(payload)
+    return str(payload)
+
+
+def _maya_post(*, url, payload, authorization_value):
+    return requests.post(
+        url,
+        json=payload,
+        headers=_maya_headers(authorization_value),
+        timeout=MAYA_REQUEST_TIMEOUT_SECONDS,
+    )
+
+
+def subscribe_user(*, target_user_id, first_name, last_name, card):
+    with transaction.atomic():
+        try:
+            user = User.objects.select_for_update().get(pk=target_user_id)
+        except User.DoesNotExist:
+            return {
+                "status_code": 404,
+                "detail": "User not found.",
+            }
+
+        if user.status != UserAccountStatus.ACTIVE:
+            return {
+                "status_code": 400,
+                "detail": "Only active TUAB users can subscribe.",
+            }
+
+        active_subscriptions = get_active_subscriptions_for_user(user=user)
+        if active_subscriptions:
+            return {
+                "status_code": 400,
+                "detail": "User is already subscribed.",
+            }
+
+        if not settings.MAYA_SANDBOX_SECRET_BASIC_AUTH or not settings.MAYA_SANDBOX_PUBLIC_BASIC_AUTH:
+            return {
+                "status_code": 500,
+                "detail": "Maya sandbox credentials are not configured.",
+            }
+
+        base_url = settings.MAYA_SANDBOX_BASE_URL.rstrip('/')
+
+        try:
+            customer_response = _maya_post(
+                url=f'{base_url}/customers',
+                payload={
+                    'firstName': first_name,
+                    'lastName': last_name,
+                },
+                authorization_value=settings.MAYA_SANDBOX_SECRET_BASIC_AUTH,
+            )
+        except requests.RequestException as exc:
+            return {
+                "status_code": 502,
+                "detail": f"Maya customer creation failed: {exc}",
+            }
+        if customer_response.status_code != 200:
+            return {
+                "status_code": 502,
+                "detail": f"Maya customer creation failed: {_extract_error_detail(customer_response)}",
+            }
+        customer_payload = customer_response.json()
+
+        try:
+            payment_token_response = _maya_post(
+                url=f'{base_url}/payment-tokens',
+                payload={'card': card},
+                authorization_value=settings.MAYA_SANDBOX_PUBLIC_BASIC_AUTH,
+            )
+        except requests.RequestException as exc:
+            return {
+                "status_code": 502,
+                "detail": f"Maya payment token creation failed: {exc}",
+            }
+        if payment_token_response.status_code != 200:
+            return {
+                "status_code": 502,
+                "detail": f"Maya payment token creation failed: {_extract_error_detail(payment_token_response)}",
+            }
+        payment_token_payload = payment_token_response.json()
+
+        customer_id = customer_payload['id']
+        payment_token_id = payment_token_payload['paymentTokenId']
+
+        try:
+            customer_card_response = _maya_post(
+                url=f'{base_url}/customers/{customer_id}/cards',
+                payload={
+                    'paymentTokenId': payment_token_id,
+                    'isDefault': True,
+                },
+                authorization_value=settings.MAYA_SANDBOX_SECRET_BASIC_AUTH,
+            )
+        except requests.RequestException as exc:
+            return {
+                "status_code": 502,
+                "detail": f"Maya card binding failed: {exc}",
+            }
+        if customer_card_response.status_code != 200:
+            return {
+                "status_code": 502,
+                "detail": f"Maya card binding failed: {_extract_error_detail(customer_card_response)}",
+            }
+        customer_card_payload = customer_card_response.json()
+        stored_card_token_id = customer_card_payload.get('cardTokenId') or payment_token_id
+
+        user.maya_customer_id = customer_id
+        user.maya_card_id = stored_card_token_id
+        user.save(update_fields=['maya_customer_id', 'maya_card_id', 'updated_at'])
+
+        return {
+            "status_code": 200,
+            "detail": "Maya subscription setup succeeded. Card verification is still pending.",
+            "fields_modified": ['maya_customer_id', 'maya_card_id'],
+            "maya_customer_id": customer_id,
+            "maya_card_id": stored_card_token_id,
+            "cardTokenId": stored_card_token_id,
+            "state": customer_card_payload.get('state'),
+            "verificationUrl": customer_card_payload.get('verificationUrl'),
+        }
+
+
+def _activate_subscription_from_maya_verification(payload):
+    try:
+        verified = (
+            payload.get('status') == 'PAYMENT_SUCCESS'
+            and payload.get('isPaid') is True
+            and Decimal(str(payload.get('amount'))) == Decimal('10.00')
+        )
+    except (InvalidOperation, TypeError, ValueError):
+        verified = False
+    if not verified:
+        return {"status_code": 200, "detail": "Maya webhook acknowledged with no subscription action taken."}
+
+    maya_card_token_id = payload.get('paymentTokenId') or (payload.get('fundSource') or {}).get('id')
+    if not maya_card_token_id:
+        return {"status_code": 200, "detail": "Maya webhook ignored because no card token was present."}
+
+    with transaction.atomic():
+        try:
+            user = User.objects.select_for_update().get(role=UserRole.TUAB, maya_card_id=maya_card_token_id)
+        except User.DoesNotExist:
+            return {"status_code": 200, "detail": "Maya webhook ignored because no matching TUAB user was found."}
+
+        if user.status != UserAccountStatus.ACTIVE:
+            return {"status_code": 200, "detail": "Maya webhook ignored because the matched TUAB is not active."}
+        if get_active_subscriptions_for_user(user=user):
+            return {"status_code": 200, "detail": "Maya webhook ignored because the matched TUAB is already subscribed."}
+        if not all((settings.MAYA_SANDBOX_SECRET_BASIC_AUTH, settings.MAYA_SANDBOX_BASE_URL, user.maya_customer_id, user.maya_card_id)):
+            return {"status_code": 500, "detail": "Maya subscription charge is not fully configured for the matched user."}
+
+        request_reference_number = payload.get('id') or f"user-{user.user_id}-{int(timezone.now().timestamp())}"
+        request_reference_number = request_reference_number[:36]
+
+        try:
+            charge_response = _maya_post(
+                url=f"{settings.MAYA_SANDBOX_BASE_URL.rstrip('/')}/customers/{user.maya_customer_id}/cards/{user.maya_card_id}/payments",
+                payload={
+                    'totalAmount': {'amount': 499.00, 'currency': 'PHP'},
+                    'cardId': user.maya_card_id,
+                    'requestReferenceNumber': request_reference_number,
+                },
+                authorization_value=settings.MAYA_SANDBOX_SECRET_BASIC_AUTH,
+            )
+        except requests.RequestException as exc:
+            return {"status_code": 502, "detail": f"Maya subscription charge failed: {exc}"}
+        if charge_response.status_code != 200:
+            return {"status_code": 502, "detail": f"Maya subscription charge failed: {_extract_error_detail(charge_response)}"}
+
+        charge_payload = charge_response.json()
+        try:
+            charged = (
+                charge_payload.get('status') == 'PAYMENT_SUCCESS'
+                and charge_payload.get('isPaid') is True
+                and Decimal(str(charge_payload.get('amount'))) == Decimal('499.00')
+            )
+        except (InvalidOperation, TypeError, ValueError):
+            charged = False
+        if not charged:
+            return {"status_code": 502, "detail": "Maya subscription charge did not complete successfully."}
+
+        start_date = timezone.now()
+        next_year = start_date.year + (1 if start_date.month == 12 else 0)
+        next_month = 1 if start_date.month == 12 else start_date.month + 1
+        SubscriptionPayment.objects.create(
+            subscription=Subscription.objects.create(
+                user=user,
+                status=SubscriptionStatus.ACTIVE,
+                subscription_tier=SubscriptionTier.PRO,
+                start_date=start_date,
+                end_date=start_date.replace(
+                    year=next_year,
+                    month=next_month,
+                    day=min(start_date.day, monthrange(next_year, next_month)[1]),
+                ),
+            ),
+            amount=Decimal('499.00'),
+            status=PaymentStatus.SUCCESS,
+            payment_reference=request_reference_number,
+        )
+
+    return {"status_code": 200, "detail": "Maya card verification succeeded and the subscription was activated."}
+
 
 def unsubscribe_user(*, target_user_id):
     """
@@ -8,7 +255,6 @@ def unsubscribe_user(*, target_user_id):
     """
     with transaction.atomic():
         try:
-            # Lock the user record
             user = User.objects.select_for_update().get(pk=target_user_id)
         except User.DoesNotExist:
             return {
@@ -18,19 +264,22 @@ def unsubscribe_user(*, target_user_id):
                 "cancelled_subscriptions_count": 0
             }
 
-        # Lock and fetch active subscriptions
-        active_subscriptions = list(
-            Subscription.objects.select_for_update()
-            .filter(user=user, status=SubscriptionStatus.ACTIVE)
-        )
+        active_subscriptions = get_active_subscriptions_for_user(user=user)
+
+        if not active_subscriptions:
+            return {
+                "status_code": 400,
+                "detail": "User does not have an active subscription.",
+                "user_updated": False,
+                "cancelled_subscriptions_count": 0
+            }
 
         for sub in active_subscriptions:
             sub.status = SubscriptionStatus.CANCELLED
-        
+
         if active_subscriptions:
             Subscription.objects.bulk_update(active_subscriptions, ['status'])
 
-        # Clear Maya IDs
         user.maya_customer_id = None
         user.maya_card_id = None
         user.save(update_fields=['maya_customer_id', 'maya_card_id', 'updated_at'])
