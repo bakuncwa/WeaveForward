@@ -2,6 +2,7 @@ from unittest.mock import Mock, patch
 
 from django.test import TestCase
 from django.urls import reverse
+from django.contrib.messages import get_messages
 from requests.cookies import RequestsCookieJar
 
 
@@ -194,6 +195,7 @@ class AdminViewTuabsTest(TestCase):
                 'contact_no': '+639171234567',
                 'is_subscribed': True,
                 'status': 'ACTIVE',
+                'etag': 'W/"etag-11"',
             }],
             'count': 1,
             'total_pages': 1,
@@ -214,9 +216,44 @@ class AdminViewTuabsTest(TestCase):
         self.assertContains(response, 'Search TUABs...')
         self.assertNotContains(response, 'function authFetch')
         self.assertContains(response, 'data-api-url="/admin/users/11/archive/"')
+        self.assertContains(response, 'data-user-etag="W/&quot;etag-11&quot;"')
+        self.assertContains(response, 'name="etag"')
         self.assertContains(response, 'href="/admin/tuabs/11/"')
         self.assertContains(response, 'href="/admin/tuabs/add/"')
         self.assertContains(response, 'Add TUAB')
+
+
+class AdminViewDonorsTest(TestCase):
+    def setUp(self):
+        self.profile = {'role': 'Admin', 'first_name': 'Admin'}
+
+    @patch('frontend.views.admin.get_paginated_data')
+    @patch('frontend.views.admin.get_user_profile')
+    def test_admin_view_donors_renders_archive_etag_data(self, mocked_profile, mocked_page_data):
+        mocked_profile.return_value = self.profile
+        mocked_page_data.return_value = {
+            'results': [{
+                'user_id': 7,
+                'first_name': 'Juan',
+                'last_name': 'Dela Cruz',
+                'contact_no': '+639171234567',
+                'status': 'ACTIVE',
+                'etag': 'W/"etag-7"',
+            }],
+            'count': 1,
+            'total_pages': 1,
+            'current_page': 1,
+            'has_next': False,
+            'has_prev': False,
+            'search_query': '',
+        }
+
+        response = self.client.get(reverse('admin_view_donors'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-api-url="/admin/users/7/archive/"')
+        self.assertContains(response, 'data-user-etag="W/&quot;etag-7&quot;"')
+        self.assertContains(response, 'name="etag"')
 
 
 class AdminAddTuabViewTest(TestCase):
@@ -381,10 +418,44 @@ class AdminArchiveProxyTest(TestCase):
         mocked_profile.return_value = self.profile
         mocked_api_call.return_value = make_response(204)
         
-        response = self.client.post(reverse('admin_archive_user_proxy', kwargs={'user_id': 11}))
+        response = self.client.post(reverse('admin_archive_user_proxy', kwargs={'user_id': 11}), {'etag': '"etag-1"'})
         
         self.assertEqual(response.status_code, 302)
         self.assertEqual(mocked_api_call.call_args.args[1:], ('DELETE', 'users/11'))
+        self.assertEqual(mocked_api_call.call_args.kwargs['headers']['If-Match'], '"etag-1"')
+
+    @patch('frontend.views.admin.api_call')
+    @patch('frontend.views.admin.get_user_profile')
+    def test_admin_archive_proxy_sets_success_message(self, mocked_profile, mocked_api_call):
+        mocked_profile.return_value = self.profile
+        mocked_api_call.return_value = make_response(204)
+
+        response = self.client.post(reverse('admin_archive_user_proxy', kwargs={'user_id': 11}), {'etag': '"etag-1"'})
+
+        messages = [message.message for message in get_messages(response.wsgi_request)]
+        self.assertIn("User archived successfully.", messages)
+
+    @patch('frontend.views.admin.api_call')
+    @patch('frontend.views.admin.get_user_profile')
+    def test_admin_archive_proxy_handles_stale_etag(self, mocked_profile, mocked_api_call):
+        mocked_profile.return_value = self.profile
+        mocked_api_call.return_value = make_response(412, {'detail': 'ETag does not match the current resource version.'})
+
+        response = self.client.post(reverse('admin_archive_user_proxy', kwargs={'user_id': 11}), {'etag': '"etag-1"'})
+
+        messages = [message.message for message in get_messages(response.wsgi_request)]
+        self.assertIn("This user was updated somewhere else. Refresh the page and try archiving again.", messages)
+
+    @patch('frontend.views.admin.api_call')
+    @patch('frontend.views.admin.get_user_profile')
+    def test_admin_archive_proxy_handles_missing_etag(self, mocked_profile, mocked_api_call):
+        mocked_profile.return_value = self.profile
+        mocked_api_call.return_value = make_response(428, {'detail': 'If-Match header is required.'})
+
+        response = self.client.post(reverse('admin_archive_user_proxy', kwargs={'user_id': 11}), {'etag': ''})
+
+        messages = [message.message for message in get_messages(response.wsgi_request)]
+        self.assertIn("We couldn't verify the latest user version. Refresh the page and try again.", messages)
 
     @patch('frontend.views.admin.get_user_profile')
     def test_admin_archive_proxy_denies_non_admin(self, mocked_profile):

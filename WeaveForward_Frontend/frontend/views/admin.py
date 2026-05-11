@@ -296,10 +296,21 @@ def admin_archive_user_proxy(request, user_id):
         return redirect('login')
     
     if request.method == 'POST':
+        submitted_etag = request.POST.get('etag')
+        headers = {'If-Match': submitted_etag} if submitted_etag else {}
         try:
-            api_call(request, 'DELETE', f'users/{user_id}')
+            response = api_call(request, 'DELETE', f'users/{user_id}', headers=headers)
+            if response.status_code == 204:
+                messages.success(request, "User archived successfully.")
+            elif response.status_code == 412:
+                messages.error(request, "This user was updated somewhere else. Refresh the page and try archiving again.")
+            elif response.status_code == 428:
+                messages.error(request, "We couldn't verify the latest user version. Refresh the page and try again.")
+            else:
+                response_data = response.json() if hasattr(response, 'json') else {}
+                messages.error(request, response_data.get('detail', 'Unable to archive user.'))
         except Exception:
-            pass
+            messages.error(request, "Backend API is offline or unreachable.")
             
     # Redirect back to the referring page or a fallback
     referer = request.META.get('HTTP_REFERER')

@@ -352,7 +352,8 @@
               {% endif %}
               {% if tuab.status == 'ACTIVE' %}
               <button class="btn btn-outline archive-btn" type="button"
-                data-api-url="/admin/users/{{ tuab.user_id }}/archive/">
+                data-api-url="/admin/users/{{ tuab.user_id }}/archive/"
+                data-user-etag="{{ tuab.etag }}">
                 Archive
               </button>
               {% endif %}
@@ -386,6 +387,7 @@
     <div class="modal-title">Archive TUAB?</div>
     <form id="archive-form" method="POST" action="">
       {% csrf_token %}
+      <input id="archive-etag" name="etag" type="hidden" value="">
       <div class="modal-actions">
         <button id="archive-cancel" class="btn modal-btn-cancel" type="button">Cancel</button>
         <button type="submit" class="btn modal-btn-archive">Archive</button>
@@ -404,10 +406,12 @@
   const archiveModal = document.getElementById('archive-modal');
   const archiveCancel = document.getElementById('archive-cancel');
   const archiveForm = document.getElementById('archive-form');
+  const archiveEtag = document.getElementById('archive-etag');
 
   document.querySelectorAll('.archive-btn').forEach((button) => {
     button.addEventListener('click', () => {
       if (archiveForm) archiveForm.action = button.dataset.apiUrl;
+      if (archiveEtag) archiveEtag.value = button.dataset.userEtag || '';
       archiveModal.classList.add('is-open');
       archiveModal.setAttribute('aria-hidden', 'false');
     });
