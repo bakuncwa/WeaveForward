@@ -139,3 +139,19 @@ The application architecture supports hybrid deployment for Google Cloud Platfor
 1. Locate the **BLOCK 2** settings in the `.env` files.
 2. Uncomment the production-specific variables (Cloud SQL, GCS, etc.).
 3. Configure the GCP environment according to the project's Cloud Run and Cloud SQL specifications.
+
+---
+
+## Webhook & ngrok Configuration
+
+For local development of features requiring external callbacks (like Maya payment processing), the backend uses an ngrok tunnel to expose the local server to the internet.
+
+*   **Static ngrok Link**: `https://raquel-washiest-heike.ngrok-free.dev/api/webhooks/`
+    *   *Note: This link is static as it uses a free-tier permanent domain.*
+*   **How to Use**:
+    1.  Ensure your backend is running on port `8000`.
+    2.  Start ngrok with the static domain:
+        ```powershell
+        ngrok http --domain=raquel-washiest-heike.ngrok-free.dev 8000
+        ```
+    3.  Maya webhooks will now be forwarded to your local instance.

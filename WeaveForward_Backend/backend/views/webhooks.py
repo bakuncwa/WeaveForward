@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from ..services.audit_service import get_client_ip
 from ..services.subscription_service import _activate_subscription_from_maya_verification
 
+# Webhook uses ngrok: https://raquel-washiest-heike.ngrok-free.dev/api/webhooks/
 MAYA_WEBHOOK_IPS = {'3.1.199.75', '13.229.160.234'}
 LALAMOVE_WEBHOOK_IP = '52.76.164.226'
 
