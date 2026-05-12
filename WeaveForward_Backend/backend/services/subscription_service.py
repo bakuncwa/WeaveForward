@@ -55,6 +55,14 @@ def _maya_post(*, url, payload, authorization_value):
     )
 
 
+def _maya_delete(*, url, authorization_value):
+    return requests.delete(
+        url,
+        headers=_maya_headers(authorization_value),
+        timeout=MAYA_REQUEST_TIMEOUT_SECONDS,
+    )
+
+
 def subscribe_user(*, target_user_id, first_name, last_name, card):
     with transaction.atomic():
         try:
@@ -86,26 +94,29 @@ def subscribe_user(*, target_user_id, first_name, last_name, card):
 
         base_url = settings.MAYA_SANDBOX_BASE_URL.rstrip('/')
 
-        try:
-            customer_response = _maya_post(
-                url=f'{base_url}/customers',
-                payload={
-                    'firstName': first_name,
-                    'lastName': last_name,
-                },
-                authorization_value=settings.MAYA_SANDBOX_SECRET_BASIC_AUTH,
-            )
-        except requests.RequestException as exc:
-            return {
-                "status_code": 502,
-                "detail": f"Maya customer creation failed: {exc}",
-            }
-        if customer_response.status_code != 200:
-            return {
-                "status_code": 502,
-                "detail": f"Maya customer creation failed: {_extract_error_detail(customer_response)}",
-            }
-        customer_payload = customer_response.json()
+        customer_id = user.maya_customer_id
+        if not customer_id:
+            try:
+                customer_response = _maya_post(
+                    url=f'{base_url}/customers',
+                    payload={
+                        'firstName': first_name,
+                        'lastName': last_name,
+                    },
+                    authorization_value=settings.MAYA_SANDBOX_SECRET_BASIC_AUTH,
+                )
+            except requests.RequestException as exc:
+                return {
+                    "status_code": 502,
+                    "detail": f"Maya customer creation failed: {exc}",
+                }
+            if customer_response.status_code != 200:
+                return {
+                    "status_code": 502,
+                    "detail": f"Maya customer creation failed: {_extract_error_detail(customer_response)}",
+                }
+            customer_payload = customer_response.json()
+            customer_id = customer_payload['id']
 
         try:
             payment_token_response = _maya_post(
@@ -125,7 +136,6 @@ def subscribe_user(*, target_user_id, first_name, last_name, card):
             }
         payment_token_payload = payment_token_response.json()
 
-        customer_id = customer_payload['id']
         payment_token_id = payment_token_payload['paymentTokenId']
 
         try:
@@ -134,6 +144,11 @@ def subscribe_user(*, target_user_id, first_name, last_name, card):
                 payload={
                     'paymentTokenId': payment_token_id,
                     'isDefault': True,
+                    'redirectUrl': {
+                        'success': f"{settings.FRONTEND_URL.rstrip('/')}/tuab/subscribe/?status=success",
+                        'failure': f"{settings.FRONTEND_URL.rstrip('/')}/tuab/subscribe/?status=failed",
+                        'cancel': f"{settings.FRONTEND_URL.rstrip('/')}/tuab/subscribe/?status=failed",
+                    }
                 },
                 authorization_value=settings.MAYA_SANDBOX_SECRET_BASIC_AUTH,
             )
@@ -167,6 +182,27 @@ def subscribe_user(*, target_user_id, first_name, last_name, card):
 
 
 def _activate_subscription_from_maya_verification(payload):
+    maya_card_token_id = payload.get('paymentTokenId') or (payload.get('fundSource') or {}).get('id')
+    try:
+        auth_failed_verification = (
+            payload.get('status') == 'AUTH_FAILED'
+            and Decimal(str(payload.get('amount'))) == Decimal('10.00')
+        )
+    except (InvalidOperation, TypeError, ValueError):
+        auth_failed_verification = False
+
+    if auth_failed_verification and maya_card_token_id:
+        with transaction.atomic():
+            try:
+                user = User.objects.select_for_update().get(role=UserRole.TUAB, maya_card_id=maya_card_token_id)
+            except User.DoesNotExist:
+                return {"status_code": 200, "detail": "Maya auth-failed webhook ignored because no matching TUAB user was found."}
+
+            user.maya_card_id = None
+            user.save(update_fields=['maya_card_id', 'updated_at'])
+
+        return {"status_code": 200, "detail": "Maya card verification failed (AUTH_FAILED) and the card token was cleared."}
+
     try:
         verified = (
             payload.get('status') == 'PAYMENT_SUCCESS'
@@ -188,7 +224,6 @@ def _activate_subscription_from_maya_verification(payload):
     if v_resp.status_code != 200 or v_resp.json().get('status') not in ['PAYMENT_SUCCESS', 'VOIDED']:
         return {"status_code": 200, "detail": "Maya verification failed."}
 
-    maya_card_token_id = payload.get('paymentTokenId') or (payload.get('fundSource') or {}).get('id')
     if not maya_card_token_id:
         return {"status_code": 200, "detail": "Maya webhook ignored because no card token was present."}
 
@@ -284,15 +319,36 @@ def unsubscribe_user(*, target_user_id):
                 "cancelled_subscriptions_count": 0
             }
 
+        if user.maya_customer_id and user.maya_card_id:
+            base_url = settings.MAYA_SANDBOX_BASE_URL.rstrip('/')
+            try:
+                delete_response = _maya_delete(
+                    url=f"{base_url}/customers/{user.maya_customer_id}/cards/{user.maya_card_id}",
+                    authorization_value=settings.MAYA_SANDBOX_SECRET_BASIC_AUTH,
+                )
+            except requests.RequestException as exc:
+                return {
+                    "status_code": 502,
+                    "detail": f"Maya card deletion failed: {exc}",
+                    "user_updated": False,
+                    "cancelled_subscriptions_count": 0,
+                }
+            if delete_response.status_code != 200:
+                return {
+                    "status_code": 502,
+                    "detail": f"Maya card deletion failed: {_extract_error_detail(delete_response)}",
+                    "user_updated": False,
+                    "cancelled_subscriptions_count": 0,
+                }
+
         for sub in active_subscriptions:
             sub.status = SubscriptionStatus.CANCELLED
 
         if active_subscriptions:
             Subscription.objects.bulk_update(active_subscriptions, ['status'])
 
-        user.maya_customer_id = None
         user.maya_card_id = None
-        user.save(update_fields=['maya_customer_id', 'maya_card_id', 'updated_at'])
+        user.save(update_fields=['maya_card_id', 'updated_at'])
 
         return {
             "status_code": 200,

@@ -22,17 +22,25 @@ def unclaim_tuab_donations(*, tuab):
 
     changed_donations = []
     for donation in affected_donations:
-        if donation.status == DonationStatus.CLAIMED:
-            if donation.delivery_method == DonationDeliveryMethod.DELIVERY:
-                # Future feature: cancel the Lalamove delivery through its API endpoint here.
-                pass
-            elif donation.delivery_method != DonationDeliveryMethod.PICKUP:
-                continue
-        elif not (
+        is_claimed_pickup = (
+            donation.status == DonationStatus.CLAIMED
+            and donation.delivery_method == DonationDeliveryMethod.PICKUP
+        )
+        is_in_transit_pickup = (
             donation.status == DonationStatus.IN_TRANSIT
             and donation.delivery_method == DonationDeliveryMethod.PICKUP
-        ):
+        )
+        is_claimed_delivery = (
+            donation.status == DonationStatus.CLAIMED
+            and donation.delivery_method == DonationDeliveryMethod.DELIVERY
+        )
+
+        if not (is_claimed_pickup or is_in_transit_pickup or is_claimed_delivery):
             continue
+
+        if is_claimed_delivery:
+            # Future feature: cancel the Lalamove delivery through its API endpoint here.
+            pass
 
         donation.claimed_by_tuab = None
         donation.delivery_method = None

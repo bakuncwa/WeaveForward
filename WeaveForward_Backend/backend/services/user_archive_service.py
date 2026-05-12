@@ -1,4 +1,6 @@
 from django.utils import timezone
+import requests
+from django.conf import settings
 
 from ..models import (
     Donation,
@@ -37,7 +39,7 @@ from .unclaim_donation_service import unclaim_tuab_donations
 #     donations as loaded before unclaiming.
 # - Both roles:
 #   - Cancel ACTIVE subscriptions.
-#   - Clear maya_customer_id and maya_card_id.
+#   - Preserve maya_customer_id and clear maya_card_id.
 #   - Set the user status to ARCHIVED.
 
 def archive_user(*, target_user_id):
@@ -94,6 +96,57 @@ def archive_user(*, target_user_id):
             .filter(claimed_by_tuab=target_user)
             .order_by('donation_id')
         )
+        has_blocking_in_transit_delivery = any(
+            donation.delivery_method == DonationDeliveryMethod.DELIVERY
+            and donation.status == DonationStatus.IN_TRANSIT
+            for donation in tuab_donations
+        )
+        if has_blocking_in_transit_delivery:
+            return {
+                "status_code": 400,
+                "detail": "Archiving is not allowed while an associated delivery donation is in transit.",
+                "changed_donations": [],
+                "changed_inventory_ledgers": [],
+                "user_updated": False,
+            }
+
+        if target_user.maya_customer_id and target_user.maya_card_id:
+            base_url = settings.MAYA_SANDBOX_BASE_URL.rstrip('/')
+            try:
+                delete_response = requests.delete(
+                    f"{base_url}/customers/{target_user.maya_customer_id}/cards/{target_user.maya_card_id}",
+                    headers={
+                        'Authorization': settings.MAYA_SANDBOX_SECRET_BASIC_AUTH,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    timeout=30,
+                )
+            except requests.RequestException as exc:
+                return {
+                    "status_code": 502,
+                    "detail": f"Maya card deletion failed: {exc}",
+                    "changed_donations": [],
+                    "changed_inventory_ledgers": [],
+                    "user_updated": False,
+                }
+            if delete_response.status_code != 200:
+                try:
+                    delete_payload = delete_response.json()
+                    delete_error = (
+                        delete_payload.get('error') or delete_payload.get('message') or delete_payload.get('detail') or str(delete_payload)
+                        if isinstance(delete_payload, dict) else str(delete_payload)
+                    )
+                except ValueError:
+                    delete_error = delete_response.text or "Maya request failed."
+                return {
+                    "status_code": 502,
+                    "detail": f"Maya card deletion failed: {delete_error}",
+                    "changed_donations": [],
+                    "changed_inventory_ledgers": [],
+                    "user_updated": False,
+                }
+
         donation_result = unclaim_tuab_donations(tuab=target_user)
         if donation_result["detail"] is not None:
             return {
@@ -123,6 +176,43 @@ def archive_user(*, target_user_id):
                 "changed_inventory_ledgers": [],
                 "user_updated": False,
             }
+
+        if target_user.maya_customer_id and target_user.maya_card_id:
+            base_url = settings.MAYA_SANDBOX_BASE_URL.rstrip('/')
+            try:
+                delete_response = requests.delete(
+                    f"{base_url}/customers/{target_user.maya_customer_id}/cards/{target_user.maya_card_id}",
+                    headers={
+                        'Authorization': settings.MAYA_SANDBOX_SECRET_BASIC_AUTH,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    timeout=30,
+                )
+            except requests.RequestException as exc:
+                return {
+                    "status_code": 502,
+                    "detail": f"Maya card deletion failed: {exc}",
+                    "changed_donations": [],
+                    "changed_inventory_ledgers": [],
+                    "user_updated": False,
+                }
+            if delete_response.status_code != 200:
+                try:
+                    delete_payload = delete_response.json()
+                    delete_error = (
+                        delete_payload.get('error') or delete_payload.get('message') or delete_payload.get('detail') or str(delete_payload)
+                        if isinstance(delete_payload, dict) else str(delete_payload)
+                    )
+                except ValueError:
+                    delete_error = delete_response.text or "Maya request failed."
+                return {
+                    "status_code": 502,
+                    "detail": f"Maya card deletion failed: {delete_error}",
+                    "changed_donations": [],
+                    "changed_inventory_ledgers": [],
+                    "user_updated": False,
+                }
 
         for donation in donor_donations:
             if donation.status == DonationStatus.PENDING:
@@ -170,9 +260,8 @@ def archive_user(*, target_user_id):
         Subscription.objects.bulk_update(active_subscriptions, ['status'])
 
     target_user.status = UserAccountStatus.ARCHIVED
-    target_user.maya_customer_id = None
     target_user.maya_card_id = None
-    target_user.save(update_fields=['status', 'maya_customer_id', 'maya_card_id', 'updated_at'])
+    target_user.save(update_fields=['status', 'maya_card_id', 'updated_at'])
 
     return {
         "status_code": 204,

@@ -3,7 +3,9 @@ from decimal import Decimal
 import json
 from unittest.mock import Mock, patch
 import pyotp
+import requests
 from django.test import TestCase, override_settings
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.urls import resolve, reverse
@@ -1451,16 +1453,25 @@ class UserSubscriptionAPITest(TestCase):
             end_date='2026-06-01T00:00:00Z'
         )
 
-        self.client.force_authenticate(user=self.user)
-        response = self.client.delete(reverse('user-me-subscription'))
+        with patch('backend.services.subscription_service.requests.delete') as mocked_delete:
+            mocked_delete.return_value = self.maya_response(200, {'status': 'deleted'})
+            self.client.force_authenticate(user=self.user)
+            response = self.client.delete(reverse('user-me-subscription'))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['detail'], "Successfully unsubscribed.")
         self.user.refresh_from_db()
         active_subscription.refresh_from_db()
-        self.assertIsNone(self.user.maya_customer_id)
+        self.assertEqual(self.user.maya_customer_id, "maya-customer-sub")
         self.assertIsNone(self.user.maya_card_id)
         self.assertEqual(active_subscription.status, 'CANCELLED')
+        mocked_delete.assert_called_once()
+        delete_call = mocked_delete.call_args
+        self.assertEqual(
+            delete_call.args[0],
+            'https://pg-sandbox.paymaya.com/payments/v1/customers/maya-customer-sub/cards/maya-card-sub'
+        )
+        self.assertEqual(delete_call.kwargs['headers']['Authorization'], settings.MAYA_SANDBOX_SECRET_BASIC_AUTH)
 
     def test_admin_can_unsubscribe_user_with_active_subscription(self):
         active_subscription = Subscription.objects.create(
@@ -1471,16 +1482,63 @@ class UserSubscriptionAPITest(TestCase):
             end_date='2026-06-01T00:00:00Z'
         )
 
-        self.client.force_authenticate(user=self.admin)
-        response = self.client.delete(reverse('user-subscription', kwargs={'pk': self.user.user_id}))
+        with patch('backend.services.subscription_service.requests.delete') as mocked_delete:
+            mocked_delete.return_value = self.maya_response(200, {'status': 'deleted'})
+            self.client.force_authenticate(user=self.admin)
+            response = self.client.delete(reverse('user-subscription', kwargs={'pk': self.user.user_id}))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['detail'], "Successfully unsubscribed.")
         self.user.refresh_from_db()
         active_subscription.refresh_from_db()
-        self.assertIsNone(self.user.maya_customer_id)
+        self.assertEqual(self.user.maya_customer_id, "maya-customer-sub")
         self.assertIsNone(self.user.maya_card_id)
         self.assertEqual(active_subscription.status, 'CANCELLED')
+        mocked_delete.assert_called_once()
+
+    def test_user_unsubscribe_fails_when_maya_card_delete_fails(self):
+        active_subscription = Subscription.objects.create(
+            user=self.user,
+            status='ACTIVE',
+            subscription_tier='PRO',
+            start_date='2026-05-01T00:00:00Z',
+            end_date='2026-06-01T00:00:00Z'
+        )
+
+        with patch('backend.services.subscription_service.requests.delete') as mocked_delete:
+            mocked_delete.return_value = self.maya_response(400, {'error': 'Cannot delete card'})
+            self.client.force_authenticate(user=self.user)
+            response = self.client.delete(reverse('user-me-subscription'))
+
+        self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
+        self.assertIn("Maya card deletion failed", response.data['detail'])
+        self.user.refresh_from_db()
+        active_subscription.refresh_from_db()
+        self.assertEqual(self.user.maya_customer_id, "maya-customer-sub")
+        self.assertEqual(self.user.maya_card_id, "maya-card-sub")
+        self.assertEqual(active_subscription.status, 'ACTIVE')
+
+    def test_user_unsubscribe_fails_when_maya_card_delete_raises(self):
+        active_subscription = Subscription.objects.create(
+            user=self.user,
+            status='ACTIVE',
+            subscription_tier='PRO',
+            start_date='2026-05-01T00:00:00Z',
+            end_date='2026-06-01T00:00:00Z'
+        )
+
+        with patch('backend.services.subscription_service.requests.delete') as mocked_delete:
+            mocked_delete.side_effect = requests.RequestException("network down")
+            self.client.force_authenticate(user=self.user)
+            response = self.client.delete(reverse('user-me-subscription'))
+
+        self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
+        self.assertIn("Maya card deletion failed", response.data['detail'])
+        self.user.refresh_from_db()
+        active_subscription.refresh_from_db()
+        self.assertEqual(self.user.maya_customer_id, "maya-customer-sub")
+        self.assertEqual(self.user.maya_card_id, "maya-card-sub")
+        self.assertEqual(active_subscription.status, 'ACTIVE')
 
     @override_settings(
         MAYA_SANDBOX_BASE_URL='https://pg-sandbox.paymaya.com/payments/v1',
@@ -1526,6 +1584,46 @@ class UserSubscriptionAPITest(TestCase):
         self.assertEqual(second_call.kwargs['headers']['Authorization'], 'Basic test-public')
         self.assertEqual(third_call.args[0], 'https://pg-sandbox.paymaya.com/payments/v1/customers/customer-123/cards')
         self.assertEqual(third_call.kwargs['headers']['Authorization'], 'Basic test-secret')
+        self.assertEqual(
+            third_call.kwargs['json']['redirectUrl']['success'],
+            f"{settings.FRONTEND_URL.rstrip('/')}/tuab/subscribe/?status=success"
+        )
+
+    @override_settings(
+        MAYA_SANDBOX_BASE_URL='https://pg-sandbox.paymaya.com/payments/v1',
+        MAYA_SANDBOX_SECRET_BASIC_AUTH='Basic test-secret',
+        MAYA_SANDBOX_PUBLIC_BASIC_AUTH='Basic test-public',
+    )
+    @patch('backend.services.subscription_service.requests.post')
+    def test_subscribe_reuses_existing_maya_customer_id(self, mocked_post):
+        card_token_id = 'B8dL3edy2qqULa5DSPWuzCSveroBICndc2Ols1cty5mU733RIRY2Pj0maXQSfYyvFNBlvfDZ6uadfDbNUqzFRs7TTYRaZnlfbIxJuNLe5GlTbpknC05ZNcLuAjf34UwKxvAmQENtx5HgmtitjmWM06eI0wm79XcZYVKD2dc'
+        self.tuab.maya_customer_id = 'existing-customer-123'
+        self.tuab.save(update_fields=['maya_customer_id', 'updated_at'])
+        mocked_post.side_effect = [
+            self.maya_response(200, {'paymentTokenId': card_token_id}),
+            self.maya_response(200, {
+                'id': '14ff3be6-f677-4975-8d58-c02ddb6313b3',
+                'cardTokenId': card_token_id,
+                'state': 'PREVERIFICATION',
+                'verificationUrl': 'https://payments-web-sandbox.maya.ph/authenticate?id=14ff3be6-f677-4975-8d58-c02ddb6313b3',
+            }),
+        ]
+
+        self.client.force_authenticate(user=self.tuab)
+        response = self.client.post(
+            reverse('user-subscription', kwargs={'pk': self.tuab.user_id}),
+            self.subscribe_payload,
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.tuab.refresh_from_db()
+        self.assertEqual(self.tuab.maya_customer_id, 'existing-customer-123')
+        self.assertEqual(self.tuab.maya_card_id, card_token_id)
+        self.assertEqual(mocked_post.call_count, 2)
+        first_call, second_call = mocked_post.call_args_list
+        self.assertEqual(first_call.args[0], 'https://pg-sandbox.paymaya.com/payments/v1/payment-tokens')
+        self.assertEqual(second_call.args[0], 'https://pg-sandbox.paymaya.com/payments/v1/customers/existing-customer-123/cards')
 
     def test_subscribe_rejects_non_tuab_user(self):
         self.client.force_authenticate(user=self.user)
@@ -1730,12 +1828,39 @@ class WebhookAPITest(TestCase):
         self.assertFalse(Subscription.objects.exists())
         self.assertFalse(SubscriptionPayment.objects.exists())
 
+    def test_auth_failed_verification_webhook_clears_maya_card_id(self):
+        failed_payload = self.webhook_payload.copy()
+        failed_payload['status'] = 'AUTH_FAILED'
+        failed_payload['isPaid'] = False
+
+        response = self.client.post(
+            reverse('webhooks'),
+            failed_payload,
+            format='json',
+            **self.webhook_headers()
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data['detail'],
+            "Maya card verification failed (AUTH_FAILED) and the card token was cleared."
+        )
+        self.tuab.refresh_from_db()
+        self.assertIsNone(self.tuab.maya_card_id)
+        self.assertFalse(Subscription.objects.exists())
+        self.assertFalse(SubscriptionPayment.objects.exists())
+
     @override_settings(
         MAYA_SANDBOX_BASE_URL='https://pg-sandbox.paymaya.com/payments/v1',
         MAYA_SANDBOX_SECRET_BASIC_AUTH='Basic test-secret',
     )
+    @patch('backend.services.subscription_service.requests.get')
     @patch('backend.services.subscription_service.requests.post')
-    def test_verification_success_webhook_charges_and_activates_subscription(self, mocked_post):
+    def test_verification_success_webhook_charges_and_activates_subscription(self, mocked_post, mocked_get):
+        mocked_get.return_value = self.maya_response(200, {
+            'id': 'e1aea1e2-ec95-492a-a5df-26ca85c0df09',
+            'status': 'PAYMENT_SUCCESS',
+        })
         mocked_post.return_value = self.maya_response(200, {
             'id': 'maya-charge-1',
             'isPaid': True,
@@ -1764,7 +1889,7 @@ class WebhookAPITest(TestCase):
         self.assertEqual(payment.amount, Decimal('499.00'))
         self.assertEqual(
             payment.payment_reference,
-            'monthly-e1aea1e2-ec95-492a-a5df-26ca85c0df09'
+            'e1aea1e2-ec95-492a-a5df-26ca85c0df09'
         )
         self.assertEqual(mocked_post.call_count, 1)
         charge_call = mocked_post.call_args
@@ -1776,15 +1901,20 @@ class WebhookAPITest(TestCase):
         self.assertEqual(charge_call.kwargs['json']['cardId'], self.card_token_id)
         self.assertEqual(
             charge_call.kwargs['json']['requestReferenceNumber'],
-            'monthly-e1aea1e2-ec95-492a-a5df-26ca85c0df09'
+            'e1aea1e2-ec95-492a-a5df-26ca85c0df09'
         )
 
     @override_settings(
         MAYA_SANDBOX_BASE_URL='https://pg-sandbox.paymaya.com/payments/v1',
         MAYA_SANDBOX_SECRET_BASIC_AUTH='Basic test-secret',
     )
+    @patch('backend.services.subscription_service.requests.get')
     @patch('backend.services.subscription_service.requests.post')
-    def test_duplicate_verification_webhook_does_not_create_duplicate_records(self, mocked_post):
+    def test_duplicate_verification_webhook_does_not_create_duplicate_records(self, mocked_post, mocked_get):
+        mocked_get.return_value = self.maya_response(200, {
+            'id': 'e1aea1e2-ec95-492a-a5df-26ca85c0df09',
+            'status': 'PAYMENT_SUCCESS',
+        })
         mocked_post.return_value = self.maya_response(200, {
             'id': 'maya-charge-1',
             'isPaid': True,
@@ -1864,6 +1994,13 @@ class UserArchiveAPITest(TestCase):
     def archive_headers(self, user):
         return {'HTTP_IF_MATCH': build_updated_at_etag(user)}
 
+    def maya_response(self, status_code, payload):
+        response = Mock()
+        response.status_code = status_code
+        response.json.return_value = payload
+        response.text = json.dumps(payload)
+        return response
+
     def create_donation(self, donor, status_value, delivery_method='PICKUP', claimed_by_tuab=None):
         return Donation.objects.create(
             donor=donor,
@@ -1880,7 +2017,9 @@ class UserArchiveAPITest(TestCase):
             preferred_pickup_window_end='12:00:00'
         )
 
-    def test_admin_can_archive_donor_and_archive_related_records(self):
+    @patch('backend.services.user_archive_service.requests.delete')
+    def test_admin_can_archive_donor_and_archive_related_records(self, mocked_delete):
+        mocked_delete.return_value = self.maya_response(200, {'status': 'deleted'})
         pending = self.create_donation(self.donor, 'PENDING')
         claimed_pickup = self.create_donation(self.donor, 'CLAIMED', delivery_method='PICKUP')
         in_transit_pickup = self.create_donation(self.donor, 'IN_TRANSIT', delivery_method='PICKUP')
@@ -1918,7 +2057,7 @@ class UserArchiveAPITest(TestCase):
         cancelled_subscription.refresh_from_db()
 
         self.assertEqual(self.donor.status, 'ARCHIVED')
-        self.assertIsNone(self.donor.maya_customer_id)
+        self.assertEqual(self.donor.maya_customer_id, 'maya-customer-1')
         self.assertIsNone(self.donor.maya_card_id)
         self.assertEqual(pending.status, 'ARCHIVED')
         self.assertEqual(claimed_pickup.status, 'ARCHIVED')
@@ -1932,7 +2071,7 @@ class UserArchiveAPITest(TestCase):
                 actor=self.admin,
                 entity_type='users',
                 action='STATUS_CHANGE',
-                fields_modified='["status","maya_customer_id","maya_card_id"]'
+                fields_modified='["status","maya_card_id"]'
             ).count(),
             1
         )
@@ -1954,7 +2093,9 @@ class UserArchiveAPITest(TestCase):
             0
         )
 
-    def test_admin_can_archive_tuab_without_changing_operational_status(self):
+    @patch('backend.services.user_archive_service.requests.delete')
+    def test_admin_can_archive_tuab_without_changing_operational_status(self, mocked_delete):
+        mocked_delete.return_value = self.maya_response(200, {'status': 'deleted'})
         claimed_pickup = self.create_donation(self.donor, 'CLAIMED', claimed_by_tuab=self.tuab)
         in_transit_pickup = self.create_donation(
             self.donor, 'IN_TRANSIT', claimed_by_tuab=self.tuab
@@ -2017,7 +2158,7 @@ class UserArchiveAPITest(TestCase):
 
         self.assertEqual(self.tuab.status, 'ARCHIVED')
         self.assertEqual(self.tuab.operational_status, UserOperationalStatus.ACTIVE)
-        self.assertIsNone(self.tuab.maya_customer_id)
+        self.assertEqual(self.tuab.maya_customer_id, 'maya-customer-2')
         self.assertIsNone(self.tuab.maya_card_id)
         self.assertEqual(claimed_pickup.status, 'PENDING')
         self.assertIsNone(claimed_pickup.claimed_by_tuab)
@@ -2051,7 +2192,7 @@ class UserArchiveAPITest(TestCase):
                 actor=self.admin,
                 entity_type='users',
                 action='STATUS_CHANGE',
-                fields_modified='["status","maya_customer_id","maya_card_id"]'
+                fields_modified='["status","maya_card_id"]'
             ).count(),
             1
         )
@@ -2147,6 +2288,32 @@ class UserArchiveAPITest(TestCase):
         self.assertEqual(claimable_pickup.claimed_by_tuab_id, self.tuab.user_id)
         self.assertEqual(active_subscription.status, 'ACTIVE')
         self.assertEqual(AuditTrail.objects.filter(actor=self.admin).count(), 0)
+
+    @patch('backend.services.user_archive_service.requests.delete')
+    def test_archive_fails_when_maya_card_delete_fails(self, mocked_delete):
+        mocked_delete.return_value = self.maya_response(400, {'error': 'Cannot delete card'})
+        active_subscription = Subscription.objects.create(
+            user=self.donor,
+            status='ACTIVE',
+            subscription_tier='PRO',
+            start_date='2026-05-01T00:00:00Z',
+            end_date='2026-06-01T00:00:00Z'
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.delete(
+            reverse('user-detail', kwargs={'pk': self.donor.user_id}),
+            **self.archive_headers(self.donor)
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
+        self.assertIn("Maya card deletion failed", response.data['detail'])
+        self.donor.refresh_from_db()
+        active_subscription.refresh_from_db()
+        self.assertEqual(self.donor.status, 'ACTIVE')
+        self.assertEqual(self.donor.maya_customer_id, 'maya-customer-1')
+        self.assertEqual(self.donor.maya_card_id, 'maya-card-1')
+        self.assertEqual(active_subscription.status, 'ACTIVE')
 
     def test_archive_requires_if_match_header(self):
         self.client.force_authenticate(user=self.admin)

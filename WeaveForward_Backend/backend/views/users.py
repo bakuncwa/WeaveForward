@@ -260,7 +260,7 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
                 entity_type='users',
                 action='CREDENTIAL_UPDATE',
                 ip_address=ip_address,
-                fields_modified=['maya_customer_id', 'maya_card_id']
+                fields_modified=['maya_card_id']
             )
 
         return Response({"detail": result["detail"]}, status=status.HTTP_200_OK)
@@ -322,7 +322,7 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
                 entity_type='users',
                 action='CREDENTIAL_UPDATE',
                 ip_address=ip_address,
-                fields_modified=['maya_customer_id', 'maya_card_id']
+                fields_modified=['maya_card_id']
             )
 
         return Response({"detail": result["detail"]}, status=status.HTTP_200_OK)
@@ -371,7 +371,7 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
                     entity_type='users',
                     action='STATUS_CHANGE',
                     ip_address=ip_address,
-                    fields_modified=['status', 'maya_customer_id', 'maya_card_id']
+                    fields_modified=['status', 'maya_card_id']
                 )
 
             for donation in result["changed_donations"] or []:

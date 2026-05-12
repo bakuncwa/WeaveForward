@@ -17,6 +17,7 @@ urlpatterns = [
     
     # --- TUAB ---
     path('tuab/dashboard/', views.tuab_dashboard, name='tuab_dashboard'),
+    path('tuab/subscribe/', views.tuab_subscribe, name='tuab_subscribe'),
     
     # --- Admin ---
     path('admin/donations/', views.admin_view_donations, name='admin_view_donations'),

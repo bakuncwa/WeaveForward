@@ -1,0 +1,263 @@
+{% extends 'frontend/base.html' %}
+
+{% block content %}
+<style>
+  :root {
+    --gold: #e8a020;
+    --gold-dark: #c8881a;
+    --bg: #f5f4f0;
+    --text: #222222;
+    --muted: #888888;
+  }
+
+  .hidden {
+    display: none !important;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  .page-center {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 10px 16px 40px; /* Added side padding for mobile */
+  }
+
+  .prem-card {
+    background: #fff;
+    border-radius: 18px;
+    padding: 32px 24px;
+    width: 100%; /* Fluid width */
+    max-width: 460px; /* Fixed maximum */
+    box-shadow: 0 4px 24px rgba(0, 0, 0, .07);
+  }
+
+  /* ── Form inputs ── */
+  .form-label {
+    font-family: 'Poppins', sans-serif;
+    font-size: 13px;
+    color: #444;
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  .form-input {
+    width: 100%;
+    border: 1.5px solid #d5d5d5;
+    border-radius: 8px;
+    padding: 11px 16px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 14px;
+    color: var(--text);
+    outline: none;
+    transition: border-color .2s;
+  }
+
+  .form-input:focus {
+    border-color: var(--gold);
+  }
+
+  .field-group {
+    margin-bottom: 16px;
+  }
+
+  .card-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+
+  /* ── Feature list ── */
+  .feature-section-title {
+    font-family: 'Poppins', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--gold);
+    padding: 10px 0;
+    border-bottom: 1px solid #f0ede8;
+  }
+
+  .feature-item {
+    font-family: 'Poppins', sans-serif;
+    font-size: 13px;
+    color: #1a1a1a;
+    line-height: 1.5;
+    padding: 12px 0;
+    border-bottom: 1px solid #f0ede8;
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .feature-item svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  /* ── Subscribe button ── */
+  .btn-subscribe {
+    width: 100%;
+    background: var(--gold);
+    color: #fff;
+    border: none;
+    border-radius: 30px;
+    padding: 14px;
+    font-size: 15px;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .2s;
+    text-align: center;
+    display: block;
+    text-decoration: none;
+  }
+
+  .btn-subscribe:hover {
+    background: var(--gold-dark);
+  }
+
+  .flash-messages {
+    margin-bottom: 20px;
+    width: 480px;
+    max-width: 100%;
+  }
+
+  .alert {
+    padding: 12px 16px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 13px;
+  }
+
+  .alert-success { background: #e6f4ea; color: #1e7e34; border: 1px solid #c3e6cb; }
+  .alert-error { background: #fce8e6; color: #c5221f; border: 1px solid #f5c6cb; }
+
+  @media (max-width: 480px) {
+    .page-center { padding: 0; }
+    .prem-card {
+      padding: 24px 20px;
+      border-radius: 0; /* Full width mobile feel */
+      box-shadow: none;
+      border: none;
+    }
+    .card-meta {
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+    .feature-item { font-size: 12px; }
+  }
+</style>
+
+<div class="page-center">
+  <div>
+    {% if messages %}
+    <div class="flash-messages">
+      {% for message in messages %}
+      <div class="alert alert-{% if message.tags == 'error' %}error{% else %}success{% endif %}">
+        {{ message }}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- PLAN VIEW -->
+    <div id="plan-view" class="prem-card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:22px;padding-bottom:18px;border-bottom:1.5px solid #f0ede8">
+        <svg width="20" height="20" fill="none" stroke="#1a1a1a" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+        </svg>
+        <span style="font-family:'Poppins',sans-serif;font-weight:700;font-size:20px;color:#1a1a1a">Pro Tier</span>
+      </div>
+
+      <div style="margin-bottom:20px">
+        <div class="feature-section-title">Fiber-Match Recommendations Module</div>
+        <div class="feature-item">
+          <svg width="14" height="14" fill="none" stroke="var(--gold)" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+          Donation recommendations ranked by confidence score and distance
+        </div>
+        <div class="feature-item">
+          <svg width="14" height="14" fill="none" stroke="var(--gold)" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+          Ranked with match probability and distance
+        </div>
+        <div class="feature-item">
+          <svg width="14" height="14" fill="none" stroke="var(--gold)" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+          View a donation's biodegradability tier
+        </div>
+      </div>
+
+      <div style="margin-bottom:28px">
+        <div class="feature-section-title">Delivery Method Access</div>
+        <div class="feature-item">
+          <svg width="14" height="14" fill="none" stroke="var(--gold)" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+          Schedule donation pickups without leaving WeaveForward
+        </div>
+        <div class="feature-item">
+          <svg width="14" height="14" fill="none" stroke="var(--gold)" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+          Pickup and drop-off locations auto-field from donation data
+        </div>
+        <div class="feature-item">
+          <svg width="14" height="14" fill="none" stroke="var(--gold)" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+          Pick your preferred time-window
+        </div>
+        <div style="font-family:'Poppins',sans-serif;font-size:11px;color:#aaa;padding:10px 0 4px">* Delivery fees still apply per booking</div>
+      </div>
+
+      <button class="btn-subscribe" onclick="showPaymentForm()">Subscribe for ₱499.00</button>
+    </div>
+
+    <!-- PAYMENT FORM -->
+    <div id="payment-view" class="prem-card hidden">
+      <div style="font-family:'Poppins',sans-serif;font-weight:600;font-size:18px;color:var(--gold);margin-bottom:24px">
+        Payment Details</div>
+      <form method="post" action="{% url 'tuab_subscribe' %}">
+        {% csrf_token %}
+        <div class="field-group">
+          <label class="form-label">First Name</label>
+          <input class="form-input" name="first_name" value="{{ user.first_name|default:'Juan' }}" required />
+        </div>
+        <div class="field-group">
+          <label class="form-label">Last Name</label>
+          <input class="form-input" name="last_name" value="{{ user.last_name|default:'Dela Cruz' }}" required />
+        </div>
+        <div class="field-group">
+          <label class="form-label">Card Number</label>
+          <input class="form-input" name="card_number" value="5123456789012346" required />
+        </div>
+        <div class="card-meta">
+          <div>
+            <label class="form-label">Exp Month</label>
+            <input class="form-input" name="exp_month" value="12" required />
+          </div>
+          <div>
+            <label class="form-label">Exp Year</label>
+            <input class="form-input" name="exp_year" value="2030" required />
+          </div>
+          <div>
+            <label class="form-label">CVV</label>
+            <input class="form-input" name="cvv" value="111" required />
+          </div>
+        </div>
+        <button type="submit" class="btn-subscribe">Subscribe for ₱499.00</button>
+        <button type="button" onclick="hidePaymentForm()"
+          style="width:100%;background:none;border:none;color:var(--muted);font-family:'Poppins',sans-serif;font-size:13px;margin-top:16px;cursor:pointer;">Cancel</button>
+      </form>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  function showPaymentForm() {
+    document.getElementById('plan-view').classList.add('hidden');
+    document.getElementById('payment-view').classList.remove('hidden');
+  }
+  function hidePaymentForm() {
+    document.getElementById('payment-view').classList.add('hidden');
+    document.getElementById('plan-view').classList.remove('hidden');
+  }
+</script>
+{% endblock %}

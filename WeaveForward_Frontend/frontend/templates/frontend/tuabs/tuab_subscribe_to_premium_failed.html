@@ -1,0 +1,117 @@
+{% extends 'frontend/base.html' %}
+
+{% block content %}
+<style>
+  :root {
+    --gold: #e8a020;
+    --gold-dark: #c8881a;
+    --bg: #f5f4f0;
+    --text: #222222;
+    --muted: #888888;
+    --red: #c0392b;
+  }
+
+  .page-center {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 20px 0 40px;
+  }
+
+  .prem-card {
+    background: #fff;
+    border-radius: 18px;
+    padding: 36px 32px;
+    width: 460px;
+    max-width: 100%;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, .07);
+    text-align: center;
+  }
+
+  .status-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: #fdf2f2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    color: var(--red);
+  }
+
+  .status-title {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700;
+    font-size: 22px;
+    color: #1a1a1a;
+    margin-bottom: 12px;
+  }
+
+  .status-text {
+    font-family: 'Poppins', sans-serif;
+    font-size: 14px;
+    color: #666;
+    line-height: 1.6;
+    margin-bottom: 30px;
+  }
+
+  .btn-action {
+    display: block;
+    width: 100%;
+    background: var(--gold);
+    color: #fff;
+    border: none;
+    border-radius: 30px;
+    padding: 14px;
+    font-size: 15px;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .2s;
+    text-decoration: none;
+    margin-bottom: 12px;
+  }
+
+  .btn-action:hover {
+    background: var(--gold-dark);
+  }
+
+  .btn-secondary {
+    background: #f5f4f0;
+    color: #444;
+  }
+
+  .btn-secondary:hover {
+    background: #ebeae6;
+  }
+
+  @media (max-width: 480px) {
+    .prem-card {
+      padding: 28px 20px;
+      border-radius: 14px;
+    }
+    .status-title {
+      font-size: 19px;
+    }
+  }
+</style>
+
+<div class="page-center">
+  <div class="prem-card">
+    <div class="status-icon">
+      <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="15" y1="9" x2="9" y2="15" />
+        <line x1="9" y1="9" x2="15" y2="15" />
+      </svg>
+    </div>
+    <h1 class="status-title">Subscription Failed</h1>
+    <p class="status-text">
+      Something went wrong with your payment request. This could be due to incorrect card details or a temporary issue with the payment provider.
+    </p>
+    <a href="{% url 'tuab_subscribe' %}" class="btn-action">Try Again</a>
+    <a href="{% url 'tuab_dashboard' %}" class="btn-action btn-secondary">Back to Dashboard</a>
+  </div>
+</div>
+{% endblock %}

@@ -14,7 +14,7 @@ from ..constants import ALLOWED_FIBERS
 # Import role-based views for convenience
 from .admin import admin_view_donations, admin_view_donors, admin_view_tuabs, admin_view_tuab, admin_add_donor, admin_add_tuab, admin_view_donor, admin_edit_donor, admin_archive_user_proxy, admin_edit_tuab
 from .donor import donor_dashboard
-from .tuab import tuab_dashboard
+from .tuab import tuab_dashboard, tuab_subscribe
 
 def role_select(request):
     return render(request, 'frontend/role_select.html')
