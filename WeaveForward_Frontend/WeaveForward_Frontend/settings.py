@@ -48,8 +48,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'frontend.middleware.TokenRefreshMiddleware', # Smart refresh: checks JWT expiration via decode
-    'frontend.middleware.GuestOnlyMiddleware',   # Protects guest paths from logged-in users
+    'frontend.middleware.TokenRefreshMiddleware',
 ]
 
 ROOT_URLCONF = 'WeaveForward_Frontend.urls'

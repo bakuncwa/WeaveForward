@@ -262,6 +262,48 @@
       overflow-y: auto;
     }
 
+    .wf-flash-messages {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .wf-alert {
+      border-radius: 10px;
+      border: 1px solid #e2e2e2;
+      padding: 12px 14px;
+      font-family: 'Poppins', sans-serif;
+      font-size: 13px;
+      line-height: 1.4;
+      transition: opacity 0.4s ease;
+    }
+
+    .wf-alert.success {
+      background: #edf7ef;
+      border-color: #cfe6d4;
+      color: #2f6b3b;
+    }
+
+    .wf-alert.error {
+      background: #fff2f0;
+      border-color: #f0c9c2;
+      color: #9f3a2d;
+    }
+
+    .wf-alert.warning {
+      background: #fff9e9;
+      border-color: #ecd9a6;
+      color: #7f5f14;
+    }
+
+    .wf-alert.info,
+    .wf-alert.debug {
+      background: #eef5ff;
+      border-color: #cdddf7;
+      color: #264f8f;
+    }
+
     /* ── Mobile overlay ── */
     .wf-overlay {
       display: none;
@@ -605,6 +647,13 @@
 
       <!-- Page content — filled by [block content] in child templates -->
       <div class="wf-content">
+        {% if messages %}
+        <div class="wf-flash-messages" aria-live="polite">
+          {% for message in messages %}
+          <div class="wf-alert {{ message.tags|default:'info' }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+        {% endif %}
         {% block content %}{% endblock %}
       </div>
 
@@ -642,6 +691,13 @@
           if (window.innerWidth <= 768) closeSidebar();
         });
       });
+
+      setTimeout(() => {
+        document.querySelectorAll('.wf-alert').forEach(alert => {
+          alert.style.opacity = '0';
+          setTimeout(() => alert.remove(), 400);
+        });
+      }, 5000);
     })();
   </script>
 

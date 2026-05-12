@@ -1,0 +1,649 @@
+{% extends "frontend/base.html" %}
+
+{% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<style>
+  :root {
+    --g: #e8a020;
+    --bg: #f5f4f0;
+    --brd: #e0dbd4;
+    --lt: #fdf6e8;
+  }
+
+  .wf-content * { font-family: 'Poppins', sans-serif; }
+
+  .hidden {
+    display: none !important;
+  }
+
+  /* Layout */
+  .layout {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  .left {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .right {
+    width: 330px;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 768px) {
+    .layout {
+      flex-direction: column;
+    }
+
+    .left,
+    .right {
+      width: 100%;
+    }
+  }
+
+  /* Panels & Cards */
+  .card,
+  .panel {
+    background: #fff;
+    border: 1.5px solid var(--brd);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 14px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .06);
+  }
+
+  .row,
+  .time {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  @media (max-width: 768px) {
+
+    .row,
+    .time {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+
+  .head b {
+    font-weight: 400;
+    font-size: 15px;
+  }
+
+  .up {
+    font-size: 10px;
+    font-weight: 400;
+    color: #888;
+    text-transform: uppercase;
+  }
+
+  .sub {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    display: block;
+  }
+
+  .num {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--g);
+    color: #fff;
+    font-size: 13px;
+    font-family: 'Lato', sans-serif;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .in,
+  .sel {
+    width: 100%;
+    height: 44px;
+    border: 1.5px solid #d5d5d5;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 14px;
+    outline: none;
+  }
+
+  .sel {
+    appearance: none;
+    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23e8a020' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpolyline points='6,9 12,15 18,9'/%3E%3C/svg%3E") no-repeat right 12px center;
+    padding-right: 34px;
+  }
+
+  .in:focus,
+  .sel:focus {
+    border-color: var(--g);
+  }
+
+  .in:disabled {
+    background: #f4f4f4;
+    color: #aaa;
+  }
+
+  .btn-add,
+  .btn-submit {
+    width: 100%;
+    padding: 12px;
+    border-radius: 30px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+
+  .btn-add {
+    border: 2px dashed var(--g);
+    color: var(--g);
+    background: transparent;
+  }
+
+  .btn-submit {
+    border: none;
+    background: var(--g);
+    color: #fff;
+    margin-top: 14px;
+  }
+
+  .pin,
+  .trash {
+    background: none;
+    border: none;
+    color: var(--g);
+    cursor: pointer;
+  }
+
+  .pin {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .ac,
+  .pin-wrap {
+    position: relative;
+  }
+
+  .pin-wrap .in {
+    padding-right: 42px;
+  }
+
+  .ac-list {
+    position: absolute;
+    z-index: 50;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    max-height: 180px;
+    overflow: auto;
+    background: #fff;
+    border: 1.5px solid var(--brd);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .1);
+  }
+
+  .ac-item {
+    padding: 10px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    border-bottom: 1px solid #f5f5f5;
+  }
+
+  .ac-item:hover,
+  .drop:hover {
+    background: var(--lt);
+  }
+
+  .ss-wrap {
+    position: relative;
+  }
+
+  .ss-list {
+    position: absolute;
+    z-index: 100;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    max-height: 220px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1.5px solid var(--brd);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .15);
+  }
+
+  .ss-item {
+    padding: 10px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    border-bottom: 1px solid #f5f5f5;
+    line-height: 1.4;
+  }
+
+  .ss-item:hover {
+    background: var(--lt);
+  }
+
+  .ss-item b {
+    display: block;
+    color: var(--g);
+    font-size: 11px;
+  }
+
+  .drop {
+    border: 2px dashed #f0c060;
+    border-radius: 12px;
+    padding: 18px;
+    text-align: center;
+    cursor: pointer;
+    transition: .2s;
+  }
+
+  .modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+  }
+
+  .modal-box {
+    background: #f3f3f3;
+    border-radius: 16px;
+    overflow: hidden;
+    width: min(640px, 95vw);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .22);
+  }
+
+  .map-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 14px 16px 10px;
+    background: #f3f3f3;
+  }
+
+  .map-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 24px;
+    color: var(--g);
+  }
+
+  .map-title-text {
+    font: 400 24px Poppins, sans-serif;
+    color: #1f1f1f;
+    line-height: 1.1;
+  }
+
+  .map-caption {
+    margin-top: 4px;
+    font: 400 12px Poppins, sans-serif;
+    color: #7a7a7a;
+  }
+
+  .map-close {
+    border: none;
+    background: none;
+    color: #333;
+    cursor: pointer;
+    line-height: 1;
+    padding: 2px;
+  }
+
+  #picker-map {
+    width: 100%;
+    height: 300px;
+    border-radius: 8px;
+  }
+
+  .map-actions {
+    display: flex;
+    justify-content: center;
+    padding: 12px 16px 16px;
+    background: #f3f3f3;
+  }
+
+  .map-confirm {
+    width: min(220px, 100%);
+    margin: 0;
+  }
+</style>
+
+  <form id="frm" method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  <input type="hidden" id="json-items" name="items" value="" />
+  <div class="layout">
+    <div class="left">
+      <div id="cards"></div>
+      <button type="button" class="btn-add" onclick="addCard()">+ Add Another Clothing Group</button>
+    </div>
+
+    <div class="right">
+      <div class="panel">
+        <div class="group" style="margin-bottom:18px">
+          <label class="sub">Donor</label>
+          <select class="sel" name="donor_user_id" required>
+            <option value="">Select donor...</option>
+            {% for donor in donors %}
+            <option value="{{ donor.user_id }}">{{ donor.first_name }} {{ donor.last_name }} ({{ donor.email }})
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="group" style="margin-bottom:18px">
+          <label class="sub">Preferred Pick-Up Date</label>
+          <input class="in" type="date" name="preferred_pickup_date" required>
+        </div>
+        <div style="margin-bottom:18px">
+          <label class="sub">Preferred Time Window</label>
+          <div class="time">
+            <div class="group">
+              <label class="up">From</label>
+              <input class="in" type="time" name="preferred_pickup_window_start" required>
+            </div>
+            <div class="group">
+              <label class="up">To</label>
+              <input class="in" type="time" name="preferred_pickup_window_end" required>
+            </div>
+          </div>
+        </div>
+        <div class="group">
+          <label class="sub">Pick-Up Location</label>
+          <div class="ac">
+            <div class="pin-wrap">
+              <input id="addr" class="in" name="pickup_display_address" placeholder="Address..." required
+                oninput="srchAddr(this.value)" onblur="hideAc()">
+              <button type="button" class="pin" onclick="openMap()">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+              </button>
+            </div>
+            <div id="ac" class="ac-list hidden"></div>
+            <input id="lat" name="pickup_latitude" type="hidden" value="14.5645000">
+            <input id="lng" name="pickup_longitude" type="hidden" value="120.9930000">
+          </div>
+        </div>
+        <button type="submit" class="btn-submit">Submit Donation</button>
+      </div>
+
+      <div class="panel">
+        <label class="sub" style="margin:0">Donation Upload</label>
+        <p style="font-size:12px;color:#999;margin-bottom:12px">Upload an image for your donation</p>
+        <div class="drop" ondragover="event.preventDefault();this.style.background='#fdf6e8'"
+          ondragleave="this.style.background=''"
+          ondrop="event.preventDefault();this.style.background='';previewImg(event.dataTransfer.files[0], true)"
+          onclick="document.getElementById('img-in').click()">
+          <div id="i-prv-w" class="hidden"><img id="i-prv"
+              style="max-width:100%;max-height:140px;border-radius:8px;object-fit:cover"></div>
+          <div id="i-ph" style="font-size:13px;color:#999">Click or drop image</div>
+          <input id="img-in" name="donation_image" type="file" accept="image/*" class="hidden"
+            onchange="previewImg(this.files[0])">
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+
+<template id="card-template">
+  <div class="card">
+    <div class="head">
+      <div style="display:flex;gap:10px;align-items:center">
+        <div class="num"></div><b></b>
+      </div>
+      <button type="button" class="trash" onclick="this.closest('.card').remove();updateNumbering()">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M3 6h18M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m4 5v6m4-6v6M9 6V4h6v2" />
+        </svg>
+      </button>
+    </div>
+    <div class="row">
+      <div class="group">
+        <label class="up">Clothing Type *</label>
+        <select name="clothing_type" class="sel" onchange="syncCard(this)" required>
+          <option value="">Choose type...</option>
+        </select>
+      </div>
+      <div class="group">
+        <label class="up">Weight (kg) *</label>
+        <input name="weight_kg" type="number" placeholder="0.0" step="0.1" class="in" required>
+      </div>
+    </div>
+    <div class="group" style="margin-bottom:14px">
+      <label class="up">Condition *</label>
+      <select name="condition_rating" class="sel condition-select" required></select>
+    </div>
+    <div class="row" style="margin-bottom:0">
+      <div class="group">
+        <label class="up">Brand *</label>
+        <select name="brand" class="sel" onchange="syncCard(this)" disabled required>
+          <option value="">Select brand...</option>
+        </select>
+      </div>
+      <div class="group">
+        <label class="up">Item Details *</label>
+        <div class="ss-wrap">
+          <input type="text" class="in ss-input" placeholder="Search materials or series..." disabled required
+            onfocus="this.nextElementSibling.nextElementSibling.classList.remove('hidden')"
+            onblur="setTimeout(()=>this.nextElementSibling.nextElementSibling.classList.add('hidden'),200)"
+            oninput="filterSS(this)">
+          <input type="hidden" name="lookup_id" required>
+          <div class="ss-list hidden"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<div id="map-modal" class="modal hidden">
+  <div class="modal-box">
+    <div class="map-head">
+      <div class="map-head-left">
+        <div class="map-title">
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+            <circle cx="12" cy="10" r="3" />
+          </svg>
+          <span class="map-title-text">Pick on Map</span>
+        </div>
+        <div class="map-caption">Click anywhere or drag the marker to set your pickup location.</div>
+      </div>
+      <button type="button" class="map-close" onclick="closeMap()" aria-label="Close map">
+        <svg width="34" height="34" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M18 6L6 18M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <div id="picker-map"></div>
+    <div class="map-actions">
+      <button type="button" class="btn-submit map-confirm" onclick="confirmMap()">Confirm Location</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // --- 1. Data (SSR Injected) ---
+  const data = {
+    cond: ['Good', 'Like New', 'Fair', 'Poor'],
+    lup: JSON.parse('{{ catalog_json|escapejs }}')
+  };
+
+  const getEl = id => document.getElementById(id);
+  const hideAc = () => setTimeout(() => getEl('ac')?.classList.add('hidden'), 200);
+
+  // --- 2. Dynamic Form ---
+  const updateNumbering = () => document.querySelectorAll('#cards .card').forEach((c, i) => {
+    c.querySelector('.num').innerText = i + 1;
+    c.querySelector('b').innerText = `Clothing Group ${i + 1}`;
+    c.querySelector('.trash').style.display = i === 0 ? 'none' : 'block';
+  });
+
+  function addCard() {
+    const c = getEl('card-template').content.firstElementChild.cloneNode(true);
+    c.querySelector('.condition-select').innerHTML = data.cond.map(x => `<option value="${x}">${x}</option>`).join('');
+    c.querySelector('[name=clothing_type]').innerHTML += [...new Set(data.lup.map(x => x.clothing_type))].sort().map(x => `<option value="${x}">${x}</option>`).join('');
+    getEl('cards').appendChild(c);
+    updateNumbering();
+  }
+
+  // --- 3. Cascading Logic ---
+  function syncCard(sel) {
+    const c = sel.closest('.card'), q = s => c.querySelector(s), t = q('[name=clothing_type]').value, b = q('[name=brand]'), ss = { in: q('.ss-input'), hid: q('[name=lookup_id]'), list: q('.ss-list') };
+    if (sel.name === 'clothing_type') {
+      b.innerHTML = '<option value="">Select brand...</option>' + [...new Set(data.lup.filter(x => x.clothing_type === t).map(x => x.brand))].sort().map(x => `<option value="${x}">${x}</option>`).join('');
+      b.disabled = !t;
+    }
+    const bV = b.value;
+    ss.in.value = ss.hid.value = ss.list.innerHTML = '';
+    ss.in.disabled = !bV;
+    ss.in.placeholder = bV ? 'Search materials...' : (t ? 'Select brand first...' : 'Choose category...');
+
+    if (bV) {
+      ss.list.innerHTML = data.lup.filter(x => x.clothing_type === t && x.brand === bV).map(x => {
+        const display = `${x.fiber_json} - ${x.category}`;
+        return `<div class="ss-item" onmousedown="selectSS(event)" data-id="${x.lookup_id}" data-txt="${display.replace(/"/g, '&quot;')}"><b>${x.category}</b>${x.fiber_json}</div>`;
+      }).join('');
+    }
+  }
+
+  function selectSS(e) {
+    const item = e.currentTarget;
+    const w = item.closest('.ss-wrap');
+    w.querySelector('.ss-input').value = item.dataset.txt;
+    w.querySelector('[name=lookup_id]').value = item.dataset.id;
+    item.parentElement.classList.add('hidden');
+  }
+
+  function filterSS(i) {
+    i.nextElementSibling.value = '';
+    const query = i.value.toLowerCase();
+    i.nextElementSibling.nextElementSibling.querySelectorAll('.ss-item').forEach(x => {
+      x.classList.toggle('hidden', !x.innerText.toLowerCase().includes(query));
+    });
+  }
+
+  // --- 4. Maps & Location ---
+  let acTmr, acRes = [], map, mrk, tmpLat, tmpLng;
+  const srchAddr = v => {
+    if (v.length < 3) return getEl('ac').classList.add('hidden');
+    clearTimeout(acTmr);
+    acTmr = setTimeout(async () => {
+      try {
+        acRes = await (await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${v}, Philippines&limit=5&countrycodes=ph`)).json();
+        getEl('ac').innerHTML = acRes.map((r, i) => `<div class="ac-item" onmousedown="selAddr(${i})">${r.display_name}</div>`).join('');
+        getEl('ac').classList.remove('hidden');
+      } catch { }
+    }, 350);
+  };
+
+  const selAddr = i => {
+    getEl('addr').value = acRes[i].display_name;
+    getEl('lat').value = (+acRes[i].lat).toFixed(7);
+    getEl('lng').value = (+acRes[i].lon).toFixed(7);
+  };
+
+  function openMap() {
+    getEl('map-modal').classList.remove('hidden');
+    let l = +getEl('lat').value || 14.56, g = +getEl('lng').value || 120.99; tmpLat = l; tmpLng = g;
+    if (!map) {
+      map = L.map('picker-map').setView([l, g], 15);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+      mrk = L.marker([l, g], { draggable: true }).addTo(map);
+      mrk.on('dragend', e => { tmpLat = e.target.getLatLng().lat; tmpLng = e.target.getLatLng().lng; });
+      map.on('click', e => { tmpLat = e.latlng.lat; tmpLng = e.latlng.lng; mrk.setLatLng(e.latlng); });
+    } else {
+      map.setView([l, g]);
+      mrk.setLatLng([l, g]);
+    }
+  }
+
+  async function confirmMap(init = false) {
+    if (!init) {
+      getEl('lat').value = (+tmpLat).toFixed(7);
+      getEl('lng').value = (+tmpLng).toFixed(7);
+      closeMap();
+    }
+    try {
+      const res = await (await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${getEl('lat').value}&lon=${getEl('lng').value}`)).json();
+      getEl('addr').value = res.display_name;
+    } catch { }
+  }
+  const closeMap = () => getEl('map-modal').classList.add('hidden');
+
+  // --- 5. Image Preview ---
+  function previewImg(f, sync = false) {
+    if (!f?.type.startsWith('image/')) return;
+    if (sync) {
+      const dt = new DataTransfer();
+      dt.items.add(f);
+      getEl('img-in').files = dt.files;
+    }
+    const r = new FileReader();
+    r.onload = e => {
+      getEl('i-prv').src = e.target.result;
+      getEl('i-prv-w').classList.remove('hidden');
+      getEl('i-ph').classList.add('hidden');
+    };
+    r.readAsDataURL(f);
+  }
+
+  // --- 6. Form Submission ---
+  function preparePayload(form) {
+    const items = [...form.querySelectorAll('#cards .card')].map(c => {
+      const q = s => c.querySelector(s),
+        w = q('[name=weight_kg]').value,
+        r = q('[name=condition_rating]').value,
+        l = q('[name=lookup_id]').value;
+      if (!r || !w || !l) throw new Error("All items must be fully filled out.");
+      return { weight_kg: Number(w), condition_rating: r, lookup_id: Number(l) };
+    });
+    getEl('json-items').value = JSON.stringify(items);
+
+    // We keep fields enabled so they are sent in the FormData, but we could also do this:
+    // form.querySelectorAll('#cards [name]').forEach(el => el.disabled = true);
+  }
+
+  getEl('frm').onsubmit = e => {
+    // Allow standard submission but validate first
+    try {
+      preparePayload(e.target);
+    } catch (err) {
+      e.preventDefault();
+      alert(err.message);
+    }
+  };
+
+  addCard();
+  if (!getEl('addr').value) confirmMap(true);
+</script>
+{% endblock %}

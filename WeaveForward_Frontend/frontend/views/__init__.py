@@ -1,18 +1,18 @@
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.contrib import messages
+from django.urls import reverse
 from ..services import (
     api_call,
     apply_backend_auth_cookies,
     clear_frontend_auth_cookies,
     format_errors,
-    get_user_profile,
     get_fiber_choices,
 )
 from ..constants import ALLOWED_FIBERS
 
 # Import role-based views for convenience
-from .admin import admin_view_donations, admin_view_donors, admin_view_tuabs, admin_view_tuab, admin_add_donor, admin_add_tuab, admin_view_donor, admin_edit_donor, admin_archive_user_proxy, admin_edit_tuab
+from .admin import admin_view_donations, admin_view_donors, admin_view_tuabs, admin_view_tuab, admin_add_donor, admin_add_tuab, admin_view_donor, admin_edit_donor, admin_archive_user_proxy, admin_edit_tuab, admin_add_donation
 from .donor import donor_dashboard
 from .tuab import tuab_dashboard, tuab_subscribe
 
@@ -61,29 +61,34 @@ def login_view(request):
         except Exception:
             return render(request, 'frontend/login.html', {'error': 'Backend API is offline or unreachable.'})
 
-    # GET request - If we have an access token, redirect to role-specific dashboard.
-    if request.COOKIES.get('access_token'):
-        profile = get_user_profile(request)
-        if profile:
-            role = profile.get('role')
-            if role == 'Admin': return redirect('/admin/donors/')
-            elif role == 'TUAB':
-                return redirect('tuab_dashboard')
-            else:
-                return redirect('donor_dashboard')
-    
     return render(request, 'frontend/login.html')
 
 def logout_view(request):
-    try:
-        api_call(request, 'POST', 'logout')
-    except Exception:
-        pass
+    fallback_redirect = request.META.get('HTTP_REFERER') or reverse('login')
 
-    response = redirect('login')
-    clear_frontend_auth_cookies(response)
-    messages.success(request, "Successfully logged out.")
-    return response
+    try:
+        response = api_call(request, 'POST', 'logout')
+    except Exception:
+        messages.error(request, "Logout failed because the backend is unreachable. Please try again.")
+        return redirect(fallback_redirect)
+
+    if response.status_code == 205:
+        frontend_response = redirect('login')
+        clear_frontend_auth_cookies(frontend_response)
+        messages.success(request, "Successfully logged out.")
+        return frontend_response
+
+    try:
+        error_data = response.json()
+    except Exception:
+        error_data = {}
+
+    error_message = error_data.get('detail') or "Logout failed. Please try again."
+    if isinstance(error_message, list):
+        error_message = error_message[0]
+
+    messages.error(request, error_message)
+    return redirect(fallback_redirect)
 
 def location_lookup_proxy(request):
     """SSR Proxy for location lookup."""

@@ -1,3 +1,6 @@
+import base64
+import json
+import time
 from unittest.mock import Mock, patch
 
 from django.test import TestCase
@@ -13,6 +16,34 @@ def make_response(status_code, payload=None, headers=None):
     response.headers = headers or {}
     response.cookies = RequestsCookieJar()
     return response
+
+
+def make_access_token(expires_in=3600):
+    payload = base64.b64encode(json.dumps({'exp': time.time() + expires_in}).encode()).decode().strip('=')
+    return f"header.{payload}.signature"
+
+
+class MiddlewareAuthMixin:
+    auth_profile = {'role': 'Admin', 'first_name': 'Admin'}
+
+    def setUp(self):
+        super().setUp()
+        self.client.cookies['access_token'] = make_access_token()
+        self.middleware_request_patcher = patch(
+            'frontend.middleware.requests.request',
+            side_effect=self.mock_middleware_request,
+        )
+        self.mocked_middleware_request = self.middleware_request_patcher.start()
+        self.addCleanup(self.middleware_request_patcher.stop)
+
+    def mock_middleware_request(self, method, url, **kwargs):
+        if url.endswith('/users/me'):
+            return make_response(200, self.auth_profile)
+        if url.endswith('/token/refresh'):
+            response = make_response(200)
+            response.cookies.set('access_token', make_access_token())
+            return response
+        raise AssertionError(f"Unexpected middleware request: {method} {url}")
 
 
 class AuthViewsTest(TestCase):
@@ -41,13 +72,8 @@ class AuthViewsTest(TestCase):
     @patch('frontend.views.api_call')
     def test_logout_calls_backend_without_refresh_body(self, mocked_api_call):
         mocked_api_call.return_value = make_response(205, {'message': 'Successfully logged out'})
-        
-        # Create a fake JWT that won't trigger the TokenRefreshMiddleware's expiration check
-        import base64, json, time
-        payload = base64.b64encode(json.dumps({'exp': time.time() + 3600}).encode()).decode().strip('=')
-        fake_access_token = f"header.{payload}.signature"
-        
-        self.client.cookies['access_token'] = fake_access_token
+
+        self.client.cookies['access_token'] = make_access_token()
         self.client.cookies['refresh_token'] = 'refresh-cookie'
 
         response = self.client.get(reverse('logout'))
@@ -60,10 +86,151 @@ class AuthViewsTest(TestCase):
         self.assertNotIn('json', mocked_api_call.call_args.kwargs)
         self.assertEqual(response.cookies['access_token'].value, '')
         self.assertEqual(response.cookies['refresh_token'].value, '')
+        messages = [message.message for message in get_messages(response.wsgi_request)]
+        self.assertIn("Successfully logged out.", messages)
+
+    @patch('frontend.views.api_call')
+    def test_logout_keeps_cookies_and_shows_error_when_backend_rejects(self, mocked_api_call):
+        mocked_api_call.return_value = make_response(403, {'detail': 'CSRF Failed: missing or incorrect token.'})
+
+        self.client.cookies['access_token'] = make_access_token()
+        self.client.cookies['refresh_token'] = 'refresh-cookie'
+
+        response = self.client.get(
+            reverse('logout'),
+            HTTP_REFERER=reverse('donor_dashboard')
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('donor_dashboard'))
+        self.assertNotIn('access_token', response.cookies)
+        self.assertNotIn('refresh_token', response.cookies)
+        messages = [message.message for message in get_messages(response.wsgi_request)]
+        self.assertIn('CSRF Failed: missing or incorrect token.', messages)
+
+    @patch('frontend.middleware.requests.request')
+    def test_login_get_redirects_valid_authenticated_user(self, mocked_requests):
+        self.client.cookies['access_token'] = make_access_token()
+        mocked_requests.return_value = make_response(200, {
+            'user_id': 1,
+            'role': 'Donor',
+            'email': 'user@example.com',
+            'name': 'Test User',
+        })
+
+        response = self.client.get(reverse('login'))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('donor_dashboard'))
+
+    @patch('frontend.middleware.requests.request')
+    def test_registration_get_redirects_valid_authenticated_user(self, mocked_requests):
+        self.client.cookies['access_token'] = make_access_token()
+        mocked_requests.return_value = make_response(200, {
+            'user_id': 2,
+            'role': 'TUAB',
+            'email': 'tuab@example.com',
+            'name': 'Weave Lab',
+        })
+
+        response = self.client.get(reverse('tuab_registration'))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('tuab_dashboard'))
+
+    @patch('frontend.middleware.requests.request')
+    def test_login_get_invalid_session_clears_cookies_and_renders_page(self, mocked_requests):
+        self.client.cookies['access_token'] = make_access_token()
+        self.client.cookies['refresh_token'] = 'refresh-cookie'
+        mocked_requests.return_value = make_response(401, {'detail': 'Unauthorized'})
+
+        response = self.client.get(reverse('login'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.cookies['access_token'].value, '')
+        self.assertEqual(response.cookies['refresh_token'].value, '')
+
+    @patch('frontend.middleware.requests.request')
+    def test_login_get_backend_outage_keeps_cookies_and_renders_page(self, mocked_requests):
+        self.client.cookies['access_token'] = make_access_token()
+        self.client.cookies['refresh_token'] = 'refresh-cookie'
+        mocked_requests.return_value = make_response(500, {'detail': 'Server error'})
+
+        response = self.client.get(reverse('login'))
+
+        self.assertEqual(response.status_code, 503)
+        self.assertNotIn('access_token', response.cookies)
+        self.assertNotIn('refresh_token', response.cookies)
+
+    @patch('frontend.middleware.requests.request')
+    def test_protected_page_invalid_session_redirects_to_login(self, mocked_requests):
+        self.client.cookies['access_token'] = make_access_token()
+        self.client.cookies['refresh_token'] = 'refresh-cookie'
+        mocked_requests.return_value = make_response(401, {'detail': 'Unauthorized'})
+
+        response = self.client.get(reverse('donor_dashboard'))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('login'))
+        self.assertEqual(response.cookies['access_token'].value, '')
+        self.assertEqual(response.cookies['refresh_token'].value, '')
+
+    @patch('frontend.middleware.api_call')
+    @patch('frontend.middleware.requests.request')
+    def test_protected_page_refreshes_missing_access_and_renders(self, mocked_requests, mocked_api_call):
+        self.client.cookies['refresh_token'] = 'refresh-cookie'
+        self.client.cookies['csrftoken'] = 'csrf-cookie'
+
+        def request_side_effect(method, url, **kwargs):
+            if url.endswith('/users/me'):
+                return make_response(200, {
+                    'user_id': 1,
+                    'role': 'Donor',
+                    'email': 'user@example.com',
+                    'name': 'Test User',
+                })
+            raise AssertionError(f"Unexpected request: {method} {url}")
+
+        mocked_requests.side_effect = request_side_effect
+
+        def api_call_side_effect(request, method, endpoint, **kwargs):
+            self.assertEqual(method, 'POST')
+            self.assertEqual(endpoint, 'token/refresh')
+            self.assertEqual(request.COOKIES.get('refresh_token'), 'refresh-cookie')
+            self.assertEqual(request.COOKIES.get('csrftoken'), 'csrf-cookie')
+
+            response = make_response(200)
+            response.cookies.set('access_token', make_access_token())
+            response.cookies.set('refresh_token', 'rotated-refresh')
+            return response
+
+        mocked_api_call.side_effect = api_call_side_effect
+
+        response = self.client.get(reverse('donor_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Donor Dashboard')
+        self.assertEqual(response.cookies['access_token'].value.count('.'), 2)
+        self.assertEqual(response.cookies['refresh_token'].value, 'rotated-refresh')
+        mocked_api_call.assert_called_once()
+
+    @patch('frontend.middleware.requests.request')
+    def test_protected_page_backend_outage_returns_503_without_clearing_cookies(self, mocked_requests):
+        self.client.cookies['access_token'] = make_access_token()
+        self.client.cookies['refresh_token'] = 'refresh-cookie'
+        mocked_requests.return_value = make_response(500, {'detail': 'Server error'})
+
+        response = self.client.get(reverse('donor_dashboard'))
+
+        self.assertEqual(response.status_code, 503)
+        self.assertContains(response, 'Our threads are a bit tangled at the moment.', status_code=503)
+        self.assertNotIn('access_token', response.cookies)
+        self.assertNotIn('refresh_token', response.cookies)
 
 
-class AdminEditDonorViewTest(TestCase):
+class AdminEditDonorViewTest(MiddlewareAuthMixin, TestCase):
     def setUp(self):
+        super().setUp()
         self.profile = {'role': 'Admin', 'first_name': 'Admin'}
         self.donor_payload = {
             'user_id': 7,
@@ -180,8 +347,9 @@ class AdminEditDonorViewTest(TestCase):
         self.assertEqual(response.url, reverse('admin_view_donors'))
 
 
-class AdminViewTuabsTest(TestCase):
+class AdminViewTuabsTest(MiddlewareAuthMixin, TestCase):
     def setUp(self):
+        super().setUp()
         self.profile = {'role': 'Admin', 'first_name': 'Admin'}
 
     @patch('frontend.views.admin.get_paginated_data')
@@ -223,8 +391,9 @@ class AdminViewTuabsTest(TestCase):
         self.assertContains(response, 'Add TUAB')
 
 
-class AdminViewDonorsTest(TestCase):
+class AdminViewDonorsTest(MiddlewareAuthMixin, TestCase):
     def setUp(self):
+        super().setUp()
         self.profile = {'role': 'Admin', 'first_name': 'Admin'}
 
     @patch('frontend.views.admin.get_paginated_data')
@@ -256,8 +425,9 @@ class AdminViewDonorsTest(TestCase):
         self.assertContains(response, 'name="etag"')
 
 
-class AdminAddTuabViewTest(TestCase):
+class AdminAddTuabViewTest(MiddlewareAuthMixin, TestCase):
     def setUp(self):
+        super().setUp()
         self.profile = {'role': 'Admin', 'first_name': 'Admin'}
 
     @patch('frontend.views.admin.get_paginated_data')
@@ -324,8 +494,9 @@ class AdminAddTuabViewTest(TestCase):
 
 
 
-class AdminViewTuabDetailTest(TestCase):
+class AdminViewTuabDetailTest(MiddlewareAuthMixin, TestCase):
     def setUp(self):
+        super().setUp()
         self.profile = {'role': 'Admin', 'first_name': 'Admin'}
         self.tuab_payload = {
             'user_id': 11,
@@ -408,8 +579,9 @@ class AdminViewTuabDetailTest(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse('admin_view_tuabs'))
 
-class AdminArchiveProxyTest(TestCase):
+class AdminArchiveProxyTest(MiddlewareAuthMixin, TestCase):
     def setUp(self):
+        super().setUp()
         self.profile = {'role': 'Admin', 'first_name': 'Admin'}
 
     @patch('frontend.views.admin.api_call')
@@ -460,6 +632,7 @@ class AdminArchiveProxyTest(TestCase):
     @patch('frontend.views.admin.get_user_profile')
     def test_admin_archive_proxy_denies_non_admin(self, mocked_profile):
         mocked_profile.return_value = {'role': 'Donor'}
+        self.auth_profile = {'role': 'Donor'}
         
         response = self.client.post(reverse('admin_archive_user_proxy', kwargs={'user_id': 11}))
         
@@ -467,8 +640,9 @@ class AdminArchiveProxyTest(TestCase):
         self.assertEqual(response.url, reverse('login'))
 
 
-class AdminApproveTuabPostTest(TestCase):
+class AdminApproveTuabPostTest(MiddlewareAuthMixin, TestCase):
     def setUp(self):
+        super().setUp()
         self.profile = {'role': 'Admin', 'first_name': 'Admin'}
 
     @patch('frontend.views.admin.api_call')
@@ -497,6 +671,7 @@ class AdminApproveTuabPostTest(TestCase):
     @patch('frontend.views.admin.get_user_profile')
     def test_admin_add_tuab_post_denies_non_admin(self, mocked_profile):
         mocked_profile.return_value = {'role': 'Donor'}
+        self.auth_profile = {'role': 'Donor'}
 
         response = self.client.post(reverse('admin_add_tuab'), {'user_id': 11})
 

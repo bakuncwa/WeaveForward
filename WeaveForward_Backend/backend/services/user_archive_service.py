@@ -13,7 +13,9 @@ from ..models import (
     User,
     UserAccountStatus,
     UserRole,
+    ApiToken,
 )
+from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
 from .unclaim_donation_service import unclaim_tuab_donations
 
 # Archive rules:
@@ -262,6 +264,14 @@ def archive_user(*, target_user_id):
     target_user.status = UserAccountStatus.ARCHIVED
     target_user.maya_card_id = None
     target_user.save(update_fields=['status', 'maya_card_id', 'updated_at'])
+
+    # Blacklist ALL SimpleJWT tokens for the user
+    tokens = OutstandingToken.objects.filter(user=target_user)
+    for token in tokens:
+        BlacklistedToken.objects.get_or_create(token=token)
+
+    # Delete any custom API tokens
+    ApiToken.objects.filter(user=target_user).delete()
 
     return {
         "status_code": 204,

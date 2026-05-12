@@ -40,6 +40,11 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 
         response = Response(validated_data, status=status.HTTP_200_OK)
         set_auth_cookies(response, access_token, refresh_token)
+        
+        # Force CSRF cookie to be set on login
+        from django.middleware.csrf import get_token
+        get_token(request)
+        
         return response
 
 

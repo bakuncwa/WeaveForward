@@ -170,7 +170,7 @@
         </div>
         <input name="q" value="{{ q|default:'' }}" placeholder="Search by Donation ID..." />
     </form>
-    <a href="#" class="btn btn-primary">Add Donation</a>
+    <a href="{% url 'admin_add_donation' %}" class="btn btn-primary">Add Donation</a>
 </div>
 
 <div class="table-wrap">

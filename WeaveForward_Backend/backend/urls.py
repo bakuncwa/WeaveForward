@@ -26,7 +26,7 @@ urlpatterns = [
     path('location/lookup', views.lookup_location, name='location_lookup'),
 
     # --- DONATIONS ---
-    path('donations', views.DonationViewSet.as_view({'get': 'list'}), name='donation-list'),
+    path('donations', views.DonationViewSet.as_view({'get': 'list', 'post': 'create'}), name='donation-list'),
     path('donations/me', views.DonationViewSet.as_view({'get': 'me'}), name='donation-me'),
     path('donations/<int:pk>', views.DonationViewSet.as_view({'get': 'retrieve'}), name='donation-detail'),
 

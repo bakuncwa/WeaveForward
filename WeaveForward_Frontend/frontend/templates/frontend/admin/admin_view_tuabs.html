@@ -293,15 +293,6 @@
 
 <p class="count">{{ count }} Total TUABs</p>
 
-{% if messages %}
-{% for message in messages %}
-<div class="flash-message"
-  style="margin-bottom: 16px; padding: 12px 14px; border-radius: 10px; background: {% if message.tags == 'success' %}#edf7ef{% else %}#fff2f0{% endif %}; border: 1px solid {% if message.tags == 'success' %}#cfe6d4{% else %}#f0c9c2{% endif %}; color: {% if message.tags == 'success' %}#2f6b3b{% else %}#9f3a2d{% endif %}; font-family: Poppins, sans-serif;">
-  {{ message }}
-</div>
-{% endfor %}
-{% endif %}
-
 <div class="search-bar-row">
   <form method="GET" class="search-wrap">
     <div class="search-icon">
@@ -397,12 +388,6 @@
 </div>
 
 <script>
-  document.querySelectorAll('.flash-message').forEach((el) => {
-    setTimeout(() => {
-      el.remove();
-    }, 3200);
-  });
-
   const archiveModal = document.getElementById('archive-modal');
   const archiveCancel = document.getElementById('archive-cancel');
   const archiveForm = document.getElementById('archive-form');

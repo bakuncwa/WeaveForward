@@ -1,11 +1,16 @@
+import json
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.utils.dateparse import parse_datetime
 from ..constants import BACKEND_BASE_URL
 from ..services import api_call, get_user_profile, get_paginated_data, format_errors
 
+
+def current_profile(request):
+    return request.user_profile
+
 def admin_view_donations(request):
-    profile = get_user_profile(request)
+    profile = current_profile(request)
     if not profile or profile.get('role') != 'Admin': return redirect('login')
     
     page_data = get_paginated_data(request, 'donations')
@@ -23,7 +28,7 @@ def admin_view_donations(request):
     })
 
 def admin_view_donors(request):
-    profile = get_user_profile(request)
+    profile = current_profile(request)
     if not profile or profile.get('role') != 'Admin': return redirect('login')
     
     page_data = get_paginated_data(request, 'users', params={'role': 'Donor'})
@@ -42,7 +47,7 @@ def admin_view_donors(request):
     })
 
 def admin_view_tuabs(request):
-    profile = get_user_profile(request)
+    profile = current_profile(request)
     if not profile or profile.get('role') != 'Admin': return redirect('login')
 
     page_data = get_paginated_data(request, 'users', params={'role': 'TUAB'})
@@ -61,7 +66,7 @@ def admin_view_tuabs(request):
     })
 
 def admin_add_tuab(request):
-    profile = get_user_profile(request)
+    profile = current_profile(request)
     if not profile or profile.get('role') != 'Admin':
         return redirect('login')
 
@@ -100,7 +105,7 @@ def admin_add_tuab(request):
     })
 
 def admin_view_tuab(request, user_id):
-    profile = get_user_profile(request)
+    profile = current_profile(request)
     if not profile or profile.get('role') != 'Admin': return redirect('login')
 
     response = api_call(request, 'GET', f'users/{user_id}')
@@ -125,7 +130,7 @@ def admin_view_tuab(request, user_id):
     })
 
 def admin_view_donor(request, user_id):
-    profile = get_user_profile(request)
+    profile = current_profile(request)
     if not profile or profile.get('role') != 'Admin': return redirect('login')
     
     response = api_call(request, 'GET', f'users/{user_id}')
@@ -146,7 +151,7 @@ def admin_view_donor(request, user_id):
     })
 
 def admin_edit_donor(request, user_id):
-    profile = get_user_profile(request)
+    profile = current_profile(request)
     if not profile or profile.get('role') != 'Admin':
         return redirect('login')
 
@@ -248,7 +253,7 @@ def admin_edit_donor(request, user_id):
     })
 
 def admin_add_donor(request):
-    profile = get_user_profile(request)
+    profile = current_profile(request)
     if not profile or profile.get('role') != 'Admin': return redirect('login')
     
     if request.method == 'POST':
@@ -291,7 +296,7 @@ def admin_add_donor(request):
     return render(request, 'frontend/admin/admin_add_donor.html', {'page_title': 'Add Donor', 'user': profile})
 def admin_archive_user_proxy(request, user_id):
     """Admin-only SSR Proxy for archiving/deleting a user."""
-    profile = get_user_profile(request)
+    profile = current_profile(request)
     if not profile or profile.get('role') != 'Admin':
         return redirect('login')
     
@@ -321,7 +326,7 @@ def admin_archive_user_proxy(request, user_id):
 from ..services import get_fiber_choices
 
 def admin_edit_tuab(request, user_id):
-    profile = get_user_profile(request)
+    profile = current_profile(request)
     if not profile or profile.get('role') != 'Admin':
         return redirect('login')
 
@@ -408,4 +413,64 @@ def admin_edit_tuab(request, user_id):
         'tuab': tuab,
         'current_etag': current_etag,
         'fibers': fibers
+    })
+def admin_add_donation(request):
+    profile = current_profile(request)
+    if not profile or profile.get('role') != 'Admin':
+        return redirect('login')
+
+    if request.method == 'POST':
+        # Proxy POST to backend donations endpoint
+        # The frontend sends multipart/form-data
+        payload = request.POST.dict()
+        files = {}
+        if request.FILES.get('donation_image'):
+            files['donation_image'] = request.FILES['donation_image']
+        
+        # Ensure items is passed as string (it should already be stringified from JS)
+        try:
+            response = api_call(request, 'POST', 'donations', data=payload, files=files)
+            if response.status_code == 201:
+                messages.success(request, "Donation created successfully.")
+                return redirect('admin_view_donations')
+            else:
+                response_data = response.json() if hasattr(response, 'json') else {}
+                if isinstance(response_data, dict) and 'detail' in response_data:
+                    messages.error(request, response_data['detail'])
+                else:
+                    errs = format_errors(response_data)
+                    for field, msg_list in errs.items():
+                        for msg in msg_list:
+                            messages.error(request, f"{field}: {msg}")
+        except Exception as e:
+            messages.error(request, f"System Error: {str(e)}")
+        
+        # On error, we should ideally re-render the page with the submitted data
+        # but the current template is very JS-heavy. For now, redirecting back.
+        return redirect('admin_add_donation')
+
+    # GET: Fetch SSR Data
+    # 1. Fetch ALL Active Donors
+    active_donors = []
+    page = 1
+    while True:
+        res = api_call(request, 'GET', 'users', params={'role': 'Donor', 'status': 'ACTIVE', 'page': page, 'page_size': 100})
+        if res.status_code != 200: break
+        data = res.json()
+        active_donors.extend(data.get('results', []))
+        if not data.get('next') or page >= 50: break
+        page += 1
+
+    # 2. Fetch ALL Brand Fiber Lookups (Not paginated)
+    lookups = []
+    res = api_call(request, 'GET', 'brandfiberlookups')
+    if res.status_code == 200:
+        data = res.json()
+        lookups = data if isinstance(data, list) else data.get('results', [])
+
+    return render(request, 'frontend/admin/admin_add_donation.html', {
+        'page_title': 'Add Donation',
+        'user': profile,
+        'donors': active_donors,
+        'catalog_json': json.dumps(lookups)
     })

@@ -1,12 +1,11 @@
 from django.shortcuts import render, redirect
 from django.contrib import messages
-from ..services import api_call, get_user_profile, format_errors
+from ..services import api_call, format_errors
 from ..constants import ALLOWED_FIBERS
 
 def tuab_dashboard(request):
     """Placeholder for TUAB Dashboard."""
-    profile = get_user_profile(request)
-    if not profile: return redirect('login')
+    profile = request.user_profile
 
     return render(request, 'frontend/base.html', {
         'page_title': 'TUAB Dashboard', 
@@ -16,8 +15,8 @@ def tuab_dashboard(request):
 
 def tuab_subscribe(request):
     """Handle TUAB Premium Subscription."""
-    profile = get_user_profile(request)
-    if not profile or profile.get('role') != 'TUAB':
+    profile = request.user_profile
+    if profile.get('role') != 'TUAB':
         return redirect('login')
 
     # 1. Check if already subscribed (Success state)
@@ -72,5 +71,3 @@ def tuab_subscribe(request):
         'sidebar_variant': 'tuab',
         'user': profile,
     })
-
-

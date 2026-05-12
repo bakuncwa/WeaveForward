@@ -119,23 +119,6 @@
     background: var(--gold-dark);
   }
 
-  .flash-messages {
-    margin-bottom: 20px;
-    width: 480px;
-    max-width: 100%;
-  }
-
-  .alert {
-    padding: 12px 16px;
-    border-radius: 10px;
-    margin-bottom: 10px;
-    font-family: 'Poppins', sans-serif;
-    font-size: 13px;
-  }
-
-  .alert-success { background: #e6f4ea; color: #1e7e34; border: 1px solid #c3e6cb; }
-  .alert-error { background: #fce8e6; color: #c5221f; border: 1px solid #f5c6cb; }
-
   @media (max-width: 480px) {
     .page-center { padding: 0; }
     .prem-card {
@@ -154,16 +137,6 @@
 
 <div class="page-center">
   <div>
-    {% if messages %}
-    <div class="flash-messages">
-      {% for message in messages %}
-      <div class="alert alert-{% if message.tags == 'error' %}error{% else %}success{% endif %}">
-        {{ message }}
-      </div>
-      {% endfor %}
-    </div>
-    {% endif %}
-
     <!-- PLAN VIEW -->
     <div id="plan-view" class="prem-card">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:22px;padding-bottom:18px;border-bottom:1.5px solid #f0ede8">

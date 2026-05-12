@@ -1,4 +1,5 @@
-from rest_framework import filters, mixins, viewsets
+from django.db import transaction
+from rest_framework import filters, mixins, viewsets, serializers
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -6,12 +7,14 @@ from rest_framework.response import Response
 from ..utils.view_mixins import PaginatedResponseMixin
 from ..models import Donation
 from ..serializers import DonationSerializer
+from ..services.donation_service import create_donation
 
 class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin, PaginatedResponseMixin):
     permission_classes = [IsAuthenticated]
     serializer_class = DonationSerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ['donation_id']
+
 
     def get_queryset(self):
         user = self.request.user
@@ -46,3 +49,20 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
             queryset = queryset.none()
 
         return self.get_paginated_response_data(queryset)
+
+    def create(self, request, *args, **kwargs):
+        """Creates a new donation via the orchestrated service."""
+        # Note: Only ACTIVE admins and ACTIVE donors are allowed to create.
+        if request.user.status != 'ACTIVE' or request.user.role not in ['Admin', 'Donor']:
+            return Response({"detail": "Only active admins and donors can create donations."}, status=403)
+
+        try:
+            donation = create_donation(request=request)
+            response_serializer = DonationSerializer(donation, context={'request': request})
+            return Response(response_serializer.data, status=201)
+        except (ValueError, serializers.ValidationError) as e:
+            if isinstance(e, serializers.ValidationError):
+                return Response(e.detail, status=400)
+            return Response({"detail": str(e)}, status=400)
+        except Exception:
+            return Response({"detail": "An unexpected error occurred during donation creation."}, status=500)
