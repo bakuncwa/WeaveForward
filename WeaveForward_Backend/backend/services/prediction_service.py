@@ -1,7 +1,7 @@
 import os, json, logging, math, pandas as pd
 from django.db import transaction
 from django.conf import settings
-from backend.models import User, DonationItem, MatchPrediction, UserAccountStatus
+from backend.models import User, DonationItem, MatchPrediction, UserAccountStatus, SubscriptionStatus, SubscriptionTier
 
 logger = logging.getLogger(__name__)
 
@@ -215,7 +215,12 @@ def run_predictions_for_donation(donation_id):
     ]
     tuabs = [
         MatchPredictionService._normalize_tuab_payload(tuab)
-        for tuab in User.objects.filter(role="TUAB", status=UserAccountStatus.ACTIVE).values(
+        for tuab in User.objects.filter(
+            role="TUAB", 
+            status=UserAccountStatus.ACTIVE,
+            subscriptions__status=SubscriptionStatus.ACTIVE,
+            subscriptions__subscription_tier=SubscriptionTier.PRO
+        ).distinct().values(
             "user_id",
             "target_fibers",
             "latitude",
