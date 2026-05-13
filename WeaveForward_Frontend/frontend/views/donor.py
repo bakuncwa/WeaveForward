@@ -3,12 +3,10 @@ from django.contrib import messages
 from django.utils.dateparse import parse_datetime, parse_time
 from ..services import api_call, format_errors, get_paginated_data, get_fiber_choices
 
-def current_profile(request):
-    return request.user_profile
 
 def donor_browse_businesses(request):
     """Donor Dashboard - Browsing active TUABs."""
-    profile = current_profile(request)
+    profile = request.user_profile
     
     # Categories for filter from Service (Matches Registration)
     categories = get_fiber_choices(request)
@@ -52,7 +50,7 @@ def donor_browse_businesses(request):
 
 def donor_my_donations(request):
     """View to list the logged-in donor's donations."""
-    profile = current_profile(request)
+    profile = request.user_profile
 
     # Fetch from /api/donations/me/
     response = api_call(request, 'GET', 'donations/me')
@@ -80,7 +78,7 @@ def donor_my_donations(request):
     })
 
 def donor_view_donation(request, donation_id):
-    profile = current_profile(request)
+    profile = request.user_profile
     if not profile:
         return redirect('login')
 
@@ -109,7 +107,7 @@ def donor_view_donation(request, donation_id):
 
 def donor_view_tuab(request, user_id):
     """View to see details of a specific TUAB business."""
-    profile = current_profile(request)
+    profile = request.user_profile
 
     response = api_call(request, 'GET', f'users/{user_id}')
     if response.status_code != 200:

@@ -6,11 +6,9 @@ from ..constants import BACKEND_BASE_URL
 from ..services import api_call, get_user_profile, get_paginated_data, format_errors
 
 
-def current_profile(request):
-    return request.user_profile
 
 def admin_view_donations(request):
-    profile = current_profile(request)
+    profile = request.user_profile
     
     page_data = get_paginated_data(request, 'donations')
     
@@ -27,7 +25,7 @@ def admin_view_donations(request):
     })
 
 def admin_view_donors(request):
-    profile = current_profile(request)
+    profile = request.user_profile
     
     page_data = get_paginated_data(request, 'users', params={'role': 'Donor'})
     
@@ -45,7 +43,7 @@ def admin_view_donors(request):
     })
 
 def admin_view_tuabs(request):
-    profile = current_profile(request)
+    profile = request.user_profile
 
     page_data = get_paginated_data(request, 'users', params={'role': 'TUAB'})
 
@@ -63,7 +61,7 @@ def admin_view_tuabs(request):
     })
 
 def admin_add_tuab(request):
-    profile = current_profile(request)
+    profile = request.user_profile
 
     if request.method == 'POST':
         user_id = request.POST.get('user_id')
@@ -116,7 +114,7 @@ def admin_add_tuab(request):
     })
 
 def admin_view_tuab(request, user_id):
-    profile = current_profile(request)
+    profile = request.user_profile
 
     response = api_call(request, 'GET', f'users/{user_id}')
     if response.status_code != 200:
@@ -140,7 +138,7 @@ def admin_view_tuab(request, user_id):
     })
 
 def admin_view_donor(request, user_id):
-    profile = current_profile(request)
+    profile = request.user_profile
     
     response = api_call(request, 'GET', f'users/{user_id}')
     if response.status_code != 200:
@@ -160,7 +158,7 @@ def admin_view_donor(request, user_id):
     })
 
 def admin_edit_donor(request, user_id):
-    profile = current_profile(request)
+    profile = request.user_profile
 
     if request.method == 'POST':
         raw_data = request.POST
@@ -260,7 +258,7 @@ def admin_edit_donor(request, user_id):
     })
 
 def admin_add_donor(request):
-    profile = current_profile(request)
+    profile = request.user_profile
     
     if request.method == 'POST':
         raw_data = request.POST
@@ -302,7 +300,7 @@ def admin_add_donor(request):
     return render(request, 'frontend/admin/admin_add_donor.html', {'page_title': 'Add Donor', 'user': profile})
 def admin_archive_user_proxy(request, user_id):
     """Admin-only SSR Proxy for archiving/deleting a user."""
-    profile = current_profile(request)
+    profile = request.user_profile
     
     if request.method == 'POST':
         submitted_etag = request.POST.get('etag')
@@ -330,7 +328,7 @@ def admin_archive_user_proxy(request, user_id):
 from ..services import get_fiber_choices
 
 def admin_edit_tuab(request, user_id):
-    profile = current_profile(request)
+    profile = request.user_profile
 
     fibers = get_fiber_choices(request)
 
@@ -417,7 +415,7 @@ def admin_edit_tuab(request, user_id):
         'fibers': fibers
     })
 def admin_add_donation(request):
-    profile = current_profile(request)
+    profile = request.user_profile
 
     if request.method == 'POST':
         # Proxy POST to backend donations endpoint
@@ -499,7 +497,7 @@ def admin_add_donation(request):
     })
 
 def admin_view_donation(request, donation_id):
-    profile = current_profile(request)
+    profile = request.user_profile
 
     response = api_call(request, 'GET', f'donations/{donation_id}')
     if response.status_code != 200:

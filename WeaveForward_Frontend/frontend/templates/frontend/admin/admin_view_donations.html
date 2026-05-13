@@ -230,8 +230,7 @@
           <td>{{ donation.is_flagged|default:"False" }}</td>
           <td class="items-col">
             {% for item in donation.items %}
-            {{ item.lookup_details.clothing_type }} - {{ item.lookup_details.brand }} {{
-            item.lookup_details.dominant_fiber|capfirst }}{% if not forloop.last %}, {% endif %}
+            {{ item.lookup_details.clothing_type }} - {{ item.lookup_details.brand }} {{ item.lookup_details.dominant_fiber|capfirst }}{% if not forloop.last %}, {% endif %}
             {% empty %}
             No items
             {% endfor %}
