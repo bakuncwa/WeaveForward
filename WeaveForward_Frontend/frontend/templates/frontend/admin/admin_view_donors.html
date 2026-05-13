@@ -329,8 +329,7 @@
               {% endif %}
               {% if donor.status == 'ACTIVE' %}
               <button class="btn btn-outline archive-btn" type="button"
-                data-api-url="/admin/users/{{ donor.user_id }}/archive/"
-                data-user-etag="{{ donor.etag }}">
+                data-api-url="/admin/users/{{ donor.user_id }}/archive/" data-user-etag="{{ donor.etag }}">
                 Archive
               </button>
               {% endif %}

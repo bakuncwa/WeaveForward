@@ -1184,6 +1184,7 @@ class UserAPITest(TestCase):
 
         res = self.client.post(
             reverse('user-approve', kwargs={'pk': self.tuab_under_review.user_id}),
+            {"status": "ACTIVE"},
             format='json'
         )
 
@@ -1208,6 +1209,7 @@ class UserAPITest(TestCase):
         self.client.force_authenticate(user=self.donor)
         res = self.client.post(
             reverse('user-approve', kwargs={'pk': self.tuab_under_review.user_id}),
+            {"status": "ACTIVE"},
             format='json'
         )
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
@@ -1216,19 +1218,21 @@ class UserAPITest(TestCase):
         self.client.force_authenticate(user=self.admin)
         res = self.client.post(
             reverse('user-approve', kwargs={'pk': self.donor.user_id}),
+            {"status": "ACTIVE"},
             format='json'
         )
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(res.data['detail'], "Only TUAB users can be approved.")
+        self.assertEqual(res.data['detail'], "Only TUAB users can be reviewed via this endpoint.")
 
     def test_admin_cannot_approve_tuab_not_under_review(self):
         self.client.force_authenticate(user=self.admin)
         res = self.client.post(
             reverse('user-approve', kwargs={'pk': self.tuab_active.user_id}),
+            {"status": "ACTIVE"},
             format='json'
         )
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(res.data['detail'], "Only TUAB users under review can be approved.")
+        self.assertEqual(res.data['detail'], "Only TUAB users under review can be reviewed.")
         self.assertFalse(
             AuditTrail.objects.filter(
                 entity_type='users',

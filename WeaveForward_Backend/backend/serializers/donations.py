@@ -95,16 +95,18 @@ class DonationCreateSerializer(serializers.Serializer):
                 data['_loc_city'] = loc['city']
 
         # 3. Date & Time Validation
-        now_dt = timezone.now()
+        now_local = timezone.localtime(timezone.now())
         pick_date = data.get('preferred_pickup_date')
         if pick_date:
-            if pick_date.date() < now_dt.date():
-                errors['preferred_pickup_date'] = "Pickup date cannot be in the past."
-            
-            # If same day, check if window start is in the past? 
-            # (Optional, but good for real-time. For now just check window logic)
+            pick_date_local = timezone.localtime(pick_date)
             win_start = data.get('preferred_pickup_window_start')
             win_end = data.get('preferred_pickup_window_end')
+
+            if pick_date_local.date() < now_local.date():
+                errors['preferred_pickup_date'] = "Pickup date cannot be in the past."
+            elif pick_date_local.date() == now_local.date() and win_start and win_start < now_local.time():
+                errors['preferred_pickup_window_start'] = "Pickup window start time cannot be in the past for today's pickup."
+
             if win_start and win_end and win_start >= win_end:
                 errors['preferred_pickup_window_start'] = "Start time must be before end time."
 

@@ -16,8 +16,6 @@ def tuab_dashboard(request):
 def tuab_subscribe(request):
     """Handle TUAB Premium Subscription."""
     profile = request.user_profile
-    if profile.get('role') != 'TUAB':
-        return redirect('login')
 
     # 1. Check if already subscribed (Success state)
     if profile.get('is_subscribed'):

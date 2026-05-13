@@ -13,7 +13,10 @@ urlpatterns = [
     path('api/location/lookup/', views.location_lookup_proxy, name='location_lookup_proxy'),
     
     # --- Donor ---
-    path('donor/dashboard/', views.donor_dashboard, name='donor_dashboard'),
+    path('donor/browse-businesses/', views.donor_browse_businesses, name='donor_browse_businesses'),
+    path('donor/my-donations/', views.donor_my_donations, name='donor_my_donations'),
+    path('donor/my-donations/<int:donation_id>/', views.donor_view_donation, name='donor_view_donation'),
+    path('donor/tuabs/<int:user_id>/', views.donor_view_tuab, name='donor_view_tuab'),
     
     # --- TUAB ---
     path('tuab/dashboard/', views.tuab_dashboard, name='tuab_dashboard'),
@@ -22,6 +25,7 @@ urlpatterns = [
     # --- Admin ---
     path('admin/donations/', views.admin_view_donations, name='admin_view_donations'),
     path('admin/donations/add/', views.admin_add_donation, name='admin_add_donation'),
+    path('admin/donations/<int:donation_id>/', views.admin_view_donation, name='admin_view_donation'),
     path('admin/donors/', views.admin_view_donors, name='admin_view_donors'),
     path('admin/tuabs/', views.admin_view_tuabs, name='admin_view_tuabs'),
     path('admin/tuabs/add/', views.admin_add_tuab, name='admin_add_tuab'),

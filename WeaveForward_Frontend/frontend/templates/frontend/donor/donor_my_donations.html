@@ -1,0 +1,153 @@
+{% extends 'frontend/base.html' %}
+
+{% block content %}
+<style>
+    :root {
+      --gold:      #e8a020;
+      --gold-dark: #c8881a;
+      --bg:        #f5f4f0;
+      --border:    #e0dbd4;
+      --text:      #222222;
+      --muted:     #888888;
+      --green:     #4a7c59;
+      --blue:      #0b77dc;
+    }
+
+    .search-bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .search-wrap { position: relative; flex: 1; }
+    .search-wrap input {
+      width: 100%; border-radius: 8px; padding: 10px 16px 10px 40px;
+      border: 1.5px solid var(--border); background: #fff;
+      font-family: 'Poppins', sans-serif; font-size: 14px; outline: none;
+    }
+    .search-wrap input:focus { border-color: var(--gold); }
+    .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: none; cursor: pointer; font-family: 'Poppins', sans-serif; font-weight: 500; transition: all .2s; text-decoration: none; }
+    .btn-primary { background: var(--gold); color: #fff; border-radius: 8px; padding: 10px 20px; font-size: 14px; white-space: nowrap; }
+    .btn-primary:hover { background: var(--gold-dark); }
+    .btn-outline { background: #fff; color: #444; border: 1.5px solid #ccc; border-radius: 6px; padding: 5px 12px; font-size: 11px; }
+    .btn-outline:hover { border-color: #999; }
+
+    .table-wrap { background: #fff; border-radius: 14px; overflow-x: auto; border: 1.5px solid var(--border); }
+    table.dt { width: 100%; border-collapse: collapse; min-width: 700px; }
+    table.dt th {
+      font-family: 'Poppins', sans-serif; font-size: 11px; font-weight: 600;
+      color: var(--muted); text-align: left; padding: 12px 10px;
+      border-bottom: 1.5px solid var(--border); background: #faf8f5; white-space: nowrap;
+    }
+    table.dt td {
+      font-family: 'Poppins', sans-serif; font-size: 12px; color: var(--text);
+      padding: 13px 10px; vertical-align: middle; border-bottom: 1px solid #ece8e2;
+    }
+    table.dt tr:last-child td { border-bottom: none; }
+
+    .badge { display: inline-block; border-radius: 6px; padding: 4px 12px; font-size: 11px; font-family: 'Poppins', sans-serif; font-weight: 500; color: #fff; }
+    .badge-claimed  { background: var(--blue); }
+    .badge-pending  { background: var(--gold); }
+    .badge-received { background: var(--green); }
+
+    .action-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+    .thumb { width: 58px; height: 58px; object-fit: cover; border-radius: 8px; display: block; background: #f2efe9; }
+</style>
+
+<p style="font-family:'Poppins',sans-serif;font-weight:300;font-size:13px;color:#666;margin-bottom:10px" id="don-count">{{ count }} Donation Request{{ count|pluralize }}</p>
+
+<div class="search-bar-row">
+  <div class="search-wrap">
+    <div class="search-icon">
+      <svg width="17" height="17" fill="none" stroke="#aaa" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    </div>
+    <input id="don-search" placeholder="Search Donations" oninput="filterDonations()"/>
+  </div>
+  <a href="#" class="btn btn-primary">Create Donation</a>
+</div>
+
+<div class="table-wrap">
+  <table class="dt" id="don-table">
+    <thead>
+      <tr>
+        <th>Pick-Up Date</th>
+        <th>Time Window</th>
+        <th>Display Address</th>
+        <th>Items</th>
+        <th>Status</th>
+        <th>Claimed By</th>
+        <th>Actions</th>
+        <th>Uploaded Image</th>
+      </tr>
+    </thead>
+    <tbody id="don-tbody">
+      {% for donation in donations %}
+      <tr>
+        <td style="white-space:nowrap">{{ donation.preferred_pickup_date|date:"m-d-Y" }}</td>
+        <td style="white-space:nowrap">{{ donation.preferred_pickup_window_start|time:"g:i A" }} – {{ donation.preferred_pickup_window_end|time:"g:i A" }}</td>
+        <td style="max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ donation.pickup_display_address }}</td>
+        <td style="max-width:160px">
+            {% for item in donation.items %}
+                {{ item.lookup_details.clothing_type }} - {{ item.lookup_details.brand }} {{ item.lookup_details.dominant_fiber|capfirst }}{% if not forloop.last %}, {% endif %}
+            {% empty %}
+                -
+            {% endfor %}
+        </td>
+        <td>
+            <span class="badge 
+                {% if donation.status == 'IN_TRANSIT' or donation.status == 'CLAIMED' %}badge-claimed
+                {% elif donation.status == 'PENDING' %}badge-pending
+                {% elif donation.status == 'RECEIVED' %}badge-received
+                {% endif %}">
+                {{ donation.status }}
+            </span>
+        </td>
+        <td>{{ donation.claimed_by_tuab.business_name|default:"—" }}</td>
+        <td>
+          <div class="action-btns">
+            <a href="{% url 'donor_view_donation' donation.donation_id %}" class="btn btn-outline">View</a>
+            {% if donation.status == 'PENDING' %}
+                <a href="#" class="btn btn-outline">Edit</a>
+                <button class="btn btn-outline">Cancel</button>
+            {% endif %}
+          </div>
+        </td>
+        <td>
+            {% if donation.upload %}
+                <img src="{{ donation.upload }}" class="thumb" alt="Donation"/>
+            {% else %}
+                <div class="thumb" style="display: flex; align-items: center; justify-content: center; font-size: 10px; color: #aaa;">No Image</div>
+            {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="8" style="text-align: center; padding: 40px; color: #999;">You haven't made any donation requests yet.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<script>
+  function filterDonations() {
+    const q = document.getElementById('don-search').value.toLowerCase().trim();
+    const rows = document.querySelectorAll('#don-tbody tr');
+    let visible = 0;
+    rows.forEach(row => {
+      const match = !q || row.textContent.toLowerCase().includes(q);
+      row.style.display = match ? '' : 'none';
+      if (match) visible++;
+    });
+    document.getElementById('don-count').textContent = `${visible} Donation Request${visible !== 1 ? 's' : ''}`;
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.badge').forEach(function (el) {
+        var v = el.textContent.trim();
+        if (v) {
+            el.textContent = v.split('_').map(function (w) {
+                return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+            }).join(' ');
+        }
+    });
+  });
+</script>
+{% endblock %}

@@ -22,6 +22,7 @@ from ..services.etag_service import build_updated_at_etag, matches_if_match
 from ..services.two_factor_service import disable_two_factor, enable_two_factor
 from ..services.user_archive_service import archive_user
 from ..services.subscription_service import subscribe_user, unsubscribe_user
+from ..services.location_service import haversine
 
 
 
@@ -50,7 +51,13 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
-        if request.user.role == UserRole.ADMIN:
+        
+        # Capture filter params
+        user_lat = request.query_params.get('lat')
+        user_lng = request.query_params.get('lng')
+        category = request.query_params.get('category')
+
+        if request.user.is_authenticated and request.user.role == UserRole.ADMIN:
             role_filter = request.query_params.get('role')
             status_filter = request.query_params.get('status')
             if role_filter:
@@ -59,8 +66,18 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
                 queryset = queryset.filter(status=status_filter)
         else:
             queryset = queryset.filter(role=UserRole.TUAB, status='ACTIVE', operational_status='ACTIVE')
+        
+        if category:
+            queryset = queryset.filter(target_fibers__icontains=category)
 
-        return self.get_paginated_response_data(queryset)
+        # Convert queryset to list if we need to calculate distance (DRF pagination handles lists too)
+        results = list(queryset)
+
+        if user_lat and user_lng:
+            for u in results: u.distance_km = haversine(user_lng, user_lat, u.longitude, u.latitude) if (u.latitude and u.longitude) else None
+            results.sort(key=lambda x: x.distance_km if x.distance_km is not None else float('inf'))
+
+        return self.get_paginated_response_data(results)
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -124,6 +141,20 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
         if request.user.role != UserRole.ADMIN:
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
 
+        status_input = request.data.get('status')
+        rejection_reason = request.data.get('rejection_reason')
+
+        if status_input not in [UserAccountStatus.ACTIVE, UserAccountStatus.REJECTED]:
+            return Response({"detail": "Invalid status. Must be ACTIVE or REJECTED."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if status_input == UserAccountStatus.REJECTED:
+            if not rejection_reason or not str(rejection_reason).strip():
+                return Response({"detail": "Rejection reason is required when rejecting a TUAB."}, status=status.HTTP_400_BAD_REQUEST)
+            
+            max_len = User._meta.get_field('rejection_reason').max_length
+            if len(rejection_reason) > max_len:
+                return Response({"detail": f"Rejection reason is too long (max {max_len} characters)."}, status=status.HTTP_400_BAD_REQUEST)
+
         ip_address = get_client_ip(request)
         with transaction.atomic():
             try:
@@ -136,20 +167,26 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
                 return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
             if target_user.role != UserRole.TUAB:
-                return Response({"detail": "Only TUAB users can be approved."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"detail": "Only TUAB users can be reviewed via this endpoint."}, status=status.HTTP_400_BAD_REQUEST)
 
             if target_user.status != UserAccountStatus.UNDER_REVIEW:
-                return Response({"detail": "Only TUAB users under review can be approved."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"detail": "Only TUAB users under review can be reviewed."}, status=status.HTTP_400_BAD_REQUEST)
 
-            target_user.status = UserAccountStatus.ACTIVE
-            target_user.save(update_fields=['status', 'updated_at'])
+            if status_input == UserAccountStatus.REJECTED:
+                target_user.status = UserAccountStatus.REJECTED
+                target_user.rejection_reason = rejection_reason
+            else:
+                target_user.status = UserAccountStatus.ACTIVE
+                target_user.rejection_reason = None
+            
+            target_user.save(update_fields=['status', 'rejection_reason', 'updated_at'])
 
             log_audit(
                 actor=request.user,
                 entity_type='users',
                 action='STATUS_CHANGE',
                 ip_address=ip_address,
-                fields_modified=['status']
+                fields_modified=['status', 'rejection_reason'] if status_input == UserAccountStatus.REJECTED else ['status']
             )
 
         response = Response(self.get_serializer(target_user).data, status=status.HTTP_200_OK)

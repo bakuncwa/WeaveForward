@@ -22,6 +22,7 @@ class UserSerializer(serializers.ModelSerializer):
     longitude = serializers.DecimalField(max_digits=18, decimal_places=7, required=False, allow_null=True)
     upload = serializers.FileField(write_only=True, required=False, allow_null=True)
     password = serializers.CharField(write_only=True, required=False, allow_blank=False)
+    distance_km = serializers.FloatField(read_only=True, required=False)
     blocked_patch_fields = {
         'email', 'user_id', 'city', 'barangay', 'role',
         'maya_customer_id', 'maya_card_id', 'is_2fa_enabled',
@@ -36,7 +37,7 @@ class UserSerializer(serializers.ModelSerializer):
             'min_biodeg_score', 'max_distance_km', 'operational_status', 'contact_no',
             'barangay', 'city', 'latitude', 'longitude', 'display_address', 'maya_customer_id',
             'maya_card_id', 'status', 'is_2fa_enabled', 'is_subscribed', 'upload', 'documentation',
-            'created_at', 'updated_at', 'etag'
+            'created_at', 'updated_at', 'etag', 'distance_km'
         ]
 
     def get_is_subscribed(self, obj):
@@ -216,12 +217,15 @@ class PublicUserSerializer(serializers.ModelSerializer):
     latitude = serializers.DecimalField(max_digits=18, decimal_places=7, required=False, allow_null=True)
     longitude = serializers.DecimalField(max_digits=18, decimal_places=7, required=False, allow_null=True)
     upload = serializers.SerializerMethodField()
+    distance_km = serializers.FloatField(read_only=True, required=False)
 
     class Meta:
         model = User
-        exclude = [
-            'password', 'totp_secret', 'maya_customer_id', 'maya_card_id',
-            'is_2fa_enabled', 'created_at', 'updated_at', 'documentation'
+        fields = [
+            'user_id', 'email', 'role', 'business_name', 'description', 
+            'social_link', 'contact_no', 'barangay', 'city', 'latitude', 
+            'longitude', 'display_address', 'status', 'upload', 'distance_km',
+            'target_fibers', 'min_biodeg_score', 'max_distance_km', 'operational_status'
         ]
 
     def get_upload(self, obj):

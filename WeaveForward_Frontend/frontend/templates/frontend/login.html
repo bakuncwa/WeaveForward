@@ -148,25 +148,15 @@
             background: var(--bd)
         }
 
-        .alert-card {
-            padding: 10px;
-            border-radius: 8px;
-            font-size: 13px;
-            margin-bottom: 20px;
-            text-align: center;
-            transition: opacity 0.5s ease;
+        .btn[disabled] {
+            opacity: .7;
+            cursor: wait
         }
 
-        .alert-card.success {
-            background: #dcfce7;
-            border: 1px solid #22c55e;
-            color: #166534;
-        }
-
-        .alert-card.error {
-            background: #fee2e2;
-            border: 1px solid #ef4444;
-            color: #991b1b;
+        .helper {
+            font-size: 11px;
+            color: #666;
+            margin-top: 8px
         }
     </style>
 </head>
@@ -181,63 +171,85 @@
         </div>
         <div class="title">Login</div>
 
-        {% if error %}
-        <div
-            style="background:#fee2e2; border:1px solid #ef4444; color:#991b1b; padding:10px; border-radius:8px; font-size:13px; margin-bottom:20px; text-align:center;">
-            {{ error }}
-        </div>
-        {% endif %}
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                {% if messages %}
+                {% for message in messages %}
+                Swal.fire({
+                    text: "{{ message }}",
+                    icon: "{% if message.tags == 'error' %}error{% elif message.tags == 'success' %}success{% elif message.tags == 'warning' %}warning{% else %}info{% endif %}",
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 5000,
+                    timerProgressBar: true,
+                    background: '#fff',
+                    color: '#222',
+                    iconColor: "{% if message.tags == 'error' %}#d9534f{% elif message.tags == 'success' %}#4a7c59{% elif message.tags == 'warning' %}#e8a020{% else %}#0b77dc{% endif %}"
+                });
+                {% endfor %}
+                {% endif %}
 
-        {% if messages %}
-        {% for message in messages %}
-        <div class="alert-card {% if message.tags == 'success' %}success{% else %}error{% endif %}">
-            {{ message }}
-        </div>
-        {% endfor %}
-        {% endif %}
+                {% if error %}
+                Swal.fire({
+                    text: "{{ error }}",
+                    icon: "error",
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 5000,
+                    timerProgressBar: true,
+                    background: '#fff',
+                    color: '#222',
+                    iconColor: "#d9534f"
+                });
+                {% endif %}
+            });
+        </script>
 
-        <form method="POST" action="{% url 'login' %}">
+        <form id="loginForm" method="POST" action="{% url 'login' %}">
             {% csrf_token %}
 
-            {% if not show_2fa %}
-            <div class="group">
+            <div id="credentialsStep" {% if show_2fa %}style="display:none"{% endif %}>
+                <div class="group">
                 <div class="lbl-row"><label class="lbl" for="em">Your email</label></div>
                 <input class="in" type="email" id="em" name="email" placeholder="juan.delacruz@gmail.com"
-                    value="admin@weaveforward.com" required>
-            </div>
-            <div class="group">
-                <div class="lbl-row">
-                    <label class="lbl" for="pw">Your password</label>
-                    <button type="button" class="toggle" onclick="togglePw()">
-                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
-                            viewBox="0 0 24 24">
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                            <circle cx="12" cy="12" r="3" />
-                        </svg>
-                        <span id="ptxt">Show</span>
-                    </button>
+                    value="{{ email|default:'admin@weaveforward.com' }}" required>
                 </div>
-                <input class="in" type="password" id="pw" name="password" value="SecureAdminPassword123" required>
+                <div class="group">
+                    <div class="lbl-row">
+                        <label class="lbl" for="pw">Your password</label>
+                        <button type="button" class="toggle" onclick="togglePw()">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+                                viewBox="0 0 24 24">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                <circle cx="12" cy="12" r="3" />
+                            </svg>
+                            <span id="ptxt">Show</span>
+                        </button>
+                    </div>
+                    <input class="in" type="password" id="pw" name="password" value="{{ password|default:'SecureAdminPassword123' }}" required>
+                </div>
             </div>
-            {% else %}
-            <!-- Hidden fields to maintain credentials for the OTP step -->
-            <input type="hidden" name="email" value="{{ email }}">
-            <input type="hidden" name="password" value="{{ password }}">
 
-            <div class="group">
+            <div id="otpStep" {% if not show_2fa %}style="display:none"{% endif %}>
+                <input type="hidden" id="otpEmail" value="{{ email }}">
+                <input type="hidden" id="otpPassword" value="{{ password }}">
+
+                <div class="group">
                 <div class="lbl-row"><label class="lbl" for="otp">2FA Verification Code</label></div>
                 <input class="in" type="text" id="otp" name="otp_code" placeholder="000000" maxlength="6"
                     inputmode="numeric" autocomplete="one-time-code" autofocus required>
-                <p style="font-size: 11px; color: #666; margin-top: 8px;">Enter the 6-digit code from your authenticator
-                    app.</p>
+                <p class="helper">Enter the 6-digit code from your authenticator app.</p>
+                </div>
             </div>
-            {% endif %}
 
             <div class="links">
                 <a href="{% url 'forgot_password' %}">Forgot Password</a>
                 <a href="{% url 'role_select' %}">Register</a>
             </div>
-            <button class="btn" type="submit">{% if show_2fa %}Verify & Log in{% else %}Log in{% endif %}</button>
+            <button id="loginSubmit" class="btn" type="submit">{% if show_2fa %}Verify & Log in{% else %}Log in{% endif %}</button>
         </form>
     </div>
     <script>
@@ -248,14 +260,119 @@
             t.textContent = show ? 'Hide' : 'Show';
         }
 
-        // Auto-hide messages after 5 seconds
-        setTimeout(() => {
-            const alerts = document.querySelectorAll('.alert-card');
-            alerts.forEach(alert => {
-                alert.style.opacity = '0';
-                setTimeout(() => alert.remove(), 500);
+        function showToast(message, icon = 'error') {
+            Swal.fire({
+                text: message,
+                icon,
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 5000,
+                timerProgressBar: true,
+                background: '#fff',
+                color: '#222',
+                iconColor: icon === 'success' ? '#4a7c59' : '#d9534f'
             });
-        }, 5000);
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const form = document.getElementById('loginForm');
+            const submitButton = document.getElementById('loginSubmit');
+            const credentialsStep = document.getElementById('credentialsStep');
+            const otpStep = document.getElementById('otpStep');
+            const emailInput = document.getElementById('em');
+            const passwordInput = document.getElementById('pw');
+            const otpInput = document.getElementById('otp');
+            const otpEmail = document.getElementById('otpEmail');
+            const otpPassword = document.getElementById('otpPassword');
+
+            function setOtpStepVisible() {
+                credentialsStep.style.display = 'none';
+                otpStep.style.display = '';
+                submitButton.textContent = 'Verify & Log in';
+                otpEmail.name = 'email';
+                otpPassword.name = 'password';
+                emailInput.name = '';
+                passwordInput.name = '';
+                if (otpInput) {
+                    otpInput.required = true;
+                    otpInput.focus();
+                }
+                if (emailInput) {
+                    emailInput.required = false;
+                }
+                if (passwordInput) {
+                    passwordInput.required = false;
+                }
+            }
+
+            function setCredentialsStepVisible() {
+                credentialsStep.style.display = '';
+                otpStep.style.display = 'none';
+                submitButton.textContent = 'Log in';
+                otpEmail.name = '';
+                otpPassword.name = '';
+                emailInput.name = 'email';
+                passwordInput.name = 'password';
+                if (otpInput) {
+                    otpInput.required = false;
+                }
+                if (emailInput) {
+                    emailInput.required = true;
+                }
+                if (passwordInput) {
+                    passwordInput.required = true;
+                }
+            }
+
+            if (otpStep.style.display !== 'none') {
+                setOtpStepVisible();
+            } else {
+                setCredentialsStepVisible();
+            }
+
+            form.addEventListener('submit', async function (event) {
+                event.preventDefault();
+
+                submitButton.disabled = true;
+
+                try {
+                    const formData = new FormData(form);
+                    const response = await fetch(form.action, {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        body: new URLSearchParams(formData),
+                        credentials: 'same-origin',
+                    });
+
+                    const data = await response.json().catch(() => ({}));
+
+                    if (response.ok && data.redirect_url) {
+                        window.location.href = data.redirect_url;
+                        return;
+                    }
+
+                    if (data['2fa_required']) {
+                        otpEmail.value = emailInput.value;
+                        otpPassword.value = passwordInput.value;
+                        if (otpInput) {
+                            otpInput.value = '';
+                        }
+                        setOtpStepVisible();
+                        showToast('Enter your 2FA verification code.', 'success');
+                        return;
+                    }
+
+                    showToast(data.error || 'Login failed. Please try again.');
+                } catch (error) {
+                    showToast('Backend API is offline or unreachable.');
+                } finally {
+                    submitButton.disabled = false;
+                }
+            });
+        });
     </script>
 </body>
 

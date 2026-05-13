@@ -12,14 +12,16 @@ from ..services import (
 from ..constants import ALLOWED_FIBERS
 
 # Import role-based views for convenience
-from .admin import admin_view_donations, admin_view_donors, admin_view_tuabs, admin_view_tuab, admin_add_donor, admin_add_tuab, admin_view_donor, admin_edit_donor, admin_archive_user_proxy, admin_edit_tuab, admin_add_donation
-from .donor import donor_dashboard
+from .admin import admin_view_donations, admin_view_donors, admin_view_tuabs, admin_view_tuab, admin_add_donor, admin_add_tuab, admin_view_donor, admin_edit_donor, admin_archive_user_proxy, admin_edit_tuab, admin_add_donation, admin_view_donation
+from .donor import donor_browse_businesses, donor_my_donations, donor_view_donation, donor_view_tuab
 from .tuab import tuab_dashboard, tuab_subscribe
 
 def role_select(request):
     return render(request, 'frontend/role_select.html')
 
 def login_view(request):
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
     if request.method == 'POST':
         email = request.POST.get('email')
         password = request.POST.get('password')
@@ -36,29 +38,45 @@ def login_view(request):
                 data = response.json()
                 role = data.get('role')
                 if role == 'Admin':
-                    redirect_url = 'admin_view_donors'
+                    redirect_name = 'admin_view_donors'
                 elif role == 'TUAB':
-                    redirect_url = 'tuab_dashboard'
+                    redirect_name = 'tuab_dashboard'
                 else:
-                    redirect_url = 'donor_dashboard'
+                    redirect_name = 'donor_browse_businesses'
 
-                res = redirect(redirect_url)
+                redirect_url = reverse(redirect_name)
+
+                if is_ajax:
+                    res = JsonResponse({'redirect_url': redirect_url}, status=200)
+                else:
+                    res = redirect(redirect_name)
+
                 apply_backend_auth_cookies(res, response)
                 return res
             else:
                 error_data = response.json()
                 if error_data.get('2fa_required'):
+                    if is_ajax:
+                        return JsonResponse({
+                            '2fa_required': True,
+                            'email': email,
+                        }, status=401)
+
                     return render(request, 'frontend/login.html', {
-                        'show_2fa': True, 
-                        'email': email, 
+                        'show_2fa': True,
+                        'email': email,
                         'password': password
                     })
 
                 backend_error = error_data.get('detail', 'Invalid email or password.')
                 error_msg = backend_error[0] if isinstance(backend_error, list) else backend_error
+                if is_ajax:
+                    return JsonResponse({'error': error_msg}, status=response.status_code)
                 return render(request, 'frontend/login.html', {'error': error_msg, 'email': email})
                 
         except Exception:
+            if is_ajax:
+                return JsonResponse({'error': 'Backend API is offline or unreachable.'}, status=503)
             return render(request, 'frontend/login.html', {'error': 'Backend API is offline or unreachable.'})
 
     return render(request, 'frontend/login.html')

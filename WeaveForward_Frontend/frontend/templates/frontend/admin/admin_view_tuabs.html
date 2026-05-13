@@ -343,8 +343,7 @@
               {% endif %}
               {% if tuab.status == 'ACTIVE' %}
               <button class="btn btn-outline archive-btn" type="button"
-                data-api-url="/admin/users/{{ tuab.user_id }}/archive/"
-                data-user-etag="{{ tuab.etag }}">
+                data-api-url="/admin/users/{{ tuab.user_id }}/archive/" data-user-etag="{{ tuab.etag }}">
                 Archive
               </button>
               {% endif %}

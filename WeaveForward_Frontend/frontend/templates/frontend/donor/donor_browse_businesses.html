@@ -1,0 +1,532 @@
+{% extends 'frontend/base.html' %}
+
+{% block content %}
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap"
+  rel="stylesheet" />
+<style>
+  :root {
+    --gold: #e8a020;
+    --gold-dark: #c8881a;
+    --bg: #f5f4f0;
+    --border: #e0dbd4;
+    --text: #222222;
+    --muted: #888888;
+  }
+
+  .hidden {
+    display: none !important;
+  }
+
+  .wf-content-inner {
+    font-family: 'Poppins', sans-serif;
+  }
+
+  /* --- Buttons --- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: none;
+    cursor: pointer;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 500;
+    transition: all .2s;
+    text-decoration: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-size: 14px;
+  }
+
+  .btn-primary {
+    background: var(--gold);
+    color: #fff;
+  }
+
+  .btn-primary:hover {
+    background: var(--gold-dark);
+  }
+
+  .btn-outline {
+    background: #fff;
+    color: #444;
+    border: 1.5px solid #ccc;
+  }
+
+  .btn-outline:hover {
+    border-color: #999;
+  }
+
+  /* --- Forms --- */
+  .form-label-upper {
+    font-size: 13px;
+    font-weight: 300;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    display: block;
+    margin-bottom: 5px;
+  }
+
+  .form-input {
+    width: 100%;
+    border: 1.5px solid #d5d5d5;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 16px;
+    font-weight: 300;
+    color: var(--text);
+    outline: none;
+    transition: border-color .2s;
+  }
+
+  .form-input:focus {
+    border-color: var(--gold);
+  }
+
+  .form-select {
+    width: 100%;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 36px 10px 14px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 16px;
+    font-weight: 300;
+    color: var(--text);
+    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23e8a020' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpolyline points='6,9 12,15 18,9'/%3E%3C/svg%3E") no-repeat right 12px center;
+    appearance: none;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .form-select:focus {
+    border-color: var(--gold);
+  }
+
+  .field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  /* --- Location bar --- */
+  .location-bar {
+    background: #fdf6e8;
+    border: 1px solid #f0d898;
+    border-radius: 10px;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .location-bar-text {
+    font-size: 13px;
+    color: #666;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* --- Filter row --- */
+  .filter-row {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 20px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .filter-group-wide {
+    flex: 1;
+    min-width: 180px;
+  }
+
+  /* --- Autocomplete --- */
+  .ac-wrap {
+    position: relative;
+  }
+
+  .address-autocomplete {
+    position: absolute;
+    background: #fff;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    width: 100%;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 200;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .12);
+    max-height: 220px;
+    overflow-y: auto;
+  }
+
+  .ac-item {
+    padding: 10px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    border-bottom: 1px solid #f5f5f5;
+  }
+
+  .ac-item:last-child {
+    border-bottom: none;
+  }
+
+  .ac-item:hover {
+    background: #fdf6e8;
+  }
+
+  /* --- Results header --- */
+  .results-header {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 12px;
+  }
+
+  .results-header strong {
+    color: var(--text);
+  }
+
+  /* --- Business cards --- */
+  .biz-card {
+    background: #fff;
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    cursor: pointer;
+    transition: box-shadow .2s, border-color .2s;
+    border: 1.5px solid transparent;
+    text-decoration: none;
+    color: inherit;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  .biz-card:hover {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, .09);
+    border-color: var(--gold);
+  }
+
+  .biz-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #ddd;
+    flex-shrink: 0;
+  }
+
+  .biz-info {
+    width: 200px;
+    min-width: 140px;
+    flex-shrink: 0;
+  }
+
+  .biz-name {
+    font-weight: 600;
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+
+  .biz-loc {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: #777;
+    margin-bottom: 7px;
+  }
+
+  .biz-tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .tag {
+    background: #E8A020;
+    color: #000;
+    border-radius: 4px;
+    padding: 2px 9px;
+    font-size: 10px;
+    font-weight: 300;
+  }
+
+  .biz-desc {
+    font-size: 12px;
+    color: #777;
+    line-height: 1.6;
+    flex: 1;
+    margin: 0 16px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .distance-badge {
+    background: #FFF3DC;
+    color: #E8A020;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    align-self: flex-start;
+  }
+
+  /* --- Mobile --- */
+  @media (max-width: 768px) {
+    .filter-row {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .filter-group-wide {
+      min-width: unset;
+    }
+
+    .biz-card {
+      flex-wrap: wrap;
+    }
+
+    .biz-info {
+      width: 100%;
+      min-width: unset;
+    }
+
+    .biz-desc {
+      margin: 0;
+      width: 100%;
+      margin-bottom: 10px;
+    }
+
+    .distance-badge {
+      align-self: unset;
+    }
+  }
+
+  /* --- Pagination --- */
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 30px;
+    margin-bottom: 50px;
+  }
+
+  .page-info {
+    font-size: 14px;
+    color: #666;
+  }
+</style>
+
+<div class="wf-content-inner">
+  <div class="location-bar hidden" id="location-bar">
+    <div class="location-bar-text">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+        <circle cx="12" cy="10" r="3" />
+      </svg>
+      Detecting your location to find nearby businesses...
+    </div>
+  </div>
+
+  <form method="GET" class="filter-row">
+    <div class="field-group" style="min-width:180px">
+      <label class="form-label-upper">Textile Category</label>
+      <select id="cat-filter" class="form-select" name="category">
+        <option value="">All categories</option>
+        {% for cat in categories %}
+        <option value="{{ cat }}" {% if cat == request.GET.category %}selected{% endif %}>{{ cat }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field-group filter-group-wide">
+      <label class="form-label-upper">Location</label>
+      <div class="ac-wrap">
+        <input id="loc-filter" class="form-input" placeholder="Enter Address" name="address"
+          value="{{ request.GET.address }}"
+          oninput="nominatimSearch(this.value,'loc-ac','browse-lat','browse-lng','loc-filter')" />
+        <div id="loc-ac" class="address-autocomplete hidden"></div>
+        <input type="hidden" id="browse-lat" name="lat" value="{{ request.GET.lat }}" />
+        <input type="hidden" id="browse-lng" name="lng" value="{{ request.GET.lng }}" />
+      </div>
+    </div>
+    <button class="btn btn-primary" type="submit">Apply Filters</button>
+    <button class="btn btn-outline" type="button"
+      onclick="window.location.href='{% url 'donor_browse_businesses' %}'">Reset</button>
+  </form>
+
+  <p class="results-header">
+    <strong>{{ count }} Businesses found</strong>
+    <span style="margin-left:14px;color:#999">{% if request.GET.lat %}Sorted by nearest{% else %}Discover our partners{%
+      {% endif %}</span>
+  </p>
+
+  <div id="biz-list">
+    {% for biz in businesses %}
+    <a class="biz-card" href="{% url 'donor_view_tuab' biz.user_id %}">
+      {% if biz.upload %}
+      <img class="biz-avatar" src="{{ biz.upload }}" alt="{{ biz.business_name }}" />
+      {% else %}
+      <div class="biz-avatar"
+        style="display:flex; align-items:center; justify-content:center; background:#eee; color:#aaa;">
+        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M3 21h18M3 7v1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7H3m2 4h14v10H5V11z" />
+        </svg>
+      </div>
+      {% endif %}
+
+      <div class="biz-info">
+        <div class="biz-name">{{ biz.business_name|default:biz.email }}</div>
+        <div class="biz-loc">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+            <circle cx="12" cy="10" r="3" />
+          </svg>
+          {{ biz.barangay|default:"" }} {{ biz.city|default:"Unknown Location" }}
+        </div>
+        <div class="biz-tags">
+          {% for fiber in biz.fiber_list %}
+          <span class="tag">{{ fiber }}</span>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="biz-desc">{{ biz.description|default:"No description available for this partner yet." }}</div>
+
+      {% if biz.distance_km %}
+      <span class="distance-badge">{{ biz.distance_km|floatformat:1 }}km</span>
+      {% endif %}
+    </a>
+    {% empty %}
+    <div style="text-align:center; padding:60px 0; color:#888;">
+      <p>No businesses found matching your criteria.</p>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if total_pages > 1 %}
+  <div class="pagination">
+    {% if has_prev %}
+    <a href="?page={{ current_page|add:'-1' }}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.lat %}&lat={{ request.GET.lat }}{% endif %}{% if request.GET.lng %}&lng={{ request.GET.lng }}{% endif %}{% if request.GET.address %}&address={{ request.GET.address }}{% endif %}"
+      class="btn btn-outline">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M15 19l-7-7 7-7" />
+      </svg> Previous
+    </a>
+    {% else %}
+    <button class="btn btn-outline" disabled style="opacity:0.5;cursor:not-allowed">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M15 19l-7-7 7-7" />
+      </svg> Previous
+    </button>
+    {% endif %}
+
+    <span class="page-info">Page <strong>{{ current_page }}</strong> of {{ total_pages }}</span>
+
+    {% if has_next %}
+    <a href="?page={{ current_page|add:'1' }}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.lat %}&lat={{ request.GET.lat }}{% endif %}{% if request.GET.lng %}&lng={{ request.GET.lng }}{% endif %}{% if request.GET.address %}&address={{ request.GET.address }}{% endif %}"
+      class="btn btn-outline">
+      Next <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M9 5l7 7-7 7" />
+      </svg>
+    </a>
+    {% else %}
+    <button class="btn btn-outline" disabled style="opacity:0.5;cursor:not-allowed">
+      Next <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M9 5l7 7-7 7" />
+      </svg>
+    </button>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<script>
+  function allowLocation() {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((pos) => {
+        const url = new URL(window.location.href);
+        url.searchParams.set('lat', pos.coords.latitude.toFixed(7));
+        url.searchParams.set('lng', pos.coords.longitude.toFixed(7));
+        window.location.href = url.toString();
+      }, () => { }, {
+        enableHighAccuracy: false,
+        maximumAge: 3600000
+      });
+    }
+  }
+
+  // Monitor permission and trigger bar/detection
+  (function () {
+    const urlParams = new URLSearchParams(window.location.search);
+    const needsLoc = !urlParams.has('lat') || !urlParams.has('lng');
+
+    if (needsLoc && navigator.permissions && navigator.geolocation) {
+      navigator.permissions.query({ name: 'geolocation' }).then(status => {
+        const updateUI = () => {
+          if (status.state === 'granted') {
+            const bar = document.getElementById('location-bar');
+            if (bar) bar.classList.remove('hidden');
+          }
+        };
+        status.onchange = updateUI;
+        updateUI();
+      });
+    }
+
+    if (needsLoc) {
+      allowLocation();
+    }
+  })();
+
+  const nominatimTimers = {};
+  let _acResults = [];
+
+  async function nominatimSearch(val, acId, latId, lngId, inputId) {
+    const ac = document.getElementById(acId);
+    if (!ac) return;
+    if (!val || val.length < 3) { ac.classList.add('hidden'); return; }
+    clearTimeout(nominatimTimers[acId]);
+    nominatimTimers[acId] = setTimeout(async () => {
+      try {
+        const q = encodeURIComponent(val + ', Philippines');
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}&limit=5&countrycodes=ph&addressdetails=1`, { headers: { 'Accept-Language': 'en-US,en;q=0.9' } });
+        const data = await res.json();
+        if (!data.length) { ac.classList.add('hidden'); return; }
+        _acResults = data;
+        ac.innerHTML = data.map((r, i) =>
+          `<div class="ac-item" onclick="selectAC(${i},'${acId}','${latId}','${lngId}','${inputId}')">${r.display_name}</div>`
+        ).join('');
+        ac.classList.remove('hidden');
+      } catch { ac.classList.add('hidden'); }
+    }, 400);
+  }
+
+  function selectAC(i, acId, latId, lngId, inputId) {
+    const r = _acResults[i];
+    document.getElementById(inputId).value = r.display_name;
+    document.getElementById(latId).value = (+r.lat).toFixed(7);
+    document.getElementById(lngId).value = (+r.lon).toFixed(7);
+    document.getElementById(acId).classList.add('hidden');
+  }
+
+  document.addEventListener('click', e => {
+    document.querySelectorAll('.address-autocomplete').forEach(ac => {
+      if (!ac.closest('.ac-wrap')?.contains(e.target)) ac.classList.add('hidden');
+    });
+  });
+</script>
+{% endblock %}

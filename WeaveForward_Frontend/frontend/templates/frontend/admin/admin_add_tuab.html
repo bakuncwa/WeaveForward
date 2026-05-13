@@ -251,14 +251,63 @@
       {% endif %}
     </div>
 
-    <form method="POST" action="{% url 'admin_add_tuab' %}" class="approve-form">
-      {% csrf_token %}
-      <input type="hidden" name="user_id" value="{{ tuab.user_id }}">
-      <button type="submit" class="btn btn-primary">Approve TUAB</button>
-    </form>
+    <div class="approve-form" style="gap:10px;">
+      <form method="POST" action="{% url 'admin_add_tuab' %}" style="display:inline;">
+        {% csrf_token %}
+        <input type="hidden" name="user_id" value="{{ tuab.user_id }}">
+        <input type="hidden" name="action" value="approve">
+        <button type="submit" class="btn btn-primary">Approve TUAB</button>
+      </form>
+      <button type="button" class="btn btn-outline" style="border-radius:14px; border-color:#ffcccc; color:#cc0000;"
+        onclick="toggleReject('{{ tuab.user_id }}')">Reject</button>
+    </div>
+
+    <div id="reject-box-{{ tuab.user_id }}"
+      style="display:none; margin-top:16px; border-top:1.5px solid #ebe6df; padding-top:16px; animation: fadeIn .3s;">
+      <form method="POST" action="{% url 'admin_add_tuab' %}">
+        {% csrf_token %}
+        <input type="hidden" name="user_id" value="{{ tuab.user_id }}">
+        <input type="hidden" name="action" value="reject">
+        <div class="field-label" style="color:#cc0000; font-weight:600;">Reason for Rejection</div>
+        <textarea name="rejection_reason"
+          style="width:100%; height:80px; border-radius:10px; border:1.5px solid #ffcccc; padding:12px; margin-bottom:12px; font-family:Poppins, sans-serif; font-size:14px; outline:none;"
+          placeholder="Enter the reason why this application is being rejected..." required></textarea>
+        <div style="display:flex; gap:10px; justify-content:flex-end;">
+          <button type="button" class="btn btn-outline" onclick="toggleReject('{{ tuab.user_id }}')">Cancel</button>
+          <button type="submit" class="btn"
+            style="background:#cc0000; color:#fff; border-radius:14px; padding:10px 20px; font-size:14px;">Confirm
+            Rejection</button>
+        </div>
+      </form>
+    </div>
   </div>
   {% endfor %}
 </div>
+
+<script>
+  function toggleReject(userId) {
+    const box = document.getElementById('reject-box-' + userId);
+    if (box.style.display === 'none') {
+      box.style.display = 'block';
+    } else {
+      box.style.display = 'none';
+    }
+  }
+</script>
+
+<style>
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+</style>
 
 <div class="pagination-wrap">
   <div class="pg-info">Page {{ current_page }} of {{ total_pages }}</div>

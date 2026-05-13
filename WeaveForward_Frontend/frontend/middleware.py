@@ -88,6 +88,18 @@ class TokenRefreshMiddleware:
                 apply_backend_auth_cookies(response, refresh_response)
             return response
 
+        # --- RBAC Enforcement ---
+        # Ensure users can only access their designated prefixes.
+        if request.user_profile:
+            role = request.user_profile.get('role')
+            # If they are in a protected area not meant for their role, redirect them to their correct dashboard.
+            if path.startswith('/admin/') and role != 'Admin':
+                return self._redirect_for_profile(request.user_profile)
+            if path.startswith('/tuab/') and role != 'TUAB':
+                return self._redirect_for_profile(request.user_profile)
+            if path.startswith('/donor/') and role != 'Donor':
+                return self._redirect_for_profile(request.user_profile)
+
         response = self.get_response(request)
 
         if should_clear_cookies:
@@ -144,4 +156,4 @@ class TokenRefreshMiddleware:
             return redirect('/admin/donors/')
         if role == 'TUAB':
             return redirect('tuab_dashboard')
-        return redirect('donor_dashboard')
+        return redirect('donor_browse_businesses')

@@ -11,7 +11,6 @@ def current_profile(request):
 
 def admin_view_donations(request):
     profile = current_profile(request)
-    if not profile or profile.get('role') != 'Admin': return redirect('login')
     
     page_data = get_paginated_data(request, 'donations')
     
@@ -29,7 +28,6 @@ def admin_view_donations(request):
 
 def admin_view_donors(request):
     profile = current_profile(request)
-    if not profile or profile.get('role') != 'Admin': return redirect('login')
     
     page_data = get_paginated_data(request, 'users', params={'role': 'Donor'})
     
@@ -48,7 +46,6 @@ def admin_view_donors(request):
 
 def admin_view_tuabs(request):
     profile = current_profile(request)
-    if not profile or profile.get('role') != 'Admin': return redirect('login')
 
     page_data = get_paginated_data(request, 'users', params={'role': 'TUAB'})
 
@@ -67,26 +64,40 @@ def admin_view_tuabs(request):
 
 def admin_add_tuab(request):
     profile = current_profile(request)
-    if not profile or profile.get('role') != 'Admin':
-        return redirect('login')
 
     if request.method == 'POST':
         user_id = request.POST.get('user_id')
+        action = request.POST.get('action', 'approve')
+        rejection_reason = request.POST.get('rejection_reason')
+
         if not user_id:
             messages.error(request, "Missing TUAB user ID.")
             return redirect('admin_add_tuab')
 
+        payload = {}
+        if action == 'reject':
+            if not rejection_reason:
+                messages.error(request, "Rejection reason is required.")
+                return redirect('admin_add_tuab')
+            payload['status'] = 'REJECTED'
+            payload['rejection_reason'] = rejection_reason
+        else:
+            payload['status'] = 'ACTIVE'
+
         try:
-            response = api_call(request, 'POST', f'users/{user_id}/approve')
+            response = api_call(request, 'POST', f'users/{user_id}/approve', json=payload)
         except Exception:
             messages.error(request, "Backend API is offline or unreachable.")
             return redirect('admin_add_tuab')
 
         if response.status_code == 200:
-            messages.success(request, "TUAB approved successfully.")
+            if action == 'reject':
+                messages.success(request, "TUAB application rejected.")
+            else:
+                messages.success(request, "TUAB approved successfully.")
         else:
             response_data = response.json() if hasattr(response, 'json') else {}
-            messages.error(request, response_data.get('detail', 'Unable to approve TUAB.'))
+            messages.error(request, response_data.get('detail', f'Unable to {action} TUAB.'))
 
         return redirect('admin_add_tuab')
 
@@ -106,7 +117,6 @@ def admin_add_tuab(request):
 
 def admin_view_tuab(request, user_id):
     profile = current_profile(request)
-    if not profile or profile.get('role') != 'Admin': return redirect('login')
 
     response = api_call(request, 'GET', f'users/{user_id}')
     if response.status_code != 200:
@@ -131,7 +141,6 @@ def admin_view_tuab(request, user_id):
 
 def admin_view_donor(request, user_id):
     profile = current_profile(request)
-    if not profile or profile.get('role') != 'Admin': return redirect('login')
     
     response = api_call(request, 'GET', f'users/{user_id}')
     if response.status_code != 200:
@@ -152,8 +161,6 @@ def admin_view_donor(request, user_id):
 
 def admin_edit_donor(request, user_id):
     profile = current_profile(request)
-    if not profile or profile.get('role') != 'Admin':
-        return redirect('login')
 
     if request.method == 'POST':
         raw_data = request.POST
@@ -254,7 +261,6 @@ def admin_edit_donor(request, user_id):
 
 def admin_add_donor(request):
     profile = current_profile(request)
-    if not profile or profile.get('role') != 'Admin': return redirect('login')
     
     if request.method == 'POST':
         raw_data = request.POST
@@ -297,8 +303,6 @@ def admin_add_donor(request):
 def admin_archive_user_proxy(request, user_id):
     """Admin-only SSR Proxy for archiving/deleting a user."""
     profile = current_profile(request)
-    if not profile or profile.get('role') != 'Admin':
-        return redirect('login')
     
     if request.method == 'POST':
         submitted_etag = request.POST.get('etag')
@@ -327,8 +331,6 @@ from ..services import get_fiber_choices
 
 def admin_edit_tuab(request, user_id):
     profile = current_profile(request)
-    if not profile or profile.get('role') != 'Admin':
-        return redirect('login')
 
     fibers = get_fiber_choices(request)
 
@@ -416,8 +418,6 @@ def admin_edit_tuab(request, user_id):
     })
 def admin_add_donation(request):
     profile = current_profile(request)
-    if not profile or profile.get('role') != 'Admin':
-        return redirect('login')
 
     if request.method == 'POST':
         # Proxy POST to backend donations endpoint
@@ -445,9 +445,32 @@ def admin_add_donation(request):
         except Exception as e:
             messages.error(request, f"System Error: {str(e)}")
         
-        # On error, we should ideally re-render the page with the submitted data
-        # but the current template is very JS-heavy. For now, redirecting back.
-        return redirect('admin_add_donation')
+        # On error, re-render with existing data to preserve state
+        # 1. Fetch ALL Active Donors (same as GET)
+        active_donors = []
+        page = 1
+        while True:
+            res = api_call(request, 'GET', 'users', params={'role': 'Donor', 'status': 'ACTIVE', 'page': page, 'page_size': 100})
+            if res.status_code != 200: break
+            data = res.json()
+            active_donors.extend(data.get('results', []))
+            if not data.get('next') or page >= 50: break
+            page += 1
+
+        # 2. Fetch ALL Brand Fiber Lookups
+        lookups = []
+        res = api_call(request, 'GET', 'brandfiberlookups')
+        if res.status_code == 200:
+            data = res.json()
+            lookups = data if isinstance(data, list) else data.get('results', [])
+
+        return render(request, 'frontend/admin/admin_add_donation.html', {
+            'page_title': 'Add Donation',
+            'user': profile,
+            'donors': active_donors,
+            'catalog_json': json.dumps(lookups),
+            'form_data': payload
+        })
 
     # GET: Fetch SSR Data
     # 1. Fetch ALL Active Donors
@@ -473,4 +496,27 @@ def admin_add_donation(request):
         'user': profile,
         'donors': active_donors,
         'catalog_json': json.dumps(lookups)
+    })
+
+def admin_view_donation(request, donation_id):
+    profile = current_profile(request)
+
+    response = api_call(request, 'GET', f'donations/{donation_id}')
+    if response.status_code != 200:
+        messages.error(request, "Donation not found.")
+        return redirect('admin_view_donations')
+
+    donation = response.json()
+
+    # Format dates for template display
+    if donation.get('preferred_pickup_date'):
+        donation['preferred_pickup_date'] = parse_datetime(donation['preferred_pickup_date'])
+    if donation.get('submitted_at'):
+        donation['submitted_at'] = parse_datetime(donation['submitted_at'])
+
+    return render(request, 'frontend/admin/admin_view_donation.html', {
+        'page_title': 'View Donation',
+        'user': profile,
+        'donation': donation,
+        'items': donation.get('items', [])
     })

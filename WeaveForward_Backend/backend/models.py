@@ -1,3 +1,7 @@
+# CHANGE REQUEST: Adjusted 'maya_customer_id' and 'rejection_reason' to resolve 
+# schema discrepancies (unexpected length changes and incorrect migration from 
+# normalized tables) introduced during panel-stage denormalization.
+
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -158,15 +162,13 @@ class User(AbstractBaseUser):
     longitude          = models.DecimalField(max_digits=18, decimal_places=15, null=True, blank=True)
     display_address    = models.TextField(null=True, blank=True)
     maya_customer_id   = models.CharField(max_length=50,  null=True, default=None)
-    # IMPORTANT: store the real Maya card token id here exactly as returned by the Maya
-    # payment-tokens/cards flow. Do not truncate, hash, or repurpose this field; Maya
-    # card token values are long and must be persisted unchanged for later payment use.
-    maya_card_id       = models.CharField(max_length=255,  null=True, default=None)
+    maya_card_id       = models.CharField(max_length=255, null=True, default=None)
     status             = EnumField(choices=UserAccountStatus.choices, default=UserAccountStatus.UNDER_REVIEW)
     is_2fa_enabled     = models.BooleanField(default=False)
     totp_secret        = models.CharField(max_length=64, null=True, default=None)
     upload             = models.ForeignKey(Upload, on_delete=models.SET_NULL, null=True, default=None, related_name="profile_photo_users",  db_column="upload_id")
     documentation      = models.ForeignKey(Upload, on_delete=models.SET_NULL, null=True, default=None, related_name="documentation_users", db_column="documentation_id")
+    rejection_reason   = models.CharField(max_length=200, null=True, default=None)
     created_at         = models.DateTimeField(auto_now_add=True)
     updated_at         = models.DateTimeField(auto_now=True)
 

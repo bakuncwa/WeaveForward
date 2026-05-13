@@ -1,6 +1,21 @@
 # WeaveForward
 
-WeaveForward is a sustainable fashion platform designed to connect donors with Textile Upcycling and Aggregation Businesses (TUABs). This repository contains the full application stack, including the Django Backend and the Django-based Frontend.
+Improved ML Repository (Forked): https://github.com/dave34458/weaveforward-ml
+Mock HTML Files: https://github.com/dave34458/WeaveForward-Mock-HTML-Files
+
+
+## Architecture & Security Specifications
+This project adheres to formal proposal specifications, featuring a **physically decoupled 3-tier native GCP architecture**. It is engineered for high availability and scalability, ready for deployment using **Cloud SQL** and dual **Cloud Run** instances for independent service orchestration.
+
+### Core Technical Standards
+- **Security & Authentication**: Implements industry-standard `bcrypt` password hashing and `simple-jwt` (JSON Web Tokens) for secure, stateless authentication.
+- **Hardened Defense**: Built-in security specifications to mitigate **CORS**, **CSS**, and **XSS** vulnerabilities, ensuring robust protection across all application layers.
+- **Cloud-Native Design**: Architected for seamless integration with Google Cloud Platform services, facilitating a production-ready environment.
+
+## Project Completion Status
+**Overall Progress: ~62%**
+
+Core infrastructure (JWT, 3-tier, Admin) and key integrations (**Maya Payments** & **CatBoost ML**) are fully operational. Final development is focused on **Lalamove integration**, TUAB workflows, and impact dashboards.
 
 ## Getting Started
 

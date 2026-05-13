@@ -65,9 +65,53 @@ class AuthViewsTest(TestCase):
         })
 
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse('donor_dashboard'))
+        self.assertEqual(response.url, reverse('donor_browse_businesses'))
         self.assertEqual(response.cookies['access_token'].value, 'access-cookie')
         self.assertEqual(response.cookies['refresh_token'].value, 'refresh-cookie')
+
+    @patch('frontend.views.api_call')
+    def test_ajax_login_returns_json_redirect_and_auth_cookies(self, mocked_api_call):
+        backend_response = make_response(200, {
+            'user_id': 1,
+            'role': 'Donor',
+            'email': 'user@example.com',
+        })
+        backend_response.cookies.set('access_token', 'access-cookie')
+        backend_response.cookies.set('refresh_token', 'refresh-cookie')
+        mocked_api_call.return_value = backend_response
+
+        response = self.client.post(
+            reverse('login'),
+            {
+                'email': 'user@example.com',
+                'password': 'password123',
+            },
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['redirect_url'], reverse('donor_browse_businesses'))
+        self.assertEqual(response.cookies['access_token'].value, 'access-cookie')
+        self.assertEqual(response.cookies['refresh_token'].value, 'refresh-cookie')
+
+    @patch('frontend.views.api_call')
+    def test_ajax_login_returns_2fa_required_payload(self, mocked_api_call):
+        mocked_api_call.return_value = make_response(401, {
+            '2fa_required': True,
+        })
+
+        response = self.client.post(
+            reverse('login'),
+            {
+                'email': 'user@example.com',
+                'password': 'password123',
+            },
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()['2fa_required'], True)
+        self.assertEqual(response.json()['email'], 'user@example.com')
 
     @patch('frontend.views.api_call')
     def test_logout_calls_backend_without_refresh_body(self, mocked_api_call):
@@ -98,11 +142,11 @@ class AuthViewsTest(TestCase):
 
         response = self.client.get(
             reverse('logout'),
-            HTTP_REFERER=reverse('donor_dashboard')
+            HTTP_REFERER=reverse('donor_browse_businesses')
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse('donor_dashboard'))
+        self.assertEqual(response.url, reverse('donor_browse_businesses'))
         self.assertNotIn('access_token', response.cookies)
         self.assertNotIn('refresh_token', response.cookies)
         messages = [message.message for message in get_messages(response.wsgi_request)]
@@ -121,7 +165,7 @@ class AuthViewsTest(TestCase):
         response = self.client.get(reverse('login'))
 
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse('donor_dashboard'))
+        self.assertEqual(response.url, reverse('donor_browse_businesses'))
 
     @patch('frontend.middleware.requests.request')
     def test_registration_get_redirects_valid_authenticated_user(self, mocked_requests):
@@ -168,7 +212,7 @@ class AuthViewsTest(TestCase):
         self.client.cookies['refresh_token'] = 'refresh-cookie'
         mocked_requests.return_value = make_response(401, {'detail': 'Unauthorized'})
 
-        response = self.client.get(reverse('donor_dashboard'))
+        response = self.client.get(reverse('donor_browse_businesses'))
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse('login'))
@@ -189,6 +233,17 @@ class AuthViewsTest(TestCase):
                     'email': 'user@example.com',
                     'name': 'Test User',
                 })
+            if url.endswith('/users'):
+                return make_response(200, {
+                    'results': [],
+                    'count': 0,
+                    'total_pages': 1,
+                    'current_page': 1,
+                    'has_next': False,
+                    'has_prev': False
+                })
+            if url.endswith('/brandfiberlookups/fibers'):
+                return make_response(200, ['Cotton', 'Denim'])
             raise AssertionError(f"Unexpected request: {method} {url}")
 
         mocked_requests.side_effect = request_side_effect
@@ -206,10 +261,9 @@ class AuthViewsTest(TestCase):
 
         mocked_api_call.side_effect = api_call_side_effect
 
-        response = self.client.get(reverse('donor_dashboard'))
-
+        response = self.client.get(reverse('donor_browse_businesses'))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Donor Dashboard')
+        self.assertContains(response, 'Browse Businesses')
         self.assertEqual(response.cookies['access_token'].value.count('.'), 2)
         self.assertEqual(response.cookies['refresh_token'].value, 'rotated-refresh')
         mocked_api_call.assert_called_once()
@@ -220,7 +274,7 @@ class AuthViewsTest(TestCase):
         self.client.cookies['refresh_token'] = 'refresh-cookie'
         mocked_requests.return_value = make_response(500, {'detail': 'Server error'})
 
-        response = self.client.get(reverse('donor_dashboard'))
+        response = self.client.get(reverse('donor_browse_businesses'))
 
         self.assertEqual(response.status_code, 503)
         self.assertContains(response, 'Our threads are a bit tangled at the moment.', status_code=503)
@@ -637,7 +691,7 @@ class AdminArchiveProxyTest(MiddlewareAuthMixin, TestCase):
         response = self.client.post(reverse('admin_archive_user_proxy', kwargs={'user_id': 11}))
         
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse('login'))
+        self.assertEqual(response.url, reverse('donor_browse_businesses'))
 
 
 class AdminApproveTuabPostTest(MiddlewareAuthMixin, TestCase):
@@ -676,4 +730,4 @@ class AdminApproveTuabPostTest(MiddlewareAuthMixin, TestCase):
         response = self.client.post(reverse('admin_add_tuab'), {'user_id': 11})
 
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse('login'))
+        self.assertEqual(response.url, reverse('donor_browse_businesses'))

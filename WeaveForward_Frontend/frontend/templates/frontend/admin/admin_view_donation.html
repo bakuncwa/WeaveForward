@@ -1,0 +1,260 @@
+{% extends 'frontend/base.html' %}
+
+{% block content %}
+<!--
+  WeaveForward - Admin View Donation (Restored & Functional)
+  ============================================================
+  Restored to original visual design while integrating Django context.
+-->
+<style>
+    :root {
+        --gold: #e8a020;
+        --bg: #f5f4f0;
+        --border: #e0dbd4;
+        --text: #222;
+        --muted: #888;
+    }
+
+    .restored-layout {
+        display: flex;
+        gap: 24px;
+        align-items: flex-start;
+    }
+
+    .restored-left {
+        flex: 1;
+    }
+
+    .restored-right {
+        width: 330px;
+        flex-shrink: 0;
+    }
+
+    .restored-card,
+    .restored-panel {
+        background: #fff;
+        border: 1.5px solid var(--border);
+        border-radius: 14px;
+    }
+
+    .restored-card {
+        padding: 20px 22px;
+        margin-bottom: 14px;
+    }
+
+    .restored-panel {
+        padding: 22px 24px;
+    }
+
+    .restored-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        margin-bottom: 14px;
+    }
+
+    .restored-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    label.up-label {
+        font-size: 10px;
+        font-weight: 400;
+        color: var(--muted);
+        letter-spacing: .5px;
+    }
+
+    .sub-title {
+        font-size: 15px;
+        font-weight: 400;
+        color: #333;
+        margin-bottom: 8px;
+    }
+
+    .restored-in {
+        width: 100%;
+        height: 44px;
+        border: 1.5px solid #d5d5d5;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font: 14px Poppins, sans-serif;
+        font-weight: 400;
+        background: #faf8f5;
+        color: var(--text);
+    }
+
+    .restored-in-lg {
+        width: 100%;
+        height: 48px;
+        border: 1.5px solid #d5d5d5;
+        border-radius: 8px;
+        padding: 10px 16px;
+        font: 16px Poppins, sans-serif;
+        font-weight: 400;
+        background: #faf8f5;
+        color: var(--text);
+    }
+
+    .restored-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+
+    .restored-num {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--gold);
+        color: #fff;
+        font-size: 13px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .restored-time {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    .restored-img-panel {
+        margin-top: 16px;
+    }
+
+    .restored-meta p {
+        font-size: 12px;
+        margin-bottom: 6px;
+    }
+
+    .restored-meta p:last-child {
+        margin-bottom: 14px;
+    }
+
+    @media (max-width: 768px) {
+        .restored-layout {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .restored-left,
+        .restored-right {
+            width: 100%;
+        }
+
+        .restored-row,
+        .restored-time {
+            grid-template-columns: 1fr;
+        }
+    }
+    .restored-layout, .restored-layout * {
+        font-family: 'Poppins', sans-serif !important;
+    }
+</style>
+
+<div class="restored-layout">
+    <div class="restored-left">
+        {% for item in items %}
+        <div class="restored-card">
+            <div class="restored-head">
+                <div class="restored-num">{{ forloop.counter }}</div>
+                <span style="font-weight:400;font-size:15px">Clothing {{ forloop.counter }}</span>
+            </div>
+            <div class="restored-row">
+                <div class="restored-group">
+                    <label class="up-label">Clothing</label>
+                    <input class="restored-in" value="{{ item.lookup_details.clothing_type }}" readonly />
+                </div>
+                <div class="restored-group">
+                    <label class="up-label">Estimated Weight (kg)</label>
+                    <input class="restored-in" value="{{ item.weight_kg }}" readonly />
+                </div>
+            </div>
+            <div class="restored-group" style="margin-bottom:14px">
+                <label class="up-label">Condition</label>
+                <input class="restored-in condition-val" value="{{ item.condition_rating }}" readonly />
+            </div>
+            <div class="restored-row" style="margin-bottom:0">
+                <div class="restored-group">
+                    <label class="up-label">Brand</label>
+                    <input class="restored-in" value="{{ item.lookup_details.brand }}" readonly />
+                </div>
+                <div class="restored-group">
+                    <label class="up-label">Material</label>
+                    <input class="restored-in" value="{{ item.lookup_details.dominant_fiber|capfirst }}" readonly />
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="restored-right">
+        <div class="restored-panel">
+            <div class="restored-meta">
+                <p><strong>Donation ID:</strong> #{{ donation.donation_id }}</p>
+                <p><strong>Donor:</strong> {{ donation.donor.first_name }} {{ donation.donor.last_name }}</p>
+                <p><strong>Current Record Status:</strong> <span class="condition-val">{{ donation.status }}</span></p>
+                <p><strong>Claimed By TUAB:</strong> {{ donation.claimed_by_tuab.business_name|default:"Unclaimed" }}</p>
+                <p><strong>Delivery Method:</strong> {{ donation.delivery_method|default:"-" }}</p>
+                <p><strong>Flag Reason:</strong> {{ donation.flag_reason|default:"None" }}</p>
+                <p><strong>Is Flagged:</strong> {{ donation.is_flagged|yesno:"Yes,No" }}</p>
+            </div>
+
+            <div class="restored-group" style="margin-bottom:18px">
+                <label class="sub-title">Preferred Pick-Up Date</label>
+                <input class="restored-in-lg" value="{{ donation.preferred_pickup_date|date:'Y-m-d' }}" readonly />
+            </div>
+            <div style="margin-bottom:18px">
+                <label class="sub-title">Preferred Time Window</label>
+                <div class="restored-time">
+                    <div class="restored-group">
+                        <label class="up-label">From</label>
+                        <input class="restored-in-lg" value="{{ donation.preferred_pickup_window_start }}" readonly />
+                    </div>
+                    <div class="restored-group">
+                        <label class="up-label">To</label>
+                        <input class="restored-in-lg" value="{{ donation.preferred_pickup_window_end }}" readonly />
+                    </div>
+                </div>
+            </div>
+            <div class="restored-group">
+                <label class="sub-title">Pick-Up Location</label>
+                <input class="restored-in-lg" style="height:auto; min-height:48px; padding-top:10px; padding-bottom:10px" value="{{ donation.pickup_display_address }}" readonly />
+            </div>
+        </div>
+
+        <div class="restored-panel restored-img-panel" style="text-align: center;">
+            <div class="sub-title" style="margin-bottom:12px">Donation Pile Image</div>
+            {% if donation.upload %}
+            <img src="{{ donation.upload }}" style="width:100%;max-height:180px;object-fit:cover;border-radius:10px" alt="Donation" />
+            {% else %}
+            <div style="font-size:12px;color:#999;padding:20px 0">No donation image uploaded.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.condition-val').forEach(function (el) {
+            var v = el.tagName === 'INPUT' ? el.value.trim() : el.textContent.trim();
+            if (v) {
+                var formatted = v.split('_').map(function (w) {
+                    return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+                }).join(' ');
+                
+                if (el.tagName === 'INPUT') {
+                    el.value = formatted;
+                } else {
+                    el.textContent = formatted;
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}
