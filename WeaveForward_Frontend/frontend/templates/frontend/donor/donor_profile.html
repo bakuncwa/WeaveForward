@@ -1,0 +1,205 @@
+{% extends 'frontend/base.html' %}
+
+{% block content %}
+<style>
+    :root {
+      --gold:      #e8a020;
+      --gold-dark: #c8881a;
+      --bg:        #f5f4f0;
+      --border:    #e0dbd4;
+      --text:      #222222;
+      --muted:     #888888;
+      --green:     #4a7c59;
+    }
+    
+    /* Ensure fonts are applied to the profile page */
+    .profile-page-wrap, .profile-page-wrap * {
+      font-family: 'Poppins', sans-serif !important;
+    }
+
+    /* --- Cards --- */
+    .card { background: #fff; border-radius: 14px; padding: 24px; margin-bottom: 16px; border: 1.5px solid var(--border); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15); }
+    .card-title { 
+      font-family: 'Poppins', sans-serif; 
+      font-weight: 400; 
+      font-size: 16px; 
+      margin-bottom: 12px; 
+      color: #000; 
+      display: flex; 
+      align-items: center; 
+      gap: 10px;
+    }
+    .card-title svg { color: var(--gold); }
+    .card-divider { height: 1px; background: #e5e5e5; margin-bottom: 20px; width: 100%; }
+
+    /* --- Button --- */
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0; border: none; cursor: pointer; font-family: 'Poppins', sans-serif; font-weight: 400; text-decoration: none; border-radius: 4px; overflow: hidden; }
+    .btn-primary { background: #E8A020; color: #FFF1D8; font-size: 14px; white-space: nowrap; }
+    .btn-primary:hover { background: #E8A020; }
+    .btn-icon-box { 
+      background: transparent; 
+      padding: 10px 12px; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      margin-right: 12px;
+    }
+    .btn-text { padding-right: 18px; }
+
+    /* --- Profile hero --- */
+    .profile-hero { display: flex; align-items: flex-start; gap: 24px; flex-wrap: wrap; }
+    .profile-avatar-lg {
+      width: 80px; height: 80px; border-radius: 50%;
+      background: #e8d5a8; display: flex; align-items: center; justify-content: center;
+      color: #8b6914; font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 22px; flex-shrink: 0;
+      overflow: hidden;
+    }
+    .profile-avatar-lg img { width: 100%; height: 100%; object-fit: cover; }
+    
+    .profile-info { flex: 1; min-width: 0; }
+    .profile-name  { font-family: 'Poppins', sans-serif; font-weight: 400; font-size: 22px; margin-bottom: 4px; color: #666666; }
+    .profile-email { display: flex; align-items: center; gap: 6px; font-family: 'Poppins', sans-serif; font-size: 14px; color: #666666; margin-bottom: 12px; }
+    .profile-email svg { color: var(--gold); }
+    .profile-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+    
+    /* Updated Chip Styles */
+    .chip-outline { 
+      background: #FFF1D8; 
+      color: var(--gold); 
+      border-radius: 6px; 
+      padding: 4px 14px; 
+      font-size: 12px; 
+      font-family: 'Poppins', sans-serif; 
+      font-weight: 300; 
+      text-transform: lowercase; 
+    }
+    .chip-filled  { 
+      background: var(--gold); 
+      color: #fff; 
+      border-radius: 6px; 
+      padding: 4px 14px; 
+      font-size: 12px; 
+      font-family: 'Poppins', sans-serif; 
+      font-weight: 300; 
+    }
+    .chip-grey    { 
+      background: #FFF1D8; 
+      color: var(--gold); 
+      border-radius: 6px; 
+      padding: 4px 14px; 
+      font-size: 12px; 
+      font-family: 'Poppins', sans-serif; 
+      font-weight: 300; 
+    }
+
+    /* --- Info grid --- */
+    .form-label-upper { 
+      font-family: 'Poppins', sans-serif; 
+      font-size: 10px; 
+      font-weight: 400; 
+      color: #C4C4C4; 
+      text-transform: uppercase; 
+      letter-spacing: .8px; 
+      display: block; 
+      margin-bottom: 6px; 
+    }
+    .info-val { font-size: 15px; font-weight: 400; color: var(--text); margin-top: 2px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+
+    @media (max-width: 768px) {
+      .profile-hero { gap: 16px; }
+      .grid-2 { grid-template-columns: 1fr; gap: 16px; }
+      .btn-primary { width: 100%; }
+    }
+</style>
+
+<div class="profile-page-wrap">
+  <!-- Hero card -->
+  <div class="card">
+    <div class="profile-hero">
+      <div class="profile-avatar-lg">
+        {% if user.upload %}
+          <img src="{{ user.upload }}" alt="Profile Picture">
+        {% else %}
+          {{ user.first_name|slice:":1" }}{{ user.last_name|slice:":1" }}
+        {% endif %}
+      </div>
+      <div class="profile-info">
+        <div class="profile-name">{{ user.first_name }} {{ user.last_name }}</div>
+        <div class="profile-email">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          {{ user.email }}
+        </div>
+        <div class="profile-chips">
+          <span class="chip-outline">{{ user.role }}</span>
+          <span class="chip-filled">Active</span>
+          <span class="chip-grey">Member since {{ user.created_at|date:"F j, Y" }}</span>
+        </div>
+      </div>
+      <a href="#" class="btn btn-primary">
+        <div class="btn-icon-box">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+          </svg>
+        </div>
+        <span class="btn-text">Update Account Information</span>
+      </a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+        <circle cx="12" cy="7" r="4"></circle>
+      </svg>
+      Personal Information
+    </div>
+    <div class="card-divider"></div>
+    <div class="grid-2">
+      <div>
+        <label class="form-label-upper">First Name</label>
+        <p class="info-val">{{ user.first_name }}</p>
+      </div>
+      <div>
+        <label class="form-label-upper">Middle Name</label>
+        <p class="info-val">{{ user.middle_name|default:"—" }}</p>
+      </div>
+      <div>
+        <label class="form-label-upper">Last Name</label>
+        <p class="info-val">{{ user.last_name }}</p>
+      </div>
+      <div>
+        <label class="form-label-upper">Phone Number</label>
+        <p class="info-val">{{ user.contact_no|default:"—" }}</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+        <circle cx="12" cy="10" r="3"></circle>
+      </svg>
+      Address
+    </div>
+    <div class="card-divider"></div>
+    <div class="grid-2" style="margin-bottom:20px">
+      <div>
+        <label class="form-label-upper">Barangay</label>
+        <p class="info-val">{{ user.barangay|default:"—" }}</p>
+      </div>
+      <div>
+        <label class="form-label-upper">City</label>
+        <p class="info-val">{{ user.city|default:"—" }}</p>
+      </div>
+    </div>
+    <div>
+      <label class="form-label-upper">Display Address</label>
+      <p class="info-val" style="color:#555; line-height:1.6; font-size:14px;">{{ user.display_address|default:"—" }}</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

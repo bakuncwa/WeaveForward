@@ -17,6 +17,8 @@ urlpatterns = [
     path('donor/my-donations/', views.donor_my_donations, name='donor_my_donations'),
     path('donor/my-donations/<int:donation_id>/', views.donor_view_donation, name='donor_view_donation'),
     path('donor/tuabs/<int:user_id>/', views.donor_view_tuab, name='donor_view_tuab'),
+    path('donor/create-donation/', views.donor_create_donation, name='donor_create_donation'),
+    path('donor/profile/', views.donor_profile, name='donor_profile'),
     
     # --- TUAB ---
     path('tuab/dashboard/', views.tuab_dashboard, name='tuab_dashboard'),

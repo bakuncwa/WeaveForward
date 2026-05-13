@@ -12,7 +12,9 @@
     --lt: #fdf6e8;
   }
 
-  .wf-content * { font-family: 'Poppins', sans-serif; }
+  .wf-content * {
+    font-family: 'Poppins', sans-serif;
+  }
 
   .hidden {
     display: none !important;
@@ -338,7 +340,7 @@
   }
 </style>
 
-  <form id="frm" method="post" enctype="multipart/form-data">
+<form id="frm" method="post" enctype="multipart/form-data">
   {% csrf_token %}
   <input type="hidden" id="json-items" name="items" value="{{ form_data.items|default:'' }}" />
   <div class="layout">
@@ -362,18 +364,21 @@
         </div>
         <div class="group" style="margin-bottom:18px">
           <label class="sub">Preferred Pick-Up Date</label>
-          <input class="in" type="date" name="preferred_pickup_date" value="{{ form_data.preferred_pickup_date|default:'' }}" required>
+          <input class="in" type="date" name="preferred_pickup_date"
+            value="{{ form_data.preferred_pickup_date|default:'' }}" required>
         </div>
         <div style="margin-bottom:18px">
           <label class="sub">Preferred Time Window</label>
           <div class="time">
             <div class="group">
               <label class="up">From</label>
-               <input class="in" type="time" name="preferred_pickup_window_start" value="{{ form_data.preferred_pickup_window_start|default:'' }}" required>
+              <input class="in" type="time" name="preferred_pickup_window_start"
+                value="{{ form_data.preferred_pickup_window_start|default:'' }}" required>
             </div>
             <div class="group">
               <label class="up">To</label>
-               <input class="in" type="time" name="preferred_pickup_window_end" value="{{ form_data.preferred_pickup_window_end|default:'' }}" required>
+              <input class="in" type="time" name="preferred_pickup_window_end"
+                value="{{ form_data.preferred_pickup_window_end|default:'' }}" required>
             </div>
           </div>
         </div>
@@ -381,7 +386,8 @@
           <label class="sub">Pick-Up Location</label>
           <div class="ac">
             <div class="pin-wrap">
-               <input id="addr" class="in" name="pickup_display_address" value="{{ form_data.pickup_display_address|default:'' }}" placeholder="Address..." required
+              <input id="addr" class="in" name="pickup_display_address"
+                value="{{ form_data.pickup_display_address|default:'' }}" placeholder="Address..." required
                 oninput="srchAddr(this.value)" onblur="hideAc()">
               <button type="button" class="pin" onclick="openMap()">
                 <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -391,8 +397,10 @@
               </button>
             </div>
             <div id="ac" class="ac-list hidden"></div>
-            <input id="lat" name="pickup_latitude" type="hidden" value="{{ form_data.pickup_latitude|default:'14.5645000' }}">
-            <input id="lng" name="pickup_longitude" type="hidden" value="{{ form_data.pickup_longitude|default:'120.9930000' }}">
+            <input id="lat" name="pickup_latitude" type="hidden"
+              value="{{ form_data.pickup_latitude|default:'14.5645000' }}">
+            <input id="lng" name="pickup_longitude" type="hidden"
+              value="{{ form_data.pickup_longitude|default:'120.9930000' }}">
           </div>
         </div>
         <button type="submit" class="btn-submit">Submit Donation</button>
@@ -521,7 +529,7 @@
   function syncCard(sel) {
     const c = sel.closest('.card'), q = s => c.querySelector(s), t = q('[name=clothing_type]').value, b = q('[name=brand]'), ss = { in: q('.ss-input'), hid: q('[name=lookup_id]'), list: q('.ss-list') };
     if (sel.name === 'clothing_type') {
-      b.innerHTML = '<option value="">Select brand...</option>' + [...new Set(data.lup.filter(x => x.clothing_type === t).map(x => x.brand))].sort().map(x => `<option value="${x}">${x}</option>`).join('');
+      b.innerHTML = '<option value="">Select brand...</option>' + [...new Set(data.lup.filter(x => x.clothing_type === t).map(x => String(x.brand).trim()))].sort().map(x => `<option value="${x}">${x}</option>`).join('');
       b.disabled = !t;
     }
     const bV = b.value;
@@ -530,7 +538,7 @@
     ss.in.placeholder = bV ? 'Search materials...' : (t ? 'Select brand first...' : 'Choose category...');
 
     if (bV) {
-      ss.list.innerHTML = data.lup.filter(x => x.clothing_type === t && x.brand === bV).map(x => {
+      ss.list.innerHTML = data.lup.filter(x => x.clothing_type === t && String(x.brand).trim() === bV.trim()).map(x => {
         const display = `${x.fiber_json} - ${x.category}`;
         return `<div class="ss-item" onmousedown="selectSS(event)" data-id="${x.lookup_id}" data-txt="${display.replace(/"/g, '&quot;')}"><b>${x.category}</b>${x.fiber_json}</div>`;
       }).join('');
@@ -656,7 +664,7 @@
           addCard();
           const card = getEl('cards').lastElementChild;
           const lookup = data.lup.find(x => x.lookup_id === item.lookup_id);
-          
+
           if (lookup) {
             card.querySelector('[name=clothing_type]').value = lookup.clothing_type;
             syncCard(card.querySelector('[name=clothing_type]'));
@@ -665,7 +673,7 @@
             card.querySelector('[name=lookup_id]').value = lookup.lookup_id;
             card.querySelector('.ss-input').value = `${lookup.fiber_json} - ${lookup.category}`;
           }
-          
+
           card.querySelector('[name=weight_kg]').value = item.weight_kg;
           card.querySelector('[name=condition_rating]').value = item.condition_rating;
         });

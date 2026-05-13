@@ -397,8 +397,8 @@
           step="0.01" min="0" max="100" name="min_biodeg_score" value="{{ tuab.min_biodeg_score }}"></div>
       <div class="group"><label class="up">Operational Status</label>
         <select class="in" name="operational_status">
-          <option value="ACTIVE" {% if tuab.operational_status=='ACTIVE' %}selected{% endif %}>Active</option>
-          <option value="HIBERNATING" {% if tuab.operational_status=='HIBERNATING' %}selected{% endif %}>Hibernating
+          <option value="ACTIVE" {% if tuab.operational_status == 'ACTIVE' %}selected{% endif %}>Active</option>
+          <option value="HIBERNATING" {% if tuab.operational_status == 'HIBERNATING' %}selected{% endif %}>Hibernating
           </option>
         </select>
       </div>

@@ -1,0 +1,768 @@
+{% extends 'frontend/base.html' %}
+
+{% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<style>
+  :root {
+    --gold: #e8a020;
+    --bg: #f5f4f0;
+    --border: #e0dbd4;
+    --text: #222;
+    --muted: #888;
+    --bad: #ff4444;
+  }
+
+  .hidden {
+    display: none !important;
+  }
+
+  .restored-layout {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  .restored-left {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .restored-right {
+    width: 330px;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 768px) {
+    .restored-layout {
+      flex-direction: column;
+    }
+
+    .restored-left,
+    .restored-right {
+      width: 100%;
+    }
+  }
+
+  /* Panels & Cards */
+  .restored-card,
+  .restored-panel {
+    background: #fff;
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 22px;
+    margin-bottom: 14px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .06);
+  }
+
+  .restored-panel {
+    padding: 22px 24px;
+  }
+
+  .restored-row,
+  .restored-time {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  @media (max-width: 768px) {
+
+    .restored-row,
+    .restored-time {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .restored-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .restored-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+
+  .restored-head b {
+    font-weight: 400;
+    font-size: 15px;
+    color: #333;
+  }
+
+  /* Typography */
+  .up-label {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+  }
+
+  .sub-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    display: block;
+    color: #333;
+  }
+
+  .restored-num {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--gold);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Inputs */
+  .restored-in,
+  .restored-sel {
+    width: 100%;
+    height: 44px;
+    border: 1.5px solid #d5d5d5;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 14px;
+    outline: none;
+    font-family: inherit;
+    background: #fff;
+    color: var(--text);
+  }
+
+  .restored-in-lg {
+    height: 48px;
+    font-size: 16px;
+    padding: 10px 16px;
+  }
+
+  /* Date & Time Icons */
+  .restored-in[type="date"]::-webkit-calendar-picker-indicator,
+  .restored-in[type="time"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23e8a020' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' viewBox='0 0 24 24'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");
+  }
+
+  .restored-in[type="time"]::-webkit-calendar-picker-indicator {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23e8a020' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpolyline points='12 6 12 12 16 14'/%3E%3C/svg%3E");
+  }
+
+  .restored-sel {
+    appearance: none;
+    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23e8a020' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpolyline points='6,9 12,15 18,9'/%3E%3C/svg%3E") no-repeat right 12px center;
+    padding-right: 34px;
+  }
+
+  .restored-in:focus,
+  .restored-sel:focus {
+    border-color: var(--gold);
+  }
+
+  .restored-in:disabled {
+    background: #f4f4f4;
+    color: #aaa;
+  }
+
+  /* Buttons */
+  .btn-add,
+  .btn-submit {
+    width: 100%;
+    padding: 12px;
+    border-radius: 30px;
+    cursor: pointer;
+    font-weight: 600;
+    font-family: inherit;
+    transition: all 0.2s;
+    border: none;
+  }
+
+  .btn-add {
+    border: 2px dashed var(--gold);
+    color: var(--gold);
+    background: transparent;
+    margin-bottom: 20px;
+  }
+
+  .btn-add:hover {
+    background: #fdf6e8;
+  }
+
+  .btn-submit {
+    background: var(--gold);
+    color: #fff;
+    margin-top: 14px;
+  }
+
+  .btn-submit:hover {
+    background: var(--gold-dark);
+  }
+
+  .pin,
+  .trash {
+    background: none;
+    border: none;
+    color: var(--gold);
+    cursor: pointer;
+  }
+
+  .pin {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  /* Dropdowns & Autocomplete */
+  .ac,
+  .pin-wrap {
+    position: relative;
+  }
+
+  .pin-wrap .restored-in {
+    padding-right: 42px;
+  }
+
+  .ac-list {
+    position: absolute;
+    z-index: 50;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    max-height: 180px;
+    overflow: auto;
+    background: #fff;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .1);
+  }
+
+  .ac-item {
+    padding: 10px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    border-bottom: 1px solid #f5f5f5;
+  }
+
+  .ac-item:hover,
+  .drop:hover {
+    background: #fdf6e8;
+  }
+
+  /* Custom Searchable Select */
+  .ss-wrap {
+    position: relative;
+  }
+
+  .ss-list {
+    position: absolute;
+    z-index: 100;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    max-height: 220px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .15);
+  }
+
+  .ss-item {
+    padding: 10px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    border-bottom: 1px solid #f5f5f5;
+    line-height: 1.4;
+  }
+
+  .ss-item:hover {
+    background: #fdf6e8;
+  }
+
+  .ss-item b {
+    display: block;
+    color: var(--gold);
+    font-size: 11px;
+  }
+
+  /* Upload & Map */
+  .drop {
+    border: 2px dashed #f0c060;
+    border-radius: 12px;
+    padding: 18px;
+    text-align: center;
+    cursor: pointer;
+    transition: .2s;
+  }
+
+  .modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+  }
+
+  .modal-box {
+    background: #fff;
+    border-radius: 16px;
+    overflow: hidden;
+    width: min(640px, 95vw);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .22);
+  }
+
+  .map-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 20px;
+    background: #fff;
+  }
+
+  .map-head-left {
+    min-width: 0;
+  }
+
+  .map-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 20px;
+    color: var(--gold);
+    font-weight: 600;
+  }
+
+  .map-title-text {
+    color: #1f1f1f;
+  }
+
+  .map-caption {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #7a7a7a;
+  }
+
+  .map-close {
+    border: none;
+    background: none;
+    color: #333;
+    cursor: pointer;
+    padding: 4px;
+  }
+
+  #picker-map {
+    width: 100%;
+    height: 350px;
+  }
+
+  .map-actions {
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+    background: #fff;
+  }
+
+  .map-confirm {
+    width: min(220px, 100%);
+    margin: 0;
+  }
+
+  .wf-content-inner,
+  .wf-content-inner * {
+    font-family: 'Poppins', sans-serif !important;
+  }
+</style>
+
+<div class="wf-content-inner">
+  <form id="frm" method="post" action="{% url 'donor_create_donation' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <input type="hidden" id="json-items" name="items" value="" />
+
+    <div class="restored-layout">
+      <div class="restored-left">
+        <div id="cards"></div>
+        <button type="button" class="btn-add" onclick="addCard()">+ Add Another Clothing Group</button>
+      </div>
+
+      <div class="restored-right">
+        <div class="restored-panel">
+          <div class="restored-group" style="margin-bottom:18px">
+            <label class="sub-title">Preferred Pick-Up Date</label>
+            <input class="restored-in restored-in-lg" type="date" name="preferred_pickup_date"
+              value="{{ form_data.preferred_pickup_date }}" required>
+          </div>
+
+          <div style="margin-bottom:18px">
+            <label class="sub-title">Preferred Time Window</label>
+            <div class="restored-time" style="gap: 10px;">
+              <div class="restored-group">
+                <label class="up-label">From</label>
+                <input class="restored-in" type="time" name="preferred_pickup_window_start"
+                  value="{{ form_data.preferred_pickup_window_start }}" required>
+              </div>
+              <div class="restored-group">
+                <label class="up-label">To</label>
+                <input class="restored-in" type="time" name="preferred_pickup_window_end"
+                  value="{{ form_data.preferred_pickup_window_end }}" required>
+              </div>
+            </div>
+          </div>
+
+          <div class="restored-group">
+            <label class="sub-title">Pick-Up Location</label>
+            <div class="ac">
+              <div class="pin-wrap">
+                <input id="addr" class="restored-in restored-in-lg" name="pickup_display_address"
+                  placeholder="Address..." value="{{ form_data.pickup_display_address|default:user.display_address }}"
+                  oninput="srchAddr(this.value)" onblur="hideAc()" required>
+                <button type="button" class="pin" onclick="openMap()"><svg width="18" height="18" fill="none"
+                    stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg></button>
+              </div>
+              <div id="ac" class="ac-list hidden"></div>
+              <input id="lat" name="pickup_latitude" type="hidden"
+                value="{{ form_data.pickup_latitude|default:user.latitude }}">
+              <input id="lng" name="pickup_longitude" type="hidden"
+                value="{{ form_data.pickup_longitude|default:user.longitude }}">
+            </div>
+          </div>
+
+          <button type="submit" class="btn-submit">Submit Donation</button>
+        </div>
+
+        <div class="restored-panel">
+          <label class="sub-title" style="margin:0">Donation Upload</label>
+          <p style="font-size:12px;color:#999;margin-bottom:12px">Add the image of your donation here</p>
+          <div class="drop" ondragover="event.preventDefault();this.style.background='#fdf6e8'"
+            ondragleave="this.style.background=''"
+            ondrop="event.preventDefault();this.style.background='';previewImg(event.dataTransfer.files[0], true)"
+            onclick="document.getElementById('img-in').click()">
+            <div id="i-prv-w" class="hidden"><img id="i-prv"
+                style="max-width:100%;max-height:140px;border-radius:8px;object-fit:cover"></div>
+            <div id="i-ph" style="font-size:13px;color:#999">Click or drop image</div>
+            <input id="img-in" name="donation_image" type="file" accept="image/*" class="hidden"
+              onchange="previewImg(this.files[0])">
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+
+<template id="card-template">
+  <div class="restored-card">
+    <div class="restored-head">
+      <div style="display:flex;gap:10px;align-items:center">
+        <div class="restored-num"></div><b></b>
+      </div>
+      <button type="button" class="trash" onclick="this.closest('.restored-card').remove();updateNumbering()">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M3 6h18M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m4 5v6m4-6v6M9 6V4h6v2" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="restored-row">
+      <div class="restored-group">
+        <label class="up-label">Clothing*</label>
+        <select name="clothing_type" class="restored-sel" onchange="syncCard(this)" required>
+          <option value="">Choose category...</option>
+        </select>
+      </div>
+      <div class="restored-group">
+        <label class="up-label">Estimated Weight (kg)</label>
+        <input name="weight_kg" type="number" placeholder="0.0" step="0.1" class="restored-in" required>
+      </div>
+    </div>
+
+    <div class="restored-group" style="margin-bottom:14px">
+      <label class="up-label">Condition</label>
+      <select name="condition_rating" class="restored-sel condition-select" required></select>
+    </div>
+
+    <div class="restored-row" style="margin-bottom:0">
+      <div class="restored-group">
+        <label class="up-label">Brand</label>
+        <select name="brand" class="restored-sel" onchange="syncCard(this)" disabled required>
+          <option value="">Select brand...</option>
+        </select>
+      </div>
+      <div class="restored-group">
+        <label class="up-label">Material</label>
+        <div class="ss-wrap">
+          <input type="text" class="restored-in ss-input" placeholder="Search materials or series..." disabled required
+            onfocus="this.nextElementSibling.nextElementSibling.classList.remove('hidden')"
+            onblur="setTimeout(()=>this.nextElementSibling.nextElementSibling.classList.add('hidden'),200)"
+            oninput="filterSS(this)">
+          <input type="hidden" name="lookup_id" required>
+          <div class="ss-list hidden"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<div id="map-modal" class="modal hidden">
+  <div class="modal-box">
+    <div class="map-head">
+      <div class="map-head-left">
+        <div class="map-title">
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+            <circle cx="12" cy="10" r="3" />
+          </svg>
+          <span class="map-title-text">Pick on Map</span>
+        </div>
+        <div class="map-caption">Click anywhere or drag the marker to set your pickup location.</div>
+      </div>
+      <button type="button" class="map-close" onclick="closeMap()" aria-label="Close map">
+        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M18 6L6 18M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <div id="picker-map"></div>
+    <div class="map-actions">
+      <button type="button" class="btn-submit map-confirm" onclick="confirmMap()">Confirm Location</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // --- 1. Data & Utils ---
+  const data = {
+    cond: ['Good', 'Like New', 'Fair', 'Poor'],
+    lup: {{ catalog_json| safe }}
+  };
+
+  const getEl = id => document.getElementById(id);
+  const hideAc = () => setTimeout(() => getEl('ac')?.classList.add('hidden'), 200);
+
+  // --- 2. Dynamic Form ---
+  const updateNumbering = () => document.querySelectorAll('#cards .restored-card').forEach((c, i) => {
+    c.querySelector('.restored-num').innerText = i + 1;
+    c.querySelector('b').innerText = `Clothing ${i + 1}`;
+    c.querySelector('.trash').style.display = i === 0 ? 'none' : 'block';
+  });
+
+  function addCard() {
+    const c = getEl('card-template').content.firstElementChild.cloneNode(true);
+    c.querySelector('.condition-select').innerHTML = data.cond.map(x => `<option value="${x}">${x}</option>`).join('');
+
+    const types = [...new Set(data.lup.map(x => x.clothing_type))].sort();
+    c.querySelector('[name=clothing_type]').innerHTML += types.map(x => `<option value="${x}">${x}</option>`).join('');
+
+    getEl('cards').appendChild(c);
+    updateNumbering();
+  }
+
+  // --- 3. Cascading Logic ---
+  function syncCard(sel) {
+    const c = sel.closest('.restored-card'),
+      q = s => c.querySelector(s),
+      t = q('[name=clothing_type]').value,
+      b = q('[name=brand]'),
+      ss = { in: q('.ss-input'), hid: q('[name=lookup_id]'), list: q('.ss-list') };
+
+    if (sel.name === 'clothing_type') {
+      const brands = [...new Set(data.lup.filter(x => x.clothing_type === t).map(x => String(x.brand).trim()))].sort();
+      b.innerHTML = '<option value="">Select brand...</option>' + brands.map(x => `<option value="${x}">${x}</option>`).join('');
+      b.disabled = !t;
+    }
+
+    const bV = b.value;
+    ss.in.value = ss.hid.value = ss.list.innerHTML = '';
+    ss.in.disabled = !bV;
+    ss.in.placeholder = bV ? 'Search materials...' : (t ? 'Select brand first...' : 'Choose category...');
+
+    if (bV) {
+      // Filter materials based on type and brand
+      const filtered = data.lup.filter(x => x.clothing_type === t && String(x.brand).trim() === bV.trim());
+      ss.list.innerHTML = filtered.map(x => {
+        const display = `${x.fiber_json} - ${x.category}`;
+        // Escape single quotes for the JS call
+        const escaped = display.replace(/'/g, "\\'");
+        return `<div class="ss-item" onmousedown="selectSS(this,'${x.lookup_id}','${escaped}')"><b>${x.category}</b>${x.fiber_json}</div>`;
+      }).join('');
+    }
+  }
+
+  function filterSS(i) {
+    const w = i.closest('.ss-wrap');
+    w.querySelector('[name=lookup_id]').value = '';
+    i.style.borderColor = 'var(--bad)';
+    w.querySelector('.ss-list').querySelectorAll('.ss-item').forEach(x => {
+      x.classList.toggle('hidden', !x.innerText.toLowerCase().includes(i.value.toLowerCase()));
+    });
+  }
+
+  function selectSS(el, id, txt) {
+    const w = el.closest('.ss-wrap'), inp = w.querySelector('.ss-input');
+    inp.value = txt;
+    inp.style.borderColor = '#d5d5d5';
+    w.querySelector('[name=lookup_id]').value = id;
+    el.parentElement.classList.add('hidden');
+  }
+
+  // --- 4. Maps & Location ---
+  let acTmr, acRes = [], map, mrk, tmpLat, tmpLng;
+  const srchAddr = v => {
+    if (v.length < 3) return getEl('ac').classList.add('hidden');
+    clearTimeout(acTmr);
+    acTmr = setTimeout(async () => {
+      try {
+        const q = encodeURIComponent(v + ', Philippines');
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}&limit=5&countrycodes=ph`);
+        acRes = await res.json();
+        getEl('ac').innerHTML = acRes.map((r, i) => `<div class="ac-item" onmousedown="selAddr(${i})">${r.display_name}</div>`).join('');
+        getEl('ac').classList.remove('hidden');
+      } catch { }
+    }, 350);
+  };
+
+  const selAddr = i => {
+    getEl('addr').value = acRes[i].display_name;
+    getEl('lat').value = (+acRes[i].lat).toFixed(7);
+    getEl('lng').value = (+acRes[i].lon).toFixed(7);
+  };
+
+  function openMap() {
+    getEl('map-modal').classList.remove('hidden');
+    const l = +getEl('lat').value || 14.5645, g = +getEl('lng').value || 120.993;
+    tmpLat = l; tmpLng = g;
+
+    if (!map) {
+      map = L.map('picker-map').setView([l, g], 15);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+      mrk = L.marker([l, g], { draggable: true }).addTo(map);
+      mrk.on('dragend', e => {
+        tmpLat = e.target.getLatLng().lat;
+        tmpLng = e.target.getLatLng().lng;
+      });
+      map.on('click', e => {
+        tmpLat = e.latlng.lat;
+        tmpLng = e.latlng.lng;
+        mrk.setLatLng(e.latlng);
+      });
+    } else {
+      map.setView([l, g]);
+      mrk.setLatLng([l, g]);
+    }
+  }
+
+  async function confirmMap(init = false) {
+    if (!init) {
+      getEl('lat').value = (+tmpLat).toFixed(7);
+      getEl('lng').value = (+tmpLng).toFixed(7);
+      closeMap();
+    }
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${getEl('lat').value}&lon=${getEl('lng').value}`);
+      const data = await res.json();
+      getEl('addr').value = data.display_name;
+    } catch { }
+  }
+
+  const closeMap = () => getEl('map-modal').classList.add('hidden');
+
+  // --- 5. Image Preview ---
+  function previewImg(f, sync = false) {
+    if (!f?.type.startsWith('image/')) return;
+    if (sync) {
+      const dt = new DataTransfer();
+      dt.items.add(f);
+      getEl('img-in').files = dt.files;
+    }
+    const r = new FileReader();
+    r.onload = e => {
+      getEl('i-prv').src = e.target.result;
+      getEl('i-prv-w').classList.remove('hidden');
+      getEl('i-ph').classList.add('hidden');
+    };
+    r.readAsDataURL(f);
+  }
+
+  // --- 6. Form Submission ---
+  function preparePayload(form) {
+    // Basic top-level validation
+    if (!getEl('addr').value) throw new Error("Please select a pick-up location.");
+
+    const items = [...form.querySelectorAll('#cards .restored-card')].map(c => {
+      const q = s => c.querySelector(s),
+        w = q('[name=weight_kg]').value,
+        r = q('[name=condition_rating]').value,
+        l = q('[name=lookup_id]').value;
+      if (!r || !w || !l) throw new Error("All fields are required in each clothing group.");
+      return { weight_kg: Number(w), condition_rating: r, lookup_id: Number(l) };
+    });
+    getEl('json-items').value = JSON.stringify(items);
+
+    // Disable inputs inside cards so they aren't sent as individual post vars
+    form.querySelectorAll('#cards [name]').forEach(el => el.disabled = true);
+  }
+
+  getEl('frm').onsubmit = e => {
+    try {
+      preparePayload(e.target);
+    } catch (err) {
+      e.preventDefault();
+      alert(err.message);
+    }
+  };
+
+  // --- 7. Initialization & Restoration ---
+  const savedItems = getEl('json-items').value || '{{ form_data.items|safe|default:"" }}';
+  if (savedItems) {
+    try {
+      const items = JSON.parse(savedItems);
+      if (items.length > 0) {
+        items.forEach(item => {
+          addCard();
+          const card = getEl('cards').lastElementChild;
+          const lookup = data.lup.find(x => x.lookup_id === item.lookup_id);
+          if (lookup) {
+            card.querySelector('[name=clothing_type]').value = lookup.clothing_type;
+            syncCard(card.querySelector('[name=clothing_type]'));
+            card.querySelector('[name=brand]').value = lookup.brand;
+            syncCard(card.querySelector('[name=brand]'));
+            card.querySelector('[name=lookup_id]').value = lookup.lookup_id;
+            card.querySelector('.ss-input').value = `${lookup.fiber_json} - ${lookup.category}`;
+          }
+          card.querySelector('[name=weight_kg]').value = item.weight_kg;
+          card.querySelector('[name=condition_rating]').value = item.condition_rating;
+        });
+      } else { addCard(); }
+    } catch (e) { addCard(); }
+  } else { addCard(); }
+
+  // Geolocation detection
+  const isFailed = !!'{{ form_data.pickup_display_address }}';
+  if (!isFailed) {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        getEl('lat').value = pos.coords.latitude.toFixed(7);
+        getEl('lng').value = pos.coords.longitude.toFixed(7);
+        confirmMap(true);
+      }, () => {
+        if (!getEl('addr').value) confirmMap(true);
+      });
+    } else if (!getEl('addr').value) {
+      confirmMap(true);
+    }
+  }
+</script>
+{% endblock %}

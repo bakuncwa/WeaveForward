@@ -1,3 +1,4 @@
+import json
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.utils.dateparse import parse_datetime, parse_time
@@ -128,4 +129,75 @@ def donor_view_tuab(request, user_id):
         'user': profile,
         'sidebar_variant': 'donor',
         'business': business,
+    })
+
+def donor_create_donation(request):
+    """View for donors to create a new donation."""
+    profile = request.user_profile
+    if not profile:
+        return redirect('login')
+
+    if request.method == 'POST':
+        payload = request.POST.dict()
+        files = {}
+        if 'donation_image' in request.FILES:
+            files['donation_image'] = request.FILES['donation_image']
+            
+        try:
+            response = api_call(request, 'POST', 'donations', data=payload, files=files)
+            if response.status_code == 201:
+                messages.success(request, "Donation request created successfully!")
+                return redirect('donor_my_donations')
+            else:
+                response_data = response.json() if hasattr(response, 'json') else {}
+                if isinstance(response_data, dict) and 'detail' in response_data:
+                    messages.error(request, response_data['detail'])
+                else:
+                    errs = format_errors(response_data)
+                    for field, msg_list in errs.items():
+                        for msg in msg_list:
+                            messages.error(request, f"{field}: {msg}")
+        except Exception as e:
+            messages.error(request, f"System Error: {str(e)}")
+
+        # Fallback if error occurs: re-fetch lookups
+        lookups = []
+        res = api_call(request, 'GET', 'brandfiberlookups')
+        if res.status_code == 200:
+            data = res.json()
+            lookups = data if isinstance(data, list) else data.get('results', [])
+
+        return render(request, 'frontend/donor/donor_create_donation.html', {
+            'page_title': 'Create Donation',
+            'user': profile,
+            'sidebar_variant': 'donor',
+            'catalog_json': json.dumps(lookups),
+            'form_data': payload
+        })
+
+    # GET Request
+    lookups = []
+    res = api_call(request, 'GET', 'brandfiberlookups')
+    if res.status_code == 200:
+        data = res.json()
+        lookups = data if isinstance(data, list) else data.get('results', [])
+
+    return render(request, 'frontend/donor/donor_create_donation.html', {
+        'page_title': 'Create Donation',
+        'user': profile,
+        'sidebar_variant': 'donor',
+        'catalog_json': json.dumps(lookups)
+    })
+
+def donor_profile(request):
+    """View for the donor's account profile."""
+    profile = request.user_profile.copy() if request.user_profile else {}
+    
+    if profile.get('created_at'):
+        profile['created_at'] = parse_datetime(profile['created_at'])
+        
+    return render(request, 'frontend/donor/donor_profile.html', {
+        'page_title': 'Account Profile',
+        'user': profile,
+        'sidebar_variant': 'donor'
     })

@@ -414,6 +414,7 @@
           <span>My Donations</span>
         </a>
 
+
         <a class="wf-nav-item {% if '/dashboard' in request.path and not '/tuab' in request.path %}active{% endif %}"
           id="nav-dashboard" href="/dashboard">
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -429,7 +430,7 @@
       <div class="wf-sidebar__bottom">
 
         <a class="wf-nav-item {% if '/profile' in request.path and not '/tuab' in request.path %}active{% endif %}"
-          id="nav-profile" href="/profile">
+          id="nav-profile" href="{% url 'donor_profile' %}">
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
             <circle cx="12" cy="7" r="4" />
@@ -661,9 +662,24 @@
           </button>
           
           {% if "View" in page_title or "Edit" in page_title or "Create" in page_title or "Update" in page_title or "Add" in page_title %}
-          <a href="javascript:history.back()" class="wf-back-btn" title="Go Back">
+          {% spaceless %}
+            {% if "/donor/tuabs/" in request.path %}
+              {% url 'donor_browse_businesses' as back_fallback %}
+            {% elif "/donor/" in request.path %}
+              {% url 'donor_my_donations' as back_fallback %}
+            {% elif "/admin/donations/" in request.path %}
+              {% url 'admin_view_donations' as back_fallback %}
+            {% elif "/admin/donors/" in request.path %}
+              {% url 'admin_view_donors' as back_fallback %}
+            {% elif "/admin/tuabs/" in request.path %}
+              {% url 'admin_view_tuabs' as back_fallback %}
+            {% endif %}
+          {% endspaceless %}
+          
+          <a href="{{ back_fallback|default:'javascript:history.back()' }}"
+            class="wf-back-btn" title="Go Back">
             <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-              <path d="M19 12H5M12 19l-7-7 7-7"/>
+              <path d="M19 12H5M12 19l-7-7 7-7" />
             </svg>
           </a>
           {% endif %}
