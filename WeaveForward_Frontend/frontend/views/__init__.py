@@ -93,6 +93,7 @@ def logout_view(request):
     if response.status_code == 205:
         frontend_response = redirect('login')
         clear_frontend_auth_cookies(frontend_response)
+        request.session.flush()  # Wipe cached profile to prevent stale data on next login
         messages.success(request, "Successfully logged out.")
         return frontend_response
 

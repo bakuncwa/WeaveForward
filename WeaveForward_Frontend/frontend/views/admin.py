@@ -3,7 +3,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.utils.dateparse import parse_datetime
 from ..constants import BACKEND_BASE_URL
-from ..services import api_call, get_user_profile, get_paginated_data, format_errors
+from ..services import api_call, get_paginated_data, format_errors
 
 
 

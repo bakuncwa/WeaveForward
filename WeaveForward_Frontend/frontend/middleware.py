@@ -1,8 +1,6 @@
-import requests
-from django.http import HttpResponse
+import time
 from django.shortcuts import redirect, render
 
-from .constants import BACKEND_BASE_URL
 from .services import api_call, apply_backend_auth_cookies, clear_frontend_auth_cookies
 
 
@@ -24,10 +22,9 @@ AUTH_STATE_UNAVAILABLE = 'unavailable'
 class TokenRefreshMiddleware:
     """
     Frontend auth policy:
-    - Protected pages require a valid backend profile.
-    - Guest-only pages redirect away when a valid session exists.
-    - Invalid sessions clear cookies.
-    - No-session guest requests are allowed through normally.
+    - Protected pages require a valid backend profile (cached for 5 minutes).
+    - Transparently handles token refreshing via api_call.
+    - Invalid sessions clear cookies and redirect to login.
     """
 
     def __init__(self, get_response):
@@ -42,113 +39,117 @@ class TokenRefreshMiddleware:
 
         access_token = request.COOKIES.get('access_token')
         refresh_token = request.COOKIES.get('refresh_token')
-        refresh_response = None
-        should_clear_cookies = False
         auth_state = None
 
         # Anonymous users are allowed to see guest-only pages.
-        if path in GUEST_ONLY_PATHS and not access_token and not refresh_token:
-            return self.get_response(request)
+        # Also allow through if on a guest page with only a refresh_token (no access_token).
+        # This avoids burning two backend round-trips just to clear stale cookies.
+        if path in GUEST_ONLY_PATHS and not access_token:
+            if not refresh_token:
+                return self.get_response(request)
+            # Has a stale refresh_token but no access_token — let them see the page but clear the cookie.
+            response = self.get_response(request)
+            clear_frontend_auth_cookies(response)
+            return response
 
         # Protected pages must have some auth material to continue.
         if any(path.startswith(prefix) for prefix in PROTECTED_PREFIXES) and not access_token and not refresh_token:
             return redirect('login')
 
-        if access_token:
+        # Attempt to get profile (using cache if available)
+        if access_token or refresh_token:
             request.user_profile, auth_state = self._fetch_profile(request)
 
-        if not request.user_profile and refresh_token:
-            refresh_response, refresh_state = self._refresh_session(request)
-            if refresh_response:
-                request.user_profile, auth_state = self._fetch_profile(request)
-            elif refresh_state == AUTH_STATE_UNAVAILABLE:
-                auth_state = AUTH_STATE_UNAVAILABLE
-            else:
-                auth_state = refresh_state or auth_state
-
-        if (access_token or refresh_token) and auth_state == AUTH_STATE_UNAVAILABLE and not request.user_profile:
+        # Handle system unavailability (Backend Down)
+        if (access_token or refresh_token) and not request.user_profile and auth_state == AUTH_STATE_UNAVAILABLE:
             if any(path.startswith(prefix) for prefix in PROTECTED_PREFIXES) or path in GUEST_ONLY_PATHS:
                 response = render(request, 'frontend/503.html', status=503)
-                if refresh_response:
-                    apply_backend_auth_cookies(response, refresh_response)
-                return response
+                return self._finalize_response(request, response)
 
-        # Cookies exist, but we still could not confirm a valid logged-in user.
-        if (access_token or refresh_token) and not request.user_profile and auth_state != AUTH_STATE_UNAVAILABLE:
-            should_clear_cookies = True
+        # Handle invalid sessions (Archived or Expired Session)
+        if (access_token or refresh_token) and not request.user_profile and auth_state == AUTH_STATE_INVALID:
             if any(path.startswith(prefix) for prefix in PROTECTED_PREFIXES):
                 response = redirect('login')
                 clear_frontend_auth_cookies(response)
                 return response
 
+            # Guest page with invalid cookies — show the page but clean up the dead cookies.
+            response = self.get_response(request)
+            clear_frontend_auth_cookies(response)
+            return response
+
         # Logged-in users should not stay on guest-only pages like login/register.
         if path in GUEST_ONLY_PATHS and request.user_profile:
             response = self._redirect_for_profile(request.user_profile)
-            if refresh_response:
-                apply_backend_auth_cookies(response, refresh_response)
-            return response
+            return self._finalize_response(request, response)
 
         # --- RBAC Enforcement ---
-        # Ensure users can only access their designated prefixes.
         if request.user_profile:
             role = request.user_profile.get('role')
-            # If they are in a protected area not meant for their role, redirect them to their correct dashboard.
             if path.startswith('/admin/') and role != 'Admin':
-                return self._redirect_for_profile(request.user_profile)
+                response = self._redirect_for_profile(request.user_profile)
+                return self._finalize_response(request, response)
             if path.startswith('/tuab/') and role != 'TUAB':
-                return self._redirect_for_profile(request.user_profile)
+                response = self._redirect_for_profile(request.user_profile)
+                return self._finalize_response(request, response)
             if path.startswith('/donor/') and role != 'Donor':
-                return self._redirect_for_profile(request.user_profile)
+                response = self._redirect_for_profile(request.user_profile)
+                return self._finalize_response(request, response)
 
         response = self.get_response(request)
 
-        if should_clear_cookies:
-            clear_frontend_auth_cookies(response)
-        if refresh_response:
-            apply_backend_auth_cookies(response, refresh_response)
+        # Post-view Kill-Switch: If a view's api_call discovered the user is archived
+        # (deleting the session cache), redirect to login immediately instead of
+        # showing a broken page with no data.
+        if request.user_profile and 'user_profile' not in request.session:
+            if any(path.startswith(prefix) for prefix in PROTECTED_PREFIXES):
+                response = redirect('login')
+                clear_frontend_auth_cookies(response)
+                return response
 
+        return self._finalize_response(request, response)
+
+    def _finalize_response(self, request, response):
+        """
+        Ensures that any tokens refreshed during the request are applied to the response.
+        """
+        if hasattr(request, '_pending_refresh_response'):
+            apply_backend_auth_cookies(response, request._pending_refresh_response)
         return response
 
     def _fetch_profile(self, request):
+        """
+        Retrieves user profile with a 5-minute session-based cache.
+        """
+        # 1. Try to use session cache
+        profile = request.session.get('user_profile')
+        last_verified = request.session.get('user_profile_verified_at', 0)
+        now = time.time()
+
+        # If we have a cached profile and it's less than 5 minutes old, use it.
+        if profile and (now - last_verified < 300):
+            return profile, AUTH_STATE_VALID
+
+        # 2. Cache miss or expired: Call Backend
         try:
-            response = requests.request(
-                'GET',
-                f"{BACKEND_BASE_URL.rstrip('/')}/users/me",
-                cookies=dict(request.COOKIES.items()),
-            )
+            response = api_call(request, 'GET', 'users/me')
         except Exception:
             return None, AUTH_STATE_UNAVAILABLE
 
         if response.status_code == 200:
-            return response.json(), AUTH_STATE_VALID
+            data = response.json()
+            # Save to session (this will be stored in the signed cookie)
+            request.session['user_profile'] = data
+            request.session['user_profile_verified_at'] = now
+            return data, AUTH_STATE_VALID
 
         if response.status_code in {401, 403}:
+            # Ensure the cache is wiped if the backend explicitly rejects the user
+            if 'user_profile' in request.session:
+                del request.session['user_profile']
             return None, AUTH_STATE_INVALID
 
         return None, AUTH_STATE_UNAVAILABLE
-
-    def _refresh_session(self, request):
-        try:
-            response = api_call(request, 'POST', 'token/refresh')
-        except Exception:
-            return None, AUTH_STATE_UNAVAILABLE
-
-        if response.status_code != 200:
-            if response.status_code in {401, 403}:
-                return None, AUTH_STATE_INVALID
-            return None, AUTH_STATE_UNAVAILABLE
-
-        new_access_token = response.cookies.get('access_token')
-        if not new_access_token:
-            return None, AUTH_STATE_UNAVAILABLE
-
-        request.COOKIES['access_token'] = new_access_token
-
-        rotated_refresh_token = response.cookies.get('refresh_token')
-        if rotated_refresh_token:
-            request.COOKIES['refresh_token'] = rotated_refresh_token
-
-        return response, AUTH_STATE_VALID
 
     def _redirect_for_profile(self, profile):
         role = profile.get('role')

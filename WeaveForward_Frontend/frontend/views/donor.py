@@ -190,8 +190,13 @@ def donor_create_donation(request):
     })
 
 def donor_profile(request):
-    """View for the donor's account profile."""
-    profile = request.user_profile.copy() if request.user_profile else {}
+    """View for the donor's account profile. Always fetches fresh data."""
+    response = api_call(request, 'GET', 'users/me')
+    if response.status_code == 200:
+        profile = response.json()
+    else:
+        # Fallback to cached profile if backend is unreachable
+        profile = request.user_profile.copy() if request.user_profile else {}
     
     if profile.get('created_at'):
         profile['created_at'] = parse_datetime(profile['created_at'])
