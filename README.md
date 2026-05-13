@@ -1,21 +1,62 @@
 # WeaveForward
 
-Improved ML Repository (Forked): https://github.com/dave34458/weaveforward-ml
-Mock HTML Files: https://github.com/dave34458/WeaveForward-Mock-HTML-Files
+---
 
+**ML Model Repository:** https://github.com/bakuncwa/weaveforward_fiber_model
+**Mock HTML Files:** https://github.com/dave34458/WeaveForward-Mock-HTML-Files
+
+---
+
+## Project Overview
+
+WeaveForward provides a circular economy platform that streamlines textile donations through geolocation mapping, standardized donation processes, donation tracking, delivery integration, and donation impact dashboards. The system also supports material-based matching to assist TUABs in recognizing suitable donations more effectively and efficiently. Designed for donors and TUABs, WeaveForward improves convenience, trust, and coordination across the textile donation lifecycle.
+
+### Key Features
+- Donor platform for browsing and submitting donations
+- TUAB (organization) inventory and donation management
+- AI-powered donation matching recommendations using machine learning
+- Circular economy impact tracking and dashboards
+- Role-based access control (RBAC) for multi-tenant authentication
+- Payment and subscription handling
+- Comprehensive impact analytics
+
+---
 
 ## Architecture & Security Specifications
+
 This project adheres to formal proposal specifications, featuring a **physically decoupled 3-tier native GCP architecture**. It is engineered for high availability and scalability, ready for deployment using **Cloud SQL** and dual **Cloud Run** instances for independent service orchestration.
+
+---
 
 ### Core Technical Standards
 - **Security & Authentication**: Implements industry-standard `bcrypt` password hashing and `simple-jwt` (JSON Web Tokens) for secure, stateless authentication.
 - **Hardened Defense**: Built-in security specifications to mitigate **CORS**, **CSS**, and **XSS** vulnerabilities, ensuring robust protection across all application layers.
 - **Cloud-Native Design**: Architected for seamless integration with Google Cloud Platform services, facilitating a production-ready environment.
 
+---
+
+## Technology Stack
+
+| Category | Technology / Library |
+|---|---|
+| Backend / API | Python, Django, Django REST Framework |
+| Machine Learning | CatBoost, scikit-learn, Optuna, SHAP |
+| Data Processing | pandas, NumPy, PySpark / Spark SQL |
+| Geospatial | geopy (Nominatim OSM), haversine distance |
+| Data Scraping | requests, BeautifulSoup, Selenium |
+| Visualization | Matplotlib, Seaborn |
+| Storage | Parquet (Spark), CSV, CatBoost .cbm binary |
+| Notebook Environment | Jupyter (VS Code), ipywidgets (live training chart) |
+| Hyperparameter Tuning | Optuna (30 trials, 3-fold stratified CV) |
+
+---
+
 ## Project Completion Status
 **Overall Progress: ~62%**
 
 Core infrastructure (JWT, 3-tier, Admin) and key integrations (**Maya Payments** & **CatBoost ML**) are fully operational. Final development is focused on **Lalamove integration**, TUAB workflows, and impact dashboards.
+
+---
 
 ## Getting Started
 
@@ -139,6 +180,196 @@ After initializing the database (see Backend Step 4), you can log in with the fo
    python manage.py runserver 8001
    ```
    *The frontend will be accessible at `http://127.0.0.1:8001/`.*
+
+---
+
+## Git Workflow Guide
+
+### Getting Started
+
+1. Clone the repository:
+   ```bash
+   git clone <repository-url>
+   cd weaveforward_system
+   ```
+
+2. Create a feature branch following the naming convention above
+
+3. Set up your development environment with required dependencies
+
+4. Make your changes and commit regularly
+
+5. Push your feature branch and create a pull request for review
+
+### Branch Naming Convention
+
+Use the following format for creating feature branches:
+
+```
+<feature-name>-v<major>.<minor>.<patch>
+```
+
+### Examples:
+- `login-v1.0.0` - Initial Login feature
+- `register-v1.0.0` - Initial Register feature
+- `login-v1.0.1` - Login feature bug fix or patch
+- `donate-v1.0.0` - Donation feature
+- `inventory-management-v1.0.0` - Inventory management feature
+- `rbac-routing-v1.0.0` - Role-based access control feature
+
+### Creating a Feature Branch
+
+```bash
+# Create and checkout a new feature branch
+git branch <feature-name>-v<version>
+git checkout <feature-name>-v<version>
+
+# Or use the shorthand
+git checkout -b <feature-name>-v<version>
+```
+
+### Example Workflow:
+
+```bash
+# Create login feature branch
+git checkout -b login-v1.0.0
+
+# Make changes to your feature
+# ... edit files ...
+
+# Stage and commit changes
+git add .
+git commit -m "feat: implement login functionality"
+
+# Push branch to remote
+git push origin login-v1.0.0
+
+# Create pull request on GitHub when ready for review
+```
+
+### Merging a Feature Branch
+
+```bash
+# Switch to main/development branch
+git checkout main
+
+# Pull latest changes
+git pull origin main
+
+# Merge feature branch
+git merge <feature-name>-v<version>
+
+# Delete branch locally after merging
+git branch -d <feature-name>-v<version>
+
+# Delete branch on remote
+git push origin --delete <feature-name>-v<version>
+```
+
+### Useful Git Commands
+
+```bash
+# List all local branches
+git branch
+
+# List all remote branches
+git branch -r
+
+# Delete a local branch
+git branch -d <branch-name>
+
+# Rename current branch
+git branch -m <new-branch-name>
+
+# View commit history of a branch
+git log <branch-name>
+
+# Switch between branches
+git checkout <branch-name>
+
+# Check current branch status
+git status
+```
+
+---
+
+## Development Checklist
+
+### Phase 1: Infrastructure & Setup
+
+Required before feature development:
+
+- [ ] Github Repository Set-up + Git commands in README.md
+- [ ] Django SQL to Google Cloud Storage + BigQuery + Cloud Run + Scheduler + Database Migrations Set-Up
+- [ ] Django RBAC Routing for Authentication and Authorization
+
+### Phase 2: Core Authentication
+
+Essential user management features:
+
+- [ ] Register (Donor/TUAB/Admin)
+- [ ] Login (+ Google SSO)
+
+### Phase 3: Donor Features
+
+Features for Donor user role:
+
+- [ ] Browse TUAB
+- [ ] View TUAB
+- [ ] Submit Donation
+- [ ] View Donation
+- [ ] Edit Donation
+- [ ] Cancel Donation
+- [ ] View Donation Impact Dashboard
+- [ ] Update Account Information
+- [ ] Donor Features Blackbox Selenium Test Script
+
+### Phase 4: TUAB Features
+
+Features for TUAB (Organization) user role:
+
+- [ ] View Inventory Items
+- [ ] Update Inventory Items
+- [ ] Delete Inventory Items
+- [ ] View Incoming Donations
+- [ ] Update Incoming Donations
+- [ ] Archive Incoming Donations
+- [ ] View Match Donation Recommendations (CatBoostAI ML Model Integration with DB)
+- [ ] View Circular Economy Impact Dashboard
+- [ ] Update Account Information
+- [ ] Subscribe for Premium Features
+- [ ] View Payment History
+- [ ] Update Account Information
+- [ ] TUAB Features Blackbox Selenium Test Script
+
+### Phase 5: Admin Features
+
+Features for Admin user role:
+
+- [ ] View Donors
+- [ ] Add Donors
+- [ ] Edit Donors
+- [ ] Archive Donors
+- [ ] View TUABs
+- [ ] Add TUABs
+- [ ] Edit TUABs
+- [ ] Archive TUABs
+- [ ] View Donations
+- [ ] View Donation Impact Dashboard
+- [ ] View Circular Economy Impact Dashboard
+- [ ] View Payments
+- [ ] Admin Features Blackbox Selenium Test Script
+
+### Phase 6: Testing & Validation
+
+System testing and user acceptance testing:
+
+- [ ] Full System Dry Run #1 (with Capstone Adviser)
+- [ ] Revisions #1
+- [ ] Full System Dry Run #2 (internal)
+- [ ] Revisions #2
+- [ ] UAT GForm & Interview - Donor
+- [ ] UAT GForm & Interview - TUAB
 
 ---
 
