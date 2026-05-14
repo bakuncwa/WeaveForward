@@ -330,6 +330,7 @@ class AdminEditDonorViewTest(MiddlewareAuthMixin, TestCase):
             'latitude': '14.5995120',
             'longitude': '120.9842220',
             'is_2fa_enabled': True,
+            'status': 'ACTIVE',
             'upload': None,
         }
 
