@@ -28,7 +28,7 @@ from ..services.location_service import haversine
 
 class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin, PaginatedResponseMixin):
     filter_backends = [filters.SearchFilter]
-    search_fields = ['email']
+    search_fields = ['email', 'first_name', 'last_name']
     parser_classes = [JSONParser, FormParser, MultiPartParser]
 
     def get_serializer_class(self):

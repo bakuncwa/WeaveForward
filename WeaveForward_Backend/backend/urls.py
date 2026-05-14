@@ -1,4 +1,6 @@
 from django.urls import path
+from django.http import HttpResponse
+from rest_framework import permissions
 from . import views
 
 urlpatterns = [
@@ -33,5 +35,6 @@ urlpatterns = [
     # --- MATERIALS ---
     path('brandfiberlookups', views.BrandFiberLookupViewset.as_view({'get': 'list'}), name='material-list'),
     path('brandfiberlookups/fibers', views.BrandFiberLookupViewset.as_view({'get': 'fibers'}), name='material-fibers'),
-    path('brandfiberlookups/<int:pk>', views.BrandFiberLookupViewset.as_view({'get': 'retrieve'}), name='material-detail'),
+    path('brandfiberlookups/clothing_types', views.BrandFiberLookupViewset.as_view({'get': 'clothing_types'}), name='material-clothing-types'),
+    path('brandfiberlookups/brands', views.BrandFiberLookupViewset.as_view({'get': 'brands'}), name='material-brands'),
 ]

@@ -256,6 +256,10 @@
     color: var(--g);
     font-size: 11px;
   }
+  .ss-item:hover,
+  .drop:hover {
+    background: var(--lt);
+  }
 
   .drop {
     border: 2px dashed #f0c060;
@@ -353,14 +357,14 @@
       <div class="panel">
         <div class="group" style="margin-bottom:18px">
           <label class="sub">Donor</label>
-          <select class="sel" name="donor_user_id" required>
-            <option value="">Select donor...</option>
-            {% for donor in donors %}
-            <option value="{{ donor.user_id }}" {% if donor.user_id|stringformat:"s" == form_data.donor_user_id|stringformat:"s" %}selected{% endif %}>
-              {{ donor.first_name }} {{ donor.last_name }} ({{ donor.email }})
-            </option>
-            {% endfor %}
-          </select>
+          <div class="ss-wrap">
+            <input type="text" class="in" id="dnr-in" placeholder="Search donor name or email..." 
+              autocomplete="off" oninput="fetchDonors(this.value)" 
+              onfocus="if(this.value) getEl('dnr-ac').classList.remove('hidden')"
+              onblur="setTimeout(()=>getEl('dnr-ac').classList.add('hidden'),200)">
+            <input type="hidden" name="donor_user_id" id="dnr-id" required>
+            <div id="dnr-ac" class="ss-list hidden"></div>
+          </div>
         </div>
         <div class="group" style="margin-bottom:18px">
           <label class="sub">Preferred Pick-Up Date</label>
@@ -501,14 +505,18 @@
 </div>
 
 <script>
-  // --- 1. Data (SSR Injected) ---
-  const data = {
-    cond: ['Good', 'Like New', 'Fair', 'Poor'],
-    lup: JSON.parse('{{ catalog_json|escapejs }}')
-  };
-
+  // --- 1. Data & Utils ---
+  const data = { cond: ['Good', 'Like New', 'Fair', 'Poor'] };
   const getEl = id => document.getElementById(id);
   const hideAc = () => setTimeout(() => getEl('ac')?.classList.add('hidden'), 200);
+
+  function showFlash(msg, type = 'error') {
+    const c = document.querySelector('.wf-content');
+    let f = c.querySelector('.wf-flash-messages');
+    if (!f) { f = document.createElement('div'); f.className = 'wf-flash-messages'; c.prepend(f); }
+    const a = document.createElement('div'); a.className = `wf-alert ${type}`; a.innerText = msg;
+    f.appendChild(a);
+  }
 
   // --- 2. Dynamic Form ---
   const updateNumbering = () => document.querySelectorAll('#cards .card').forEach((c, i) => {
@@ -517,48 +525,61 @@
     c.querySelector('.trash').style.display = i === 0 ? 'none' : 'block';
   });
 
-  function addCard() {
+  async function addCard() {
     const c = getEl('card-template').content.firstElementChild.cloneNode(true);
     c.querySelector('.condition-select').innerHTML = data.cond.map(x => `<option value="${x}">${x}</option>`).join('');
-    c.querySelector('[name=clothing_type]').innerHTML += [...new Set(data.lup.map(x => x.clothing_type))].sort().map(x => `<option value="${x}">${x}</option>`).join('');
+    
+    if (!data.types) {
+      const res = await fetch('{% url "material_clothing_types_proxy" %}');
+      data.types = await res.json();
+    }
+    c.querySelector('[name=clothing_type]').innerHTML += data.types.map(x => `<option value="${x}">${x.charAt(0).toUpperCase() + x.slice(1)}</option>`).join('');
+
     getEl('cards').appendChild(c);
     updateNumbering();
   }
 
   // --- 3. Cascading Logic ---
-  function syncCard(sel) {
+  async function syncCard(sel) {
     const c = sel.closest('.card'), q = s => c.querySelector(s), t = q('[name=clothing_type]').value, b = q('[name=brand]'), ss = { in: q('.ss-input'), hid: q('[name=lookup_id]'), list: q('.ss-list') };
+
     if (sel.name === 'clothing_type') {
-      b.innerHTML = '<option value="">Select brand...</option>' + [...new Set(data.lup.filter(x => x.clothing_type === t).map(x => String(x.brand).trim()))].sort().map(x => `<option value="${x}">${x}</option>`).join('');
+      b.innerHTML = '<option value="">Loading brands...</option>';
+      const res = await fetch(`{% url "material_brands_proxy" %}?clothing_type=${encodeURIComponent(t)}`);
+      const brands = await res.json();
+      b.innerHTML = '<option value="">Select brand...</option>' + brands.map(x => `<option value="${x}">${x}</option>`).join('');
       b.disabled = !t;
     }
+
     const bV = b.value;
     ss.in.value = ss.hid.value = ss.list.innerHTML = '';
     ss.in.disabled = !bV;
     ss.in.placeholder = bV ? 'Search materials...' : (t ? 'Select brand first...' : 'Choose category...');
 
     if (bV) {
-      ss.list.innerHTML = data.lup.filter(x => x.clothing_type === t && String(x.brand).trim() === bV.trim()).map(x => {
-        const display = `${x.fiber_json} - ${x.category}`;
-        return `<div class="ss-item" onmousedown="selectSS(event)" data-id="${x.lookup_id}" data-txt="${display.replace(/"/g, '&quot;')}"><b>${x.category}</b>${x.fiber_json}</div>`;
+      const res = await fetch(`{% url "material_search_proxy" %}?clothing_type=${encodeURIComponent(t)}&brand=${encodeURIComponent(bV)}`);
+      const items = await res.json();
+      ss.list.innerHTML = items.map(x => {
+        const cat = x.category.replace(/\n/g, ' ');
+        const display = `${x.fiber_json} - ${cat}`;
+        return `<div class="ss-item" onmousedown="selectSS(this,'${x.lookup_id}','${display.replace(/'/g, "\\'")}')"><b>${cat}</b>${x.fiber_json}</div>`;
       }).join('');
     }
   }
 
-  function selectSS(e) {
-    const item = e.currentTarget;
-    const w = item.closest('.ss-wrap');
-    w.querySelector('.ss-input').value = item.dataset.txt;
-    w.querySelector('[name=lookup_id]').value = item.dataset.id;
-    item.parentElement.classList.add('hidden');
+  function filterSS(i) {
+    const w = i.closest('.ss-wrap');
+    w.querySelector('[name=lookup_id]').value = '';
+    i.nextElementSibling.nextElementSibling.querySelectorAll('.ss-item').forEach(x => {
+      x.classList.toggle('hidden', !x.innerText.toLowerCase().includes(i.value.toLowerCase()));
+    });
   }
 
-  function filterSS(i) {
-    i.nextElementSibling.value = '';
-    const query = i.value.toLowerCase();
-    i.nextElementSibling.nextElementSibling.querySelectorAll('.ss-item').forEach(x => {
-      x.classList.toggle('hidden', !x.innerText.toLowerCase().includes(query));
-    });
+  function selectSS(el, id, txt) {
+    const w = el.closest('.ss-wrap'), inp = w.querySelector('.ss-input');
+    inp.value = txt; inp.style.borderColor = '#d5d5d5';
+    w.querySelector('[name=lookup_id]').value = id;
+    el.parentElement.classList.add('hidden');
   }
 
   // --- 4. Maps & Location ---
@@ -568,7 +589,8 @@
     clearTimeout(acTmr);
     acTmr = setTimeout(async () => {
       try {
-        acRes = await (await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${v}, Philippines&limit=5&countrycodes=ph`)).json();
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(v + ', Philippines')}&limit=5&countrycodes=ph`);
+        acRes = await res.json();
         getEl('ac').innerHTML = acRes.map((r, i) => `<div class="ac-item" onmousedown="selAddr(${i})">${r.display_name}</div>`).join('');
         getEl('ac').classList.remove('hidden');
       } catch { }
@@ -581,127 +603,114 @@
     getEl('lng').value = (+acRes[i].lon).toFixed(7);
   };
 
+  // --- Donor Search ---
+  let dnrTmr;
+  async function fetchDonors(q, p = 1) {
+    const list = getEl('dnr-ac');
+    if (!q) return list.classList.add('hidden');
+    clearTimeout(dnrTmr);
+    dnrTmr = setTimeout(async () => {
+      const res = await fetch(`{% url "donor_search_proxy" %}?search=${encodeURIComponent(q)}&page=${p}&role=Donor`);
+      const data = await res.json();
+      const users = data.results || data; // Handle paginated or non-paginated
+      
+      let html = users.map(u => `
+        <div class="ss-item" onmousedown="slDnr('${u.user_id}', '${u.first_name} ${u.last_name} (${u.email})')">
+          <b>${u.email}</b>${u.first_name} ${u.last_name}
+        </div>
+      `).join('');
+
+      if (data.previous) {
+        html = `<div class="ss-item" style="text-align:center;background:#fafafa" onmousedown="fetchDonors('${q}', ${p-1})"><b>❮ PREVIOUS PAGE</b></div>` + html;
+      }
+      if (data.next) {
+        html += `<div class="ss-item" style="text-align:center;background:#fafafa" onmousedown="fetchDonors('${q}', ${p+1})"><b>NEXT PAGE ❯</b></div>`;
+      }
+      list.innerHTML = html || '<div class="ss-item">No donors found</div>';
+      list.classList.remove('hidden');
+    }, 300);
+  }
+
+  function slDnr(id, txt) {
+    getEl('dnr-id').value = id;
+    getEl('dnr-in').value = txt;
+    getEl('dnr-ac').classList.add('hidden');
+  }
+
   function openMap() {
     getEl('map-modal').classList.remove('hidden');
-    let l = +getEl('lat').value || 14.56, g = +getEl('lng').value || 120.99; tmpLat = l; tmpLng = g;
+    const l = +getEl('lat').value || 14.56, g = +getEl('lng').value || 120.99; tmpLat = l; tmpLng = g;
     if (!map) {
       map = L.map('picker-map').setView([l, g], 15);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
       mrk = L.marker([l, g], { draggable: true }).addTo(map);
       mrk.on('dragend', e => { tmpLat = e.target.getLatLng().lat; tmpLng = e.target.getLatLng().lng; });
       map.on('click', e => { tmpLat = e.latlng.lat; tmpLng = e.latlng.lng; mrk.setLatLng(e.latlng); });
-    } else {
-      map.setView([l, g]);
-      mrk.setLatLng([l, g]);
-      setTimeout(() => map.invalidateSize(), 100);
-    }
+    } else { map.setView([l, g]); mrk.setLatLng([l, g]); setTimeout(() => map.invalidateSize(), 100); }
   }
 
   async function confirmMap(init = false) {
-    if (!init) {
-      getEl('lat').value = (+tmpLat).toFixed(7);
-      getEl('lng').value = (+tmpLng).toFixed(7);
-      closeMap();
-    }
+    if (!init) { getEl('lat').value = (+tmpLat).toFixed(7); getEl('lng').value = (+tmpLng).toFixed(7); closeMap(); }
     try {
-      const res = await (await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${getEl('lat').value}&lon=${getEl('lng').value}`)).json();
-      getEl('addr').value = res.display_name || getEl('addr').value;
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${getEl('lat').value}&lon=${getEl('lng').value}`);
+      const data = await res.json();
+      getEl('addr').value = data.display_name || getEl('addr').value;
     } catch { }
   }
   const closeMap = () => getEl('map-modal').classList.add('hidden');
 
-
   // --- 5. Image Preview ---
   function previewImg(f, sync = false) {
     if (!f?.type.startsWith('image/')) return;
-    if (sync) {
-      const dt = new DataTransfer();
-      dt.items.add(f);
-      getEl('img-in').files = dt.files;
-    }
+    if (sync) { const dt = new DataTransfer(); dt.items.add(f); getEl('img-in').files = dt.files; }
     const r = new FileReader();
-    r.onload = e => {
-      getEl('i-prv').src = e.target.result;
-      getEl('i-prv-w').classList.remove('hidden');
-      getEl('i-ph').classList.add('hidden');
-    };
+    r.onload = e => { getEl('i-prv').src = e.target.result; getEl('i-prv-w').classList.remove('hidden'); getEl('i-ph').classList.add('hidden'); };
     r.readAsDataURL(f);
   }
 
   // --- 6. Form Submission ---
-  function preparePayload(form) {
-    const items = [...form.querySelectorAll('#cards .card')].map(c => {
-      const q = s => c.querySelector(s),
-        w = q('[name=weight_kg]').value,
-        r = q('[name=condition_rating]').value,
-        l = q('[name=lookup_id]').value;
-      if (!r || !w || !l) throw new Error("All items must be fully filled out.");
-      return { weight_kg: Number(w), condition_rating: r, lookup_id: Number(l) };
-    });
-    getEl('json-items').value = JSON.stringify(items);
-
-    // We keep fields enabled so they are sent in the FormData, but we could also do this:
-    // form.querySelectorAll('#cards [name]').forEach(el => el.disabled = true);
-  }
-
-  getEl('frm').onsubmit = e => {
-    // Allow standard submission but validate first
+  getEl('frm').onsubmit = async e => {
+    e.preventDefault();
+    const flash = document.querySelector('.wf-flash-messages');
+    if (flash) flash.innerHTML = '';
+    const btn = e.target.querySelector('.btn-submit'), old = btn.innerText;
     try {
-      preparePayload(e.target);
-    } catch (err) {
-      e.preventDefault();
-      alert(err.message);
-    }
+      btn.innerText = 'Submitting...'; btn.disabled = true;
+      const items = [...e.target.querySelectorAll('#cards .card')].map(c => {
+        const q = s => c.querySelector(s), w = q('[name=weight_kg]').value, r = q('[name=condition_rating]').value, l = q('[name=lookup_id]').value;
+        if (!r || !w || !l) throw new Error("All items must be fully filled out.");
+        return { weight_kg: Number(w), condition_rating: r, lookup_id: Number(l) };
+      });
+      getEl('json-items').value = JSON.stringify(items);
+
+      const fd = new FormData(e.target);
+      fd.delete('clothing_type'); fd.delete('brand'); fd.delete('weight_kg'); fd.delete('condition_rating'); fd.delete('lookup_id');
+
+      const res = await fetch(e.target.action || window.location.pathname, { 
+        method: 'POST', 
+        body: fd, 
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': fd.get('csrfmiddlewaretoken') } 
+      });
+      const data = await res.json();
+      if (res.status === 201) {
+        window.location.href = '{% url "admin_view_donations" %}';
+      } else {
+        if (data.detail) showFlash(data.detail);
+        else Object.values(data).forEach(m => showFlash(Array.isArray(m) ? m.join(', ') : m));
+      }
+    } catch (err) { showFlash(err.message); }
+    finally { btn.innerText = old; btn.disabled = false; }
   };
 
-  // --- 7. Initialization ---
-  const savedItems = getEl('json-items').value;
-  if (savedItems) {
-    try {
-      const items = JSON.parse(savedItems);
-      if (items.length > 0) {
-        items.forEach(item => {
-          addCard();
-          const card = getEl('cards').lastElementChild;
-          const lookup = data.lup.find(x => x.lookup_id === item.lookup_id);
-
-          if (lookup) {
-            card.querySelector('[name=clothing_type]').value = lookup.clothing_type;
-            syncCard(card.querySelector('[name=clothing_type]'));
-            card.querySelector('[name=brand]').value = lookup.brand;
-            syncCard(card.querySelector('[name=brand]'));
-            card.querySelector('[name=lookup_id]').value = lookup.lookup_id;
-            card.querySelector('.ss-input').value = `${lookup.fiber_json} - ${lookup.category}`;
-          }
-
-          card.querySelector('[name=weight_kg]').value = item.weight_kg;
-          card.querySelector('[name=condition_rating]').value = item.condition_rating;
-        });
-      } else {
-        addCard();
-      }
-    } catch (e) {
-      console.error("Failed to restore items:", e);
-      addCard();
-    }
-  } else {
-    addCard();
-  }
-
+  // --- 7. Init ---
+  addCard();
   if (!getEl('addr').value) {
-    // Geolocation detection
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(pos => {
-        getEl('lat').value = pos.coords.latitude.toFixed(7);
-        getEl('lng').value = pos.coords.longitude.toFixed(7);
+        getEl('lat').value = pos.coords.latitude.toFixed(7); getEl('lng').value = pos.coords.longitude.toFixed(7);
         confirmMap(true);
-      }, err => {
-        console.warn("Geolocation failed or denied:", err);
-        confirmMap(true); // Fallback to default/existing coords
-      }, { timeout: 5000 });
-    } else {
-      confirmMap(true);
-    }
+      }, () => confirmMap(true), { timeout: 5000 });
+    } else confirmMap(true);
   }
 </script>
 {% endblock %}

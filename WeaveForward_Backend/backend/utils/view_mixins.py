@@ -6,8 +6,14 @@ class PaginatedResponseMixin:
     def get_paginated_response_data(self, queryset, serializer_class=None):
         """
         Paginates a queryset and returns a Response object.
-        If pagination is not configured or not applicable, returns a standard Response.
+        If 'nopaginate=true' is in query params, returns the full standard Response.
         """
+        # Support disabling pagination via query param
+        if hasattr(self, 'request') and self.request.query_params.get('nopaginate') == 'true':
+            serializer_class = serializer_class or self.get_serializer_class()
+            serializer = serializer_class(queryset, many=True, context=self.get_serializer_context())
+            return Response(serializer.data)
+
         page = self.paginate_queryset(queryset)
         serializer_class = serializer_class or self.get_serializer_class()
         

@@ -1,4 +1,5 @@
 from datetime import timedelta
+from django.utils import timezone
 from decimal import Decimal
 import json
 from unittest.mock import Mock, patch
@@ -12,7 +13,7 @@ from django.urls import resolve, reverse
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 from rest_framework import status
-from backend.models import User, Upload, Donation, DonationItem, BrandFiberLookup, MatchPrediction, Subscription, SubscriptionPayment, InventoryLedger, UserOperationalStatus, AuditTrail
+from backend.models import User, Upload, Donation, DonationItem, BrandFiberLookup, MatchPrediction, Subscription, SubscriptionPayment, InventoryLedger, UserOperationalStatus, AuditTrail, SubscriptionStatus, SubscriptionTier
 from backend.serializers import DonorRegisterSerializer, TUABRegisterSerializer
 from backend.services.audit_service import log_audit
 from backend.services.etag_service import build_updated_at_etag
@@ -245,7 +246,6 @@ class RoutingStyleTest(TestCase):
         self.assertEqual(reverse('donation-detail', kwargs={'pk': 9}), '/api/donations/9')
         self.assertEqual(reverse('material-list'), '/api/brandfiberlookups')
         self.assertEqual(reverse('material-fibers'), '/api/brandfiberlookups/fibers')
-        self.assertEqual(reverse('material-detail', kwargs={'pk': 3}), '/api/brandfiberlookups/3')
 
     def test_trailing_slash_variants_return_404(self):
         for path in (
@@ -270,7 +270,6 @@ class RoutingStyleTest(TestCase):
             '/api/donations/9/',
             '/api/brandfiberlookups/',
             '/api/brandfiberlookups/fibers/',
-            '/api/brandfiberlookups/3/',
         ):
             response = self.client.get(path)
             self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND, path)
@@ -2610,6 +2609,14 @@ class PredictionServiceTest(TestCase):
             latitude=Decimal('14.5'), longitude=Decimal('121.0'),
             min_biodeg_score=0, max_distance_km=100
         )
+        # Add active PRO subscription for matching
+        Subscription.objects.create(
+            user=self.tuab_multi,
+            status=SubscriptionStatus.ACTIVE,
+            subscription_tier=SubscriptionTier.PRO,
+            start_date=timezone.now(),
+            end_date=timezone.now() + timedelta(days=30)
+        )
         # Use real lookup data if available, fallback only if empty
         self.lookup_cotton = BrandFiberLookup.objects.filter(fiber_json__contains='cotton').first()
         if not self.lookup_cotton:
@@ -2654,7 +2661,14 @@ class PredictionServiceTest(TestCase):
             email="close@test.com", password="Password123", role="TUAB", contact_no="+639019993", status="ACTIVE",
             operational_status=UserOperationalStatus.ACTIVE, target_fibers="cotton",
             latitude=Decimal('14.5'), longitude=Decimal('121.0'),
-            min_biodeg_score=0, max_distance_km=1 # 1km radius
+            min_biodeg_score=0, max_distance_km=1           # 1km radius
+        )
+        Subscription.objects.create(
+            user=tuab_close,
+            status=SubscriptionStatus.ACTIVE,
+            subscription_tier=SubscriptionTier.PRO,
+            start_date=timezone.now(),
+            end_date=timezone.now() + timedelta(days=30)
         )
         # Create a donation far away (~50km)
         donation_far = Donation.objects.create(
@@ -2679,6 +2693,13 @@ class PredictionServiceTest(TestCase):
             operational_status=UserOperationalStatus.ACTIVE, target_fibers="polyester",
             latitude=Decimal('14.5'), longitude=Decimal('121.0'),
             min_biodeg_score=90, max_distance_km=100
+        )
+        Subscription.objects.create(
+            user=tuab_strict,
+            status=SubscriptionStatus.ACTIVE,
+            subscription_tier=SubscriptionTier.PRO,
+            start_date=timezone.now(),
+            end_date=timezone.now() + timedelta(days=30)
         )
         # Polyester item has biodeg_score 0 (from setUp)
         donation = Donation.objects.create(

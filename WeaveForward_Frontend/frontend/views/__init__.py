@@ -109,15 +109,40 @@ def logout_view(request):
     messages.error(request, error_message)
     return redirect(fallback_redirect)
 
-def location_lookup_proxy(request):
-    """SSR Proxy for location lookup."""
-    lat = request.GET.get('lat')
-    lng = request.GET.get('lng')
+def material_clothing_types_proxy(request):
+    """SSR Proxy for fetching unique clothing types."""
     try:
-        response = api_call(request, 'GET', 'location/lookup', params={'lat': lat, 'lng': lng})
-        return JsonResponse(response.json(), status=response.status_code)
+        response = api_call(request, 'GET', 'brandfiberlookups/clothing_types')
+        return JsonResponse(response.json(), status=response.status_code, safe=False)
     except Exception:
-        return JsonResponse({'error': 'Backend location service unreachable'}, status=503)
+        return JsonResponse({'error': 'Backend service unreachable'}, status=503)
+
+def material_brands_proxy(request):
+    """SSR Proxy for fetching brands by clothing type."""
+    clothing_type = request.GET.get('clothing_type')
+    try:
+        response = api_call(request, 'GET', 'brandfiberlookups/brands', params={'clothing_type': clothing_type})
+        return JsonResponse(response.json(), status=response.status_code, safe=False)
+    except Exception:
+        return JsonResponse({'error': 'Backend service unreachable'}, status=503)
+
+def material_search_proxy(request):
+    """SSR Proxy for searching materials/items."""
+    try:
+        response = api_call(request, 'GET', 'brandfiberlookups', params=request.GET.dict())
+        return JsonResponse(response.json(), status=response.status_code, safe=False)
+    except Exception:
+        return JsonResponse({'error': 'Backend service unreachable'}, status=503)
+
+def donor_search_proxy(request):
+    """SSR Proxy for searching active donors only."""
+    try:
+        params = request.GET.dict()
+        params.update({'role': 'Donor', 'status': 'ACTIVE'})
+        response = api_call(request, 'GET', 'users', params=params)
+        return JsonResponse(response.json(), status=response.status_code, safe=False)
+    except Exception:
+        return JsonResponse({'error': 'Backend service unreachable'}, status=503)
 
 def forgot_password(request):
     if request.method == 'POST':
