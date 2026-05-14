@@ -173,8 +173,8 @@ def admin_edit_donor(request, user_id):
             return redirect('admin_view_donors')
         donor = response.json()
         current_etag = response.headers.get('ETag')
-        if donor.get('status') == 'ARCHIVED':
-            messages.error(request, "Archived donors can no longer be edited.")
+        if donor.get('status') != 'ACTIVE':
+            messages.error(request, "Only active donors can be edited.")
             return redirect('admin_view_donors')
 
         if password != confirm_password:
@@ -246,8 +246,8 @@ def admin_edit_donor(request, user_id):
         return redirect('admin_view_donors')
     donor = response.json()
     current_etag = response.headers.get('ETag')
-    if donor.get('status') == 'ARCHIVED':
-        messages.error(request, "Archived donors can no longer be edited.")
+    if donor.get('status') != 'ACTIVE':
+        messages.error(request, "Only active donors can be edited.")
         return redirect('admin_view_donors')
 
     return render(request, 'frontend/admin/admin_edit_donor.html', {
@@ -405,8 +405,12 @@ def admin_edit_tuab(request, user_id):
     if response.status_code != 200:
         messages.error(request, "TUAB not found.")
         return redirect('admin_view_tuabs')
-    
+
     tuab = response.json()
+    if tuab.get('status') != 'ACTIVE':
+        messages.error(request, "Only active TUABs can be edited.")
+        return redirect('admin_view_tuabs')
+
     current_etag = response.headers.get('ETag')
     return render(request, 'frontend/admin/admin_edit_tuab.html', {
         'page_title': 'Edit TUAB', 

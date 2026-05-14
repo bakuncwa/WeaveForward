@@ -109,6 +109,16 @@ def logout_view(request):
     messages.error(request, error_message)
     return redirect(fallback_redirect)
 
+def location_lookup_proxy(request):
+    """SSR Proxy for location lookup."""
+    lat = request.GET.get('lat')
+    lng = request.GET.get('lng')
+    try:
+        response = api_call(request, 'GET', 'location/lookup', params={'lat': lat, 'lng': lng})
+        return JsonResponse(response.json(), status=response.status_code)
+    except Exception:
+        return JsonResponse({'error': 'Backend location service unreachable'}, status=503)
+
 def material_clothing_types_proxy(request):
     """SSR Proxy for fetching unique clothing types."""
     try:

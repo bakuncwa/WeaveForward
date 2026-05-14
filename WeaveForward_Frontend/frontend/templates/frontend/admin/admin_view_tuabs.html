@@ -338,10 +338,10 @@
           <td>
             <div class="action-btns">
               <a href="{% url 'admin_view_tuab' tuab.user_id %}" class="btn btn-outline">View</a>
-              {% if tuab.status != 'ARCHIVED' %}
+              {% if tuab.status == 'ACTIVE' %}
               <a href="{% url 'admin_edit_tuab' tuab.user_id %}" class="btn btn-outline">Edit</a>
               {% endif %}
-              {% if tuab.status == 'ACTIVE' %}
+              {% if tuab.status != 'ARCHIVED' %}
               <button class="btn btn-outline archive-btn" type="button"
                 data-api-url="/admin/users/{{ tuab.user_id }}/archive/" data-user-etag="{{ tuab.etag }}">
                 Archive

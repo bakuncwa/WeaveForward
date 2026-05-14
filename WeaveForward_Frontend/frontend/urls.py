@@ -10,6 +10,7 @@ urlpatterns = [
     path('register/tuab/', views.tuab_registration, name='tuab_registration'),
     path('forgot-password/', views.forgot_password, name='forgot_password'),
     path('reset-password-confirm/', views.reset_password_confirm, name='reset_password_confirm'),
+    path('api/location/lookup/', views.location_lookup_proxy, name='location_lookup_proxy'),
     path('api/materials/clothing-types/', views.material_clothing_types_proxy, name='material_clothing_types_proxy'),
     path('api/materials/brands/', views.material_brands_proxy, name='material_brands_proxy'),
     path('api/materials/search/', views.material_search_proxy, name='material_search_proxy'),

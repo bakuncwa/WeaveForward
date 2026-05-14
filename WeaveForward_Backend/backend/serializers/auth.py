@@ -183,9 +183,28 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         return token
 
     def validate(self, attrs):
+        email = attrs.get(self.username_field)
+        password = attrs.get('password')
+        
+        # PRE-CHECK: Django's `authenticate` silently rejects users if `is_active=False`.
+        # We manually intercept REJECTED users here so we can show their specific reason,
+        # but ONLY if they provide the correct password to prevent status-leaking.
+        if email and password:
+            try:
+                user_check = User.objects.get(email=email)
+                if user_check.status == UserAccountStatus.REJECTED and user_check.check_password(password):
+                    reason = getattr(user_check, 'rejection_reason', None)
+                    if reason:
+                        error_msg = f"Your registration was rejected. Reason: {reason}"
+                    else:
+                        error_msg = "Your registration was rejected."
+                    raise exceptions.AuthenticationFailed({"detail": error_msg})
+            except User.DoesNotExist:
+                pass
+
         authenticate_kwargs = {
-            self.username_field: attrs[self.username_field],
-            'password': attrs['password'],
+            self.username_field: email,
+            'password': password,
         }
         request = self.context.get('request')
         if request is not None:
@@ -198,12 +217,10 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 'no_active_account'
             )
 
-        # Check if the account is ACTIVE
+        # Check if the account is ACTIVE (Under Review and Archived handling)
         if self.user.status != UserAccountStatus.ACTIVE:
             if self.user.status == UserAccountStatus.UNDER_REVIEW:
                 error_msg = "Your account is still under review."
-            elif self.user.status == UserAccountStatus.REJECTED:
-                error_msg = "Your registration was rejected."
             else:
                 # Use the generic message for ARCHIVED or other statuses
                 error_msg = self.error_messages['no_active_account']

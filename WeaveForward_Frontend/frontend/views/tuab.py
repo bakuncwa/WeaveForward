@@ -17,6 +17,18 @@ def tuab_subscribe(request):
     """Handle TUAB Premium Subscription."""
     profile = request.user_profile
 
+    # Always force fetch the latest profile directly from the backend to guarantee fresh subscription status
+    try:
+        response = api_call(request, 'GET', 'users/me')
+        if response.status_code == 200:
+            profile = response.json()
+            if hasattr(request, 'session'):
+                request.session['user_profile'] = profile
+                import time
+                request.session['user_profile_verified_at'] = time.time()
+    except Exception:
+        pass
+            
     # 1. Check if already subscribed (Success state)
     if profile.get('is_subscribed'):
         return render(request, 'frontend/tuabs/tuab_subscribe_to_premium_success.html', {
