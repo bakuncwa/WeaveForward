@@ -299,29 +299,29 @@ git status
 
 Required before feature development:
 
-- [ ] Github Repository Set-up + Git commands in README.md
+- [x] Github Repository Set-up + Git commands in README.md
 - [ ] Django SQL to Google Cloud Storage + BigQuery + Cloud Run + Scheduler + Database Migrations Set-Up
-- [ ] Django RBAC Routing for Authentication and Authorization
+- [x] Django RBAC Routing for Authentication and Authorization
 
 ### Phase 2: Core Authentication
 
 Essential user management features:
 
-- [ ] Register (Donor/TUAB/Admin)
-- [ ] Login (+ Google SSO)
+- [x] Register (Donor/TUAB/Admin)
+- [x] Login (+ Google SSO)
 
 ### Phase 3: Donor Features
 
 Features for Donor user role:
 
-- [ ] Browse TUAB
-- [ ] View TUAB
-- [ ] Submit Donation
-- [ ] View Donation
+- [x] Browse TUAB
+- [x] View TUAB
+- [x] Submit Donation
+- [x] View Donation
 - [ ] Edit Donation
 - [ ] Cancel Donation
 - [ ] View Donation Impact Dashboard
-- [ ] Update Account Information
+- [x] Update Account Information
 - [ ] Donor Features Blackbox Selenium Test Script
 
 ### Phase 4: TUAB Features
@@ -334,10 +334,10 @@ Features for TUAB (Organization) user role:
 - [ ] View Incoming Donations
 - [ ] Update Incoming Donations
 - [ ] Archive Incoming Donations
-- [ ] View Match Donation Recommendations (CatBoostAI ML Model Integration with DB)
+- [x] View Match Donation Recommendations (CatBoostAI ML Model Integration with DB)
 - [ ] View Circular Economy Impact Dashboard
 - [ ] Update Account Information
-- [ ] Subscribe for Premium Features
+- [x] Subscribe for Premium Features
 - [ ] View Payment History
 - [ ] Update Account Information
 - [ ] TUAB Features Blackbox Selenium Test Script
@@ -346,15 +346,15 @@ Features for TUAB (Organization) user role:
 
 Features for Admin user role:
 
-- [ ] View Donors
-- [ ] Add Donors
-- [ ] Edit Donors
-- [ ] Archive Donors
-- [ ] View TUABs
-- [ ] Add TUABs
-- [ ] Edit TUABs
-- [ ] Archive TUABs
-- [ ] View Donations
+- [x] View Donors
+- [x] Add Donors
+- [x] Edit Donors
+- [x] Archive Donors
+- [x] View TUABs
+- [x] Add TUABs
+- [x] Edit TUABs
+- [x] Archive TUABs
+- [x] View Donations
 - [ ] View Donation Impact Dashboard
 - [ ] View Circular Economy Impact Dashboard
 - [ ] View Payments
