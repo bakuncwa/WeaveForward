@@ -598,8 +598,9 @@
       const res = await fetch(`{% url "material_search_proxy" %}?clothing_type=${encodeURIComponent(t)}&brand=${encodeURIComponent(bV)}`);
       const items = await res.json();
       ss.list.innerHTML = items.map(x => {
-        const display = `${x.fiber_json} - ${x.category}`;
-        return `<div class="ss-item" onmousedown="selectSS(this,'${x.lookup_id}','${display.replace(/'/g, "\\'")}')"><b>${x.category}</b>${x.fiber_json}</div>`;
+        const cat = x.category.replace(/\n/g, ' ');
+        const display = `${x.fiber_json} - ${cat}`;
+        return `<div class="ss-item" onmousedown="selectSS(this,'${x.lookup_id}','${display.replace(/'/g, "\\'")}')"><b>${cat}</b>${x.fiber_json}</div>`;
       }).join('');
     }
   }
