@@ -1,5 +1,6 @@
 import json
 from django.shortcuts import render, redirect
+from django.http import JsonResponse
 from django.contrib import messages
 from django.utils.dateparse import parse_datetime
 from ..constants import BACKEND_BASE_URL
@@ -415,85 +416,22 @@ def admin_edit_tuab(request, user_id):
         'fibers': fibers
     })
 def admin_add_donation(request):
+    """View for admins to add a donation. Lookups are handled via AJAX."""
     profile = request.user_profile
 
     if request.method == 'POST':
-        # Proxy POST to backend donations endpoint
-        # The frontend sends multipart/form-data
         payload = request.POST.dict()
-        files = {}
-        if request.FILES.get('donation_image'):
-            files['donation_image'] = request.FILES['donation_image']
-        
-        # Ensure items is passed as string (it should already be stringified from JS)
+        files = {'donation_image': request.FILES['donation_image']} if 'donation_image' in request.FILES else {}
         try:
             response = api_call(request, 'POST', 'donations', data=payload, files=files)
-            if response.status_code == 201:
-                messages.success(request, "Donation created successfully.")
-                return redirect('admin_view_donations')
-            else:
-                response_data = response.json() if hasattr(response, 'json') else {}
-                if isinstance(response_data, dict) and 'detail' in response_data:
-                    messages.error(request, response_data['detail'])
-                else:
-                    errs = format_errors(response_data)
-                    for field, msg_list in errs.items():
-                        for msg in msg_list:
-                            messages.error(request, f"{field}: {msg}")
+            return JsonResponse(response.json() if hasattr(response, 'json') else {}, status=response.status_code)
         except Exception as e:
-            messages.error(request, f"System Error: {str(e)}")
-        
-        # On error, re-render with existing data to preserve state
-        # 1. Fetch ALL Active Donors (same as GET)
-        active_donors = []
-        page = 1
-        while True:
-            res = api_call(request, 'GET', 'users', params={'role': 'Donor', 'status': 'ACTIVE', 'page': page, 'page_size': 100})
-            if res.status_code != 200: break
-            data = res.json()
-            active_donors.extend(data.get('results', []))
-            if not data.get('next') or page >= 50: break
-            page += 1
-
-        # 2. Fetch ALL Brand Fiber Lookups
-        lookups = []
-        res = api_call(request, 'GET', 'brandfiberlookups')
-        if res.status_code == 200:
-            data = res.json()
-            lookups = data if isinstance(data, list) else data.get('results', [])
-
-        return render(request, 'frontend/admin/admin_add_donation.html', {
-            'page_title': 'Add Donation',
-            'user': profile,
-            'donors': active_donors,
-            'catalog_json': json.dumps(lookups),
-            'form_data': payload
-        })
-
-    # GET: Fetch SSR Data
-    # 1. Fetch ALL Active Donors
-    active_donors = []
-    page = 1
-    while True:
-        res = api_call(request, 'GET', 'users', params={'role': 'Donor', 'status': 'ACTIVE', 'page': page, 'page_size': 100})
-        if res.status_code != 200: break
-        data = res.json()
-        active_donors.extend(data.get('results', []))
-        if not data.get('next') or page >= 50: break
-        page += 1
-
-    # 2. Fetch ALL Brand Fiber Lookups (Not paginated)
-    lookups = []
-    res = api_call(request, 'GET', 'brandfiberlookups')
-    if res.status_code == 200:
-        data = res.json()
-        lookups = data if isinstance(data, list) else data.get('results', [])
+            return JsonResponse({'error': str(e)}, status=500)
 
     return render(request, 'frontend/admin/admin_add_donation.html', {
         'page_title': 'Add Donation',
         'user': profile,
-        'donors': active_donors,
-        'catalog_json': json.dumps(lookups)
+        'donors': []
     })
 
 def admin_view_donation(request, donation_id):
