@@ -1,3 +1,5 @@
+# NOTE: This is a draft and only accepts donation_id. 
+# It can be changed to accept TUAB IDs instead to work with a future match-predictions endpoint.
 import os, json, logging, math, pandas as pd
 from django.db import transaction
 from django.conf import settings

@@ -8,7 +8,7 @@ from ..models import Donation, DonationItem, Upload, User, DonationStatus, Donat
 from ..serializers.donations import DonationCreateSerializer
 from .location_service import get_city_and_barangay
 from .audit_service import log_audit, get_client_ip
-from .prediction_service import run_predictions_for_donation
+# from .prediction_service import run_predictions_for_donation
 
 def create_donation(*, request):
     """
@@ -67,6 +67,6 @@ def create_donation(*, request):
         )
 
         # 5. AI Prediction Trigger
-        run_predictions_for_donation(donation.donation_id)
+        # run_predictions_for_donation(donation.donation_id)
 
     return donation

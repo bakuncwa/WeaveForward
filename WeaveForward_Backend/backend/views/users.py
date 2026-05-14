@@ -113,6 +113,10 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
         serializer.is_valid(raise_exception=True)
 
         fields_modified = list(serializer.validated_data.keys())
+        if instance.role == UserRole.TUAB:
+            critical = ['max_distance_km', 'min_biodeg_score', 'target_fibers', 'latitude', 'longitude', 'display_address']
+            # Put critical fields at the FRONT so they are prioritized before the 100-char cutoff
+            fields_modified = critical + [f for f in fields_modified if f not in critical]
 
         ip_address = get_client_ip(request)
         with transaction.atomic():
