@@ -76,8 +76,8 @@ def archive_user(*, target_user_id):
 
     if target_user.status == UserAccountStatus.ARCHIVED:
         return {
-            "status_code": 204,
-            "detail": None,
+            "status_code": 400,
+            "detail": "This user is already archived.",
             "changed_donations": [],
             "changed_inventory_ledgers": [],
             "user_updated": False,

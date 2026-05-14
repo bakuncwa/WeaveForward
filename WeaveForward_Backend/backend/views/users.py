@@ -96,9 +96,9 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
         instance = self.get_object()
         if request.user.role != UserRole.ADMIN and instance.user_id != request.user.user_id:
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
-        if instance.status == 'ARCHIVED':
+        if instance.status != UserAccountStatus.ACTIVE:
             return Response(
-                {"detail": "Archived users cannot be edited."},
+                {"detail": "Only active users can be edited."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 

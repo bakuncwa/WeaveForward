@@ -324,10 +324,10 @@
           <td>
             <div class="action-btns">
               <a href="{% url 'admin_view_donor' donor.user_id %}" class="btn btn-outline">View</a>
-              {% if donor.status != 'ARCHIVED' %}
+              {% if donor.status == 'ACTIVE' %}
               <a href="{% url 'admin_edit_donor' donor.user_id %}" class="btn btn-outline">Edit</a>
               {% endif %}
-              {% if donor.status == 'ACTIVE' %}
+              {% if donor.status != 'ARCHIVED' %}
               <button class="btn btn-outline archive-btn" type="button"
                 data-api-url="/admin/users/{{ donor.user_id }}/archive/" data-user-etag="{{ donor.etag }}">
                 Archive

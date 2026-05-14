@@ -1143,7 +1143,7 @@ class UserAPITest(TestCase):
             HTTP_IF_MATCH=build_updated_at_etag(self.donor)
         )
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(res.data['detail'], "Archived users cannot be edited.")
+        self.assertEqual(res.data['detail'], "Only active users can be edited.")
         self.donor.refresh_from_db()
         self.assertNotEqual(self.donor.first_name, "Updated")
         self.assertFalse(
@@ -2366,7 +2366,8 @@ class UserArchiveAPITest(TestCase):
             **self.archive_headers(self.donor)
         )
 
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['detail'], "This user is already archived.")
         self.donor.refresh_from_db()
         self.assertEqual(self.donor.status, 'ARCHIVED')
         self.assertEqual(AuditTrail.objects.filter(actor=self.admin).count(), 0)
