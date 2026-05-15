@@ -663,10 +663,17 @@
           
           {% if "View" in page_title or "Edit" in page_title or "Create" in page_title or "Update" in page_title or "Add" in page_title %}
           {% spaceless %}
+            {# Donor #}
             {% if "/donor/tuabs/" in request.path %}
               {% url 'donor_browse_businesses' as back_fallback %}
+            {% elif "/donor/create-donation/" in request.path or "/donor/donations/" in request.path %}
+              {% url 'donor_my_donations' as back_fallback %}
+            {% elif "/donor/edit-profile/" in request.path %}
+              {% url 'donor_profile' as back_fallback %}
             {% elif "/donor/" in request.path %}
               {% url 'donor_my_donations' as back_fallback %}
+
+            {# Admin #}
             {% elif "/admin/donations/" in request.path %}
               {% url 'admin_view_donations' as back_fallback %}
             {% elif "/admin/donors/" in request.path %}

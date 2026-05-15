@@ -23,9 +23,17 @@ urlpatterns = [
     path('donor/tuabs/<int:user_id>/', views.donor_view_tuab, name='donor_view_tuab'),
     path('donor/create-donation/', views.donor_create_donation, name='donor_create_donation'),
     path('donor/profile/', views.donor_profile, name='donor_profile'),
+    path('donor/edit-profile/', views.donor_edit_profile, name='edit_profile'),
+    
+    # --- Auth/2FA Proxies ---
+    path('api/2fa/setup/', views.two_factor_setup_proxy, name='two_factor_setup_proxy'),
+    path('api/2fa/verify/', views.two_factor_verify_proxy, name='two_factor_verify_proxy'),
+    path('api/2fa/disable/', views.two_factor_disable_proxy, name='two_factor_disable_proxy'),
     
     # --- TUAB ---
     path('tuab/dashboard/', views.tuab_dashboard, name='tuab_dashboard'),
+    path('tuab/donations/<int:donation_id>/', views.tuab_view_donation, name='tuab_view_donation'),
+    path('api/tuab/donations/<int:donation_id>/quotation/', views.tuab_quotation_proxy, name='tuab_quotation_proxy'),
     path('tuab/subscribe/', views.tuab_subscribe, name='tuab_subscribe'),
     
     # --- Admin ---

@@ -99,7 +99,7 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
         if instance.status != UserAccountStatus.ACTIVE:
             return Response(
                 {"detail": "Only active users can be edited."},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_409_CONFLICT
             )
 
         if_match = request.headers.get('If-Match')
@@ -171,10 +171,10 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
                 return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
             if target_user.role != UserRole.TUAB:
-                return Response({"detail": "Only TUAB users can be reviewed via this endpoint."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"detail": "Only TUAB users can be reviewed via this endpoint."}, status=status.HTTP_409_CONFLICT)
 
             if target_user.status != UserAccountStatus.UNDER_REVIEW:
-                return Response({"detail": "Only TUAB users under review can be reviewed."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"detail": "Only TUAB users under review can be reviewed."}, status=status.HTTP_409_CONFLICT)
 
             if status_input == UserAccountStatus.REJECTED:
                 target_user.status = UserAccountStatus.REJECTED

@@ -1,0 +1,780 @@
+{% extends 'frontend/base.html' %}
+
+{% block content %}
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@600&family=Poppins:wght@400;600;700&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root {
+      --tuab: #e8a020;
+      --tuab-dark: #c8881a;
+      --bg: #f5f4f0;
+      --brd: #e0dbd4;
+      --lt: #fdf6e8;
+    }
+
+    .tuab-view-shell,
+    .tuab-view-shell * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: Poppins, sans-serif;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .layout {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+      width: 100%;
+    }
+
+    .left {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .right {
+      width: 340px;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 768px) {
+      .layout {
+        flex-direction: column;
+      }
+
+      .left,
+      .right {
+        width: 100%;
+      }
+    }
+
+    .card,
+    .panel {
+      background: #fff;
+      border: 1.5px solid var(--brd);
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 14px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .06);
+    }
+
+    .row,
+    .time {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    @media (max-width: 768px) {
+
+      .row,
+      .time {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .up {
+      font-size: 10px;
+      font-weight: 400;
+      color: #888;
+      text-transform: uppercase;
+    }
+
+    .sub {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--tuab);
+      color: #fff;
+      font-size: 13px;
+      font-family: 'Lato', sans-serif;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .in,
+    .sel {
+      width: 100%;
+      height: 44px;
+      border: 1.5px solid #d5d5d5;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 14px;
+      outline: none;
+    }
+
+    .in {
+      background: #faf8f5;
+    }
+
+    .sel {
+      appearance: none;
+      background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23e8a020' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpolyline points='6,9 12,15 18,9'/%3E%3C/svg%3E") no-repeat right 12px center;
+      padding-right: 34px;
+    }
+
+    .in:focus,
+    .sel:focus {
+      border-color: var(--tuab);
+    }
+
+    .drow {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding: 2px 0;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .lbl {
+      color: #8f8f8f;
+    }
+
+    .val {
+      font-weight: 500;
+      text-align: right;
+      max-width: 58%;
+      color: #222;
+    }
+
+    .sep {
+      border-top: 1px solid #f0ede8;
+      margin-top: 14px;
+      padding-top: 14px;
+    }
+
+    .sep-line {
+      border-top: 1px solid #f0ede8;
+      margin: 14px 0;
+    }
+
+    .delivery-wrap {
+      margin-bottom: 14px;
+    }
+
+    .btn {
+      width: 100%;
+      border: none;
+      border-radius: 30px;
+      padding: 12px;
+      color: #fff;
+      font: 600 14px Poppins, sans-serif;
+      cursor: pointer;
+    }
+
+    .btn-tuab {
+      background: var(--tuab);
+    }
+
+    .btn-tuab:hover {
+      background: var(--tuab-dark);
+    }
+
+    .pin-wrap {
+      position: relative;
+    }
+
+    .pin-wrap .in {
+      padding-right: 40px;
+    }
+
+    .pin {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: none;
+      background: none;
+      color: var(--tuab);
+      cursor: pointer;
+    }
+
+    .ac {
+      position: relative;
+    }
+
+    .ac-list {
+      position: absolute;
+      z-index: 60;
+      top: 100%;
+      left: 0;
+      width: 100%;
+      max-height: 180px;
+      overflow: auto;
+      background: #fff;
+      border: 1.5px solid var(--brd);
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, .1);
+    }
+
+    .ac-item {
+      padding: 10px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      border-bottom: 1px solid #f5f5f5;
+    }
+
+    .ac-item:hover {
+      background: var(--lt);
+    }
+
+    .upload-photo {
+      width: 100%;
+      max-height: 180px;
+      object-fit: cover;
+      border-radius: 10px;
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+    }
+
+    .modal-box {
+      background: #f3f3f3;
+      border-radius: 16px;
+      overflow: hidden;
+      width: min(640px, 95vw);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, .22);
+    }
+
+    .map-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 14px 16px 10px;
+      background: #f3f3f3;
+    }
+
+    .map-head-left {
+      min-width: 0;
+    }
+
+    .map-title {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 24px;
+      color: var(--tuab);
+    }
+
+    .map-title-text {
+      font: 400 24px Poppins, sans-serif;
+      color: #1f1f1f;
+      line-height: 1.1;
+    }
+
+    .map-caption {
+      margin-top: 4px;
+      font: 400 12px Poppins, sans-serif;
+      color: #7a7a7a;
+    }
+
+    .map-close {
+      border: none;
+      background: none;
+      color: #333;
+      cursor: pointer;
+      line-height: 1;
+      padding: 2px;
+    }
+
+    .map-close svg {
+      display: block;
+    }
+
+    #picker-map {
+      width: 100%;
+      height: 300px;
+      border-radius: 8px;
+    }
+
+    .map-actions {
+      display: flex;
+      justify-content: center;
+      padding: 12px 16px 16px;
+      background: #f3f3f3;
+    }
+
+    .map-confirm {
+      width: min(220px, 100%);
+      margin: 0;
+      border: none;
+      border-radius: 30px;
+      padding: 12px;
+      color: #fff;
+      font: 600 14px Poppins, sans-serif;
+      cursor: pointer;
+      background: var(--tuab);
+    }
+
+    .confirm-card {
+      background: #fff;
+      border-radius: 22px;
+      width: min(430px, 94vw);
+      box-shadow: 0 18px 44px rgba(0, 0, 0, .18);
+      padding: 26px 22px 22px;
+    }
+
+    .confirm-title {
+      font: 400 14px Poppins, sans-serif;
+      color: #6d6d6d;
+      margin-bottom: 20px;
+    }
+
+    .confirm-copy {
+      font: 400 13px/1.45 Poppins, sans-serif;
+      color: #555;
+      margin-bottom: 18px;
+    }
+
+    .confirm-row {
+      margin-bottom: 4px;
+    }
+
+    .confirm-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .confirm-btn {
+      border: none;
+      border-radius: 999px;
+      padding: 11px 18px;
+      font: 400 14px Poppins, sans-serif;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, .12);
+    }
+
+    .confirm-btn.cancel {
+      background: #fde9bf;
+      color: #de8f00;
+    }
+
+    .confirm-btn.submit {
+      background: #3f965f;
+      color: #fff;
+    }
+  </style>
+  <div class="tuab-view-shell">
+  <form id="claim-form" method="post" action="{% url 'tuab_view_donation' donation.donation_id %}">
+    {% csrf_token %}
+    <input type="hidden" name="status" value="CLAIMED">
+    <input type="hidden" name="donation_id" value="{{ donation.donation_id }}">
+    <input type="hidden" id="delivery-method" name="delivery_method" value="">
+    <input type="hidden" id="preferred-date" value="{{ donation.preferred_pickup_date|date:'Y-m-d' }}">
+    <input type="hidden" id="current-etag" name="current_etag" value="{{ current_etag|default:'' }}">
+    <input type="hidden" id="quotation-token" name="quotation_token" value="">
+    <input type="hidden" id="dropoff-latitude" name="dropoff_latitude"
+      value="{{ donation.dropoff_latitude|default:'' }}">
+    <input type="hidden" id="dropoff-longitude" name="dropoff_longitude"
+      value="{{ donation.dropoff_longitude|default:'' }}">
+
+    <div class="layout">
+      <div class="left">
+        {% for item in items %}
+        <div class="card">
+          <div class="head">
+            <div class="num">{{ forloop.counter }}</div><span style="font-weight:400;font-size:15px">Clothing {{ forloop.counter }}</span>
+          </div>
+          <div class="row">
+            <div class="group">
+              <label class="up">Clothing</label>
+              <input class="in" value="{{ item.lookup.clothing_type|default:'' }}" readonly>
+            </div>
+            <div class="group">
+              <label class="up">Estimated Weight (kg)</label>
+              <input class="in" value="{{ item.weight_kg|default:'' }}" readonly>
+            </div>
+          </div>
+          <div class="group" style="margin-bottom:14px">
+            <label class="up">Condition</label>
+            <input class="in condition-val" value="{{ item.condition_rating|default:'' }}" readonly>
+          </div>
+          <div class="row" style="margin-bottom:0">
+            <div class="group">
+              <label class="up">Brand</label>
+              <input class="in" value="{{ item.lookup.brand|default:'' }}" readonly>
+            </div>
+            <div class="group">
+              <label class="up">Material</label>
+              <input class="in" value="{{ item.lookup.fiber_json|default:'Will be approximated' }}" readonly>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="right">
+        <div class="panel">
+          <div class="drow"><span class="lbl">Donor</span><span class="val">{{ donation.user_id.first_name|default:'' }} {{ donation.user_id.last_name|default:'' }}</span></div>
+          <div class="drow"><span class="lbl">Status</span><span class="val">{{ donation.status|default:'Pending' }}</span></div>
+          <div class="drow"><span class="lbl">Is Flagged</span><span class="val">{{ donation.is_flagged|default:'False' }}</span></div>
+          <div class="drow"><span class="lbl">Flag Reason</span><span class="val">{{ donation.flag_reason|default:'-' }}</span></div>
+          <div class="drow"><span class="lbl">Submitted At</span><span class="val">{{ donation.submitted_at|default:'-' }}</span></div>
+          <div class="drow"><span class="lbl">Updated At</span><span class="val">{{ donation.updated_at|default:'-' }}</span></div>
+          <div class="drow"><span class="lbl">Auto Archive At</span><span class="val">{{ donation.auto_archive_at|default:'-' }}</span></div>
+          <div class="drow"><span class="lbl">Pickup Address</span><span class="val">{{ donation.pickup_display_address|default:donation.pickup_address|default:'-' }}</span></div>
+          <div class="drow"><span class="lbl">Pickup Preferred Date</span><span class="val">{{ donation.preferred_pickup_date|date:"n-j-Y" }}</span></div>
+          <div class="drow"><span class="lbl">Pickup Preferred Pickup Window</span><span class="val">{{ donation.preferred_pickup_window_start|default:"-" }} - {{ donation.preferred_pickup_window_end|default:"-" }}</span></div>
+
+          <div class="sep"></div>
+          <img src="{{ donation.upload_id.file_path|default:'' }}"
+            class="upload-photo{% if not donation.upload_id.file_path %} hidden{% endif %}" alt="Donation">
+          <div class="{% if donation.upload_id.file_path %}hidden{% endif %}"
+            style="font-size:12px;color:#999;margin-top:6px">No donation image uploaded.</div>
+          <div class="sep-line"></div>
+
+          <button type="button" class="btn btn-tuab" style="margin-bottom:12px" onclick="submitPickupClaim()">Claim
+            for Pick-Up</button>
+
+          <div class="sub">Delivery Location</div>
+          <div class="delivery-wrap">
+            <div class="ac">
+              <div class="pin-wrap">
+                <input id="dropoff-display-address" class="in" name="dropoff_display_address"
+                  value="{{ donation.dropoff_display_address|default:'' }}" placeholder="Drop-off display address"
+                  oninput="nominatimSearch(this.value)">
+                <button type="button" class="pin" onclick="openPicker()" aria-label="Pick on map">
+                  <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                </button>
+              </div>
+              <div id="dropoff-ac" class="ac-list hidden"></div>
+            </div>
+          </div>
+
+          <div class="group" style="margin-bottom:14px">
+            <label class="up">Scheduled Time</label>
+            <input
+              id="delivery-scheduled-time"
+              class="in"
+              type="time"
+              value="{{ donation.preferred_pickup_window_start|time:'H:i' }}"
+              min="{{ donation.preferred_pickup_window_start|time:'H:i' }}"
+              max="{{ donation.preferred_pickup_window_end|time:'H:i' }}"
+            >
+          </div>
+
+          <button type="button" class="btn btn-tuab" onclick="submitDeliveryClaim()">Claim for Delivery</button>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <div id="map-modal" class="modal hidden">
+    <div class="modal-box">
+      <div class="map-head">
+        <div class="map-head-left">
+          <div class="map-title">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            <span class="map-title-text">Pick on Map</span>
+          </div>
+          <div class="map-caption">Click anywhere or drag the marker to set your pickup location.</div>
+        </div>
+        <button type="button" class="map-close" onclick="closeMap()" aria-label="Close map">
+          <svg width="34" height="34" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div id="picker-map"></div>
+      <div class="map-actions">
+        <button type="button" class="map-confirm" onclick="confirmMap()">Confirm Location</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="delivery-confirm-modal" class="modal hidden">
+    <div class="confirm-card">
+      <div class="confirm-title">Confirm Delivery?</div>
+      <div id="delivery-confirm-copy" class="confirm-copy"></div>
+      <div class="confirm-actions">
+        <button type="button" class="confirm-btn cancel" onclick="closeDeliveryConfirm()">Cancel</button>
+        <button type="button" class="confirm-btn submit" onclick="confirmDeliveryClaim()">Continue</button>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <script>
+    // --- 1. Data & Utils ---
+    const getEl = id => document.getElementById(id);
+    const quotationUrl = '{% url "tuab_quotation_proxy" donation.donation_id %}';
+    const csrfToken = document.querySelector('#claim-form [name=csrfmiddlewaretoken]').value;
+    const userLatRaw = '{{ users.latitude|default:"" }}';
+    const userLngRaw = '{{ users.longitude|default:"" }}';
+    const defaultLat = Number.isFinite(parseFloat(userLatRaw)) ? parseFloat(userLatRaw) : 14.589;
+    const defaultLng = Number.isFinite(parseFloat(userLngRaw)) ? parseFloat(userLngRaw) : 120.9822;
+    if (getEl('dropoff-latitude').value) getEl('dropoff-latitude').value = (+getEl('dropoff-latitude').value).toFixed(7);
+    if (getEl('dropoff-longitude').value) getEl('dropoff-longitude').value = (+getEl('dropoff-longitude').value).toFixed(7);
+
+    function responseMessage(data, fallback) {
+      if (typeof data?.detail === 'string') return data.detail;
+      if (Array.isArray(data?.detail)) return data.detail.join(', ');
+      if (data?.detail?.errors?.length) {
+        return data.detail.errors.map((item) => item.message || item.detail || JSON.stringify(item)).join(', ');
+      }
+      if (typeof data?.error === 'string') return data.error;
+      if (data && typeof data === 'object') {
+        const firstValue = Object.values(data)[0];
+        if (typeof firstValue === 'string') return firstValue;
+        if (Array.isArray(firstValue)) return firstValue.join(', ');
+        if (firstValue && typeof firstValue === 'object') return JSON.stringify(firstValue);
+      }
+      return fallback;
+    }
+
+    function showFlash(message, type = 'error') {
+      let container = document.querySelector('.wf-flash-messages');
+      if (!container) {
+        container = document.createElement('div');
+        container.className = 'wf-flash-messages';
+        document.querySelector('.wf-content').prepend(container);
+      }
+      const alert = document.createElement('div');
+      alert.className = `wf-alert ${type}`;
+      alert.textContent = message;
+      container.prepend(alert);
+      setTimeout(() => {
+        alert.style.opacity = '0';
+        setTimeout(() => alert.remove(), 400);
+      }, 5000);
+    }
+
+    function clearFlashes() {
+      const container = document.querySelector('.wf-flash-messages');
+      if (container) container.innerHTML = '';
+    }
+
+    async function postJson(url, payload) {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken,
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: JSON.stringify(payload),
+      });
+      const text = await response.text();
+      let data = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { detail: text || 'Unexpected response from server.' };
+      }
+      return { response, data };
+    }
+
+    // --- 2. Autocomplete Logic ---
+    let acRes = [];
+    let acTimer;
+    let pendingDeliveryClaim = null;
+
+    function selectAutocomplete(i) {
+      const r = acRes[i];
+      if (!r) return;
+      getEl('dropoff-display-address').value = r.display_name || '';
+      getEl('dropoff-latitude').value = r.lat ? (+r.lat).toFixed(7) : '';
+      getEl('dropoff-longitude').value = r.lon ? (+r.lon).toFixed(7) : '';
+      getEl('dropoff-ac').classList.add('hidden');
+    }
+
+    function nominatimSearch(v) {
+      const list = getEl('dropoff-ac');
+      if (!v || v.length < 3) return list.classList.add('hidden');
+      clearTimeout(acTimer);
+      acTimer = setTimeout(async () => {
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(v + ', Philippines')}&limit=5&countrycodes=ph`);
+          acRes = await res.json();
+          list.innerHTML = acRes.length
+            ? acRes.map((r, i) => `<div class="ac-item" onmousedown="selectAutocomplete(${i})">${r.display_name}</div>`).join('')
+            : '<div class="ac-item">No results</div>';
+          list.classList.remove('hidden');
+        } catch {
+          list.classList.add('hidden');
+        }
+      }, 350);
+    }
+
+    // --- 3. Map Picker Logic ---
+    let map;
+    let marker;
+    let tmpLat = parseFloat(getEl('dropoff-latitude').value) || defaultLat;
+    let tmpLng = parseFloat(getEl('dropoff-longitude').value) || defaultLng;
+
+    function openPicker() {
+      tmpLat = parseFloat(getEl('dropoff-latitude').value) || defaultLat;
+      tmpLng = parseFloat(getEl('dropoff-longitude').value) || defaultLng;
+      getEl('map-modal').classList.remove('hidden');
+
+      setTimeout(() => {
+        if (map) map.remove();
+        map = L.map('picker-map').setView([tmpLat, tmpLng], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        marker = L.marker([tmpLat, tmpLng], { draggable: true }).addTo(map);
+        marker.on('dragend', e => {
+          tmpLat = e.target.getLatLng().lat;
+          tmpLng = e.target.getLatLng().lng;
+        });
+        map.on('click', e => {
+          tmpLat = e.latlng.lat;
+          tmpLng = e.latlng.lng;
+          marker.setLatLng([tmpLat, tmpLng]);
+        });
+      }, 120);
+    }
+
+    function closeMap() {
+      getEl('map-modal').classList.add('hidden');
+      if (!map) return;
+      map.remove();
+      map = null;
+    }
+
+    function closeDeliveryConfirm() {
+      pendingDeliveryClaim = null;
+      getEl('delivery-confirm-modal').classList.add('hidden');
+    }
+
+    function openDeliveryConfirm(totalPrice, scheduleAt, quotationToken) {
+      pendingDeliveryClaim = quotationToken;
+      getEl('delivery-confirm-copy').innerHTML = `
+        <div class="confirm-row">Total Price: ₱ ${totalPrice}</div>
+        <div class="confirm-row">Scheduled at: ${scheduleAt}</div>
+        <div class="confirm-row">Drop off: ${getEl('dropoff-display-address').value.trim()}</div>
+      `;
+      getEl('delivery-confirm-modal').classList.remove('hidden');
+    }
+
+    function confirmDeliveryClaim() {
+      if (!pendingDeliveryClaim) return closeDeliveryConfirm();
+      getEl('delivery-method').value = 'DELIVERY';
+      getEl('quotation-token').value = pendingDeliveryClaim;
+      getEl('delivery-confirm-modal').classList.add('hidden');
+      getEl('claim-form').requestSubmit();
+    }
+
+    async function confirmMap() {
+      getEl('dropoff-latitude').value = Number(tmpLat).toFixed(7);
+      getEl('dropoff-longitude').value = Number(tmpLng).toFixed(7);
+      const lat = getEl('dropoff-latitude').value;
+      const lng = getEl('dropoff-longitude').value;
+
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+        const j = await res.json();
+        getEl('dropoff-display-address').value = j.display_name || `${lat}, ${lng}`;
+      } catch {
+        getEl('dropoff-display-address').value = `${lat}, ${lng}`;
+      }
+      closeMap();
+    }
+
+    // --- 4. Claim Logic ---
+    function submitPickupClaim() {
+      clearFlashes();
+      const currentEtag = getEl('current-etag').value;
+      if (!currentEtag) return showFlash('The current donation version is missing. Refresh the page and try again.');
+      getEl('delivery-method').value = 'PICKUP';
+      getEl('quotation-token').value = '';
+      getEl('claim-form').requestSubmit();
+    }
+
+    async function submitDeliveryClaim() {
+      clearFlashes();
+      const currentEtag = getEl('current-etag').value;
+      if (!currentEtag) return showFlash('The current donation version is missing. Refresh the page and try again.');
+      const addr = (getEl('dropoff-display-address').value || '').trim();
+      const lat = (getEl('dropoff-latitude').value || '').trim();
+      const lng = (getEl('dropoff-longitude').value || '').trim();
+      const scheduledTime = (getEl('delivery-scheduled-time').value || '').trim();
+      if (!addr || !lat || !lng) return showFlash('Please provide complete drop-off location for delivery.');
+      if (!scheduledTime) return showFlash('Please choose a scheduled delivery time within the donation window.');
+
+      const quoteResult = await postJson(quotationUrl, {
+        current_etag: currentEtag,
+        dropoff_address: addr,
+        dropoff_lat: lat,
+        dropoff_lng: lng,
+        scheduled_time: scheduledTime,
+      });
+      if (!quoteResult.response.ok) return showFlash(responseMessage(quoteResult.data, 'Unable to get a delivery quotation.'));
+
+      const quotationToken = quoteResult.data.quotation_token;
+      if (!quotationToken) return showFlash('The quotation response did not include a quotation token.');
+
+      const totalPrice = Number(quoteResult.data.total_price || 0).toFixed(2);
+      const scheduleAt = quoteResult.data.schedule_at || 'the backend-computed pickup schedule';
+      openDeliveryConfirm(totalPrice, scheduleAt, quotationToken);
+    }
+
+    // --- 5. Init ---
+    // Normalize saved coordinates
+    ['dropoff-latitude', 'dropoff-longitude'].forEach(function (id) {
+      if (getEl(id) && getEl(id).value) getEl(id).value = (+getEl(id).value).toFixed(7);
+    });
+
+    document.addEventListener('click', e => {
+      if (!getEl('dropoff-ac').closest('.ac').contains(e.target)) getEl('dropoff-ac').classList.add('hidden');
+      if (e.target === getEl('map-modal')) closeMap();
+      if (e.target === getEl('delivery-confirm-modal')) closeDeliveryConfirm();
+    });
+
+    // --- 6. Standardization: Prettify ENUMs ---
+    document.addEventListener('DOMContentLoaded', function () {
+      document.querySelectorAll('.condition-val').forEach(function (el) {
+        var v = el.value.trim();
+        if (v) {
+          el.value = v.split('_').map(function (w) {
+            return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+          }).join(' ');
+        }
+      });
+    });
+  </script>
+{% endblock %}

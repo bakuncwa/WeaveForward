@@ -58,7 +58,7 @@ def archive_user(*, target_user_id):
 
     if target_user.role == UserRole.ADMIN:
         return {
-            "status_code": 400,
+            "status_code": 409,
             "detail": "Admin users cannot be archived through this endpoint.",
             "changed_donations": [],
             "changed_inventory_ledgers": [],
@@ -67,7 +67,7 @@ def archive_user(*, target_user_id):
 
     if target_user.role not in (UserRole.DONOR, UserRole.TUAB):
         return {
-            "status_code": 400,
+            "status_code": 409,
             "detail": "Only Donor and TUAB users can be archived through this endpoint.",
             "changed_donations": [],
             "changed_inventory_ledgers": [],
@@ -76,7 +76,7 @@ def archive_user(*, target_user_id):
 
     if target_user.status == UserAccountStatus.ARCHIVED:
         return {
-            "status_code": 400,
+            "status_code": 409,
             "detail": "This user is already archived.",
             "changed_donations": [],
             "changed_inventory_ledgers": [],
@@ -105,7 +105,7 @@ def archive_user(*, target_user_id):
         )
         if has_blocking_in_transit_delivery:
             return {
-                "status_code": 400,
+                "status_code": 409,
                 "detail": "Archiving is not allowed while an associated delivery donation is in transit.",
                 "changed_donations": [],
                 "changed_inventory_ledgers": [],
@@ -172,7 +172,7 @@ def archive_user(*, target_user_id):
         )
         if has_blocking_in_transit_delivery:
             return {
-                "status_code": 400,
+                "status_code": 409,
                 "detail": "Archiving is not allowed while an associated delivery donation is in transit.",
                 "changed_donations": [],
                 "changed_inventory_ledgers": [],
