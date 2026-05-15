@@ -75,14 +75,14 @@ def subscribe_user(*, target_user_id, first_name, last_name, card):
 
         if user.status != UserAccountStatus.ACTIVE:
             return {
-                "status_code": 400,
+                "status_code": 409,
                 "detail": "Only active TUAB users can subscribe.",
             }
 
         active_subscriptions = get_active_subscriptions_for_user(user=user)
         if active_subscriptions:
             return {
-                "status_code": 400,
+                "status_code": 409,
                 "detail": "User is already subscribed.",
             }
 
@@ -313,7 +313,7 @@ def unsubscribe_user(*, target_user_id):
 
         if not active_subscriptions:
             return {
-                "status_code": 400,
+                "status_code": 409,
                 "detail": "User does not have an active subscription.",
                 "user_updated": False,
                 "cancelled_subscriptions_count": 0

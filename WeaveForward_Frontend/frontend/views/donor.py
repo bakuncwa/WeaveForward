@@ -170,3 +170,81 @@ def donor_profile(request):
         'user': profile,
         'sidebar_variant': 'donor'
     })
+
+def donor_edit_profile(request):
+    """View to edit the donor's profile. Handles AJAX updates."""
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+    if request.method == 'POST' and is_ajax:
+        # 1. Capture payload
+        payload = request.POST.dict()
+        user_id = payload.get('user_id')
+        submitted_etag = payload.get('current_etag')
+
+        # 2. Extract and format password if present
+        password = payload.get('new_password')
+        confirm_password = payload.get('confirm_password')
+        if password:
+            if password != confirm_password:
+                return JsonResponse({'errors': {'password': ['Passwords do not match.']}}, status=400)
+            payload['password'] = password
+
+        # 3. Format Phone
+        if 'contact_no' in payload and payload['contact_no']:
+            c = payload['contact_no']
+            if c.startswith('0'): payload['contact_no'] = '+63' + c[1:]
+            elif not c.startswith('+63'): payload['contact_no'] = '+63' + c
+
+        # 4. Clean internal/blocked fields
+        for k in ['csrfmiddlewaretoken', 'current_etag', 'confirm_password', 'new_password', 'user_id', 'photo', 'upload']:
+            payload.pop(k, None)
+
+        # 5. Handle File Upload
+        files = {}
+        if 'upload' in request.FILES:
+            files['upload'] = request.FILES['upload']
+
+        # 6. Proxy PATCH to backend
+        headers = {'If-Match': submitted_etag} if submitted_etag else {}
+        try:
+            response = api_call(request, 'PATCH', f'users/{user_id}', data=payload, files=files, headers=headers)
+            if response.status_code == 200:
+                messages.success(request, "Profile updated successfully.")
+                return JsonResponse({'message': 'Success'}, status=200)
+            else:
+                try:
+                    err_data = response.json()
+                except:
+                    err_data = {'detail': 'Unknown backend error.'}
+                
+                if response.status_code == 412:
+                    return JsonResponse({'error': 'The profile was updated by someone else. Please refresh and try again.'}, status=412)
+
+                detail_message = err_data.get('detail') if isinstance(err_data, dict) and isinstance(err_data.get('detail'), str) else None
+                if detail_message:
+                    return JsonResponse({'detail': detail_message}, status=response.status_code)
+
+                return JsonResponse({'errors': format_errors(err_data)}, status=response.status_code)
+        except Exception as e:
+            return JsonResponse({'error': f"System Error: {str(e)}"}, status=503)
+
+    # GET Request: Fetch fresh data and ETag
+    response = api_call(request, 'GET', 'users/me')
+    if response.status_code == 200:
+        profile = response.json()
+        etag = response.headers.get('ETag')
+        
+        # Clean contact number for display (strip +63)
+        contact = profile.get('contact_no', '')
+        if contact and contact.startswith('+63'):
+            profile['contact_no'] = contact[3:]
+    else:
+        messages.error(request, "Unable to fetch latest profile data.")
+        return redirect('donor_profile')
+
+    return render(request, 'frontend/donor/donor_edit_profile.html', {
+        'page_title': 'Edit Profile',
+        'user': profile,
+        'current_etag': etag,
+        'sidebar_variant': 'donor'
+    })

@@ -1,10 +1,10 @@
 import time
 from django.shortcuts import redirect, render
 
-from .services import api_call, apply_backend_auth_cookies, clear_frontend_auth_cookies
+from .services import api_call, apply_backend_auth_cookies, clear_frontend_auth_cookies, BackendUnavailable
 
 
-PROTECTED_PREFIXES = ('/donor/', '/tuab/', '/admin/')
+PROTECTED_PREFIXES = ('/donor/', '/tuab/', '/admin/', '/api/2fa/', '/api/materials/', '/api/donors/')
 GUEST_ONLY_PATHS = {
     '/',
     '/select-role/',
@@ -96,7 +96,11 @@ class TokenRefreshMiddleware:
                 response = self._redirect_for_profile(request.user_profile)
                 return self._finalize_response(request, response)
 
-        response = self.get_response(request)
+        try:
+            response = self.get_response(request)
+        except BackendUnavailable:
+            response = render(request, 'frontend/503.html', status=503)
+            return self._finalize_response(request, response)
 
         # Post-view Kill-Switch: If a view's api_call discovered the user is archived
         # (deleting the session cache), redirect to login immediately instead of

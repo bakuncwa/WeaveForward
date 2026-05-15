@@ -4,6 +4,11 @@ import requests
 from ..constants import BACKEND_BASE_URL
 
 
+class BackendUnavailable(Exception):
+    """Raised when the backend server is unreachable."""
+    pass
+
+
 def api_call(request, method, endpoint, **kwargs):
     """
     Make a backend request using the browser's cookies as the auth source.
@@ -23,7 +28,10 @@ def api_call(request, method, endpoint, **kwargs):
     url = f"{BACKEND_BASE_URL.rstrip('/')}/{endpoint}"
 
     # First Attempt
-    response = requests.request(method, url, **kwargs)
+    try:
+        response = requests.request(method, url, **kwargs)
+    except requests.exceptions.RequestException:
+        raise BackendUnavailable()
 
     # If Unauthorized (Expired Access Token), attempt silent refresh
     # We skip this if the endpoint is already the refresh endpoint to avoid loops.
@@ -33,7 +41,10 @@ def api_call(request, method, endpoint, **kwargs):
             # Update the cookies for the retry attempt
             kwargs['cookies'] = dict(request.COOKIES.items())
             # Second Attempt (Retry)
-            response = requests.request(method, url, **kwargs)
+            try:
+                response = requests.request(method, url, **kwargs)
+            except requests.exceptions.RequestException:
+                raise BackendUnavailable()
             # NOTE: If multiple api_calls in the same request each trigger a refresh,
             # the last one's _pending_refresh_response wins. This is correct because
             # the last refresh always holds the most recent token.

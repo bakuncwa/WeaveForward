@@ -348,6 +348,12 @@
   {% csrf_token %}
   <div class="panel">
 
+    {% if error_message %}
+    <div
+      style="margin-bottom: 16px; padding: 12px 14px; border-radius: 10px; background: #fff2f0; border: 1px solid #f0c9c2; color: #9f3a2d; font-size: 14px;">
+      {{ error_message }}
+    </div>
+    {% endif %}
     {% if errors %}
     <div
       style="margin-bottom: 16px; padding: 12px 14px; border-radius: 10px; background: #fffaf0; border: 1px solid #edd9ab; color: #6d571a; font-size: 14px;">

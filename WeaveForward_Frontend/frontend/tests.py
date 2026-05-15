@@ -413,6 +413,32 @@ class AdminEditDonorViewTest(MiddlewareAuthMixin, TestCase):
         self.assertEqual(mocked_api_call.call_count, 2)
 
     @patch('frontend.views.admin.api_call')
+    def test_conflict_patch_shows_backend_detail_message(self, mocked_api_call):
+        mocked_api_call.side_effect = [
+            make_response(200, self.donor_payload, {'ETag': '"etag-1"'}),
+            make_response(409, {'detail': 'Only active users can be edited.'}),
+        ]
+
+        response = self.client.post(
+            reverse('admin_edit_donor', kwargs={'user_id': 7}),
+            {
+                'current_etag': '"etag-1"',
+                'first_name': 'Updated',
+                'middle_name': 'Santos',
+                'last_name': 'Dela Cruz',
+                'contact_no': '09171234567',
+                'display_address': 'Manila',
+                'latitude': '14.5995120',
+                'longitude': '120.9842220',
+                'password': '',
+                'confirm_password': '',
+            }
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Only active users can be edited.')
+
+    @patch('frontend.views.admin.api_call')
     def test_archived_donor_edit_page_redirects_to_list(self, mocked_api_call):
         archived_payload = dict(self.donor_payload, status='ARCHIVED')
         mocked_api_call.return_value = make_response(
@@ -713,7 +739,7 @@ class AdminApproveTuabPostTest(MiddlewareAuthMixin, TestCase):
 
     @patch('frontend.views.admin.api_call')
     def test_admin_add_tuab_post_handles_backend_error(self, mocked_api_call):
-        mocked_api_call.return_value = make_response(400, {'detail': 'Only TUAB users under review can be approved.'})
+        mocked_api_call.return_value = make_response(409, {'detail': 'Only TUAB users under review can be approved.'})
 
         response = self.client.post(reverse('admin_add_tuab'), {'user_id': 11})
 
@@ -727,3 +753,311 @@ class AdminApproveTuabPostTest(MiddlewareAuthMixin, TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse('donor_browse_businesses'))
+
+
+class TuabDashboardViewTest(MiddlewareAuthMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.auth_profile = {
+            'user_id': 21,
+            'role': 'TUAB',
+            'first_name': 'Mina',
+            'last_name': 'Lopez',
+            'business_name': 'Weave Lab',
+        }
+
+    @patch('frontend.views.tuab.api_call')
+    def test_dashboard_uses_preferred_pickup_date_in_table(self, mocked_api_call):
+        mocked_api_call.side_effect = [
+            make_response(200, {
+                'results': [{
+                    'donation_id': 88,
+                    'donor': {'first_name': 'Juan', 'last_name': 'Dela Cruz'},
+                    'pickup_display_address': '123 Main St, Makati',
+                    'preferred_pickup_date': '2026-05-10T00:00:00Z',
+                    'submitted_at': '2026-05-01T08:30:00Z',
+                    'pickup_latitude': '14.5547000',
+                    'pickup_longitude': '121.0244000',
+                    'items': [{'item_id': 1}],
+                }],
+                'next': None,
+                'count': 1,
+            }),
+            make_response(200, {
+                'results': [],
+                'next': None,
+                'count': 0,
+            }),
+        ]
+
+        response = self.client.get(reverse('tuab_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'May-10-2026')
+        self.assertNotContains(response, 'May-01-2026')
+        self.assertContains(response, 'const DONATIONS = {"available": [{"id": 88')
+
+
+class AdminEditTuabViewTest(MiddlewareAuthMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.tuab_payload = {
+            'user_id': 11,
+            'role': 'TUAB',
+            'business_name': 'Weave Lab',
+            'email': 'weave@example.com',
+            'description': 'Community textile upcycling studio.',
+            'social_link': 'https://example.com/weavelab',
+            'contact_no': '+639171234567',
+            'barangay': 'Pinyahan',
+            'city': 'Quezon City',
+            'display_address': 'V. Luna Road',
+            'latitude': '14.6500000',
+            'longitude': '121.0500000',
+            'status': 'ACTIVE',
+            'operational_status': 'ACTIVE',
+            'is_subscribed': True,
+            'max_active_claims': 5,
+            'target_fibers': 'denim,cotton',
+            'min_biodeg_score': '65.00',
+            'max_distance_km': '10.00',
+            'is_2fa_enabled': True,
+            'upload': 'http://127.0.0.1:8000/media/profile.jpg',
+        }
+
+    @patch('frontend.views.admin.get_fiber_choices')
+    @patch('frontend.views.admin.api_call')
+    def test_conflict_patch_shows_backend_detail_message(self, mocked_api_call, mocked_fibers):
+        mocked_fibers.return_value = ['cotton', 'denim']
+        mocked_api_call.side_effect = [
+            make_response(409, {'detail': 'Only active users can be edited.'}),
+            make_response(200, self.tuab_payload, {'ETag': '"etag-2"'}),
+        ]
+
+        response = self.client.post(
+            reverse('admin_edit_tuab', kwargs={'user_id': 11}),
+            {
+                'current_etag': '"etag-1"',
+                'business_name': 'Weave Lab',
+                'description': 'Updated description',
+                'contact_no': '09171234567',
+                'display_address': 'V. Luna Road',
+                'latitude': '14.6500000',
+                'longitude': '121.0500000',
+                'target_fibers': 'denim,cotton',
+                'max_distance_km': '10.00',
+                'min_biodeg_score': '65.00',
+                'social_link': 'https://example.com/weavelab',
+                'password': '',
+                'confirm_password': '',
+            }
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Only active users can be edited.')
+
+
+class DonorEditProfileViewTest(MiddlewareAuthMixin, TestCase):
+    auth_profile = {
+        'user_id': 7,
+        'role': 'Donor',
+        'first_name': 'Juan',
+        'last_name': 'Dela Cruz',
+    }
+
+    @patch('frontend.views.donor.api_call')
+    def test_conflict_patch_returns_detail_payload(self, mocked_api_call):
+        mocked_api_call.return_value = make_response(409, {'detail': 'Only active users can be edited.'})
+
+        response = self.client.post(
+            reverse('edit_profile'),
+            {
+                'user_id': '7',
+                'current_etag': '"etag-1"',
+                'first_name': 'Juan',
+                'middle_name': 'Santos',
+                'last_name': 'Dela Cruz',
+                'contact_no': '09171234567',
+                'display_address': 'Manila',
+                'latitude': '14.5995120',
+                'longitude': '120.9842220',
+                'new_password': '',
+                'confirm_password': '',
+            },
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()['detail'], 'Only active users can be edited.')
+
+
+class TuabDonationDetailViewTest(MiddlewareAuthMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.auth_profile = {
+            'user_id': 21,
+            'role': 'TUAB',
+            'first_name': 'Mina',
+            'last_name': 'Lopez',
+            'business_name': 'Weave Lab',
+            'display_address': '123 TUAB Street, Quezon City',
+            'latitude': '14.6500000',
+            'longitude': '121.0500000',
+        }
+        self.donation_payload = {
+            'donation_id': 88,
+            'status': 'PENDING',
+            'donor': {
+                'user_id': 9,
+                'first_name': 'Juan',
+                'last_name': 'Dela Cruz',
+                'contact_no': '+639171234567',
+                'upload': 'http://127.0.0.1:8000/media/donor.jpg',
+            },
+            'claimed_by_tuab': None,
+            'pickup_display_address': '123 Main St, Makati',
+            'pickup_latitude': '14.554700000000000',
+            'pickup_longitude': '121.024400000000000',
+            'preferred_pickup_date': '2026-05-10T00:00:00Z',
+            'preferred_pickup_window_start': '09:00:00',
+            'preferred_pickup_window_end': '12:00:00',
+            'submitted_at': '2026-05-01T08:30:00Z',
+            'updated_at': '2026-05-01T08:30:00Z',
+            'upload': 'http://127.0.0.1:8000/media/donation.jpg',
+            'items': [
+                {
+                    'item_id': 1,
+                    'condition_rating': 'GOOD',
+                    'weight_kg': '1.500',
+                    'lookup_details': {
+                        'clothing_type': 'Shirt',
+                        'brand': 'Brand A',
+                        'fiber_json': '{"cotton": 100}',
+                        'category': 'tops',
+                    },
+                }
+            ],
+        }
+
+    @patch('frontend.views.tuab.api_call')
+    def test_tuab_view_donation_renders_real_donation_payload(self, mocked_api_call):
+        mocked_api_call.return_value = make_response(200, self.donation_payload, {'ETag': '"etag-88"'})
+
+        response = self.client.get(reverse('tuab_view_donation', kwargs={'donation_id': 88}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'value="88"')
+        self.assertContains(response, 'Juan Dela Cruz')
+        self.assertContains(response, '123 Main St, Makati')
+        self.assertContains(response, 'Shirt')
+        self.assertContains(response, 'submitPickupClaim()')
+        self.assertContains(response, 'submitDeliveryClaim()')
+        self.assertContains(response, 'name="csrfmiddlewaretoken"')
+        self.assertContains(response, 'Delivery Location')
+        self.assertContains(response, 'Scheduled Time')
+
+    @patch('frontend.views.tuab.api_call')
+    def test_tuab_view_donation_proxies_quotation_request(self, mocked_api_call):
+        mocked_api_call.return_value = make_response(200, {
+            'total_price': 375.5,
+            'quotationId': 'Q-123',
+            'stopId_1': 'S1',
+            'stopId_2': 'S2',
+            'schedule_at': '2026-05-10 09:00:00',
+            'expires_at': 2000000000,
+            'quotation_token': 'token.sig',
+        })
+
+        response = self.client.post(
+            reverse('tuab_quotation_proxy', kwargs={'donation_id': 88}),
+            data=json.dumps({
+                'current_etag': '"etag-88"',
+                'dropoff_address': '123 TUAB Street, Quezon City',
+                'dropoff_lat': '14.6500000',
+                'dropoff_lng': '121.0500000',
+                'scheduled_time': '10:30',
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['quotationId'], 'Q-123')
+        self.assertEqual(mocked_api_call.call_args.args[1:], ('POST', 'donations/88/quotation'))
+        self.assertEqual(mocked_api_call.call_args.kwargs['headers']['If-Match'], '"etag-88"')
+        self.assertEqual(mocked_api_call.call_args.kwargs['json']['dropoff_lat'], '14.6500000')
+        self.assertEqual(mocked_api_call.call_args.kwargs['json']['scheduled_time'], '10:30')
+        self.assertNotIn('schedule_at', mocked_api_call.call_args.kwargs['json'])
+
+    @patch('frontend.views.tuab.api_call')
+    def test_tuab_view_donation_proxies_pickup_claim(self, mocked_api_call):
+        mocked_api_call.return_value = make_response(200, {'detail': 'Donation successfully claimed for pickup.'})
+
+        response = self.client.post(
+            reverse('tuab_view_donation', kwargs={'donation_id': 88}),
+            data={
+                'current_etag': '"etag-88"',
+                'delivery_method': 'PICKUP',
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('tuab_dashboard'))
+        self.assertEqual(mocked_api_call.call_args.args[1:], ('POST', 'donations/88/claim'))
+        self.assertEqual(mocked_api_call.call_args.kwargs['json']['delivery_method'], 'PICKUP')
+
+    @patch('frontend.views.tuab.api_call')
+    def test_tuab_view_donation_proxies_delivery_claim_with_token(self, mocked_api_call):
+        mocked_api_call.return_value = make_response(200, {'detail': 'Donation successfully claimed and delivery scheduled.'})
+
+        response = self.client.post(
+            reverse('tuab_view_donation', kwargs={'donation_id': 88}),
+            data={
+                'current_etag': '"etag-88"',
+                'delivery_method': 'DELIVERY',
+                'quotation_token': 'token.sig',
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('tuab_dashboard'))
+        self.assertEqual(mocked_api_call.call_args.args[1:], ('POST', 'donations/88/claim'))
+        self.assertEqual(mocked_api_call.call_args.kwargs['json']['quotation_token'], 'token.sig')
+
+    @patch('frontend.views.tuab.api_call')
+    def test_tuab_view_donation_surfaces_stale_etag(self, mocked_api_call):
+        mocked_api_call.return_value = make_response(412, {'detail': 'ETag does not match the current resource version.'})
+
+        response = self.client.post(
+            reverse('tuab_quotation_proxy', kwargs={'donation_id': 88}),
+            data=json.dumps({
+                'current_etag': '"etag-old"',
+                'dropoff_address': '123 TUAB Street, Quezon City',
+                'dropoff_lat': '14.6500000',
+                'dropoff_lng': '121.0500000',
+                'scheduled_time': '10:30',
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 412)
+        self.assertEqual(response.json()['detail'], 'ETag does not match the current resource version.')
+
+    @patch('frontend.views.tuab.api_call')
+    def test_tuab_quotation_proxy_rejects_non_tuab(self, mocked_api_call):
+        self.auth_profile = {'role': 'Donor', 'first_name': 'Dana'}
+
+        response = self.client.post(
+            reverse('tuab_quotation_proxy', kwargs={'donation_id': 88}),
+            data=json.dumps({
+                'current_etag': '"etag-88"',
+                'dropoff_address': '123 TUAB Street, Quezon City',
+                'dropoff_lat': '14.6500000',
+                'dropoff_lng': '121.0500000',
+                'scheduled_time': '10:30',
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()['detail'], 'Only authenticated TUABs can use this endpoint.')
+        mocked_api_call.assert_not_called()

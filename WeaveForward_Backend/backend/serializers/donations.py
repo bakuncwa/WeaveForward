@@ -11,7 +11,7 @@ from rest_framework import serializers
 
 from ..models import (
     BrandFiberLookup, Donation, DonationItem, Upload, User, 
-    UserAccountStatus, UserRole, DonationStatus, DonationItemConditionRating
+    UserAccountStatus, UserRole, DonationStatus, DonationItemConditionRating, Order
 )
 from ..services.location_service import get_city_and_barangay
 from ..services.upload_service import build_upload_url
@@ -107,6 +107,8 @@ class DonationCreateSerializer(serializers.Serializer):
 
             if pick_date_local.date() < now_local.date():
                 errors['preferred_pickup_date'] = "Pickup date cannot be in the past."
+            elif pick_date_local.date() > (now_local + timedelta(days=29)).date():
+                errors['preferred_pickup_date'] = "Pickup date cannot be more than 29 days into the future."
             elif pick_date_local.date() == now_local.date() and win_start and win_start < now_local.time():
                 errors['preferred_pickup_window_start'] = "Pickup window start time cannot be in the past for today's pickup."
 
@@ -223,3 +225,68 @@ class DonationCreateSerializer(serializers.Serializer):
         )
 
         return donation
+
+class QuotationRequestSerializer(serializers.ModelSerializer):
+    dropoff_address = serializers.CharField(source='dropoff_display_address', max_length=200)
+    dropoff_lat = serializers.DecimalField(source='dropoff_latitude', max_digits=18, decimal_places=15)
+    dropoff_lng = serializers.DecimalField(source='dropoff_longitude', max_digits=18, decimal_places=15)
+    scheduled_time = serializers.TimeField(input_formats=['%H:%M', '%H:%M:%S'])
+
+    class Meta:
+        model = Order
+        fields = ['dropoff_address', 'dropoff_lat', 'dropoff_lng', 'scheduled_time']
+
+    def validate_dropoff_address(self, value):
+        stripped = value.strip()
+        if not stripped:
+            raise serializers.ValidationError("Address cannot be empty or just whitespace.")
+        return stripped
+
+    def validate(self, data):
+        lat = data.get('dropoff_latitude')
+        lng = data.get('dropoff_longitude')
+        scheduled_time = data.get('scheduled_time')
+        donation = self.context.get('donation')
+        
+        # 1. 7-Decimal Precision Enforcement
+        request = self.context.get('request')
+        if request:
+            import re
+            for field in ['dropoff_lat', 'dropoff_lng']:
+                raw_val = request.data.get(field)
+                if raw_val and not re.match(r'^-?\d+\.\d{7}$', str(raw_val)):
+                    raise serializers.ValidationError({field: "Must have exactly 7 decimal places (e.g., 14.1234567)."})
+
+        # 2. NCR Geofencing
+        location_info = get_city_and_barangay(lat, lng)
+        if not location_info:
+            raise serializers.ValidationError({
+                "dropoff_lat": "Delivery address must be within Metro Manila (NCR)."
+            })
+
+        if donation and scheduled_time:
+            window_start = donation.preferred_pickup_window_start
+            window_end = donation.preferred_pickup_window_end
+
+            if scheduled_time < window_start or scheduled_time > window_end:
+                raise serializers.ValidationError({
+                    "scheduled_time": "Scheduled time must be within the donation's preferred pickup window."
+                })
+
+            # --- MANILA-FIRST LOCALIZATION ---
+            # 1. Convert the UTC date to Manila local time
+            # 2. Replace the hours/minutes with the user's selected window
+            scheduled_at = timezone.localtime(donation.preferred_pickup_date).replace(
+                hour=scheduled_time.hour,
+                minute=scheduled_time.minute,
+                second=scheduled_time.second,
+                microsecond=0,
+            )
+            # No need for make_aware, localtime already returned an aware object
+
+            if scheduled_at < timezone.now():
+                raise serializers.ValidationError({
+                    "scheduled_time": "Scheduled time cannot be in the past."
+                })
+            
+        return data

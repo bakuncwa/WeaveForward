@@ -258,24 +258,39 @@ def run_predictions_for_donation(donation_id):
 
     probs = MatchPredictionService._model.predict_proba(df)[:, 1]
     thresh = meta.get("fiber_match_threshold", 85.0) / 100.0
+    
+    # Identify the single highest predicting match
     sorted_indexes = sorted(range(len(pair_data)), key=probs.__getitem__, reverse=True)
-    preds = [
-        MatchPrediction(
-            item_id=pair_data[index][0],
-            tuab_id=pair_data[index][1],
-            is_match=probs[index] >= thresh,
-            match_prob=float(probs[index]),
-            pct_target_fiber=pair_data[index][2],
-            biodeg_target_fiber=pair_data[index][3],
-            distance_km=pair_data[index][4],
-            is_archived_version=False,
-        )
-        for index in sorted_indexes
-    ]
+    
+    if not sorted_indexes:
+        return []
 
-    item_ids = [item["item_id"] for item in items]
-    with transaction.atomic():
-        MatchPrediction.objects.filter(item_id__in=item_ids, is_archived_version=False).update(is_archived_version=True)
-        MatchPrediction.objects.bulk_create(preds, batch_size=2000)
+    best_idx = sorted_indexes[0]
+    best_prob = float(probs[best_idx])
+    
+    # We only proceed if the best match meets the threshold
+    if best_prob < thresh:
+        logger.info(f"No match found for donation {donation_id} above threshold {thresh}")
+        return []
 
-    return preds
+    item_id, tuab_id, pct_fiber, biodeg, dist = pair_data[best_idx]
+    
+    # Create the prediction object in memory only (no persistence as requested)
+    best_match = MatchPrediction(
+        item_id=item_id,
+        tuab_id=tuab_id,
+        is_match=True,
+        match_prob=best_prob,
+        pct_target_fiber=pct_fiber,
+        biodeg_target_fiber=biodeg,
+        distance_km=dist,
+        is_archived_version=False,
+    )
+
+    # Placeholder for Email Notification via Resend
+    # Since we are not persisting, we notify the business directly.
+    # from .email_service import send_match_notification
+    # tuab = User.objects.get(pk=tuab_id)
+    # send_match_notification(to_email=tuab.email, item_id=item_id, prob=best_prob)
+
+    return [best_match]

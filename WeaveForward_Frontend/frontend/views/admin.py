@@ -228,15 +228,18 @@ def admin_edit_donor(request, user_id):
         if response.status_code == 412:
             return redirect(f"/admin/donors/{user_id}/edit/?stale=1")
 
-        response_data = response.json() if response.status_code == 400 else {}
-        detail_message = response_data.get('detail') if isinstance(response_data, dict) else None
+        try:
+            response_data = response.json()
+        except Exception:
+            response_data = {}
+        detail_message = response_data.get('detail') if isinstance(response_data, dict) and isinstance(response_data.get('detail'), str) else None
         return render(request, 'frontend/admin/admin_edit_donor.html', {
             'page_title': 'Edit Donor',
             'user': profile,
             'donor': donor,
             'form_data': raw_data,
             'current_etag': submitted_etag or current_etag,
-            'errors': format_errors(response_data) if response.status_code == 400 and not detail_message else None,
+            'errors': format_errors(response_data) if response.status_code in {400, 409} and not detail_message else None,
             'error_message': detail_message or ("We couldn't verify the donor's latest version. Please try again." if response.status_code == 428 else None),
         })
 
@@ -385,7 +388,11 @@ def admin_edit_tuab(request, user_id):
             messages.error(request, "The profile was updated by someone else. Please refresh and try again.")
             return redirect(request.path)
 
-        response_data = response.json() if response.status_code == 400 else {}
+        try:
+            response_data = response.json()
+        except Exception:
+            response_data = {}
+        detail_message = response_data.get('detail') if isinstance(response_data, dict) and isinstance(response_data.get('detail'), str) else None
         # We need the TUAB data again to re-render the form
         get_res = api_call(request, 'GET', f'users/{user_id}')
         tuab = get_res.json()
@@ -394,7 +401,8 @@ def admin_edit_tuab(request, user_id):
             'page_title': 'Edit TUAB', 
             'user': profile,
             'tuab': tuab, 
-            'errors': format_errors(response_data), 
+            'errors': format_errors(response_data) if response.status_code in {400, 409} and not detail_message else None,
+            'error_message': detail_message or ("We couldn't verify the TUAB's latest version. Please try again." if response.status_code == 428 else None),
             'form_data': raw_data,
             'current_etag': submitted_etag or get_res.headers.get('ETag'),
             'fibers': fibers

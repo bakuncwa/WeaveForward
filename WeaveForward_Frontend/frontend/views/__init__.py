@@ -1,3 +1,4 @@
+import json
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.contrib import messages
@@ -13,8 +14,42 @@ from ..constants import ALLOWED_FIBERS
 
 # Import role-based views for convenience
 from .admin import admin_view_donations, admin_view_donors, admin_view_tuabs, admin_view_tuab, admin_add_donor, admin_add_tuab, admin_view_donor, admin_edit_donor, admin_archive_user_proxy, admin_edit_tuab, admin_add_donation, admin_view_donation
-from .donor import donor_browse_businesses, donor_my_donations, donor_view_donation, donor_view_tuab, donor_create_donation, donor_profile
-from .tuab import tuab_dashboard, tuab_subscribe
+from .donor import donor_browse_businesses, donor_my_donations, donor_view_donation, donor_view_tuab, donor_create_donation, donor_profile, donor_edit_profile
+from .tuab import (
+    tuab_dashboard,
+    tuab_subscribe,
+    tuab_view_donation,
+    tuab_quotation_proxy,
+)
+
+def two_factor_setup_proxy(request):
+    """Proxy to generate 2FA secret for the logged-in user."""
+    try:
+        response = api_call(request, 'POST', 'users/me/2fa/setup')
+        return JsonResponse(response.json(), status=response.status_code)
+    except Exception as e:
+        return JsonResponse({'error': f'Backend service unreachable: {str(e)}'}, status=503)
+
+def two_factor_verify_proxy(request):
+    """Proxy to verify and enable 2FA for the logged-in user."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    try:
+        data = json.loads(request.body)
+        response = api_call(request, 'POST', 'users/me/2fa', json=data)
+        return JsonResponse(response.json(), status=response.status_code)
+    except Exception as e:
+        return JsonResponse({'error': f'Backend service unreachable: {str(e)}'}, status=503)
+
+def two_factor_disable_proxy(request):
+    """Proxy to disable 2FA for the logged-in user."""
+    if request.method != 'POST' and request.method != 'DELETE':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    try:
+        response = api_call(request, 'DELETE', 'users/me/2fa')
+        return JsonResponse(response.json(), status=response.status_code)
+    except Exception as e:
+        return JsonResponse({'error': f'Backend service unreachable: {str(e)}'}, status=503)
 
 def role_select(request):
     return render(request, 'frontend/role_select.html')
@@ -167,7 +202,7 @@ def forgot_password(request):
                 if isinstance(error_msg, list): error_msg = error_msg[0]
                 return render(request, 'frontend/forgot_password.html', {'error': error_msg})
         except Exception:
-            return render(request, 'forgot_password.html', {'error': "Backend service unreachable."})
+            return render(request, 'frontend/forgot_password.html', {'error': "Backend service unreachable."})
     return render(request, 'frontend/forgot_password.html')
 
 def reset_password_confirm(request):

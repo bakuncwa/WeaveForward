@@ -1,0 +1,258 @@
+{% extends 'frontend/base.html' %}
+
+{% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<style>
+    /* ── Design tokens (match navbar.html) ── */
+    :root {
+      --gold:      #e8a020;
+      --gold-dark: #c8881a;
+      --tuab:      #c0410e;
+      --tuab-dark: #a0360c;
+      --bg:        #f5f4f0;
+      --card:      #ffffff;
+      --border:    #e0dbd4;
+      --text:      #222222;
+      --muted:     #888888;
+      --green:     #4a7c59;
+    }
+
+    /* ── Buttons ── */
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: none; cursor: pointer; font-family: 'Poppins', sans-serif; font-weight: 500; transition: all .2s; text-decoration: none; }
+    .btn-tuab  { background: #e8a020;  color: #fff; border-radius: 20px; padding: 6px 16px; font-size: 12px; font-weight: 500; }
+    .btn-tuab:hover { background: #c8881a; }
+    .btn-flag  { background: #fff1d8; color: #e8a020; border: none; border-radius: 20px; padding: 6px 16px; font-size: 12px; font-family: 'Poppins', sans-serif; cursor: pointer; font-weight: 500; }
+
+    /* ── Map ── */
+    #tuab-dash-map { width: 100%; height: 220px; border-radius: 12px; margin-bottom: 20px; z-index: 1; }
+
+    /* ── Table card ── */
+    .dash-card { background: #fff; border-radius: 14px; padding: 20px 24px; margin-bottom: 10px; }
+
+    /* ── Tabs ── */
+    .tab-btn { font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 600; padding: 8px 22px; border: none; border-bottom: 3px solid transparent; background: transparent; color: #e8a020; cursor: pointer; transition: all .2s; }
+    .tab-btn.active { border-bottom-color: #e8a020; }
+
+    /* ── Table ── */
+    .dash-table { width: 100%; border-collapse: collapse; }
+    .dash-table th { font-family: 'Poppins', sans-serif; font-size: 11px; font-weight: 600; color: #1a1a1a; text-align: left; padding: 10px 12px; border-bottom: 1.5px solid #ede8e2; background: #faf8f5; letter-spacing: .4px; }
+    .dash-table td { font-family: 'Poppins', sans-serif; font-size: 13px; color: #333; font-weight: 600; padding: 13px 12px; border-bottom: 1px solid #f0ede8; vertical-align: middle; }
+    .dash-table tr:last-child td { border-bottom: none; }
+    .dash-table tr:hover td { background: #fdf9f5; }
+
+    /* ── Search ── */
+    .search-wrap { position: relative; flex-shrink: 0; }
+    .search-input { padding: 9px 14px 9px 36px; width: 200px; border: 1.5px solid #fff1d8; border-radius: 8px; background: #fff1d8; color: #c0952a; font-family: 'Poppins', sans-serif; font-size: 13px; outline: none; }
+    .search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+
+    /* ── Flag modal ── */
+    .modal-overlay { position: fixed; inset: 0; z-index: 9500; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.45); }
+    .modal-box { background: #fff; border-radius: 16px; padding: 28px 32px; width: 420px; max-width: 95vw; box-shadow: 0 24px 80px rgba(0,0,0,.25); }
+    .modal-input { width: 100%; border: 1.5px solid #e0dbd4; border-radius: 8px; padding: 10px 14px; font-family: 'Poppins', sans-serif; font-size: 14px; outline: none; margin-bottom: 16px; }
+    .modal-input:focus { border-color: #e8a020; }
+    .hidden { display: none !important; }
+
+    /* ── Table scroll wrapper (mobile) ── */
+    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+    /* ── Pagination ── */
+    .pagination-wrap { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 20px; font-family: 'Poppins', sans-serif; }
+    .btn-page { padding: 6px 16px; border: 1.5px solid var(--border); background: #fff; border-radius: 8px; color: var(--text); font-size: 13px; font-weight: 500; cursor: pointer; text-decoration: none; transition: all 0.2s; }
+    .btn-page:hover:not(.disabled) { border-color: #e8a020; color: #e8a020; }
+    .btn-page.disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+
+    @media (max-width: 768px) {
+      .dash-card { padding: 14px 14px; }
+      .tab-row { flex-wrap: wrap; gap: 8px; }
+      .search-input { width: 160px; }
+      #tuab-dash-map { height: 180px; }
+    }
+</style>
+
+<div class="preview-shell">
+  <div id="tuab-dash-map"></div>
+
+  <div class="dash-card">
+    <div class="tab-row" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px">
+      <div style="display:flex;gap:0;flex-shrink:0">
+        <button class="tab-btn {% if active_tab == 'available' %}active{% endif %}" id="tab-available" onclick="changeTab('available')">Available</button>
+        <button class="tab-btn {% if active_tab == 'claimed' %}active{% endif %}" id="tab-claimed" onclick="changeTab('claimed')">Claimed</button>
+      </div>
+      <div class="search-wrap">
+        <svg class="search-icon" width="15" height="15" fill="none" stroke="#c0952a" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="search-input" id="dash-search" placeholder="Search Donation ID..." value="{{ search_query }}" onkeypress="if(event.key === 'Enter') filterTable()"/>
+      </div>
+    </div>
+
+    <div class="table-scroll">
+      <div id="dash-table-wrap"></div>
+    </div>
+    
+    <div style="display:flex; justify-content: space-between; align-items: center; margin-top: 12px;">
+        <div id="dash-table-count" style="font-family:'Poppins',sans-serif;font-size:12px;color:#aaa;"></div>
+        
+        <!-- Pagination Controls -->
+        <div class="pagination-wrap">
+            <a href="#" id="prev-btn" class="btn-page">Previous</a>
+            <span id="page-indicator" style="font-size: 13px; font-weight: 600;">Page 1</span>
+            <a href="#" id="next-btn" class="btn-page">Next</a>
+        </div>
+    </div>
+  </div>
+</div>
+
+<div id="flag-modal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div style="font-family:'Poppins',sans-serif;font-size:15px;font-weight:600;margin-bottom:14px;color:#1a1a1a">Enter reason for flagging</div>
+    <input id="flag-reason-input" class="modal-input" placeholder="Type reason here..."/>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="closeFlagModal()" style="border-radius:30px;padding:9px 24px;font-size:14px;background:#fef7ea;border:1.5px solid #f5d898;color:#888;font-family:'Poppins',sans-serif;cursor:pointer">Cancel</button>
+      <button onclick="submitFlag()" style="border-radius:30px;padding:9px 24px;font-size:14px;background:var(--tuab);border:none;color:#fff;font-family:'Poppins',sans-serif;cursor:pointer;font-weight:500">Submit</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const DONATIONS = {{ donations_json|safe }};
+  const META = {
+      available: { current: {{ avail_meta.current }}, has_next: {% if avail_meta.has_next %}true{% else %}false{% endif %}, has_prev: {% if avail_meta.has_prev %}true{% else %}false{% endif %}, total: {{ avail_meta.count|default:0 }} },
+      claimed: { current: {{ claimed_meta.current }}, has_next: {% if claimed_meta.has_next %}true{% else %}false{% endif %}, has_prev: {% if claimed_meta.has_prev %}true{% else %}false{% endif %}, total: {{ claimed_meta.count|default:0 }} }
+  };
+
+  let activeTab = "{{ active_tab }}";
+  let searchQuery = "{{ search_query }}";
+  let flagTarget = null;
+
+  function renderTable(list, tab) {
+    if (!list.length) return `<p style="font-family:'Poppins',sans-serif;color:#bbb;padding:20px 0">No donations found on this page.</p>`;
+    
+    return `<table class="dash-table"><thead><tr>
+      <th>Donation id</th><th>Donor</th><th>Address</th><th>Preferred pick-up date</th><th>Items</th><th>ACTIONS</th>
+    </tr></thead><tbody>
+    ${list.map(d => `<tr>
+      <td>${d.id}</td>
+      <td>${d.donor}</td>
+      <td style="max-width:160px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.address}</td>
+      <td style="white-space:nowrap">${d.pickupDate}</td>
+      <td>${d.items}</td>
+      <td><div style="display:flex;gap:6px">
+        ${tab === 'available'
+          ? `<a href="/tuab/donations/${d.id}/" class="btn btn-tuab">Manage</a>`
+          : `<button type="button" class="btn btn-tuab" style="opacity:.55;cursor:not-allowed" disabled>Manage</button>`
+        }
+        <button class="btn-flag" onclick="openFlagModal('${d.id}','${tab}')">Flag</button>
+      </div></td>
+    </tr>`).join('')}
+    </tbody></table>`;
+  }
+
+  function updatePagination() {
+      const meta = META[activeTab];
+      const prevBtn = document.getElementById('prev-btn');
+      const nextBtn = document.getElementById('next-btn');
+      const indicator = document.getElementById('page-indicator');
+      
+      indicator.textContent = `Page ${meta.current}`;
+      
+      // Update Previous Button
+      if (meta.has_prev) {
+          prevBtn.classList.remove('disabled');
+          prevBtn.href = getPaginationUrl(activeTab, meta.current - 1);
+      } else {
+          prevBtn.classList.add('disabled');
+          prevBtn.href = "#";
+      }
+      
+      // Update Next Button
+      if (meta.has_next) {
+          nextBtn.classList.remove('disabled');
+          nextBtn.href = getPaginationUrl(activeTab, meta.current + 1);
+      } else {
+          nextBtn.classList.add('disabled');
+          nextBtn.href = "#";
+      }
+  }
+
+  function getPaginationUrl(tab, newPage) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tab);
+      if (searchQuery) url.searchParams.set('q', searchQuery);
+      
+      if (tab === 'available') {
+          url.searchParams.set('avail_page', newPage);
+          url.searchParams.set('claimed_page', META.claimed.current);
+      } else {
+          url.searchParams.set('claimed_page', newPage);
+          url.searchParams.set('avail_page', META.available.current);
+      }
+      return url.toString();
+  }
+
+  function changeTab(tab) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tab);
+      if (searchQuery) url.searchParams.set('q', searchQuery);
+      window.location.href = url.toString();
+  }
+
+  function setTab(tab) {
+    activeTab = tab;
+    document.getElementById('tab-available').classList.toggle('active', tab === 'available');
+    document.getElementById('tab-claimed').classList.toggle('active', tab === 'claimed');
+    const list = DONATIONS[tab];
+    const meta = META[tab];
+    
+    document.getElementById('dash-table-wrap').innerHTML = renderTable(list, tab);
+    document.getElementById('dash-table-count').textContent = `Showing ${list.length} items (Total: ${meta.total})`;
+    
+    updatePagination();
+  }
+
+  function filterTable() {
+    const q = document.getElementById('dash-search').value.trim();
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', activeTab);
+    if (q) {
+        url.searchParams.set('q', q);
+    } else {
+        url.searchParams.delete('q');
+    }
+    // Reset pages on search
+    url.searchParams.set('avail_page', 1);
+    url.searchParams.set('claimed_page', 1);
+    window.location.href = url.toString();
+  }
+
+  function openFlagModal(id, tab) {
+    flagTarget = { id, tab };
+    document.getElementById('flag-reason-input').value = '';
+    document.getElementById('flag-modal').classList.remove('hidden');
+  }
+  function closeFlagModal() {
+    document.getElementById('flag-modal').classList.add('hidden');
+    flagTarget = null;
+  }
+  function submitFlag() {
+    alert('Flagging ' + flagTarget.id + ' for: ' + document.getElementById('flag-reason-input').value);
+    closeFlagModal();
+  }
+
+  window.addEventListener('load', () => {
+    const map = L.map('tuab-dash-map', { zoomControl: true, scrollWheelZoom: false }).setView([14.5820, 121.0100], 11);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors' }).addTo(map);
+    
+    [...DONATIONS.available, ...DONATIONS.claimed].forEach(d => {
+      if (d.lat && d.lng) {
+        L.marker([d.lat, d.lng]).addTo(map).bindPopup(`<b>${d.donor}</b><br>${d.address}`);
+      }
+    });
+    setTab(activeTab);
+  });
+
+  document.addEventListener('click', e => {
+    if (e.target === document.getElementById('flag-modal')) closeFlagModal();
+  });
+</script>
+{% endblock %}

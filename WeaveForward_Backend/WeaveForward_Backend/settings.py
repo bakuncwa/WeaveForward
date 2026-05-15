@@ -115,6 +115,8 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://127.0.0.1:8001")
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 CATALOG_CSV_PATH = os.getenv("CATALOG_CSV_PATH", "backend/data/webscraped_data/webscraped_catalog_archive.csv")
+LALAMOVE_API_KEY = os.getenv("LALAMOVE_API_KEY")
+LALAMOVE_API_SECRET = os.getenv("LALAMOVE_API_SECRET")
 
 MAYA_SANDBOX_BASE_URL = os.getenv("MAYA_SANDBOX_BASE_URL", "https://pg-sandbox.paymaya.com/payments/v1")
 

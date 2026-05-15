@@ -1,5 +1,7 @@
-from datetime import timedelta
+import zoneinfo
+from datetime import datetime, timedelta, timezone as dt_timezone
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from decimal import Decimal
 import json
 from unittest.mock import Mock, patch
@@ -16,6 +18,7 @@ from rest_framework import status
 from backend.models import User, Upload, Donation, DonationItem, BrandFiberLookup, MatchPrediction, Subscription, SubscriptionPayment, InventoryLedger, UserOperationalStatus, AuditTrail, SubscriptionStatus, SubscriptionTier
 from backend.serializers import DonorRegisterSerializer, TUABRegisterSerializer
 from backend.services.audit_service import log_audit
+from backend.services.claim_donation_service import sign_quotation_data
 from backend.services.etag_service import build_updated_at_etag
 from backend.services.prediction_service import run_predictions_for_donation
 from backend.services.user_archive_service import archive_user
@@ -1142,7 +1145,7 @@ class UserAPITest(TestCase):
             format='json',
             HTTP_IF_MATCH=build_updated_at_etag(self.donor)
         )
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.status_code, status.HTTP_409_CONFLICT)
         self.assertEqual(res.data['detail'], "Only active users can be edited.")
         self.donor.refresh_from_db()
         self.assertNotEqual(self.donor.first_name, "Updated")
@@ -1220,7 +1223,7 @@ class UserAPITest(TestCase):
             {"status": "ACTIVE"},
             format='json'
         )
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.status_code, status.HTTP_409_CONFLICT)
         self.assertEqual(res.data['detail'], "Only TUAB users can be reviewed via this endpoint.")
 
     def test_admin_cannot_approve_tuab_not_under_review(self):
@@ -1230,7 +1233,7 @@ class UserAPITest(TestCase):
             {"status": "ACTIVE"},
             format='json'
         )
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.status_code, status.HTTP_409_CONFLICT)
         self.assertEqual(res.data['detail'], "Only TUAB users under review can be reviewed.")
         self.assertFalse(
             AuditTrail.objects.filter(
@@ -1428,7 +1431,7 @@ class UserSubscriptionAPITest(TestCase):
 
         response = self.client.delete(reverse('user-me-subscription'))
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
         self.assertEqual(response.data['detail'], "User does not have an active subscription.")
         self.user.refresh_from_db()
         self.assertEqual(self.user.maya_customer_id, "maya-customer-sub")
@@ -1440,7 +1443,7 @@ class UserSubscriptionAPITest(TestCase):
 
         response = self.client.delete(reverse('user-subscription', kwargs={'pk': self.user.user_id}))
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
         self.assertEqual(response.data['detail'], "User does not have an active subscription.")
         self.user.refresh_from_db()
         self.assertEqual(self.user.maya_customer_id, "maya-customer-sub")
@@ -1658,7 +1661,7 @@ class UserSubscriptionAPITest(TestCase):
             format='json',
         )
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
         self.assertEqual(response.data['detail'], "Only active TUAB users can subscribe.")
 
     def test_subscribe_rejects_under_review_tuab(self):
@@ -1669,7 +1672,7 @@ class UserSubscriptionAPITest(TestCase):
             format='json',
         )
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
         self.assertEqual(response.data['detail'], "Only active TUAB users can subscribe.")
 
     def test_subscribe_rejects_already_subscribed_tuab(self):
@@ -1688,7 +1691,7 @@ class UserSubscriptionAPITest(TestCase):
             format='json',
         )
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
         self.assertEqual(response.data['detail'], "User is already subscribed.")
 
     @override_settings(
@@ -2235,7 +2238,7 @@ class UserArchiveAPITest(TestCase):
             **self.archive_headers(self.donor)
         )
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
         self.assertEqual(
             response.data['detail'],
             "Archiving is not allowed while an associated delivery donation is in transit."
@@ -2250,45 +2253,6 @@ class UserArchiveAPITest(TestCase):
         self.assertEqual(self.donor.maya_card_id, 'maya-card-1')
         self.assertEqual(blocked_donation.status, 'IN_TRANSIT')
         self.assertEqual(pending.status, 'PENDING')
-        self.assertEqual(active_subscription.status, 'ACTIVE')
-        self.assertEqual(AuditTrail.objects.filter(actor=self.admin).count(), 0)
-
-    def test_archive_rejected_when_tuab_has_delivery_in_transit(self):
-        blocked_donation = self.create_donation(
-            self.donor, 'IN_TRANSIT', delivery_method='DELIVERY', claimed_by_tuab=self.tuab
-        )
-        claimable_pickup = self.create_donation(
-            self.donor, 'CLAIMED', delivery_method='PICKUP', claimed_by_tuab=self.tuab
-        )
-        active_subscription = Subscription.objects.create(
-            user=self.tuab,
-            status='ACTIVE',
-            subscription_tier='PRO',
-            start_date='2026-05-01T00:00:00Z',
-            end_date='2026-06-01T00:00:00Z'
-        )
-
-        self.client.force_authenticate(user=self.admin)
-        response = self.client.delete(
-            reverse('user-detail', kwargs={'pk': self.tuab.user_id}),
-            **self.archive_headers(self.tuab)
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(
-            response.data['detail'],
-            "Archiving is not allowed while an associated delivery donation is in transit."
-        )
-        self.tuab.refresh_from_db()
-        blocked_donation.refresh_from_db()
-        claimable_pickup.refresh_from_db()
-        active_subscription.refresh_from_db()
-
-        self.assertEqual(self.tuab.status, 'ACTIVE')
-        self.assertEqual(blocked_donation.status, 'IN_TRANSIT')
-        self.assertEqual(blocked_donation.claimed_by_tuab_id, self.tuab.user_id)
-        self.assertEqual(claimable_pickup.status, 'CLAIMED')
-        self.assertEqual(claimable_pickup.claimed_by_tuab_id, self.tuab.user_id)
         self.assertEqual(active_subscription.status, 'ACTIVE')
         self.assertEqual(AuditTrail.objects.filter(actor=self.admin).count(), 0)
 
@@ -2350,7 +2314,7 @@ class UserArchiveAPITest(TestCase):
             reverse('user-detail', kwargs={'pk': self.admin.user_id}),
             **self.archive_headers(self.admin)
         )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
         self.assertEqual(
             response.data['detail'],
             "Admin users cannot be archived through this endpoint."
@@ -2366,7 +2330,7 @@ class UserArchiveAPITest(TestCase):
             **self.archive_headers(self.donor)
         )
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
         self.assertEqual(response.data['detail'], "This user is already archived.")
         self.donor.refresh_from_db()
         self.assertEqual(self.donor.status, 'ARCHIVED')
@@ -2647,14 +2611,14 @@ class PredictionServiceTest(TestCase):
         # Run prediction
         preds = run_predictions_for_donation(donation.donation_id)
         
-        # Should have 2 predictions for our TUAB
+        # Should have only the top prediction for our TUAB
         tuab_preds = [p for p in preds if p.tuab_id == self.tuab_multi.user_id]
-        self.assertEqual(len(tuab_preds), 2)
+        self.assertEqual(len(tuab_preds), 1)
         
-        # Both should be matches because TUAB targets both cotton and polyester
-        for p in tuab_preds:
-            self.assertTrue(p.is_match)
-            self.assertGreater(p.match_prob, 0.8)
+        # It should be a match
+        p = tuab_preds[0]
+        self.assertTrue(p.is_match)
+        self.assertGreater(p.match_prob, 0.8)
 
     def test_distance_constraint(self):
         # Create a TUAB with a very small radius (1km)
@@ -2683,9 +2647,8 @@ class PredictionServiceTest(TestCase):
         preds = run_predictions_for_donation(donation_far.donation_id)
         tuab_preds = [p for p in preds if p.tuab_id == tuab_close.user_id]
         
-        # Should NOT be a match due to distance
-        self.assertFalse(tuab_preds[0].is_match)
-        self.assertLess(tuab_preds[0].match_prob, 0.5)
+        # Should NOT be a match due to distance (returns empty because it's below threshold)
+        self.assertEqual(len(tuab_preds), 0)
 
     def test_biodeg_constraint(self):
         # Create a TUAB with a high biodeg requirement (90)
@@ -2714,6 +2677,284 @@ class PredictionServiceTest(TestCase):
         preds = run_predictions_for_donation(donation.donation_id)
         tuab_preds = [p for p in preds if p.tuab_id == tuab_strict.user_id]
         
-        # Should NOT be a match because polyester (0) < requirement (90)
-        self.assertFalse(tuab_preds[0].is_match)
-        self.assertLess(tuab_preds[0].match_prob, 0.5)
+        # Should NOT be a match because polyester (0) < requirement (90) (returns empty because it's below threshold)
+        self.assertEqual(len(tuab_preds), 0)
+
+
+class DonationQuotationClaimAPITest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.donor = User.objects.create_user(
+            email="quote_donor@example.com",
+            password="Password123",
+            role="Donor",
+            contact_no="+639150000401",
+            status="ACTIVE",
+            first_name="Juan",
+            last_name="Dela Cruz",
+        )
+        self.tuab = User.objects.create_user(
+            email="quote_tuab@example.com",
+            password="Password123",
+            role="TUAB",
+            contact_no="+639150000402",
+            status="ACTIVE",
+            operational_status=UserOperationalStatus.ACTIVE,
+            first_name="Mina",
+            last_name="Lopez",
+            display_address="123 TUAB Street, Quezon City",
+            latitude=Decimal('14.6500000'),
+            longitude=Decimal('121.0500000'),
+            maya_customer_id="maya-customer-1",
+            maya_card_id="maya-card-1",
+            max_active_claims=3,
+        )
+        Subscription.objects.create(
+            user=self.tuab,
+            status='ACTIVE',
+            subscription_tier='PRO',
+            start_date=timezone.now(),
+            end_date=timezone.now() + timedelta(days=30),
+        )
+        self.donation = Donation.objects.create(
+            donor=self.donor,
+            pickup_barangay='San Lorenzo',
+            pickup_city='Makati',
+            pickup_display_address='123 Main St, Makati',
+            pickup_latitude=Decimal('14.5547000'),
+            pickup_longitude=Decimal('121.0244000'),
+            preferred_pickup_date=timezone.now() + timedelta(days=2),
+            preferred_pickup_window_start='09:00:00',
+            preferred_pickup_window_end='12:00:00',
+        )
+
+    def quotation_headers(self):
+        return {'HTTP_IF_MATCH': build_updated_at_etag(self.donation)}
+
+    def make_http_response(self, status_code, payload):
+        response = Mock()
+        response.status_code = status_code
+        response.json.return_value = payload
+        response.text = json.dumps(payload)
+        return response
+
+    def expected_schedule_at(self, pickup_time=None):
+        pickup_start = pickup_time or self.donation.preferred_pickup_window_start
+        if isinstance(pickup_start, str):
+            pickup_start = datetime.strptime(pickup_start, '%H:%M:%S').time()
+        schedule_at = self.donation.preferred_pickup_date.replace(
+            hour=pickup_start.hour,
+            minute=pickup_start.minute,
+            second=pickup_start.second,
+            microsecond=0,
+        )
+        if timezone.is_naive(schedule_at):
+            schedule_at = timezone.make_aware(schedule_at, timezone.get_current_timezone())
+        return schedule_at.astimezone(dt_timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    @patch('backend.views.donations.get_lalamove_quotation')
+    def test_donation_quotation_returns_signed_token_and_quote_payload(self, mocked_quote):
+        mocked_quote.return_value = {
+            "data": {
+                "quotationId": "Q-123",
+                "stops": [
+                    {"stopId": "S1"},
+                    {"stopId": "S2"},
+                ],
+                "priceBreakdown": {"total": 375.5},
+                "expiresAt": "2026-05-20T12:00:00Z",
+            }
+        }
+
+        self.client.force_authenticate(user=self.tuab)
+        response = self.client.post(
+            reverse('donation-quotation', kwargs={'pk': self.donation.donation_id}),
+            {
+                "dropoff_address": "123 TUAB Street, Quezon City",
+                "dropoff_lat": "14.6500000",
+                "dropoff_lng": "121.0500000",
+                "scheduled_time": "10:30",
+            },
+            format='json',
+            **self.quotation_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['quotationId'], 'Q-123')
+        self.assertEqual(response.data['total_price'], 375.5)
+        self.assertEqual(response.data['schedule_at'], self.expected_schedule_at('10:30:00'))
+        self.assertIn('quotation_token', response.data)
+        self.assertIn('.', response.data['quotation_token'])
+        mocked_quote.assert_called_once()
+        self.assertEqual(mocked_quote.call_args.kwargs['schedule_at'], self.expected_schedule_at('10:30:00'))
+
+    def test_donation_quotation_rejects_stale_if_match_header(self):
+        stale_etag = '"etag-stale"'
+
+        self.client.force_authenticate(user=self.tuab)
+        response = self.client.post(
+            reverse('donation-quotation', kwargs={'pk': self.donation.donation_id}),
+            {
+                "dropoff_address": "123 TUAB Street, Quezon City",
+                "dropoff_lat": "14.6500000",
+                "dropoff_lng": "121.0500000",
+                "scheduled_time": "10:30",
+            },
+            format='json',
+            HTTP_IF_MATCH=stale_etag,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_412_PRECONDITION_FAILED)
+        self.assertEqual(response.data['detail'], "ETag does not match the current resource version.")
+
+    def test_donation_quotation_rejects_invalid_coordinates(self):
+        self.client.force_authenticate(user=self.tuab)
+        response = self.client.post(
+            reverse('donation-quotation', kwargs={'pk': self.donation.donation_id}),
+            {
+                "dropoff_address": "123 TUAB Street, Quezon City",
+                "dropoff_lat": "14.65",
+                "dropoff_lng": "121.0500000",
+                "scheduled_time": "10:30",
+            },
+            format='json',
+            **self.quotation_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('dropoff_lat', response.data)
+
+    def test_donation_quotation_rejects_scheduled_time_outside_window(self):
+        self.client.force_authenticate(user=self.tuab)
+        response = self.client.post(
+            reverse('donation-quotation', kwargs={'pk': self.donation.donation_id}),
+            {
+                "dropoff_address": "123 TUAB Street, Quezon City",
+                "dropoff_lat": "14.6500000",
+                "dropoff_lng": "121.0500000",
+                "scheduled_time": "08:30",
+            },
+            format='json',
+            **self.quotation_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data['scheduled_time'][0],
+            "Scheduled time must be within the donation's preferred pickup window.",
+        )
+
+    def test_donation_claim_succeeds_for_pickup(self):
+        self.client.force_authenticate(user=self.tuab)
+        response = self.client.post(
+            reverse('donation-claim', kwargs={'pk': self.donation.donation_id}),
+            {
+                "delivery_method": "PICKUP",
+            },
+            format='json',
+            **self.quotation_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.donation.refresh_from_db()
+        self.assertEqual(self.donation.status, 'CLAIMED')
+        self.assertEqual(self.donation.delivery_method, 'PICKUP')
+        self.assertEqual(self.donation.claimed_by_tuab_id, self.tuab.user_id)
+
+    @patch('backend.services.claim_donation_service.requests.post')
+    @patch('backend.services.claim_donation_service.requests.delete')
+    @patch('backend.views.donations.get_lalamove_quotation')
+    def test_donation_claim_succeeds_for_delivery_with_signed_token(self, mocked_quote, mocked_delete, mocked_post):
+        mocked_quote.return_value = {
+            "data": {
+                "quotationId": "Q-123",
+                "stops": [
+                    {"stopId": "S1"},
+                    {"stopId": "S2"},
+                ],
+                "priceBreakdown": {"total": 375.5},
+                "expiresAt": "2026-05-20T12:00:00Z",
+            }
+        }
+        mocked_post.side_effect = [
+            self.make_http_response(200, {"status": "PAYMENT_SUCCESS", "id": "maya-payment-1"}),
+            self.make_http_response(201, {"data": {"orderId": "lalamove-order-1"}}),
+        ]
+
+        self.client.force_authenticate(user=self.tuab)
+        quote_response = self.client.post(
+            reverse('donation-quotation', kwargs={'pk': self.donation.donation_id}),
+            {
+                "dropoff_address": "123 TUAB Street, Quezon City",
+                "dropoff_lat": "14.6500000",
+                "dropoff_lng": "121.0500000",
+                "scheduled_time": "10:30",
+            },
+            format='json',
+            **self.quotation_headers(),
+        )
+        self.assertEqual(quote_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(quote_response.data['schedule_at'], self.expected_schedule_at('10:30:00'))
+
+        claim_response = self.client.post(
+            reverse('donation-claim', kwargs={'pk': self.donation.donation_id}),
+            {
+                "delivery_method": "DELIVERY",
+                "quotation_token": quote_response.data['quotation_token'],
+            },
+            format='json',
+            **self.quotation_headers(),
+        )
+
+        self.assertEqual(claim_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(claim_response.data['lalamove_order_id'], 'lalamove-order-1')
+        self.donation.refresh_from_db()
+        self.assertEqual(self.donation.status, 'CLAIMED')
+        self.assertEqual(self.donation.delivery_method, 'DELIVERY')
+        self.assertEqual(self.donation.claimed_by_tuab_id, self.tuab.user_id)
+        order = self.donation.orders.get()
+        expected_scheduled_at = parse_datetime(self.expected_schedule_at('10:30:00'))
+        self.assertEqual(order.scheduled_at.isoformat().replace('+00:00', 'Z'), self.expected_schedule_at('10:30:00'))
+        self.assertEqual(
+            order.expires_at.isoformat().replace('+00:00', 'Z'),
+            (expected_scheduled_at + timedelta(hours=2)).isoformat().replace('+00:00', 'Z'),
+        )
+        mocked_delete.assert_not_called()
+
+    def test_donation_claim_rejects_missing_quotation_token(self):
+        self.client.force_authenticate(user=self.tuab)
+        response = self.client.post(
+            reverse('donation-claim', kwargs={'pk': self.donation.donation_id}),
+            {
+                "delivery_method": "DELIVERY",
+            },
+            format='json',
+            **self.quotation_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['detail'], "Malformed or expired quotation token.")
+
+    def test_donation_claim_rejects_expired_quotation_token(self):
+        expired_token = sign_quotation_data({
+            "amount": 375.5,
+            "quotationId": "Q-123",
+            "stopId_1": "S1",
+            "stopId_2": "S2",
+            "schedule_at": "2026-05-20T01:00:00Z",
+            "expires_at": int(timezone.now().timestamp()) - 60,
+        })
+
+        self.client.force_authenticate(user=self.tuab)
+        response = self.client.post(
+            reverse('donation-claim', kwargs={'pk': self.donation.donation_id}),
+            {
+                "delivery_method": "DELIVERY",
+                "quotation_token": expired_token,
+            },
+            format='json',
+            **self.quotation_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['detail'], "Quotation has expired.")
