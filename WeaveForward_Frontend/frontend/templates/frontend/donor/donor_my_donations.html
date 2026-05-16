@@ -104,7 +104,7 @@
           <div class="action-btns">
             <a href="{% url 'donor_view_donation' donation.donation_id %}" class="btn btn-outline">View</a>
             {% if donation.status == 'PENDING' %}
-                <a href="#" class="btn btn-outline">Edit</a>
+                <a href="{% url 'donor_edit_donation' donation.donation_id %}" class="btn btn-outline">Edit</a>
                 <button class="btn btn-outline">Cancel</button>
             {% endif %}
           </div>

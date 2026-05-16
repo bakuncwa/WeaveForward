@@ -16,13 +16,13 @@
       --border:    #e0dbd4;
       --text:      #222222;
       --muted:     #888888;
+      --blue:      #0b77dc;
       --green:     #4a7c59;
     }
 
     /* ── Buttons ── */
     .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: none; cursor: pointer; font-family: 'Poppins', sans-serif; font-weight: 500; transition: all .2s; text-decoration: none; }
     .btn-tuab  { background: #e8a020;  color: #fff; border-radius: 20px; padding: 6px 16px; font-size: 12px; font-weight: 500; }
-    .btn-tuab:hover { background: #c8881a; }
     .btn-flag  { background: #fff1d8; color: #e8a020; border: none; border-radius: 20px; padding: 6px 16px; font-size: 12px; font-family: 'Poppins', sans-serif; cursor: pointer; font-weight: 500; }
 
     /* ── Map ── */
@@ -40,7 +40,14 @@
     .dash-table th { font-family: 'Poppins', sans-serif; font-size: 11px; font-weight: 600; color: #1a1a1a; text-align: left; padding: 10px 12px; border-bottom: 1.5px solid #ede8e2; background: #faf8f5; letter-spacing: .4px; }
     .dash-table td { font-family: 'Poppins', sans-serif; font-size: 13px; color: #333; font-weight: 600; padding: 13px 12px; border-bottom: 1px solid #f0ede8; vertical-align: middle; }
     .dash-table tr:last-child td { border-bottom: none; }
-    .dash-table tr:hover td { background: #fdf9f5; }
+    .badge { display: inline-block; border-radius: 6px; padding: 4px 12px; font-size: 11px; font-family: 'Poppins', sans-serif; font-weight: 500; color: #fff; white-space: nowrap; }
+    .badge-transit { background: var(--blue); }
+    .badge-pending { background: var(--gold); }
+    .badge-received { background: var(--green); }
+    .badge-claimed { background: #7b61ff; }
+    .badge-rejected { background: #8d8d8d; }
+    .badge-cancelled { background: #8c8c8c; }
+    .badge-archived { background: #c0392b; }
 
     /* ── Search ── */
     .search-wrap { position: relative; flex-shrink: 0; }
@@ -60,7 +67,6 @@
     /* ── Pagination ── */
     .pagination-wrap { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 20px; font-family: 'Poppins', sans-serif; }
     .btn-page { padding: 6px 16px; border: 1.5px solid var(--border); background: #fff; border-radius: 8px; color: var(--text); font-size: 13px; font-weight: 500; cursor: pointer; text-decoration: none; transition: all 0.2s; }
-    .btn-page:hover:not(.disabled) { border-color: #e8a020; color: #e8a020; }
     .btn-page.disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
 
     @media (max-width: 768px) {
@@ -125,23 +131,50 @@
   let searchQuery = "{{ search_query }}";
   let flagTarget = null;
 
+  function getStatusClass(status) {
+    if (status === 'IN_TRANSIT') return 'badge-transit';
+    if (status === 'CLAIMED') return 'badge-claimed';
+    if (status === 'PENDING') return 'badge-pending';
+    if (status === 'RECEIVED') return 'badge-received';
+    if (status === 'REJECTED') return 'badge-rejected';
+    if (status === 'CANCELLED') return 'badge-cancelled';
+    if (status === 'ARCHIVED') return 'badge-archived';
+    return '';
+  }
+
+  function getStatusLabel(status) {
+    if (status === 'IN_TRANSIT') return 'In Transit';
+    if (status === 'CLAIMED') return 'Claimed';
+    if (status === 'PENDING') return 'Pending';
+    if (status === 'RECEIVED') return 'Received';
+    if (status === 'REJECTED') return 'Rejected';
+    if (status === 'CANCELLED') return 'Cancelled';
+    if (status === 'ARCHIVED') return 'Archived';
+    return status || '-';
+  }
+
+  function getDeliveryMethodLabel(deliveryMethod) {
+    if (deliveryMethod === 'PICKUP') return 'Pickup';
+    if (deliveryMethod === 'DELIVERY') return 'Delivery';
+    return deliveryMethod || '-';
+  }
+
   function renderTable(list, tab) {
     if (!list.length) return `<p style="font-family:'Poppins',sans-serif;color:#bbb;padding:20px 0">No donations found on this page.</p>`;
     
     return `<table class="dash-table"><thead><tr>
-      <th>Donation id</th><th>Donor</th><th>Address</th><th>Preferred pick-up date</th><th>Items</th><th>ACTIONS</th>
+      <th>Donation id</th><th>Donor</th><th>Address</th><th>Preferred pick-up date</th><th>Status</th><th>Delivery Method</th><th>Items</th><th>ACTIONS</th>
     </tr></thead><tbody>
     ${list.map(d => `<tr>
       <td>${d.id}</td>
       <td>${d.donor}</td>
       <td style="max-width:160px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.address}</td>
       <td style="white-space:nowrap">${d.pickupDate}</td>
+      <td><span class="badge ${getStatusClass(d.status)}">${getStatusLabel(d.status)}</span></td>
+      <td>${getDeliveryMethodLabel(d.delivery_method)}</td>
       <td>${d.items}</td>
       <td><div style="display:flex;gap:6px">
-        ${tab === 'available'
-          ? `<a href="/tuab/donations/${d.id}/" class="btn btn-tuab">Manage</a>`
-          : `<button type="button" class="btn btn-tuab" style="opacity:.55;cursor:not-allowed" disabled>Manage</button>`
-        }
+        <a href="/tuab/donations/${d.id}/" class="btn btn-tuab">Manage</a>
         <button class="btn-flag" onclick="openFlagModal('${d.id}','${tab}')">Flag</button>
       </div></td>
     </tr>`).join('')}

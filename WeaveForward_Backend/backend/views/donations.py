@@ -8,10 +8,11 @@ from rest_framework.response import Response
 from datetime import timezone as dt_timezone
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from django_filters.rest_framework import DjangoFilterBackend
 from ..utils.view_mixins import PaginatedResponseMixin
 from ..models import Donation, Subscription
-from ..serializers import DonationSerializer, QuotationRequestSerializer
-from ..services.donation_service import create_donation
+from ..serializers import DonationSerializer, QuotationRequestSerializer, DonorDonationUpdateSerializer
+from ..services.donation_service import create_donation, mark_donation_in_transit, donor_update_donation
 from ..services.etag_service import build_updated_at_etag, matches_if_match
 from ..services.lalamove_service import get_lalamove_quotation
 from ..services.claim_donation_service import claim_donation, sign_quotation_data
@@ -22,8 +23,9 @@ from ..services.location_service import get_city_and_barangay
 class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin, PaginatedResponseMixin):
     permission_classes = [IsAuthenticated]
     serializer_class = DonationSerializer
-    filter_backends = [filters.SearchFilter]
-    search_fields = ['donation_id']
+    filter_backends = [filters.SearchFilter, DjangoFilterBackend]
+    filterset_fields = ['status']
+    search_fields = ['=donation_id']
 
 
     def get_queryset(self):
@@ -40,11 +42,14 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
 
     def list(self, request, *args, **kwargs):
         """Main 'Hall of Fame' list - Non-admins only see PENDING."""
-        user = request.user
         queryset = self.get_queryset()
 
-        if user.role != 'Admin':
+        # 1. Security Rule (Hard-coded)
+        if request.user.role != 'Admin':
             queryset = queryset.filter(status='PENDING')
+
+        # 2. Automated Filtering (Handles ?search and ?status from URL)
+        queryset = self.filter_queryset(queryset)
 
         return self.get_paginated_response_data(queryset)
 
@@ -104,6 +109,50 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
         except Exception:
             return Response({"detail": "An unexpected error occurred during donation creation."}, status=500)
 
+    def partial_update(self, request, *args, **kwargs):
+        """Update a donation - Restricted to Donor (PENDING only)."""
+        user = request.user
+        with transaction.atomic():
+            # 0. Fetch with Pessimistic Locking
+            if not (donation := Donation.objects.select_for_update().filter(pk=kwargs.get('pk')).first()): return Response({"detail": "Not found."}, status=404)
+            # 1. ETag Verification (Consistency)
+            if not (if_match := request.headers.get('If-Match')): return Response({"detail": "If-Match header is required."}, status=428)
+            if not matches_if_match(build_updated_at_etag(donation), if_match): return Response({"detail": "ETag mismatch."}, status=412)
+        # 2. Donor Path
+        if user.role == 'Donor':
+            # Identity Check
+            if donation.donor != user: return Response({"detail": "Identity Mismatch: You do not own this donation."}, status=403)
+            # Status-Specific Logic
+            if donation.status == 'PENDING':
+                try:
+                    updated_donation = donor_update_donation(request=request, donation=donation)
+                    serializer = DonationSerializer(updated_donation, context={'request': request})
+                    response = Response(serializer.data)
+                    response['ETag'] = build_updated_at_etag(updated_donation)
+                    return response
+                except (ValueError, serializers.ValidationError) as e:
+                    return Response(e.detail if isinstance(e, serializers.ValidationError) else {"detail": str(e)}, status=400)
+                except Exception as e:
+                    return Response({"detail": f"Internal Update Error: {str(e)}"}, status=500)
+            elif donation.status in ['CLAIMED', 'IN_TRANSIT', 'RECEIVED', 'REJECTED', 'ARCHIVED']:
+                return Response({"detail": f"Modification Forbidden: Donation is in {donation.status} state."}, status=409)
+        # 3. Admin Path
+        if user.role == 'Admin':
+            # 3.1. Editable Statuses (Placeholders)
+            if donation.status == 'PENDING':
+                # TODO: Admin-led correction of pending details
+                return Response({"detail": "Admin Path: Pending donation correction not yet implemented."}, status=501)
+            elif donation.status == 'CLAIMED':
+                # TODO: Admin-led correction of claim details
+                return Response({"detail": "Admin Path: Claimed donation adjustment not yet implemented."}, status=501)
+            elif donation.status == 'IN_TRANSIT':
+                # TODO: Admin-led transit status override
+                return Response({"detail": "Admin Path: Transit status override not yet implemented."}, status=501)
+            # 3.2. Immutable Statuses
+            elif donation.status in ['RECEIVED', 'REJECTED', 'ARCHIVED']:
+                return Response({"detail": f"Admin Restriction: Donations in {donation.status} status are immutable."}, status=409)
+        return Response({"detail": "Global Restriction: Your role is not authorized to perform updates."}, status=403)
+
     @action(detail=True, methods=['post'])
     def quotation(self, request, pk=None):
         """Generates a delivery quotation via Lalamove for PRO TUABs."""
@@ -146,6 +195,19 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
                 "detail": "Quotations can only be generated for donations with status 'PENDING'."
             }, status=409)
 
+        pickup_date_local = timezone.localtime(donation.preferred_pickup_date)
+        window_end = donation.preferred_pickup_window_end
+        window_end_at = pickup_date_local.replace(
+            hour=window_end.hour,
+            minute=window_end.minute,
+            second=window_end.second,
+            microsecond=0,
+        )
+        if timezone.now() > window_end_at:
+            return Response({
+                "detail": "This donation's preferred pickup window has already passed. Delivery can no longer be scheduled."
+            }, status=409)
+
         # 5. Request Validation using Serializer
         serializer = QuotationRequestSerializer(data=request.data, context={'request': request, 'donation': donation})
         serializer.is_valid(raise_exception=True)
@@ -155,9 +217,6 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
         dropoff_lng = "{:.7f}".format(v_data['dropoff_longitude'])
         dropoff_address = v_data['dropoff_display_address']
         scheduled_time = v_data['scheduled_time']
-        # --- MANILA-FIRST LOCALIZATION ---
-        # 1. Convert the UTC date to Manila local time
-        # 2. Replace the hours/minutes with the user's selected window
         schedule_at = timezone.localtime(donation.preferred_pickup_date).replace(
             hour=scheduled_time.hour,
             minute=scheduled_time.minute,
@@ -273,6 +332,23 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
             user=user, 
             donation=donation, 
             claim_params=claim_params,
+            ip_address=ip_address
+        )
+        if result["status_code"] != 200:
+            return Response({"detail": result["detail"]}, status=result["status_code"])
+            
+        return Response(result, status=200)
+
+    @action(detail=True, methods=['post'])
+    def transit(self, request, pk=None):
+        """Marks a donation as in-transit."""
+        donation = self.get_object()
+        user = request.user
+        ip_address = get_client_ip(request)
+        
+        result = mark_donation_in_transit(
+            user=user,
+            donation=donation,
             ip_address=ip_address
         )
         

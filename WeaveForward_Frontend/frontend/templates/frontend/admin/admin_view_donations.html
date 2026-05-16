@@ -155,6 +155,22 @@
     background: var(--green);
   }
 
+  .badge-claimed {
+    background: #7b61ff;
+  }
+
+  .badge-rejected {
+    background: #8d8d8d;
+  }
+
+  .badge-cancelled {
+    background: #8c8c8c;
+  }
+
+  .badge-archived {
+    background: #c0392b;
+  }
+
   .action-btns {
     display: flex;
     flex-direction: column;
@@ -238,10 +254,22 @@
           <td>
             <span class="badge 
                             {% if donation.status == 'IN_TRANSIT' %}badge-transit
+                            {% elif donation.status == 'CLAIMED' %}badge-claimed
                             {% elif donation.status == 'PENDING' %}badge-pending
                             {% elif donation.status == 'RECEIVED' %}badge-received
+                            {% elif donation.status == 'REJECTED' %}badge-rejected
+                            {% elif donation.status == 'CANCELLED' %}badge-cancelled
+                            {% elif donation.status == 'ARCHIVED' %}badge-archived
                             {% endif %}">
-              {{ donation.status }}
+              {% if donation.status == 'IN_TRANSIT' %}In Transit
+              {% elif donation.status == 'CLAIMED' %}Claimed
+              {% elif donation.status == 'PENDING' %}Pending
+              {% elif donation.status == 'RECEIVED' %}Received
+              {% elif donation.status == 'REJECTED' %}Rejected
+              {% elif donation.status == 'CANCELLED' %}Cancelled
+              {% elif donation.status == 'ARCHIVED' %}Archived
+              {% else %}{{ donation.status }}
+              {% endif %}
             </span>
           </td>
           <td>{{ donation.claimed_by_tuab.business_name|default:"-" }}</td>

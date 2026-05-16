@@ -20,6 +20,7 @@ urlpatterns = [
     path('donor/browse-businesses/', views.donor_browse_businesses, name='donor_browse_businesses'),
     path('donor/my-donations/', views.donor_my_donations, name='donor_my_donations'),
     path('donor/my-donations/<int:donation_id>/', views.donor_view_donation, name='donor_view_donation'),
+    path('donor/my-donations/<int:donation_id>/edit/', views.donor_edit_donation, name='donor_edit_donation'),
     path('donor/tuabs/<int:user_id>/', views.donor_view_tuab, name='donor_view_tuab'),
     path('donor/create-donation/', views.donor_create_donation, name='donor_create_donation'),
     path('donor/profile/', views.donor_profile, name='donor_profile'),

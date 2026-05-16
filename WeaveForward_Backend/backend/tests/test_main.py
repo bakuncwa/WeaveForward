@@ -307,7 +307,8 @@ class AuthenticationTest(TestCase):
         self.assertNotIn('access', response.data)
         self.assertNotIn('refresh', response.data)
         self.assertEqual(response.data['role'], "Donor")
-        self.assertEqual(response.data['name'], "John Doe")
+        self.assertNotIn('name', response.data)
+        self.assertNotIn('email', response.data)
         self.assertIn('access_token', response.cookies)
         self.assertIn('refresh_token', response.cookies)
 
@@ -921,7 +922,7 @@ class UserAPITest(TestCase):
         self.assertEqual(self.donor.upload.file_path, 'profile_photos/new-profile.png')
         self.assertEqual(self.donor.upload.name, 'avatar.png')
         self.assertTrue(res.data['upload'].endswith(self.donor.upload.file_path))
-        self.assertIsNone(res.data['documentation'])
+        self.assertNotIn('documentation', res.data)
         self.assertTrue(
             AuditTrail.objects.filter(
                 entity_type='users',
@@ -2742,14 +2743,14 @@ class DonationQuotationClaimAPITest(TestCase):
         pickup_start = pickup_time or self.donation.preferred_pickup_window_start
         if isinstance(pickup_start, str):
             pickup_start = datetime.strptime(pickup_start, '%H:%M:%S').time()
-        schedule_at = self.donation.preferred_pickup_date.replace(
+        
+        # --- MANILA-FIRST LOCALIZATION (MATCHES VIEW LOGIC) ---
+        schedule_at = timezone.localtime(self.donation.preferred_pickup_date).replace(
             hour=pickup_start.hour,
             minute=pickup_start.minute,
             second=pickup_start.second,
             microsecond=0,
         )
-        if timezone.is_naive(schedule_at):
-            schedule_at = timezone.make_aware(schedule_at, timezone.get_current_timezone())
         return schedule_at.astimezone(dt_timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
     @patch('backend.views.donations.get_lalamove_quotation')
@@ -2842,6 +2843,33 @@ class DonationQuotationClaimAPITest(TestCase):
         self.assertEqual(
             response.data['scheduled_time'][0],
             "Scheduled time must be within the donation's preferred pickup window.",
+        )
+
+    def test_donation_quotation_rejects_when_pickup_window_has_already_passed(self):
+        fixed_now = timezone.make_aware(datetime(2026, 5, 20, 13, 0, 0))
+        self.donation.preferred_pickup_date = fixed_now.replace(hour=0, minute=0, second=0, microsecond=0)
+        self.donation.preferred_pickup_window_start = '09:00:00'
+        self.donation.preferred_pickup_window_end = '12:00:00'
+        self.donation.save()
+
+        self.client.force_authenticate(user=self.tuab)
+        with patch('backend.views.donations.timezone.now', return_value=fixed_now):
+            response = self.client.post(
+                reverse('donation-quotation', kwargs={'pk': self.donation.donation_id}),
+                {
+                    "dropoff_address": "123 TUAB Street, Quezon City",
+                    "dropoff_lat": "14.6500000",
+                    "dropoff_lng": "121.0500000",
+                    "scheduled_time": "10:30",
+                },
+                format='json',
+                **self.quotation_headers(),
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(
+            response.data['detail'],
+            "This donation's preferred pickup window has already passed. Delivery can no longer be scheduled.",
         )
 
     def test_donation_claim_succeeds_for_pickup(self):
@@ -2958,3 +2986,4 @@ class DonationQuotationClaimAPITest(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data['detail'], "Quotation has expired.")
+

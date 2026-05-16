@@ -3,9 +3,9 @@ from datetime import datetime
 from django.contrib import messages
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
-from django.utils.dateparse import parse_datetime, parse_time
 
 from ..services import api_call, BackendUnavailable
+
 
 def tuab_dashboard(request):
     """TUAB Dashboard showing available and claimed donations (SSR with Pagination)."""
@@ -75,6 +75,8 @@ def tuab_dashboard(request):
                     'donor': f"{d['donor']['first_name']} {d['donor']['last_name']}",
                     'address': d['pickup_display_address'],
                     'pickupDate': format_date(d['preferred_pickup_date']),
+                    'status': d.get('status', ''),
+                    'delivery_method': d.get('delivery_method', ''),
                     'items': len(d['items']),
                     'lat': float(d['pickup_latitude']),
                     'lng': float(d['pickup_longitude']),
@@ -86,6 +88,8 @@ def tuab_dashboard(request):
                     'donor': f"{d['donor']['first_name']} {d['donor']['last_name']}",
                     'address': d['pickup_display_address'],
                     'pickupDate': format_date(d['preferred_pickup_date']),
+                    'status': d.get('status', ''),
+                    'delivery_method': d.get('delivery_method', ''),
                     'items': len(d['items']),
                     'lat': float(d['pickup_latitude']),
                     'lng': float(d['pickup_longitude']),
@@ -94,10 +98,14 @@ def tuab_dashboard(request):
         })
     })
 
+
 def tuab_view_donation(request, donation_id):
     """TUAB detail page for viewing and claiming a single donation."""
     profile = request.user_profile
 
+    # =========================
+    # POST: Action Submit
+    # =========================
     if request.method == 'POST':
         is_json_request = 'application/json' in (request.content_type or '')
         try:
@@ -106,62 +114,91 @@ def tuab_view_donation(request, donation_id):
             payload = request.POST.dict()
 
         headers = {'If-Match': payload.get('current_etag')} if payload.get('current_etag') else {}
+        action = payload.get('action')
+
         try:
-            response = api_call(
-                request,
-                'POST',
-                f'donations/{donation_id}/claim',
-                json={
-                    'delivery_method': payload.get('delivery_method'),
-                    'quotation_token': payload.get('quotation_token'),
-                },
-                headers=headers,
-            )
+            if action == 'transit':
+                response = api_call(
+                    request,
+                    'POST',
+                    f'donations/{donation_id}/transit',
+                    headers=headers,
+                )
+
+            if action == 'claim' or action is None:
+                response = api_call(
+                    request,
+                    'POST',
+                    f'donations/{donation_id}/claim',
+                    json={
+                        'delivery_method': payload.get('delivery_method'),
+                        'quotation_token': payload.get('quotation_token'),
+                    },
+                    headers=headers,
+                )
+
+            if action not in {'transit', 'claim', None}:
+                response = JsonResponse({'detail': 'Unsupported action.'}, status=400)
         except BackendUnavailable:
             if is_json_request:
                 return JsonResponse({'detail': 'Backend service unreachable.'}, status=503)
             raise
 
         try:
-            data = response.json()
+            data = response.json() if hasattr(response, 'json') else json.loads(response.content)
         except Exception:
             data = {'detail': 'Backend returned an invalid response.'}
 
         if is_json_request:
-            return JsonResponse(data, status=response.status_code, safe=not isinstance(data, list))
+            return JsonResponse(data, status=response.status_code if hasattr(response, 'status_code') else 400, safe=not isinstance(data, list))
 
-        if 200 <= response.status_code < 300:
+        if hasattr(response, 'status_code') and 200 <= response.status_code < 300:
             messages.success(request, data.get('detail') or 'Donation claim submitted successfully.')
             return redirect('tuab_dashboard')
 
         messages.error(request, data.get('detail') or 'Unable to submit the donation claim.')
         return redirect('tuab_view_donation', donation_id=donation_id)
 
+    # =========================
+    # GET: Shared Donation Fetch
+    # =========================
     response = api_call(request, 'GET', f'donations/{donation_id}')
     if response.status_code != 200:
-        messages.error(request, "Donation not found or access denied.")
+        if response.status_code == 403:
+            messages.error(request, "Access denied.")
+        else:
+            messages.error(request, "Donation not found.")
         return redirect('tuab_dashboard')
 
     donation = response.json()
-    for field in ('preferred_pickup_date', 'submitted_at', 'updated_at'):
-        donation[field] = parse_datetime(donation[field])
-    for field in ('preferred_pickup_window_start', 'preferred_pickup_window_end'):
-        donation[field] = parse_time(donation[field])
-
-    # Preserve the existing template contract while using the current backend payload.
-    donation['user_id'] = donation.get('donor') or {}
-    donation['upload_id'] = {'file_path': donation.get('upload') or ''}
-    donation['pickup_address'] = donation.get('pickup_display_address') or donation.get('pickup_address') or ''
-    donation['dropoff_display_address'] = profile.get('display_address', '')
-    donation['dropoff_latitude'] = profile.get('latitude', '')
-    donation['dropoff_longitude'] = profile.get('longitude', '')
-
     items = donation.get('items', [])
-    for item in items:
-        item['lookup'] = item.get('lookup_details') or {}
 
+    # =========================
+    # Show: Special Page for Owned Claimed Donation
+    # =========================
+    if (
+        donation.get('status') == 'CLAIMED'
+        and donation.get('delivery_method') in {'PICKUP', 'DELIVERY'}
+        and (donation.get('claimed_by_tuab') or {}).get('user_id') == profile.get('user_id')
+    ):
+        return render(request, 'frontend/tuabs/tuab_mark_claimed_donation_as_IN_TRANSIT.html', {
+            'page_title': 'View Donation',
+            'sidebar_variant': 'tuab',
+            'user': profile,
+            'users': profile,
+            'donation': donation,
+            'items': items,
+            'current_etag': response.headers.get('ETag', ''),
+            'default_dropoff_address': profile.get('display_address', ''),
+            'default_dropoff_latitude': profile.get('latitude', ''),
+            'default_dropoff_longitude': profile.get('longitude', ''),
+        })
+
+    # =========================
+    # Show: Standard Donation Detail Page
+    # =========================
     return render(request, 'frontend/tuabs/tuab_view_donation.html', {
-        'page_title': f"Donation {donation.get('donation_id')}",
+        'page_title': 'View Donation',
         'sidebar_variant': 'tuab',
         'user': profile,
         'users': profile,

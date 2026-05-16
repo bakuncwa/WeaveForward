@@ -8,7 +8,6 @@ from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from PIL import Image
 from rest_framework import exceptions, serializers
-from rest_framework.validators import UniqueValidator
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.settings import api_settings
 
@@ -25,13 +24,6 @@ from ..services.brand_fiber_lookup_service import get_allowed_fibers
 
 
 class DonorRegisterSerializer(serializers.ModelSerializer):
-    email = serializers.EmailField(validators=[UniqueValidator(queryset=User.objects.all())])
-    password = serializers.CharField(write_only=True)
-    middle_name = serializers.CharField(required=False, allow_blank=True)
-    display_address = serializers.CharField()
-    latitude = serializers.DecimalField(max_digits=10, decimal_places=7)
-    longitude = serializers.DecimalField(max_digits=10, decimal_places=7)
-
     class Meta:
         model = User
         fields = [
@@ -39,6 +31,13 @@ class DonorRegisterSerializer(serializers.ModelSerializer):
             'contact_no', 'password',
             'display_address', 'latitude', 'longitude'
         ]
+        extra_kwargs = {
+            'password': {'write_only': True},
+            'middle_name': {'required': False, 'allow_blank': True},
+            'display_address': {'required': True},
+            'latitude': {'required': True},
+            'longitude': {'required': True},
+        }
 
     def validate(self, data):
         # 1. Password strength
@@ -72,17 +71,7 @@ class DonorRegisterSerializer(serializers.ModelSerializer):
 
 
 class TUABRegisterSerializer(serializers.ModelSerializer):
-    email = serializers.EmailField(validators=[UniqueValidator(queryset=User.objects.all())])
-    password = serializers.CharField(write_only=True)
-    business_name = serializers.CharField()
-    display_address = serializers.CharField()
-    latitude = serializers.DecimalField(max_digits=10, decimal_places=7)
-    longitude = serializers.DecimalField(max_digits=10, decimal_places=7)
-    description = serializers.CharField(required=False)
     social_link = serializers.URLField(required=False)
-    target_fibers = serializers.CharField(required=True)
-    max_distance_km = serializers.DecimalField(max_digits=5, decimal_places=2)
-    min_biodeg_score = serializers.DecimalField(max_digits=5, decimal_places=2)
     documentation = serializers.FileField(required=True)
 
     class Meta:
@@ -92,6 +81,17 @@ class TUABRegisterSerializer(serializers.ModelSerializer):
             'description', 'social_link', 'display_address', 'latitude', 'longitude',
             'target_fibers', 'max_distance_km', 'min_biodeg_score', 'documentation'
         ]
+        extra_kwargs = {
+            'password': {'write_only': True},
+            'business_name': {'required': True},
+            'description': {'required': False},
+            'display_address': {'required': True},
+            'latitude': {'required': True},
+            'longitude': {'required': True},
+            'target_fibers': {'required': True},
+            'max_distance_km': {'required': True},
+            'min_biodeg_score': {'required': True},
+        }
 
     def validate(self, data):
         # 1. Password strength
@@ -176,10 +176,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
-        # Add custom claims
-        token['role'] = user.role
-        token['email'] = user.email
-        token['name'] = user.business_name if user.role == 'TUAB' else f"{user.first_name} {user.last_name}"
         return token
 
     def validate(self, attrs):
@@ -250,8 +246,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Add extra info to the JSON response
         data['user_id'] = self.user.user_id
         data['role'] = self.user.role
-        data['email'] = self.user.email
-        data['name'] = self.user.business_name if self.user.role == 'TUAB' else f"{self.user.first_name} {self.user.last_name}"
         return data
 
 

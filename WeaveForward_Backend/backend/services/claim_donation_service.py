@@ -71,6 +71,12 @@ def claim_donation(user, donation, claim_params, ip_address=None):
         except Exception:
             return {"status_code": 400, "detail": "Malformed or expired quotation token."}
 
+        if order_scheduled_at < timezone.now():
+            return {
+                "status_code": 409,
+                "detail": "The selected delivery schedule is already in the past. Request a new quotation with a later time within the pickup window.",
+            }
+
         if not all([user.maya_customer_id, user.maya_card_id]):
             return {"status_code": 400, "detail": "Payment details are not configured for this user."}
 
