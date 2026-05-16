@@ -141,7 +141,7 @@ class User(AbstractBaseUser):
     last_login      = None  # column dropped; set SIMPLE_JWT["UPDATE_LAST_LOGIN"] = False or logins will crash
 
     user_id            = models.AutoField(primary_key=True)  # set SIMPLE_JWT["USER_ID_FIELD"] = "user_id" and ["USER_ID_CLAIM"] = "user_id" or protected endpoints will 401
-    email              = models.CharField(max_length=100, unique=True)  # set TokenObtainPairSerializer.username_field = "email" or login will reject valid credentials
+    email              = models.EmailField(max_length=100, unique=True)  # set TokenObtainPairSerializer.username_field = "email" or login will reject valid credentials
     password           = models.CharField(max_length=70, db_column="password_hash")
     role               = EnumField(choices=UserRole.choices)
     first_name         = models.CharField(max_length=50,  null=True, default=None)

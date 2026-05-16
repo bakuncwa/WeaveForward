@@ -1,11 +1,13 @@
 import pyotp
-from django.db.models import Exists, OuterRef
+from django.db.models import Exists, OuterRef, F, Func, ExpressionWrapper, FloatField
 from django.db import transaction
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from django_filters.rest_framework import DjangoFilterBackend
 from ..utils.view_mixins import PaginatedResponseMixin
 
 from ..models import Subscription, SubscriptionStatus, User, UserRole, UserAccountStatus, UserOperationalStatus
@@ -22,12 +24,14 @@ from ..services.etag_service import build_updated_at_etag, matches_if_match
 from ..services.two_factor_service import disable_two_factor, enable_two_factor
 from ..services.user_archive_service import archive_user
 from ..services.subscription_service import subscribe_user, unsubscribe_user
-from ..services.location_service import haversine
+
 
 
 
 class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin, PaginatedResponseMixin):
-    filter_backends = [filters.SearchFilter]
+    permission_classes = [IsAuthenticated]
+    filter_backends = [filters.SearchFilter, DjangoFilterBackend]
+    filterset_fields = ['role', 'status']
     search_fields = ['email', 'first_name', 'last_name']
     parser_classes = [JSONParser, FormParser, MultiPartParser]
 
@@ -46,38 +50,42 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
         return (
             User.objects.select_related('upload', 'documentation')
             .annotate(is_subscribed=Exists(active_subscriptions))
-            .order_by('user_id')
+            .order_by('-created_at', '-user_id')
         )
 
     def list(self, request, *args, **kwargs):
-        queryset = self.filter_queryset(self.get_queryset())
+        # 1. Start with the base plan
+        queryset = self.get_queryset()
         
-        # Capture filter params
-        user_lat = request.query_params.get('lat')
-        user_lng = request.query_params.get('lng')
-        category = request.query_params.get('category')
+        # 2. Hard Security Rules (Cannot be bypassed by URL params)
+        if request.user.role != UserRole.ADMIN:
+            queryset = queryset.filter(
+                role=UserRole.TUAB, 
+                status=UserAccountStatus.ACTIVE, 
+                operational_status=UserOperationalStatus.ACTIVE
+            )
 
-        if request.user.is_authenticated and request.user.role == UserRole.ADMIN:
-            role_filter = request.query_params.get('role')
-            status_filter = request.query_params.get('status')
-            if role_filter:
-                queryset = queryset.filter(role=role_filter)
-            if status_filter:
-                queryset = queryset.filter(status=status_filter)
-        else:
-            queryset = queryset.filter(role=UserRole.TUAB, status='ACTIVE', operational_status='ACTIVE')
+        # 3. Automated Filtering (Handles ?search, ?role, and ?status from URL)
+        queryset = self.filter_queryset(queryset)
         
-        if category:
-            queryset = queryset.filter(target_fibers__icontains=category)
+        # 4. Apply Category Filter if present
+        if request.query_params.get('category'):
+            queryset = queryset.filter(target_fibers__icontains=request.query_params.get('category'))
 
-        # Convert queryset to list if we need to calculate distance (DRF pagination handles lists too)
-        results = list(queryset)
+        # 5. Distance Calculation & Sorting (Database Level)
+        if request.query_params.get('lat') and request.query_params.get('lng'):
+            queryset = queryset.annotate(
+                distance_km=ExpressionWrapper(
+                    Func(
+                        Func(F('longitude'), F('latitude'), function='POINT'),
+                        Func(float(request.query_params.get('lng')), float(request.query_params.get('lat')), function='POINT'),
+                        function='ST_Distance_Sphere'
+                    ) / 1000.0,
+                    output_field=FloatField()
+                )
+            ).order_by('distance_km')
 
-        if user_lat and user_lng:
-            for u in results: u.distance_km = haversine(user_lng, user_lat, u.longitude, u.latitude) if (u.latitude and u.longitude) else None
-            results.sort(key=lambda x: x.distance_km if x.distance_km is not None else float('inf'))
-
-        return self.get_paginated_response_data(results)
+        return self.get_paginated_response_data(queryset)
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()

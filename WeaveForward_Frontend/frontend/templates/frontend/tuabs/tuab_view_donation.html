@@ -399,13 +399,13 @@
     <input type="hidden" name="status" value="CLAIMED">
     <input type="hidden" name="donation_id" value="{{ donation.donation_id }}">
     <input type="hidden" id="delivery-method" name="delivery_method" value="">
-    <input type="hidden" id="preferred-date" value="{{ donation.preferred_pickup_date|date:'Y-m-d' }}">
+    <input type="hidden" id="preferred-date" value="{{ donation.preferred_pickup_date|slice:':10' }}">
     <input type="hidden" id="current-etag" name="current_etag" value="{{ current_etag|default:'' }}">
     <input type="hidden" id="quotation-token" name="quotation_token" value="">
     <input type="hidden" id="dropoff-latitude" name="dropoff_latitude"
-      value="{{ donation.dropoff_latitude|default:'' }}">
+      value="{{ default_dropoff_latitude|default:'' }}">
     <input type="hidden" id="dropoff-longitude" name="dropoff_longitude"
-      value="{{ donation.dropoff_longitude|default:'' }}">
+      value="{{ default_dropoff_longitude|default:'' }}">
 
     <div class="layout">
       <div class="left">
@@ -417,7 +417,7 @@
           <div class="row">
             <div class="group">
               <label class="up">Clothing</label>
-              <input class="in" value="{{ item.lookup.clothing_type|default:'' }}" readonly>
+              <input class="in" value="{{ item.lookup_details.clothing_type|default:'' }}" readonly>
             </div>
             <div class="group">
               <label class="up">Estimated Weight (kg)</label>
@@ -431,11 +431,11 @@
           <div class="row" style="margin-bottom:0">
             <div class="group">
               <label class="up">Brand</label>
-              <input class="in" value="{{ item.lookup.brand|default:'' }}" readonly>
+              <input class="in" value="{{ item.lookup_details.brand|default:'' }}" readonly>
             </div>
             <div class="group">
               <label class="up">Material</label>
-              <input class="in" value="{{ item.lookup.fiber_json|default:'Will be approximated' }}" readonly>
+              <input class="in" value="{{ item.lookup_details.fiber_json|default:'Will be approximated' }}" readonly>
             </div>
           </div>
         </div>
@@ -444,21 +444,21 @@
 
       <div class="right">
         <div class="panel">
-          <div class="drow"><span class="lbl">Donor</span><span class="val">{{ donation.user_id.first_name|default:'' }} {{ donation.user_id.last_name|default:'' }}</span></div>
+          <div class="drow"><span class="lbl">Donor</span><span class="val">{{ donation.donor.first_name|default:'' }} {{ donation.donor.last_name|default:'' }}</span></div>
           <div class="drow"><span class="lbl">Status</span><span class="val">{{ donation.status|default:'Pending' }}</span></div>
           <div class="drow"><span class="lbl">Is Flagged</span><span class="val">{{ donation.is_flagged|default:'False' }}</span></div>
           <div class="drow"><span class="lbl">Flag Reason</span><span class="val">{{ donation.flag_reason|default:'-' }}</span></div>
-          <div class="drow"><span class="lbl">Submitted At</span><span class="val">{{ donation.submitted_at|default:'-' }}</span></div>
-          <div class="drow"><span class="lbl">Updated At</span><span class="val">{{ donation.updated_at|default:'-' }}</span></div>
+          <div class="drow"><span class="lbl">Submitted At</span><span class="val">{{ donation.submitted_at|default:'-'|slice:':19' }}</span></div>
+          <div class="drow"><span class="lbl">Updated At</span><span class="val">{{ donation.updated_at|default:'-'|slice:':19' }}</span></div>
           <div class="drow"><span class="lbl">Auto Archive At</span><span class="val">{{ donation.auto_archive_at|default:'-' }}</span></div>
-          <div class="drow"><span class="lbl">Pickup Address</span><span class="val">{{ donation.pickup_display_address|default:donation.pickup_address|default:'-' }}</span></div>
-          <div class="drow"><span class="lbl">Pickup Preferred Date</span><span class="val">{{ donation.preferred_pickup_date|date:"n-j-Y" }}</span></div>
-          <div class="drow"><span class="lbl">Pickup Preferred Pickup Window</span><span class="val">{{ donation.preferred_pickup_window_start|default:"-" }} - {{ donation.preferred_pickup_window_end|default:"-" }}</span></div>
+          <div class="drow"><span class="lbl">Pickup Address</span><span class="val">{{ donation.pickup_display_address|default:'-' }}</span></div>
+          <div class="drow"><span class="lbl">Pickup Preferred Date</span><span class="val">{{ donation.preferred_pickup_date|slice:':10' }}</span></div>
+          <div class="drow"><span class="lbl">Pickup Preferred Pickup Window</span><span class="val">{{ donation.preferred_pickup_window_start|slice:':5'|default:"-" }} - {{ donation.preferred_pickup_window_end|slice:':5'|default:"-" }}</span></div>
 
           <div class="sep"></div>
-          <img src="{{ donation.upload_id.file_path|default:'' }}"
-            class="upload-photo{% if not donation.upload_id.file_path %} hidden{% endif %}" alt="Donation">
-          <div class="{% if donation.upload_id.file_path %}hidden{% endif %}"
+          <img src="{{ donation.upload|default:'' }}"
+            class="upload-photo{% if not donation.upload %} hidden{% endif %}" alt="Donation">
+          <div class="{% if donation.upload %}hidden{% endif %}"
             style="font-size:12px;color:#999;margin-top:6px">No donation image uploaded.</div>
           <div class="sep-line"></div>
 
@@ -470,7 +470,7 @@
             <div class="ac">
               <div class="pin-wrap">
                 <input id="dropoff-display-address" class="in" name="dropoff_display_address"
-                  value="{{ donation.dropoff_display_address|default:'' }}" placeholder="Drop-off display address"
+                  value="{{ default_dropoff_address|default:'' }}" placeholder="Drop-off display address"
                   oninput="nominatimSearch(this.value)">
                 <button type="button" class="pin" onclick="openPicker()" aria-label="Pick on map">
                   <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -489,9 +489,9 @@
               id="delivery-scheduled-time"
               class="in"
               type="time"
-              value="{{ donation.preferred_pickup_window_start|time:'H:i' }}"
-              min="{{ donation.preferred_pickup_window_start|time:'H:i' }}"
-              max="{{ donation.preferred_pickup_window_end|time:'H:i' }}"
+              value="{{ donation.preferred_pickup_window_start|slice:':5' }}"
+              min="{{ donation.preferred_pickup_window_start|slice:':5' }}"
+              max="{{ donation.preferred_pickup_window_end|slice:':5' }}"
             >
           </div>
 

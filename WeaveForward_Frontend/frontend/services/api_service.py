@@ -17,6 +17,8 @@ def api_call(request, method, endpoint, **kwargs):
     headers = kwargs.pop('headers', {})
     method = method.upper()
     csrf_token = request.COOKIES.get('csrftoken')
+    had_access_token = bool(request.COOKIES.get('access_token'))
+    has_refresh_token = bool(request.COOKIES.get('refresh_token'))
 
     if method not in {'GET', 'HEAD', 'OPTIONS', 'TRACE'} and csrf_token and 'X-CSRFToken' not in headers:
         headers['X-CSRFToken'] = csrf_token
@@ -33,9 +35,17 @@ def api_call(request, method, endpoint, **kwargs):
     except requests.exceptions.RequestException:
         raise BackendUnavailable()
 
-    # If Unauthorized (Expired Access Token), attempt silent refresh
-    # We skip this if the endpoint is already the refresh endpoint to avoid loops.
-    if response.status_code == 401 and endpoint != 'token/refresh':
+    # If auth likely failed because the access token expired or is already absent
+    # but a refresh token still exists, attempt a silent refresh. Some backends
+    # return 403 (not 401) when no access cookie is present on a protected page.
+    if (
+        endpoint != 'token/refresh'
+        and has_refresh_token
+        and (
+            response.status_code == 401
+            or (response.status_code == 403 and not had_access_token)
+        )
+    ):
         refresh_res = _attempt_internal_refresh(request)
         if refresh_res and refresh_res.status_code == 200:
             # Update the cookies for the retry attempt
@@ -67,9 +77,16 @@ def _attempt_internal_refresh(request):
         return None
 
     url = f"{BACKEND_BASE_URL.rstrip('/')}/token/refresh"
+    csrf_token = request.COOKIES.get('csrftoken')
     try:
         # Use simple requests here to avoid recursion with api_call
-        res = requests.request('POST', url, cookies={'refresh_token': refresh_token})
+        cookies = {'refresh_token': refresh_token}
+        headers = {}
+        if csrf_token:
+            cookies['csrftoken'] = csrf_token
+            headers['X-CSRFToken'] = csrf_token
+
+        res = requests.request('POST', url, cookies=cookies, headers=headers)
         if res.status_code == 200:
             # Update the request object's cookies so subsequent api_calls in the same request use the new token
             new_access = res.cookies.get('access_token')
@@ -92,7 +109,7 @@ def _attempt_internal_refresh(request):
 
 def apply_backend_auth_cookies(frontend_response, backend_response):
     for backend_cookie in backend_response.cookies:
-        if backend_cookie.name not in ('access_token', 'refresh_token'):
+        if backend_cookie.name not in ('access_token', 'refresh_token', 'csrftoken'):
             continue
 
         max_age = None

@@ -32,7 +32,8 @@ urlpatterns = [
     path('donations/me', views.DonationViewSet.as_view({'get': 'me'}), name='donation-me'),
     path('donations/<int:pk>/quotation', views.DonationViewSet.as_view({'post': 'quotation'}), name='donation-quotation'),
     path('donations/<int:pk>/claim', views.DonationViewSet.as_view({'post': 'claim'}), name='donation-claim'),
-    path('donations/<int:pk>', views.DonationViewSet.as_view({'get': 'retrieve'}), name='donation-detail'),
+    path('donations/<int:pk>/transit', views.DonationViewSet.as_view({'post': 'transit'}), name='donation-transit'),
+    path('donations/<int:pk>', views.DonationViewSet.as_view({'get': 'retrieve', 'patch': 'partial_update'}), name='donation-detail'),
 
     # --- MATERIALS ---
     path('brandfiberlookups', views.BrandFiberLookupViewset.as_view({'get': 'list'}), name='material-list'),

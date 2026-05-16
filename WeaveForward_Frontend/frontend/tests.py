@@ -120,7 +120,7 @@ class AuthViewsTest(TestCase):
         self.client.cookies['access_token'] = make_access_token()
         self.client.cookies['refresh_token'] = 'refresh-cookie'
 
-        response = self.client.get(reverse('logout'))
+        response = self.client.post(reverse('logout'))
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse('login'))
@@ -140,7 +140,7 @@ class AuthViewsTest(TestCase):
         self.client.cookies['access_token'] = make_access_token()
         self.client.cookies['refresh_token'] = 'refresh-cookie'
 
-        response = self.client.get(
+        response = self.client.post(
             reverse('logout'),
             HTTP_REFERER=reverse('donor_browse_businesses')
         )
@@ -151,6 +151,16 @@ class AuthViewsTest(TestCase):
         self.assertNotIn('refresh_token', response.cookies)
         messages = [message.message for message in get_messages(response.wsgi_request)]
         self.assertIn('CSRF Failed: missing or incorrect token.', messages)
+
+    @patch('frontend.views.api_call')
+    def test_logout_get_does_not_call_backend_and_returns_405(self, mocked_api_call):
+        self.client.cookies['access_token'] = make_access_token()
+        self.client.cookies['refresh_token'] = 'refresh-cookie'
+
+        response = self.client.get(reverse('logout'))
+
+        self.assertEqual(response.status_code, 405)
+        mocked_api_call.assert_not_called()
 
     @patch('frontend.services.api_service.requests.request')
     def test_login_get_redirects_valid_authenticated_user(self, mocked_requests):
@@ -238,6 +248,33 @@ class AuthViewsTest(TestCase):
         responses[1].cookies.set('refresh_token', 'rotated-refresh')
         mocked_requests.side_effect = responses
         response = self.client.get(reverse('donor_browse_businesses'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Browse Businesses')
+        self.assertEqual(response.cookies['access_token'].value.count('.'), 2)
+        self.assertEqual(response.cookies['refresh_token'].value, 'rotated-refresh')
+        self.assertEqual(mocked_requests.call_count, 5)
+
+    @patch('frontend.services.api_service.requests.request')
+    def test_protected_page_refreshes_missing_access_after_403_and_renders(self, mocked_requests):
+        self.client.cookies['refresh_token'] = 'refresh-cookie'
+        self.client.cookies['csrftoken'] = 'csrf-cookie'
+        responses = [
+            make_response(403, {'detail': 'Authentication credentials were not provided.'}),
+            make_response(200),
+            make_response(200, {
+                'user_id': 1, 'role': 'Donor', 'email': 'user@example.com', 'name': 'Test User'
+            }),
+            make_response(200, ['Cotton']),
+            make_response(200, {
+                'results': [], 'count': 0, 'total_pages': 1, 'current_page': 1, 'has_next': False, 'has_prev': False, 'search_query': ''
+            }),
+        ]
+        responses[1].cookies.set('access_token', make_access_token())
+        responses[1].cookies.set('refresh_token', 'rotated-refresh')
+        mocked_requests.side_effect = responses
+
+        response = self.client.get(reverse('donor_browse_businesses'))
+
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Browse Businesses')
         self.assertEqual(response.cookies['access_token'].value.count('.'), 2)
@@ -1024,6 +1061,57 @@ class TuabDonationDetailViewTest(MiddlewareAuthMixin, TestCase):
         self.assertEqual(mocked_api_call.call_args.kwargs['json']['quotation_token'], 'token.sig')
 
     @patch('frontend.views.tuab.api_call')
+    def test_tuab_view_donation_renders_mark_in_transit_template_for_owned_claimed_pickup(self, mocked_api_call):
+        payload = dict(self.donation_payload)
+        payload.update({
+            'status': 'CLAIMED',
+            'delivery_method': 'PICKUP',
+            'claimed_by_tuab': {'user_id': 21, 'business_name': 'Weave Lab'},
+        })
+        mocked_api_call.return_value = make_response(200, payload, {'ETag': '"etag-88"'})
+
+        response = self.client.get(reverse('tuab_view_donation', kwargs={'donation_id': 88}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Mark as In-Transit')
+        self.assertContains(response, 'name="action" value="transit"', html=False)
+        self.assertContains(response, 'name="current_etag" value="&quot;etag-88&quot;"', html=False)
+
+    @patch('frontend.views.tuab.api_call')
+    def test_tuab_view_donation_renders_special_template_without_submit_for_owned_claimed_delivery(self, mocked_api_call):
+        payload = dict(self.donation_payload)
+        payload.update({
+            'status': 'CLAIMED',
+            'delivery_method': 'DELIVERY',
+            'claimed_by_tuab': {'user_id': 21, 'business_name': 'Weave Lab'},
+        })
+        mocked_api_call.return_value = make_response(200, payload, {'ETag': '"etag-88"'})
+
+        response = self.client.get(reverse('tuab_view_donation', kwargs={'donation_id': 88}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'name="action" value="transit"', html=False)
+        self.assertNotContains(response, 'type="submit" class="btn btn-tuab"', html=False)
+        self.assertContains(response, 'CLAIMED')
+
+    @patch('frontend.views.tuab.api_call')
+    def test_tuab_view_donation_proxies_transit_action(self, mocked_api_call):
+        mocked_api_call.return_value = make_response(200, {'detail': 'Donation marked as in-transit.'})
+
+        response = self.client.post(
+            reverse('tuab_view_donation', kwargs={'donation_id': 88}),
+            data={
+                'action': 'transit',
+                'current_etag': '"etag-88"',
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('tuab_dashboard'))
+        self.assertEqual(mocked_api_call.call_args.args[1:], ('POST', 'donations/88/transit'))
+        self.assertEqual(mocked_api_call.call_args.kwargs['headers']['If-Match'], '"etag-88"')
+
+    @patch('frontend.views.tuab.api_call')
     def test_tuab_view_donation_surfaces_stale_etag(self, mocked_api_call):
         mocked_api_call.return_value = make_response(412, {'detail': 'ETag does not match the current resource version.'})
 
@@ -1041,6 +1129,26 @@ class TuabDonationDetailViewTest(MiddlewareAuthMixin, TestCase):
 
         self.assertEqual(response.status_code, 412)
         self.assertEqual(response.json()['detail'], 'ETag does not match the current resource version.')
+
+    @patch('frontend.views.tuab.api_call')
+    def test_tuab_view_donation_shows_access_denied_for_403(self, mocked_api_call):
+        mocked_api_call.return_value = make_response(403, {'detail': 'Access denied.'})
+
+        response = self.client.get(reverse('tuab_view_donation', kwargs={'donation_id': 88}), follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        messages = list(response.context['messages'])
+        self.assertTrue(any(str(message) == 'Access denied.' for message in messages))
+
+    @patch('frontend.views.tuab.api_call')
+    def test_tuab_view_donation_shows_not_found_for_404(self, mocked_api_call):
+        mocked_api_call.return_value = make_response(404, {'detail': 'Not found.'})
+
+        response = self.client.get(reverse('tuab_view_donation', kwargs={'donation_id': 88}), follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        messages = list(response.context['messages'])
+        self.assertTrue(any(str(message) == 'Donation not found.' for message in messages))
 
     @patch('frontend.views.tuab.api_call')
     def test_tuab_quotation_proxy_rejects_non_tuab(self, mocked_api_call):
@@ -1061,3 +1169,34 @@ class TuabDonationDetailViewTest(MiddlewareAuthMixin, TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.json()['detail'], 'Only authenticated TUABs can use this endpoint.')
         mocked_api_call.assert_not_called()
+
+
+class DonorDonationDetailViewTest(MiddlewareAuthMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.auth_profile = {
+            'user_id': 11,
+            'role': 'Donor',
+            'first_name': 'Dana',
+            'last_name': 'Cruz',
+        }
+
+    @patch('frontend.views.donor.api_call')
+    def test_donor_view_donation_shows_access_denied_for_403(self, mocked_api_call):
+        mocked_api_call.return_value = make_response(403, {'detail': 'Access denied.'})
+
+        response = self.client.get(reverse('donor_view_donation', kwargs={'donation_id': 88}), follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        messages = list(response.context['messages'])
+        self.assertTrue(any(str(message) == 'Access denied.' for message in messages))
+
+    @patch('frontend.views.donor.api_call')
+    def test_donor_view_donation_shows_not_found_for_404(self, mocked_api_call):
+        mocked_api_call.return_value = make_response(404, {'detail': 'Not found.'})
+
+        response = self.client.get(reverse('donor_view_donation', kwargs={'donation_id': 88}), follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        messages = list(response.context['messages'])
+        self.assertTrue(any(str(message) == 'Donation not found.' for message in messages))

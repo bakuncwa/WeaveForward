@@ -1,0 +1,18 @@
+C:\Users\user\AppData\Local\Programs\Python\Python312\Lib\site-packages\django\core\handlers\base.py:62: UserWarning: No directory at: D:\School\WeaveForward\WeaveForward_Backend\staticfiles\
+  mw_instance = middleware(adapted_handler)
+[16/May/2026 18:10:08] "GET / HTTP/1.1" 404 179
+[16/May/2026 18:10:09] "GET / HTTP/1.1" 404 179
+[16/May/2026 18:10:13] "GET / HTTP/1.1" 404 179
+[16/May/2026 18:10:14] "GET /admin/tuabs/ HTTP/1.1" 302 0
+[16/May/2026 18:10:14] "GET /admin/login/?next=/admin/tuabs/ HTTP/1.1" 200 1579
+[16/May/2026 18:10:14] "GET /static/admin/css/base.css HTTP/1.1" 404 179
+[16/May/2026 18:10:14] "GET /static/admin/css/dark_mode.css HTTP/1.1" 404 179
+[16/May/2026 18:10:14] "GET /static/admin/js/theme.js HTTP/1.1" 404 179
+[16/May/2026 18:10:14] "GET /static/admin/css/nav_sidebar.css HTTP/1.1" 404 179
+[16/May/2026 18:10:14] "GET /static/admin/css/login.css HTTP/1.1" 404 179
+[16/May/2026 18:10:14] "GET /static/admin/css/responsive.css HTTP/1.1" 404 179
+[16/May/2026 18:10:14] "GET /static/admin/css/login.css HTTP/1.1" 404 179
+[16/May/2026 18:10:14] "GET /static/admin/css/nav_sidebar.css HTTP/1.1" 404 179
+[16/May/2026 18:10:14] "GET /static/admin/js/nav_sidebar.js HTTP/1.1" 404 179
+[16/May/2026 18:10:14] "GET /static/admin/css/responsive.css HTTP/1.1" 404 179
+[16/May/2026 18:10:16] "GET / HTTP/1.1" 404 179

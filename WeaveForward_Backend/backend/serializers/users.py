@@ -18,14 +18,14 @@ class UserSerializer(serializers.ModelSerializer):
     """Full user profile serializer."""
     is_subscribed = serializers.SerializerMethodField(read_only=True)
     etag = serializers.SerializerMethodField(read_only=True)
-    latitude = serializers.DecimalField(max_digits=18, decimal_places=7, required=False, allow_null=True)
-    longitude = serializers.DecimalField(max_digits=18, decimal_places=7, required=False, allow_null=True)
+    latitude = serializers.DecimalField(max_digits=9, decimal_places=7, required=False, allow_null=True)
+    longitude = serializers.DecimalField(max_digits=10, decimal_places=7, required=False, allow_null=True)
     upload = serializers.FileField(write_only=True, required=False, allow_null=True)
     password = serializers.CharField(write_only=True, required=False, allow_blank=False)
     distance_km = serializers.FloatField(read_only=True, required=False)
     blocked_patch_fields = {
         'email', 'user_id', 'city', 'barangay', 'role',
-        'maya_customer_id', 'maya_card_id', 'is_2fa_enabled',
+        'is_2fa_enabled',
         'documentation', 'status', 'created_at', 'updated_at'
     }
 
@@ -35,8 +35,8 @@ class UserSerializer(serializers.ModelSerializer):
             'user_id', 'email', 'password', 'role', 'first_name', 'last_name', 'middle_name',
             'business_name', 'description', 'social_link', 'max_active_claims', 'target_fibers',
             'min_biodeg_score', 'max_distance_km', 'operational_status', 'contact_no',
-            'barangay', 'city', 'latitude', 'longitude', 'display_address', 'maya_customer_id',
-            'maya_card_id', 'status', 'is_2fa_enabled', 'is_subscribed', 'upload', 'documentation',
+            'barangay', 'city', 'latitude', 'longitude', 'display_address',
+            'status', 'is_2fa_enabled', 'is_subscribed', 'upload', 'documentation',
             'created_at', 'updated_at', 'etag', 'distance_km'
         ]
 
@@ -209,13 +209,29 @@ class UserSerializer(serializers.ModelSerializer):
         data['upload'] = build_upload_url(instance.upload, self.context)
         data['documentation'] = build_upload_url(instance.documentation, self.context)
         data.pop('password', None)
+
+        # Dynamic role-based field exclusion
+        if instance.role == UserRole.DONOR:
+            donor_removals = [
+                'business_name', 'description', 'social_link', 'max_active_claims', 
+                'target_fibers', 'min_biodeg_score', 'max_distance_km', 
+                'operational_status', 'documentation'
+            ]
+            for field in donor_removals:
+                data.pop(field, None)
+        
+        elif instance.role == UserRole.TUAB:
+            tuab_removals = ['first_name', 'last_name', 'middle_name']
+            for field in tuab_removals:
+                data.pop(field, None)
+
         return data
 
 
 class PublicUserSerializer(serializers.ModelSerializer):
     """Limited profile serializer for non-admin views."""
-    latitude = serializers.DecimalField(max_digits=18, decimal_places=7, required=False, allow_null=True)
-    longitude = serializers.DecimalField(max_digits=18, decimal_places=7, required=False, allow_null=True)
+    latitude = serializers.DecimalField(max_digits=9, decimal_places=7, required=False, allow_null=True)
+    longitude = serializers.DecimalField(max_digits=10, decimal_places=7, required=False, allow_null=True)
     upload = serializers.SerializerMethodField()
     distance_km = serializers.FloatField(read_only=True, required=False)
 

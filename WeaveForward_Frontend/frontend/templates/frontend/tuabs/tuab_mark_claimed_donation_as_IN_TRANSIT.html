@@ -1,0 +1,304 @@
+{% extends 'frontend/base.html' %}
+{% block content %}
+<!--
+  WeaveForward TUAB Mark claimed donation as IN_TRANSIT (tuab_mark_claimed_donation_as_IN_TRANSIT.html)
+  Action: Mark as In-Transit via form submission.
+-->
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@600&family=Poppins:wght@400;600;700&display=swap"
+    rel="stylesheet" />
+
+  <style>
+    :root {
+      --tuab: #e8a020;
+      --tuab-dark: #c8881a;
+      --bg: #f5f4f0;
+      --brd: #e0dbd4;
+      --lt: #fdf6e8;
+    }
+
+    .tuab-view-shell,
+    .tuab-view-shell * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: Poppins, sans-serif;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .layout {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+      width: 100%;
+    }
+
+    .left {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .right {
+      width: 340px;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 768px) {
+      .layout {
+        flex-direction: column;
+      }
+
+      .left,
+      .right {
+        width: 100%;
+      }
+    }
+
+    .card,
+    .panel {
+      background: #fff;
+      border: 1.5px solid var(--brd);
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 14px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .06);
+    }
+
+    .row,
+    .time {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    @media (max-width: 768px) {
+
+      .row,
+      .time {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .up {
+      font-size: 10px;
+      font-weight: 400;
+      color: #888;
+      text-transform: uppercase;
+    }
+
+    .sub {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--tuab);
+      color: #fff;
+      font-size: 13px;
+      font-family: 'Lato', sans-serif;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .in,
+    .sel {
+      width: 100%;
+      height: 44px;
+      border: 1.5px solid #d5d5d5;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 14px;
+      outline: none;
+    }
+
+    .in {
+      background: #faf8f5;
+    }
+
+    .sel {
+      appearance: none;
+      background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23e8a020' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpolyline points='6,9 12,15 18,9'/%3E%3C/svg%3E") no-repeat right 12px center;
+      padding-right: 34px;
+    }
+
+    .in:focus,
+    .sel:focus {
+      border-color: var(--tuab);
+    }
+
+    .drow {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding: 2px 0;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .lbl {
+      color: #8f8f8f;
+    }
+
+    .val {
+      font-weight: 500;
+      text-align: right;
+      max-width: 58%;
+      color: #222;
+    }
+
+    .sep {
+      border-top: 1px solid #f0ede8;
+      margin-top: 14px;
+      padding-top: 14px;
+    }
+
+    .sep-line {
+      border-top: 1px solid #f0ede8;
+      margin: 14px 0;
+    }
+
+    .delivery-wrap {
+      margin-bottom: 14px;
+    }
+
+    .btn {
+      width: 100%;
+      border: none;
+      border-radius: 30px;
+      padding: 12px;
+      color: #fff;
+      font: 600 14px Poppins, sans-serif;
+      cursor: pointer;
+    }
+
+    .btn-tuab {
+      background: var(--tuab);
+    }
+
+    .btn-tuab:hover {
+      background: var(--tuab-dark);
+    }
+
+    .upload-photo {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      max-height: 260px;
+      object-fit: cover;
+      border-radius: 12px;
+      border: 1px solid var(--brd);
+      overflow: hidden;
+    }
+
+
+  </style>
+  <div class="tuab-view-shell">
+    <form id="mark-in-transit-form" method="post" action="{% url 'tuab_view_donation' donation.donation_id %}">
+      {% csrf_token %}
+      {% if donation.status == 'CLAIMED' and donation.delivery_method == 'PICKUP' %}
+      <input type="hidden" name="action" value="transit">
+      {% endif %}
+      <input type="hidden" name="current_etag" value="{{ current_etag }}">
+
+      <div class="layout">
+        <div class="left">
+          {% for item in items %}
+          <div class="card">
+            <div class="head">
+              <div class="num">{{ forloop.counter }}</div><span style="font-weight:400;font-size:15px">Clothing {{ forloop.counter }}</span>
+            </div>
+            <div class="row">
+              <div class="group">
+                <label class="up">Clothing</label>
+                <input class="in" value="{{ item.lookup_details.clothing_type|default:'' }}" readonly>
+              </div>
+              <div class="group">
+                <label class="up">Estimated Weight (kg)</label>
+                <input class="in" value="{{ item.weight_kg|default:'' }}" readonly>
+              </div>
+            </div>
+            <div class="group" style="margin-bottom:14px">
+              <label class="up">Condition</label>
+              <input class="in condition-val" value="{{ item.condition_rating|default:'' }}" readonly>
+            </div>
+            <div class="row" style="margin-bottom:0">
+              <div class="group">
+                <label class="up">Brand</label>
+                <input class="in" value="{{ item.lookup_details.brand|default:'' }}" readonly>
+              </div>
+              <div class="group">
+                <label class="up">Material</label>
+                <input class="in" value="{{ item.lookup_details.fiber_json|default:'Will be approximated' }}" readonly>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+        <div class="right">
+          <div class="panel">
+            <div class="drow"><span class="lbl">Donor</span><span class="val">{{ donation.donor.first_name|default:'' }} {{ donation.donor.last_name|default:'' }}</span></div>
+            <div class="drow"><span class="lbl">Status</span><span class="val">{{ donation.status|default:'Pending' }}</span></div>
+            <div class="drow"><span class="lbl">Is Flagged</span><span class="val">{{ donation.is_flagged|default:'False' }}</span></div>
+            <div class="drow"><span class="lbl">Flag Reason</span><span class="val">{{ donation.flag_reason|default:'-' }}</span></div>
+            <div class="drow"><span class="lbl">Submitted At</span><span class="val">{{ donation.submitted_at|default:'-'|slice:':19' }}</span></div>
+            <div class="drow"><span class="lbl">Updated At</span><span class="val">{{ donation.updated_at|default:'-'|slice:':19' }}</span></div>
+            <div class="drow"><span class="lbl">Auto Archive At</span><span class="val">{{ donation.auto_archive_at|default:'-' }}</span></div>
+            <div class="drow"><span class="lbl">Pickup Address</span><span class="val">{{ donation.pickup_display_address|default:'-' }}</span></div>
+            <div class="drow"><span class="lbl">Pickup Preferred Date</span><span class="val">{{ donation.preferred_pickup_date|slice:':10' }}</span></div>
+            <div class="drow"><span class="lbl">Pickup Preferred Pickup Window</span><span class="val">{{ donation.preferred_pickup_window_start|slice:':5'|default:"-" }} - {{ donation.preferred_pickup_window_end|slice:':5'|default:"-" }}</span></div>
+
+            <div class="sep"></div>
+            <img src="{{ donation.upload|default:'' }}"
+              class="upload-photo{% if not donation.upload %} hidden{% endif %}" alt="Donation">
+            <div class="{% if donation.upload %}hidden{% endif %}"
+              style="font-size:12px;color:#999;margin-top:6px">No donation image uploaded.</div>
+            <div class="sep-line"></div>
+
+            {% if donation.status == 'CLAIMED' and donation.delivery_method == 'PICKUP' %}
+            <button type="submit" class="btn btn-tuab">Mark as In-Transit</button>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    // --- Standardization: Prettify ENUMs ---
+    document.addEventListener('DOMContentLoaded', function () {
+      document.querySelectorAll('.condition-val').forEach(function (el) {
+        var v = el.value.trim();
+        if (v) {
+          el.value = v.split('_').map(function (w) {
+            return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+          }).join(' ');
+        }
+      });
+    });
+  </script>
+{% endblock %}

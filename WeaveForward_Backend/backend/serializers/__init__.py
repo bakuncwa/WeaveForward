@@ -9,7 +9,7 @@ from .users import UserSerializer, PublicUserSerializer, TwoFactorSerializer, Su
 from .brandfiberlookups import BrandFiberLookupSerializer
 from .donations import (
     DonationItemSerializer, DonationSerializer, DonationUserSerializer, 
-    DonationCreateSerializer, QuotationRequestSerializer
+    DonationCreateSerializer, QuotationRequestSerializer, DonorDonationUpdateSerializer
 )
 
 

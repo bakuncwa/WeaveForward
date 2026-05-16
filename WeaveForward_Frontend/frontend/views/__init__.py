@@ -1,6 +1,6 @@
 import json
 from django.shortcuts import render, redirect
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseNotAllowed
 from django.contrib import messages
 from django.urls import reverse
 from ..services import (
@@ -14,7 +14,7 @@ from ..constants import ALLOWED_FIBERS
 
 # Import role-based views for convenience
 from .admin import admin_view_donations, admin_view_donors, admin_view_tuabs, admin_view_tuab, admin_add_donor, admin_add_tuab, admin_view_donor, admin_edit_donor, admin_archive_user_proxy, admin_edit_tuab, admin_add_donation, admin_view_donation
-from .donor import donor_browse_businesses, donor_my_donations, donor_view_donation, donor_view_tuab, donor_create_donation, donor_profile, donor_edit_profile
+from .donor import donor_browse_businesses, donor_my_donations, donor_view_donation, donor_view_tuab, donor_create_donation, donor_profile, donor_edit_profile, donor_edit_donation
 from .tuab import (
     tuab_dashboard,
     tuab_subscribe,
@@ -117,13 +117,14 @@ def login_view(request):
     return render(request, 'frontend/login.html')
 
 def logout_view(request):
-    fallback_redirect = request.META.get('HTTP_REFERER') or reverse('login')
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
 
     try:
         response = api_call(request, 'POST', 'logout')
     except Exception:
         messages.error(request, "Logout failed because the backend is unreachable. Please try again.")
-        return redirect(fallback_redirect)
+        return redirect(request.META.get('HTTP_REFERER') or reverse('login'))
 
     if response.status_code == 205:
         frontend_response = redirect('login')
@@ -142,7 +143,7 @@ def logout_view(request):
         error_message = error_message[0]
 
     messages.error(request, error_message)
-    return redirect(fallback_redirect)
+    return redirect(request.META.get('HTTP_REFERER') or reverse('login'))
 
 def location_lookup_proxy(request):
     """SSR Proxy for location lookup."""

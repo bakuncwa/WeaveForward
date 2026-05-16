@@ -81,12 +81,13 @@ def donor_my_donations(request):
 
 def donor_view_donation(request, donation_id):
     profile = request.user_profile
-    if not profile:
-        return redirect('login')
 
     response = api_call(request, 'GET', f'donations/{donation_id}')
     if response.status_code != 200:
-        messages.error(request, "Donation not found or access denied.")
+        if response.status_code == 403:
+            messages.error(request, "Access denied.")
+        else:
+            messages.error(request, "Donation not found.")
         return redirect('donor_my_donations')
 
     donation = response.json()
@@ -135,8 +136,6 @@ def donor_view_tuab(request, user_id):
 def donor_create_donation(request):
     """View for donors to create a new donation."""
     profile = request.user_profile
-    if not profile:
-        return redirect('login')
 
     if request.method == 'POST':
         payload = request.POST.dict()
@@ -245,6 +244,71 @@ def donor_edit_profile(request):
     return render(request, 'frontend/donor/donor_edit_profile.html', {
         'page_title': 'Edit Profile',
         'user': profile,
+        'current_etag': etag,
+        'sidebar_variant': 'donor'
+    })
+
+def donor_edit_donation(request, donation_id):
+    """View to edit an existing donation. Handles fetching and proxying updates."""
+    profile = request.user_profile
+
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+    if request.method == 'POST' and is_ajax:
+        # 1. Capture payload
+        payload = request.POST.dict()
+        submitted_etag = payload.get('current_etag')
+
+        # 2. Extract files
+        files = {}
+        if 'donation_image' in request.FILES:
+            files['donation_image'] = request.FILES['donation_image']
+
+        # 3. Clean payload
+        for k in ['csrfmiddlewaretoken', 'current_etag', '_method']:
+            payload.pop(k, None)
+
+        # 4. Proxy PATCH to backend
+        headers = {'If-Match': submitted_etag} if submitted_etag else {}
+        try:
+            response = api_call(request, 'PATCH', f'donations/{donation_id}', data=payload, files=files, headers=headers)
+            if response.status_code == 200:
+                messages.success(request, "Donation updated successfully.")
+                return JsonResponse({'message': 'Success'}, status=200)
+            else:
+                try:
+                    err_data = response.json()
+                except:
+                    err_data = {'detail': 'Unknown backend error.'}
+                
+                if response.status_code == 412:
+                    return JsonResponse({'error': 'Version mismatch. The donation was modified elsewhere. Please refresh.'}, status=412)
+
+                return JsonResponse({'errors': format_errors(err_data), 'detail': err_data.get('detail')}, status=response.status_code)
+        except Exception as e:
+            return JsonResponse({'error': f"System Error: {str(e)}"}, status=503)
+
+    # GET Request: Fetch fresh data and ETag
+    donation_response = api_call(request, 'GET', f'donations/{donation_id}')
+    
+    if donation_response.status_code == 200:
+        donation = donation_response.json()
+        etag = donation_response.headers.get('ETag')
+        
+        # Check if the donation is in PENDING status (only PENDING is editable for donors)
+        if donation.get('status') != 'PENDING':
+            messages.error(request, f"Cannot edit a donation in {donation.get('status')} status.")
+            return redirect('donor_view_donation', donation_id=donation_id)
+
+        
+    else:
+        messages.error(request, "Unable to fetch donation data.")
+        return redirect('donor_my_donations')
+
+    return render(request, 'frontend/donor/donor_edit_donation.html', {
+        'page_title': 'Edit Donation',
+        'user': profile,
+        'donation': donation,
         'current_etag': etag,
         'sidebar_variant': 'donor'
     })
