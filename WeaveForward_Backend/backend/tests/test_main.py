@@ -419,10 +419,12 @@ class PasswordResetTest(TestCase):
         self.request_url = reverse('password_reset_request')
         self.confirm_url = reverse('password_reset_confirm')
 
-    def test_password_reset_flow(self):
-        # 1. Request reset (This will now send a REAL email to you)
+    @patch('backend.views.auth.send_password_reset_email')
+    def test_password_reset_flow(self, mock_send_email):
+        # 1. Request reset (Mocked - will not send a REAL email)
         response = self.client.post(self.request_url, {'email': self.email}, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        mock_send_email.assert_called_once()
         self.assertEqual(
             response.data['message'],
             "If that email exists, a password reset link has been sent."
