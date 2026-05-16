@@ -39,3 +39,5 @@ resend==2.4.0
 catboost==1.2.10
 pandas==3.0.2
 numpy==2.4.4
+django-filter==25.2
+
