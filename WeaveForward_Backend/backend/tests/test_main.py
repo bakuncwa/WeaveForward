@@ -1963,11 +1963,49 @@ class WebhookAPITest(TestCase):
             **self.webhook_headers('52.76.164.226')
         )
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(
-            response.data['detail'],
-            "Lalamove webhook scaffold acknowledged. No business logic is active yet."
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['detail'], "Missing signature verification details.")
+
+    @override_settings(LALAMOVE_API_SECRET='test-secret')
+    def test_lalamove_webhook_invalid_signature(self):
+        response = self.client.post(
+            reverse('webhooks'),
+            {
+                "signature": "invalid-signature",
+                "timestamp": "1620000000000",
+                "data": {"test": "data"}
+            },
+            format='json',
+            **self.webhook_headers('52.76.164.226')
         )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.data['detail'], "Invalid Lalamove webhook signature.")
+
+    @override_settings(LALAMOVE_API_SECRET='test-secret')
+    def test_lalamove_webhook_valid_signature_ignored_event(self):
+        import hmac
+        import hashlib
+        secret = 'test-secret'
+        timestamp = '1620000000000'
+        data_obj = {"test": "data"}
+        message = f"{timestamp}\r\nPOST\r\n/api/webhooks\r\n\r\n{json.dumps(data_obj, separators=(',', ':'))}"
+        signature = hmac.new(secret.encode(), message.encode(), hashlib.sha256).hexdigest()
+
+        response = self.client.post(
+            reverse('webhooks'),
+            {
+                "signature": signature,
+                "timestamp": timestamp,
+                "data": data_obj,
+                "eventType": "SOME_OTHER_EVENT"
+            },
+            format='json',
+            **self.webhook_headers('52.76.164.226')
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['detail'], "Webhook event type SOME_OTHER_EVENT ignored.")
 
 
 class UserArchiveAPITest(TestCase):
@@ -2032,7 +2070,7 @@ class UserArchiveAPITest(TestCase):
         pending = self.create_donation(self.donor, 'PENDING')
         claimed_pickup = self.create_donation(self.donor, 'CLAIMED', delivery_method='PICKUP')
         in_transit_pickup = self.create_donation(self.donor, 'IN_TRANSIT', delivery_method='PICKUP')
-        claimed_delivery = self.create_donation(self.donor, 'CLAIMED', delivery_method='DELIVERY')
+        claimed_pickup_2 = self.create_donation(self.donor, 'CLAIMED', delivery_method='PICKUP')
         received = self.create_donation(self.donor, 'RECEIVED')
         active_subscription = Subscription.objects.create(
             user=self.donor,
@@ -2060,7 +2098,7 @@ class UserArchiveAPITest(TestCase):
         pending.refresh_from_db()
         claimed_pickup.refresh_from_db()
         in_transit_pickup.refresh_from_db()
-        claimed_delivery.refresh_from_db()
+        claimed_pickup_2.refresh_from_db()
         received.refresh_from_db()
         active_subscription.refresh_from_db()
         cancelled_subscription.refresh_from_db()
@@ -2071,7 +2109,7 @@ class UserArchiveAPITest(TestCase):
         self.assertEqual(pending.status, 'ARCHIVED')
         self.assertEqual(claimed_pickup.status, 'ARCHIVED')
         self.assertEqual(in_transit_pickup.status, 'ARCHIVED')
-        self.assertEqual(claimed_delivery.status, 'ARCHIVED')
+        self.assertEqual(claimed_pickup_2.status, 'ARCHIVED')
         self.assertEqual(received.status, 'RECEIVED')
         self.assertEqual(active_subscription.status, 'CANCELLED')
         self.assertEqual(cancelled_subscription.status, 'CANCELLED')
@@ -2110,7 +2148,7 @@ class UserArchiveAPITest(TestCase):
             self.donor, 'IN_TRANSIT', claimed_by_tuab=self.tuab
         )
         claimed_delivery = self.create_donation(
-            self.donor, 'CLAIMED', delivery_method='DELIVERY', claimed_by_tuab=self.tuab
+            self.donor, 'CLAIMED', delivery_method='PICKUP', claimed_by_tuab=self.tuab
         )
         pending = self.create_donation(self.donor, 'PENDING', claimed_by_tuab=self.tuab)
         inventory_one = InventoryLedger.objects.create(
@@ -2242,9 +2280,13 @@ class UserArchiveAPITest(TestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
-        self.assertEqual(
-            response.data['detail'],
-            "Archiving is not allowed while an associated delivery donation is in transit."
+        self.assertIn(
+            "Archiving is not allowed while an associated delivery is in progress.",
+            response.data['detail']
+        )
+        self.assertIn(
+            str(blocked_donation.donation_id),
+            response.data['detail']
         )
         self.donor.refresh_from_db()
         blocked_donation.refresh_from_db()
@@ -2263,7 +2305,7 @@ class UserArchiveAPITest(TestCase):
     def test_archive_fails_when_maya_card_delete_fails(self, mocked_delete):
         mocked_delete.return_value = self.maya_response(400, {'error': 'Cannot delete card'})
         active_subscription = Subscription.objects.create(
-            user=self.donor,
+            user=self.tuab,
             status='ACTIVE',
             subscription_tier='PRO',
             start_date='2026-05-01T00:00:00Z',
@@ -2272,17 +2314,17 @@ class UserArchiveAPITest(TestCase):
 
         self.client.force_authenticate(user=self.admin)
         response = self.client.delete(
-            reverse('user-detail', kwargs={'pk': self.donor.user_id}),
-            **self.archive_headers(self.donor)
+            reverse('user-detail', kwargs={'pk': self.tuab.user_id}),
+            **self.archive_headers(self.tuab)
         )
 
         self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
         self.assertIn("Maya card deletion failed", response.data['detail'])
-        self.donor.refresh_from_db()
+        self.tuab.refresh_from_db()
         active_subscription.refresh_from_db()
-        self.assertEqual(self.donor.status, 'ACTIVE')
-        self.assertEqual(self.donor.maya_customer_id, 'maya-customer-1')
-        self.assertEqual(self.donor.maya_card_id, 'maya-card-1')
+        self.assertEqual(self.tuab.status, 'ACTIVE')
+        self.assertEqual(self.tuab.maya_customer_id, 'maya-customer-2')
+        self.assertEqual(self.tuab.maya_card_id, 'maya-card-2')
         self.assertEqual(active_subscription.status, 'ACTIVE')
 
     def test_archive_requires_if_match_header(self):
@@ -2378,7 +2420,7 @@ class UserArchiveServiceTest(TestCase):
         pending = self.create_donation(self.donor, 'PENDING')
         claimed_pickup = self.create_donation(self.donor, 'CLAIMED', delivery_method='PICKUP')
         in_transit_pickup = self.create_donation(self.donor, 'IN_TRANSIT', delivery_method='PICKUP')
-        claimed_delivery = self.create_donation(self.donor, 'CLAIMED', delivery_method='DELIVERY')
+        claimed_delivery = self.create_donation(self.donor, 'CLAIMED', delivery_method='PICKUP')
         received = self.create_donation(self.donor, 'RECEIVED')
 
         result = archive_user(target_user_id=self.donor.user_id)
@@ -2409,7 +2451,7 @@ class UserArchiveServiceTest(TestCase):
             self.donor, 'IN_TRANSIT', delivery_method='PICKUP', claimed_by_tuab=self.tuab
         )
         claimed_delivery = self.create_donation(
-            self.donor, 'CLAIMED', delivery_method='DELIVERY', claimed_by_tuab=self.tuab
+            self.donor, 'CLAIMED', delivery_method='PICKUP', claimed_by_tuab=self.tuab
         )
         untouched = self.create_donation(
             self.donor, 'PENDING', delivery_method='PICKUP', claimed_by_tuab=self.tuab
@@ -2441,10 +2483,10 @@ class UserArchiveServiceTest(TestCase):
 
         result = unclaim_tuab_donations(tuab=self.tuab)
 
-        self.assertEqual(result["status_code"], 400)
+        self.assertEqual(result["status_code"], 409)
         self.assertEqual(
             result["detail"],
-            "Archiving is not allowed while an associated delivery donation is in transit."
+            "Archiving is not allowed while an associated delivery is in progress."
         )
         blocked.refresh_from_db()
         claimable.refresh_from_db()

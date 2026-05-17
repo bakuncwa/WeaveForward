@@ -134,22 +134,64 @@ def donor_view_tuab(request, user_id):
     })
 
 def donor_create_donation(request):
-    """View for donors to create a new donation."""
+    """View for donors to create a new donation. Supports the new SSR-based version2 template."""
     profile = request.user_profile
 
     if request.method == 'POST':
         payload = request.POST.dict()
         files = {'donation_image': request.FILES['donation_image']} if 'donation_image' in request.FILES else {}
+        
+        # Clean payload
+        for k in ['csrfmiddlewaretoken']:
+            payload.pop(k, None)
+
         try:
             response = api_call(request, 'POST', 'donations', data=payload, files=files)
-            return JsonResponse(response.json() if hasattr(response, 'json') else {}, status=response.status_code)
+            if response.status_code == 201:
+                messages.success(request, "Donation created successfully!")
+                return JsonResponse({'redirect': '/donor/my-donations/'})
+            else:
+                try:
+                    err_data = response.json()
+                except:
+                    err_data = {'detail': 'Unknown backend error.'}
+                
+                # Extract detailed error information
+                error_msg = err_data.get('detail')
+                if not error_msg and isinstance(err_data, dict):
+                    formatted = format_errors(err_data)
+                    error_list = []
+                    for field, msgs in formatted.items():
+                        if isinstance(msgs, list):
+                            error_list.append(f"{field}: {', '.join(msgs)}")
+                        else:
+                            error_list.append(f"{field}: {msgs}")
+                    error_msg = " | ".join(error_list)
+
+                return JsonResponse({'error': error_msg or "Failed to create donation."}, status=400)
         except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
+            return JsonResponse({'error': f"System Error: {str(e)}"}, status=500)
+
+    # Fetch choices for the dropdowns (matching edit logic)
+    types_res = api_call(request, 'GET', 'brandfiberlookups/clothing_types')
+    clothing_types = types_res.json() if types_res.status_code == 200 else []
+
+    brands_res = api_call(request, 'GET', 'brandfiberlookups/brands')
+    all_brands = brands_res.json() if brands_res.status_code == 200 else []
 
     return render(request, 'frontend/donor/donor_create_donation.html', {
         'page_title': 'Create Donation',
         'user': profile,
-        'sidebar_variant': 'donor'
+        'sidebar_variant': 'donor',
+        'clothing_types': clothing_types,
+        'all_brands': all_brands,
+        'condition_choices': [
+            ('NEW', 'New'),
+            ('LIKE_NEW', 'Like New'),
+            ('GOOD', 'Good'),
+            ('FAIR', 'Fair'),
+            ('POOR', 'Poor'),
+        ]
     })
 
 def donor_profile(request):
@@ -252,9 +294,7 @@ def donor_edit_donation(request, donation_id):
     """View to edit an existing donation. Handles fetching and proxying updates."""
     profile = request.user_profile
 
-    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-
-    if request.method == 'POST' and is_ajax:
+    if request.method == 'POST':
         # 1. Capture payload
         payload = request.POST.dict()
         submitted_etag = payload.get('current_etag')
@@ -273,18 +313,29 @@ def donor_edit_donation(request, donation_id):
         try:
             response = api_call(request, 'PATCH', f'donations/{donation_id}', data=payload, files=files, headers=headers)
             if response.status_code == 200:
-                messages.success(request, "Donation updated successfully.")
-                return JsonResponse({'message': 'Success'}, status=200)
+                messages.success(request, "Donation updated successfully!")
+                return JsonResponse({'redirect': f'/donor/my-donations/{donation_id}/'})
+            elif response.status_code == 412:
+                return JsonResponse({'error': "This donation was updated somewhere else. Please refresh."}, status=412)
             else:
                 try:
                     err_data = response.json()
                 except:
                     err_data = {'detail': 'Unknown backend error.'}
                 
-                if response.status_code == 412:
-                    return JsonResponse({'error': 'Version mismatch. The donation was modified elsewhere. Please refresh.'}, status=412)
+                # Extract detailed error information
+                error_msg = err_data.get('detail')
+                if not error_msg and isinstance(err_data, dict):
+                    formatted = format_errors(err_data)
+                    error_list = []
+                    for field, msgs in formatted.items():
+                        if isinstance(msgs, list):
+                            error_list.append(f"{field}: {', '.join(msgs)}")
+                        else:
+                            error_list.append(f"{field}: {msgs}")
+                    error_msg = " | ".join(error_list)
 
-                return JsonResponse({'errors': format_errors(err_data), 'detail': err_data.get('detail')}, status=response.status_code)
+                return JsonResponse({'error': error_msg or "Update failed."}, status=400)
         except Exception as e:
             return JsonResponse({'error': f"System Error: {str(e)}"}, status=503)
 
@@ -295,20 +346,34 @@ def donor_edit_donation(request, donation_id):
         donation = donation_response.json()
         etag = donation_response.headers.get('ETag')
         
-        # Check if the donation is in PENDING status (only PENDING is editable for donors)
+        # Check if the donation is in PENDING status
         if donation.get('status') != 'PENDING':
             messages.error(request, f"Cannot edit a donation in {donation.get('status')} status.")
             return redirect('donor_view_donation', donation_id=donation_id)
-
-        
     else:
         messages.error(request, "Unable to fetch donation data.")
         return redirect('donor_my_donations')
+
+    # Fetch clothing types and all brands for the dropdowns
+    types_res = api_call(request, 'GET', 'brandfiberlookups/clothing_types')
+    clothing_types = types_res.json() if types_res.status_code == 200 else []
+
+    brands_res = api_call(request, 'GET', 'brandfiberlookups/brands')
+    all_brands = brands_res.json() if brands_res.status_code == 200 else []
 
     return render(request, 'frontend/donor/donor_edit_donation.html', {
         'page_title': 'Edit Donation',
         'user': profile,
         'donation': donation,
         'current_etag': etag,
-        'sidebar_variant': 'donor'
+        'sidebar_variant': 'donor',
+        'clothing_types': clothing_types,
+        'all_brands': all_brands,
+        'condition_choices': [
+            ('NEW', 'New'),
+            ('LIKE_NEW', 'Like New'),
+            ('GOOD', 'Good'),
+            ('FAIR', 'Fair'),
+            ('POOR', 'Poor'),
+        ]
     })

@@ -153,29 +153,25 @@ def donor_update_donation(*, request, donation):
     serializer.is_valid(raise_exception=True)
     v_data = serializer.validated_data
     items_data = v_data.get('items')
-    # Use request.data to check if key was present (for partial updates)
-    has_image_update = 'donation_image' in request.data
+    # Use request.FILES to check for new image
     image_file = request.FILES.get('donation_image')
 
     with transaction.atomic():
-        # 1. Handle Image update (Before serializer.save to avoid double save)
-        if has_image_update:
-            if image_file:
-                try:
-                    img = PILImage.open(image_file)
-                    if img.mode != 'RGB': img = img.convert('RGB')
-                    img.thumbnail((1024, 1024), PILImage.Resampling.LANCZOS)
-                    buffer = BytesIO()
-                    img.save(buffer, format='JPEG', quality=65, optimize=True)
-                    buffer.seek(0)
-                    filename = f"don_{donation.donor_id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.jpg"
-                    path = default_storage.save(f"donations/{filename}", ContentFile(buffer.read(), name=filename))
-                    donation.upload = Upload.objects.create(file_path=path, name=filename[:50])
-                except Exception:
-                    path = default_storage.save(f"donations/{image_file.name}", image_file)
-                    donation.upload = Upload.objects.create(file_path=path, name=image_file.name[:50])
-            else:
-                donation.upload = None
+        # 1. Handle Image update
+        if image_file:
+            try:
+                img = PILImage.open(image_file)
+                if img.mode != 'RGB': img = img.convert('RGB')
+                img.thumbnail((1024, 1024), PILImage.Resampling.LANCZOS)
+                buffer = BytesIO()
+                img.save(buffer, format='JPEG', quality=65, optimize=True)
+                buffer.seek(0)
+                filename = f"don_{donation.donor_id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+                path = default_storage.save(f"donations/{filename}", ContentFile(buffer.read(), name=filename))
+                donation.upload = Upload.objects.create(file_path=path, name=filename[:50])
+            except Exception:
+                path = default_storage.save(f"donations/{image_file.name}", image_file)
+                donation.upload = Upload.objects.create(file_path=path, name=image_file.name[:50])
 
         # 2. Update Header (This will save the donation once)
         donation = serializer.save()

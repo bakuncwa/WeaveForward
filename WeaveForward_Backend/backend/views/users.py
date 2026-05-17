@@ -238,7 +238,10 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
                 ip_address=ip_address,
                 fields_modified=result['fields_modified']
             )
-            return Response({"message": result["detail"]}, status=status.HTTP_200_OK)
+            return Response({
+                "message": result["detail"],
+                "etag": build_updated_at_etag(request.user)
+            }, status=status.HTTP_200_OK)
 
         ip_address = get_client_ip(request)
         result = disable_two_factor(target_user=request.user)
@@ -275,7 +278,10 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
                 fields_modified=result['fields_modified']
             )
 
-            return Response({"message": result["detail"]}, status=status.HTTP_200_OK)
+            return Response({
+                "message": result["detail"],
+                "etag": build_updated_at_etag(target_user)
+            }, status=status.HTTP_200_OK)
 
         if request.user.role != UserRole.ADMIN and request.user.user_id != target_user.user_id:
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
@@ -412,6 +418,7 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
         with transaction.atomic():
             result = archive_user(target_user_id=kwargs['pk'])
             if result["detail"] is not None:
+                transaction.set_rollback(True)
                 return Response({"detail": result["detail"]}, status=result["status_code"])
 
             if result["user_updated"]:
