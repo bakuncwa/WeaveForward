@@ -118,40 +118,42 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
             # 1. ETag Verification (Consistency)
             if not (if_match := request.headers.get('If-Match')): return Response({"detail": "If-Match header is required."}, status=428)
             if not matches_if_match(build_updated_at_etag(donation), if_match): return Response({"detail": "ETag mismatch."}, status=412)
-        # 2. Donor Path
-        if user.role == 'Donor':
-            # Identity Check
-            if donation.donor != user: return Response({"detail": "Identity Mismatch: You do not own this donation."}, status=403)
-            # Status-Specific Logic
-            if donation.status == 'PENDING':
-                try:
-                    updated_donation = donor_update_donation(request=request, donation=donation)
-                    serializer = DonationSerializer(updated_donation, context={'request': request})
-                    response = Response(serializer.data)
-                    response['ETag'] = build_updated_at_etag(updated_donation)
-                    return response
-                except (ValueError, serializers.ValidationError) as e:
-                    return Response(e.detail if isinstance(e, serializers.ValidationError) else {"detail": str(e)}, status=400)
-                except Exception as e:
-                    return Response({"detail": f"Internal Update Error: {str(e)}"}, status=500)
-            elif donation.status in ['CLAIMED', 'IN_TRANSIT', 'RECEIVED', 'REJECTED', 'ARCHIVED']:
-                return Response({"detail": f"Modification Forbidden: Donation is in {donation.status} state."}, status=409)
-        # 3. Admin Path
-        if user.role == 'Admin':
-            # 3.1. Editable Statuses (Placeholders)
-            if donation.status == 'PENDING':
-                # TODO: Admin-led correction of pending details
-                return Response({"detail": "Admin Path: Pending donation correction not yet implemented."}, status=501)
-            elif donation.status == 'CLAIMED':
-                # TODO: Admin-led correction of claim details
-                return Response({"detail": "Admin Path: Claimed donation adjustment not yet implemented."}, status=501)
-            elif donation.status == 'IN_TRANSIT':
-                # TODO: Admin-led transit status override
-                return Response({"detail": "Admin Path: Transit status override not yet implemented."}, status=501)
-            # 3.2. Immutable Statuses
-            elif donation.status in ['RECEIVED', 'REJECTED', 'ARCHIVED']:
-                return Response({"detail": f"Admin Restriction: Donations in {donation.status} status are immutable."}, status=409)
-        return Response({"detail": "Global Restriction: Your role is not authorized to perform updates."}, status=403)
+            # 2. Donor Path
+            if user.role == 'Donor':
+                # Identity Check
+                if donation.donor != user: return Response({"detail": "Identity Mismatch: You do not own this donation."}, status=403)
+                # Status-Specific Logic
+                if donation.status == 'PENDING':
+                    try:
+                        updated_donation = donor_update_donation(request=request, donation=donation)
+                        serializer = DonationSerializer(updated_donation, context={'request': request})
+                        response = Response(serializer.data)
+                        response['ETag'] = build_updated_at_etag(updated_donation)
+                        return response
+                    except (ValueError, serializers.ValidationError) as e:
+                        transaction.set_rollback(True)
+                        return Response(e.detail if isinstance(e, serializers.ValidationError) else {"detail": str(e)}, status=400)
+                    except Exception as e:
+                        transaction.set_rollback(True)
+                        return Response({"detail": f"Internal Update Error: {str(e)}"}, status=500)
+                elif donation.status in ['CLAIMED', 'IN_TRANSIT', 'RECEIVED', 'REJECTED', 'ARCHIVED']:
+                    return Response({"detail": f"Modification Forbidden: Donation is in {donation.status} state."}, status=409)
+            # 3. Admin Path
+            if user.role == 'Admin':
+                # 3.1. Editable Statuses (Placeholders)
+                if donation.status == 'PENDING':
+                    # TODO: Admin-led correction of pending details
+                    return Response({"detail": "Admin Path: Pending donation correction not yet implemented."}, status=501)
+                elif donation.status == 'CLAIMED':
+                    # TODO: Admin-led correction of claim details
+                    return Response({"detail": "Admin Path: Claimed donation adjustment not yet implemented."}, status=501)
+                elif donation.status == 'IN_TRANSIT':
+                    # TODO: Admin-led transit status override
+                    return Response({"detail": "Admin Path: Transit status override not yet implemented."}, status=501)
+                # 3.2. Immutable Statuses
+                elif donation.status in ['RECEIVED', 'REJECTED', 'ARCHIVED']:
+                    return Response({"detail": f"Admin Restriction: Donations in {donation.status} status are immutable."}, status=409)
+            return Response({"detail": "Global Restriction: Your role is not authorized to perform updates."}, status=403)
 
     @action(detail=True, methods=['post'])
     def quotation(self, request, pk=None):

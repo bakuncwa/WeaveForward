@@ -341,11 +341,13 @@ def unsubscribe_user(*, target_user_id):
                     "cancelled_subscriptions_count": 0,
                 }
 
+        now = timezone.now()
         for sub in active_subscriptions:
             sub.status = SubscriptionStatus.CANCELLED
+            sub.updated_at = now
 
         if active_subscriptions:
-            Subscription.objects.bulk_update(active_subscriptions, ['status'])
+            Subscription.objects.bulk_update(active_subscriptions, ['status', 'updated_at'])
 
         user.maya_card_id = None
         user.save(update_fields=['maya_card_id', 'updated_at'])

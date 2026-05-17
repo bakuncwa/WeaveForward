@@ -270,6 +270,13 @@
 
         try {
             const res = await fetch(form.action, { method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}, body:toSend });
+            
+            if (res.status === 412) {
+                btn.disabled = false; btn.textContent = 'Save Changes';
+                showFlash("This profile was recently modified. Your changes have been blocked to prevent overwriting other updates. Please refresh the page.", "error");
+                return false;
+            }
+
             const d = await res.json();
             if (res.ok) {
                 if (!staged2FA && INIT_2FA) {
@@ -298,45 +305,34 @@
         btn.disabled = true; btn.textContent = 'Verifying...';
 
         try {
-            // Step 1: Local Verification in JS
-            // This prevents saving the profile if the code is wrong
-            const totp = new OTPAuth.TOTP({
-                issuer: 'WeaveForward',
-                label: 'Donor',
-                algorithm: 'SHA1',
-                digits: 6,
-                period: 30,
-                secret: OTPAuth.Secret.fromBase32(stagedSecret)
+            // Step 1: Verify the code on the BACKEND first.
+            // This prevents saving the profile if the token is expired or invalid.
+            const res = await fetch("{% url 'two_factor_verify_proxy' %}", {
+                method:'POST',
+                headers:{'Content-Type':'application/json', 'X-CSRFToken':'{{ csrf_token }}'},
+                body:JSON.stringify({ otp_code: code, secret: stagedSecret })
             });
 
-            const delta = totp.validate({ token: code, window: 1 });
-            
-            if (delta === null) {
+            if (!res.ok) {
+                const d = await res.json();
                 btn.disabled = false; btn.textContent = 'Save Changes';
-                showFlash('Wrong 2FA code. Please check your app.', 'error');
+                showFlash(d.detail || d.error || 'Invalid or expired 2FA code.', 'error');
                 return;
             }
 
-            // Step 2: Code is valid! Now save the profile
+            const d = await res.json();
+            if (d.etag) {
+                const etagField = document.querySelector('[name=current_etag]');
+                if (etagField) etagField.value = d.etag;
+            }
+
+            // Step 2: 2FA verified and enabled! Now save the profile edits.
             const ok = await submitProfile(true);
             if (ok) {
-                // Step 3: Profile saved, now finalize 2FA enablement on backend
-                const res = await fetch("{% url 'two_factor_verify_proxy' %}", {
-                    method:'POST',
-                    headers:{'Content-Type':'application/json', 'X-CSRFToken':'{{ csrf_token }}'},
-                    body:JSON.stringify({ otp_code: code, secret: stagedSecret })
-                });
-
-                if (res.ok) {
-                    window.location.href = "{% url 'donor_profile' %}";
-                } else {
-                    const d = await res.json();
-                    btn.disabled = false; btn.textContent = 'Save Changes';
-                    showFlash(d.detail || d.error || 'Failed to enable 2FA on backend.', 'error');
-                }
+                window.location.href = "{% url 'donor_profile' %}";
             } else {
                 btn.disabled = false; btn.textContent = 'Save Changes';
-                cancel2FA();
+                cancel2FA(); // Hide modal so they can see other validation errors (e.g. Name, Phone)
             }
         } catch (e) {
             btn.disabled = false; btn.textContent = 'Save Changes';

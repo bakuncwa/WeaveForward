@@ -93,8 +93,10 @@ def claim_donation(user, donation, claim_params, ip_address=None):
             maya_json = maya_resp.json()
             if maya_resp.status_code == 200 and maya_json.get('status') == 'PAYMENT_SUCCESS':
                 maya_payment_id = maya_json.get('id')
+                payment_record.payment_reference = maya_payment_id
                 payment_record.status = PaymentStatus.SUCCESS
-                payment_record.save()
+                payment_record.updated_at = timezone.now()
+                payment_record.save(update_fields=["payment_reference", "status", "updated_at"])
             else:
                 return {"status_code": 502, "detail": f"Maya payment failed: {maya_json.get('message', maya_resp.text)}"}
         except Exception as e:

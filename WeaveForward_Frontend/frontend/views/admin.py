@@ -428,22 +428,63 @@ def admin_edit_tuab(request, user_id):
         'fibers': fibers
     })
 def admin_add_donation(request):
-    """View for admins to add a donation. Lookups are handled via AJAX."""
+    """View for admins to add a donation. Lookups and donor search are handled via AJAX."""
     profile = request.user_profile
 
     if request.method == 'POST':
         payload = request.POST.dict()
         files = {'donation_image': request.FILES['donation_image']} if 'donation_image' in request.FILES else {}
+        
+        # Clean payload
+        for k in ['csrfmiddlewaretoken']:
+            payload.pop(k, None)
+
         try:
             response = api_call(request, 'POST', 'donations', data=payload, files=files)
-            return JsonResponse(response.json() if hasattr(response, 'json') else {}, status=response.status_code)
+            if response.status_code == 201:
+                messages.success(request, "Donation created successfully!")
+                return JsonResponse({'redirect': '/admin/donations/'})
+            else:
+                try:
+                    err_data = response.json()
+                except:
+                    err_data = {'detail': 'Unknown backend error.'}
+                
+                # Extract detailed error information
+                error_msg = err_data.get('detail')
+                if not error_msg and isinstance(err_data, dict):
+                    formatted = format_errors(err_data)
+                    error_list = []
+                    for field, msgs in formatted.items():
+                        if isinstance(msgs, list):
+                            error_list.append(f"{field}: {', '.join(msgs)}")
+                        else:
+                            error_list.append(f"{field}: {msgs}")
+                    error_msg = " | ".join(error_list)
+
+                return JsonResponse({'error': error_msg or "Failed to create donation."}, status=400)
         except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
+            return JsonResponse({'error': f"System Error: {str(e)}"}, status=500)
+
+    # Fetch choices for the dropdowns
+    types_res = api_call(request, 'GET', 'brandfiberlookups/clothing_types')
+    clothing_types = types_res.json() if types_res.status_code == 200 else []
+
+    brands_res = api_call(request, 'GET', 'brandfiberlookups/brands')
+    all_brands = brands_res.json() if brands_res.status_code == 200 else []
 
     return render(request, 'frontend/admin/admin_add_donation.html', {
         'page_title': 'Add Donation',
         'user': profile,
-        'donors': []
+        'clothing_types': clothing_types,
+        'all_brands': all_brands,
+        'condition_choices': [
+            ('NEW', 'New'),
+            ('LIKE_NEW', 'Like New'),
+            ('GOOD', 'Good'),
+            ('FAIR', 'Fair'),
+            ('POOR', 'Poor'),
+        ]
     })
 
 def admin_view_donation(request, donation_id):
