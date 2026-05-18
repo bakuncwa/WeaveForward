@@ -374,21 +374,22 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
             exc.status_code = 412
             raise exc
 
-        # 3. Authorization: Active PRO Subscription check (Required for both methods)
-        now = timezone.now()
-        has_pro = Subscription.objects.filter(user=user, subscription_tier='PRO', status='ACTIVE', end_date__gt=now).exists()
-        if not has_pro:
-            raise PermissionDenied({
-                "error": "SUBSCRIPTION_INACTIVE",
-                "detail": "An active PRO subscription is required to claim donations."
-            })
-
-        # 4. Request Data
+        # 3. Request Data
         delivery_method = request.data.get('delivery_method')
         if delivery_method not in ['PICKUP', 'DELIVERY']:
             exc = APIException("Invalid delivery_method. Must be 'PICKUP' or 'DELIVERY'.")
             exc.status_code = 400
             raise exc
+
+        # 4. Authorization: Active PRO Subscription check (Required for DELIVERY only)
+        if delivery_method == 'DELIVERY':
+            now = timezone.now()
+            has_pro = Subscription.objects.filter(user=user, subscription_tier='PRO', status='ACTIVE', end_date__gt=now).exists()
+            if not has_pro:
+                raise PermissionDenied({
+                    "error": "SUBSCRIPTION_INACTIVE",
+                    "detail": "An active PRO subscription is required to claim donations."
+                })
 
         claim_params = {
             'delivery_method': delivery_method,

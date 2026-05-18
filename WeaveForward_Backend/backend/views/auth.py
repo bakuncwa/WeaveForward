@@ -19,8 +19,10 @@ from ..serializers import (
 )
 from ..services.audit_service import get_client_ip, log_audit
 from ..services.auth_service import (
+    ACCESS_COOKIE_NAME,
     clear_auth_cookies,
     enforce_csrf,
+    REFRESH_COOKIE_NAME,
     generate_reset_token,
     set_auth_cookies,
 )
@@ -52,7 +54,7 @@ class CookieTokenRefreshView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        refresh_cookie = request.COOKIES.get(settings.AUTH_REFRESH_COOKIE_NAME)
+        refresh_cookie = request.COOKIES.get(REFRESH_COOKIE_NAME)
         if not refresh_cookie:
             return Response({"detail": "Refresh cookie is required."}, status=status.HTTP_401_UNAUTHORIZED)
 
@@ -80,7 +82,7 @@ class LogoutView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        refresh_cookie = request.COOKIES.get(settings.AUTH_REFRESH_COOKIE_NAME)
+        refresh_cookie = request.COOKIES.get(REFRESH_COOKIE_NAME)
         if refresh_cookie:
             try:
                 enforce_csrf(request)

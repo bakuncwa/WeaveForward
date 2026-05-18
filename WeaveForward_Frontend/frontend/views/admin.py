@@ -1,18 +1,15 @@
 import json
+import asyncio
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.contrib import messages
 from django.utils.dateparse import parse_datetime
 from ..constants import BACKEND_BASE_URL
-from ..services import api_call, get_paginated_data, format_errors
+from ..services import api_call, get_paginated_data, format_errors, get_fiber_choices
 
-
-
-def admin_view_donations(request):
+async def admin_view_donations(request):
     profile = request.user_profile
-    
-    page_data = get_paginated_data(request, 'donations')
-    
+    page_data = await get_paginated_data(request, 'donations')
     return render(request, 'frontend/admin/admin_view_donations.html', {
         'page_title': 'Donations', 
         'user': profile, 
@@ -25,11 +22,9 @@ def admin_view_donations(request):
         'q': page_data['search_query']
     })
 
-def admin_view_donors(request):
+async def admin_view_donors(request):
     profile = request.user_profile
-    
-    page_data = get_paginated_data(request, 'users', params={'role': 'Donor'})
-    
+    page_data = await get_paginated_data(request, 'users', params={'role': 'Donor'})
     return render(request, 'frontend/admin/admin_view_donors.html', {
         'page_title': 'Donors', 
         'user': profile, 
@@ -43,11 +38,9 @@ def admin_view_donors(request):
         'q': page_data['search_query']
     })
 
-def admin_view_tuabs(request):
+async def admin_view_tuabs(request):
     profile = request.user_profile
-
-    page_data = get_paginated_data(request, 'users', params={'role': 'TUAB'})
-
+    page_data = await get_paginated_data(request, 'users', params={'role': 'TUAB'})
     return render(request, 'frontend/admin/admin_view_tuabs.html', {
         'page_title': 'Textile Upcycling Artisan Businesses',
         'user': profile,
@@ -61,7 +54,7 @@ def admin_view_tuabs(request):
         'q': page_data['search_query']
     })
 
-def admin_add_tuab(request):
+async def admin_add_tuab(request):
     profile = request.user_profile
 
     if request.method == 'POST':
@@ -84,7 +77,7 @@ def admin_add_tuab(request):
             payload['status'] = 'ACTIVE'
 
         try:
-            response = api_call(request, 'POST', f'users/{user_id}/approve', json=payload)
+            response = await api_call(request, 'POST', f'users/{user_id}/approve', json=payload)
         except Exception:
             messages.error(request, "Backend API is offline or unreachable.")
             return redirect('admin_add_tuab')
@@ -100,7 +93,7 @@ def admin_add_tuab(request):
 
         return redirect('admin_add_tuab')
 
-    page_data = get_paginated_data(request, 'users', params={'role': 'TUAB', 'status': 'UNDER_REVIEW'})
+    page_data = await get_paginated_data(request, 'users', params={'role': 'TUAB', 'status': 'UNDER_REVIEW'})
 
     return render(request, 'frontend/admin/admin_add_tuab.html', {
         'page_title': 'Add Textile Upcycling Artisan Business',
@@ -114,10 +107,10 @@ def admin_add_tuab(request):
         'q': page_data['search_query']
     })
 
-def admin_view_tuab(request, user_id):
+async def admin_view_tuab(request, user_id):
     profile = request.user_profile
 
-    response = api_call(request, 'GET', f'users/{user_id}')
+    response = await api_call(request, 'GET', f'users/{user_id}')
     if response.status_code != 200:
         messages.error(request, "TUAB not found.")
         return redirect('admin_view_tuabs')
@@ -138,10 +131,10 @@ def admin_view_tuab(request, user_id):
         'target_fibers_list': target_fibers_list,
     })
 
-def admin_view_donor(request, user_id):
+async def admin_view_donor(request, user_id):
     profile = request.user_profile
     
-    response = api_call(request, 'GET', f'users/{user_id}')
+    response = await api_call(request, 'GET', f'users/{user_id}')
     if response.status_code != 200:
         messages.error(request, "Donor not found.")
         return redirect('admin_view_donors')
@@ -158,7 +151,7 @@ def admin_view_donor(request, user_id):
         'donor': donor
     })
 
-def admin_edit_donor(request, user_id):
+async def admin_edit_donor(request, user_id):
     profile = request.user_profile
 
     if request.method == 'POST':
@@ -167,7 +160,7 @@ def admin_edit_donor(request, user_id):
         confirm_password = raw_data.get('confirm_password')
         submitted_etag = raw_data.get('current_etag')
 
-        response = api_call(request, 'GET', f'users/{user_id}')
+        response = await api_call(request, 'GET', f'users/{user_id}')
         if response.status_code != 200:
             messages.error(request, "Donor not found.")
             return redirect('admin_view_donors')
@@ -202,7 +195,6 @@ def admin_edit_donor(request, user_id):
                 payload['contact_no'] = '+63' + c[1:]
             elif not c.startswith('+63'):
                 payload['contact_no'] = '+63' + c
-            # if it already starts with +63, leave it alone
 
         if password:
             payload['password'] = password
@@ -216,11 +208,11 @@ def admin_edit_donor(request, user_id):
         if files:
             patch_kwargs['files'] = files
 
-        response = api_call(request, 'PATCH', f'users/{user_id}', **patch_kwargs)
+        response = await api_call(request, 'PATCH', f'users/{user_id}', **patch_kwargs)
 
         if response.status_code == 200:
             if raw_data.get('disable_2fa') == '1' and donor.get('is_2fa_enabled'):
-                try: api_call(request, 'DELETE', f'users/{user_id}/2fa')
+                try: await api_call(request, 'DELETE', f'users/{user_id}/2fa')
                 except: pass
             messages.success(request, "Donor profile updated successfully.")
             return redirect('admin_view_donors')
@@ -243,7 +235,7 @@ def admin_edit_donor(request, user_id):
             'error_message': detail_message or ("We couldn't verify the donor's latest version. Please try again." if response.status_code == 428 else None),
         })
 
-    response = api_call(request, 'GET', f'users/{user_id}')
+    response = await api_call(request, 'GET', f'users/{user_id}')
     if response.status_code != 200:
         messages.error(request, "Donor not found.")
         return redirect('admin_view_donors')
@@ -261,7 +253,7 @@ def admin_edit_donor(request, user_id):
         'error_message': "This donor was updated somewhere else. Refresh the page and try again." if request.GET.get('stale') == '1' else None,
     })
 
-def admin_add_donor(request):
+async def admin_add_donor(request):
     profile = request.user_profile
     
     if request.method == 'POST':
@@ -292,7 +284,7 @@ def admin_add_donor(request):
             elif not c.startswith('+63'):
                 payload['contact_no'] = '+63' + c
 
-        response = api_call(request, 'POST', 'users', json=payload)
+        response = await api_call(request, 'POST', 'users', json=payload)
         if response.status_code == 201:
             messages.success(request, "Donor account created successfully.")
             return redirect('admin_view_donors')
@@ -302,7 +294,8 @@ def admin_add_donor(request):
         })
 
     return render(request, 'frontend/admin/admin_add_donor.html', {'page_title': 'Add Donor', 'user': profile})
-def admin_archive_user_proxy(request, user_id):
+
+async def admin_archive_user_proxy(request, user_id):
     """Admin-only SSR Proxy for archiving/deleting a user."""
     profile = request.user_profile
     
@@ -310,7 +303,7 @@ def admin_archive_user_proxy(request, user_id):
         submitted_etag = request.POST.get('etag')
         headers = {'If-Match': submitted_etag} if submitted_etag else {}
         try:
-            response = api_call(request, 'DELETE', f'users/{user_id}', headers=headers)
+            response = await api_call(request, 'DELETE', f'users/{user_id}', headers=headers)
             if response.status_code == 204:
                 messages.success(request, "User archived successfully.")
             elif response.status_code == 412:
@@ -329,12 +322,10 @@ def admin_archive_user_proxy(request, user_id):
         return redirect(referer)
     return redirect('admin_view_donors')
 
-from ..services import get_fiber_choices
-
-def admin_edit_tuab(request, user_id):
+async def admin_edit_tuab(request, user_id):
     profile = request.user_profile
 
-    fibers = get_fiber_choices(request)
+    fibers = await get_fiber_choices(request)
 
     if request.method == 'POST':
         raw_data = request.POST
@@ -343,8 +334,7 @@ def admin_edit_tuab(request, user_id):
         submitted_etag = raw_data.get('current_etag')
 
         if password and password != confirm_password:
-            # Re-fetch or use old data? Usually re-fetch to ensure fresh state if they failed validation
-            response = api_call(request, 'GET', f'users/{user_id}')
+            response = await api_call(request, 'GET', f'users/{user_id}')
             tuab = response.json()
             return render(request, 'frontend/admin/admin_edit_tuab.html', {
                 'page_title': 'Edit TUAB', 
@@ -357,7 +347,6 @@ def admin_edit_tuab(request, user_id):
             })
 
         payload = raw_data.dict()
-        # Remove internal frontend-only fields and blocked fields
         for key in ['csrfmiddlewaretoken', 'current_etag', 'confirm_password', 'upload', 'is_2fa_enabled', 'email', 'status', 'remove_payment_method']:
             payload.pop(key, None)
         
@@ -369,22 +358,20 @@ def admin_edit_tuab(request, user_id):
             files['upload'] = request.FILES['upload']
 
         headers = {'If-Match': submitted_etag} if submitted_etag else {}
-        response = api_call(request, 'PATCH', f'users/{user_id}', data=payload, files=files, headers=headers)
+        response = await api_call(request, 'PATCH', f'users/{user_id}', data=payload, files=files, headers=headers)
 
         if response.status_code == 200:
-            # If successful update, handle secondary actions
             if raw_data.get('is_2fa_enabled') == 'false':
-                api_call(request, 'DELETE', f'users/{user_id}/2fa')
+                await api_call(request, 'DELETE', f'users/{user_id}/2fa')
             
             if raw_data.get('remove_payment_method') == '1':
-                try: api_call(request, 'DELETE', f'users/{user_id}/subscription')
+                try: await api_call(request, 'DELETE', f'users/{user_id}/subscription')
                 except: pass
 
             messages.success(request, "TUAB profile updated successfully.")
             return redirect('admin_view_tuabs')
         
-        # Handle errors (400, 412, etc.)
-        if response.status_code == 412: # Precondition Failed (Stale ETag)
+        if response.status_code == 412: 
             messages.error(request, "The profile was updated by someone else. Please refresh and try again.")
             return redirect(request.path)
 
@@ -393,8 +380,7 @@ def admin_edit_tuab(request, user_id):
         except Exception:
             response_data = {}
         detail_message = response_data.get('detail') if isinstance(response_data, dict) and isinstance(response_data.get('detail'), str) else None
-        # We need the TUAB data again to re-render the form
-        get_res = api_call(request, 'GET', f'users/{user_id}')
+        get_res = await api_call(request, 'GET', f'users/{user_id}')
         tuab = get_res.json()
         
         return render(request, 'frontend/admin/admin_edit_tuab.html', {
@@ -408,8 +394,7 @@ def admin_edit_tuab(request, user_id):
             'fibers': fibers
         })
 
-    # GET Request
-    response = api_call(request, 'GET', f'users/{user_id}')
+    response = await api_call(request, 'GET', f'users/{user_id}')
     if response.status_code != 200:
         messages.error(request, "TUAB not found.")
         return redirect('admin_view_tuabs')
@@ -427,7 +412,8 @@ def admin_edit_tuab(request, user_id):
         'current_etag': current_etag,
         'fibers': fibers
     })
-def admin_add_donation(request):
+
+async def admin_add_donation(request):
     """View for admins to add a donation. Lookups and donor search are handled via AJAX."""
     profile = request.user_profile
 
@@ -435,12 +421,11 @@ def admin_add_donation(request):
         payload = request.POST.dict()
         files = {'donation_image': request.FILES['donation_image']} if 'donation_image' in request.FILES else {}
         
-        # Clean payload
         for k in ['csrfmiddlewaretoken']:
             payload.pop(k, None)
 
         try:
-            response = api_call(request, 'POST', 'donations', data=payload, files=files)
+            response = await api_call(request, 'POST', 'donations', data=payload, files=files)
             if response.status_code == 201:
                 messages.success(request, "Donation created successfully!")
                 return JsonResponse({'redirect': '/admin/donations/'})
@@ -450,7 +435,6 @@ def admin_add_donation(request):
                 except:
                     err_data = {'detail': 'Unknown backend error.'}
                 
-                # Extract detailed error information
                 error_msg = err_data.get('detail')
                 if not error_msg and isinstance(err_data, dict):
                     formatted = format_errors(err_data)
@@ -466,11 +450,11 @@ def admin_add_donation(request):
         except Exception as e:
             return JsonResponse({'error': f"System Error: {str(e)}"}, status=500)
 
-    # Fetch choices for the dropdowns
-    types_res = api_call(request, 'GET', 'brandfiberlookups/clothing_types')
+    types_res, brands_res = await asyncio.gather(
+        api_call(request, 'GET', 'brandfiberlookups/clothing_types'),
+        api_call(request, 'GET', 'brandfiberlookups/brands')
+    )
     clothing_types = types_res.json() if types_res.status_code == 200 else []
-
-    brands_res = api_call(request, 'GET', 'brandfiberlookups/brands')
     all_brands = brands_res.json() if brands_res.status_code == 200 else []
 
     return render(request, 'frontend/admin/admin_add_donation.html', {
@@ -487,17 +471,16 @@ def admin_add_donation(request):
         ]
     })
 
-def admin_view_donation(request, donation_id):
+async def admin_view_donation(request, donation_id):
     profile = request.user_profile
 
-    response = api_call(request, 'GET', f'donations/{donation_id}')
+    response = await api_call(request, 'GET', f'donations/{donation_id}')
     if response.status_code != 200:
         messages.error(request, "Donation not found.")
         return redirect('admin_view_donations')
 
     donation = response.json()
 
-    # Format dates for template display
     if donation.get('preferred_pickup_date'):
         donation['preferred_pickup_date'] = parse_datetime(donation['preferred_pickup_date'])
     if donation.get('submitted_at'):

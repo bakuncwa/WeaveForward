@@ -1,17 +1,19 @@
 import json
+import asyncio
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.contrib import messages
 from django.utils.dateparse import parse_datetime, parse_time
+import httpx
 from ..services import api_call, format_errors, get_paginated_data, get_fiber_choices
 
 
-def donor_browse_businesses(request):
+async def donor_browse_businesses(request):
     """Donor Dashboard - Browsing active TUABs."""
     profile = request.user_profile
     
     # Categories for filter from Service (Matches Registration)
-    categories = get_fiber_choices(request)
+    categories = await get_fiber_choices(request)
     
     # Capture filter params
     params = {'role': 'TUAB', 'status': 'ACTIVE'}
@@ -57,10 +59,10 @@ def donor_browse_businesses(request):
         data = {}
     else:
         try:
-            response = api_call(request, 'GET', 'users', params=api_params)
+            response = await api_call(request, 'GET', 'users', params=api_params)
             has_error = response.status_code != 200
             data = response.json() if not has_error else {}
-        except BackendUnavailable:
+        except httpx.RequestError:
             has_error = True
             data = {}
     
@@ -95,12 +97,12 @@ def donor_browse_businesses(request):
         'invalid_filters': invalid_filters
     })
 
-def donor_my_donations(request):
+async def donor_my_donations(request):
     """View to list the logged-in donor's donations."""
     profile = request.user_profile
 
     # Fetch from /api/donations/me/
-    response = api_call(request, 'GET', 'donations/me')
+    response = await api_call(request, 'GET', 'donations/me')
     donations_data = {}
     donations_list = []
     if response.status_code == 200:
@@ -124,10 +126,10 @@ def donor_my_donations(request):
         'count': donations_data.get('count', 0),
     })
 
-def donor_view_donation(request, donation_id):
+async def donor_view_donation(request, donation_id):
     profile = request.user_profile
 
-    response = api_call(request, 'GET', f'donations/{donation_id}')
+    response = await api_call(request, 'GET', f'donations/{donation_id}')
     if response.status_code != 200:
         if response.status_code == 403:
             messages.error(request, "Access denied.")
@@ -153,11 +155,11 @@ def donor_view_donation(request, donation_id):
         'items': donation.get('items', [])
     })
 
-def donor_view_tuab(request, user_id):
+async def donor_view_tuab(request, user_id):
     """View to see details of a specific TUAB business."""
     profile = request.user_profile
 
-    response = api_call(request, 'GET', f'users/{user_id}')
+    response = await api_call(request, 'GET', f'users/{user_id}')
     if response.status_code != 200:
         messages.error(request, "Business not found or access denied.")
         return redirect('donor_browse_businesses')
@@ -178,7 +180,7 @@ def donor_view_tuab(request, user_id):
         'business': business,
     })
 
-def donor_create_donation(request):
+async def donor_create_donation(request):
     """View for donors to create a new donation. Supports the new SSR-based version2 template."""
     profile = request.user_profile
 
@@ -191,7 +193,7 @@ def donor_create_donation(request):
             payload.pop(k, None)
 
         try:
-            response = api_call(request, 'POST', 'donations', data=payload, files=files)
+            response = await api_call(request, 'POST', 'donations', data=payload, files=files)
             if response.status_code == 201:
                 messages.success(request, "Donation created successfully!")
                 return JsonResponse({'redirect': '/donor/my-donations/'})
@@ -217,11 +219,12 @@ def donor_create_donation(request):
         except Exception as e:
             return JsonResponse({'error': f"System Error: {str(e)}"}, status=500)
 
-    # Fetch choices for the dropdowns (matching edit logic)
-    types_res = api_call(request, 'GET', 'brandfiberlookups/clothing_types')
+    # Fetch choices for the dropdowns (matching edit logic) in parallel
+    types_res, brands_res = await asyncio.gather(
+        api_call(request, 'GET', 'brandfiberlookups/clothing_types'),
+        api_call(request, 'GET', 'brandfiberlookups/brands')
+    )
     clothing_types = types_res.json() if types_res.status_code == 200 else []
-
-    brands_res = api_call(request, 'GET', 'brandfiberlookups/brands')
     all_brands = brands_res.json() if brands_res.status_code == 200 else []
 
     return render(request, 'frontend/donor/donor_create_donation.html', {
@@ -239,9 +242,9 @@ def donor_create_donation(request):
         ]
     })
 
-def donor_profile(request):
+async def donor_profile(request):
     """View for the donor's account profile. Always fetches fresh data."""
-    response = api_call(request, 'GET', 'users/me')
+    response = await api_call(request, 'GET', 'users/me')
     if response.status_code == 200:
         profile = response.json()
     else:
@@ -257,7 +260,7 @@ def donor_profile(request):
         'sidebar_variant': 'donor'
     })
 
-def donor_edit_profile(request):
+async def donor_edit_profile(request):
     """View to edit the donor's profile. Handles AJAX updates."""
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
@@ -293,7 +296,7 @@ def donor_edit_profile(request):
         # 6. Proxy PATCH to backend
         headers = {'If-Match': submitted_etag} if submitted_etag else {}
         try:
-            response = api_call(request, 'PATCH', f'users/{user_id}', data=payload, files=files, headers=headers)
+            response = await api_call(request, 'PATCH', f'users/{user_id}', data=payload, files=files, headers=headers)
             if response.status_code == 200:
                 messages.success(request, "Profile updated successfully.")
                 return JsonResponse({'message': 'Success'}, status=200)
@@ -314,8 +317,9 @@ def donor_edit_profile(request):
         except Exception as e:
             return JsonResponse({'error': f"System Error: {str(e)}"}, status=503)
 
+
     # GET Request: Fetch fresh data and ETag
-    response = api_call(request, 'GET', 'users/me')
+    response = await api_call(request, 'GET', 'users/me')
     if response.status_code == 200:
         profile = response.json()
         etag = response.headers.get('ETag')
@@ -335,7 +339,7 @@ def donor_edit_profile(request):
         'sidebar_variant': 'donor'
     })
 
-def donor_edit_donation(request, donation_id):
+async def donor_edit_donation(request, donation_id):
     """View to edit an existing donation. Handles fetching and proxying updates."""
     profile = request.user_profile
 
@@ -356,7 +360,7 @@ def donor_edit_donation(request, donation_id):
         # 4. Proxy PATCH to backend
         headers = {'If-Match': submitted_etag} if submitted_etag else {}
         try:
-            response = api_call(request, 'PATCH', f'donations/{donation_id}', data=payload, files=files, headers=headers)
+            response = await api_call(request, 'PATCH', f'donations/{donation_id}', data=payload, files=files, headers=headers)
             if response.status_code == 200:
                 messages.success(request, "Donation updated successfully!")
                 return JsonResponse({'redirect': f'/donor/my-donations/{donation_id}/'})
@@ -385,7 +389,7 @@ def donor_edit_donation(request, donation_id):
             return JsonResponse({'error': f"System Error: {str(e)}"}, status=503)
 
     # GET Request: Fetch fresh data and ETag
-    donation_response = api_call(request, 'GET', f'donations/{donation_id}')
+    donation_response = await api_call(request, 'GET', f'donations/{donation_id}')
     
     if donation_response.status_code == 200:
         donation = donation_response.json()
@@ -399,11 +403,12 @@ def donor_edit_donation(request, donation_id):
         messages.error(request, "Unable to fetch donation data.")
         return redirect('donor_my_donations')
 
-    # Fetch clothing types and all brands for the dropdowns
-    types_res = api_call(request, 'GET', 'brandfiberlookups/clothing_types')
+    # Fetch clothing types and all brands for the dropdowns in parallel
+    types_res, brands_res = await asyncio.gather(
+        api_call(request, 'GET', 'brandfiberlookups/clothing_types'),
+        api_call(request, 'GET', 'brandfiberlookups/brands')
+    )
     clothing_types = types_res.json() if types_res.status_code == 200 else []
-
-    brands_res = api_call(request, 'GET', 'brandfiberlookups/brands')
     all_brands = brands_res.json() if brands_res.status_code == 200 else []
 
     return render(request, 'frontend/donor/donor_edit_donation.html', {
@@ -424,10 +429,10 @@ def donor_edit_donation(request, donation_id):
     })
 
 
-def donor_cancel_donation(request, donation_id):
+async def donor_cancel_donation(request, donation_id):
     if request.method == 'POST':
         try:
-            response = api_call(request, 'POST', f'donations/{donation_id}/cancel')
+            response = await api_call(request, 'POST', f'donations/{donation_id}/cancel')
             if response.status_code == 200:
                 messages.success(request, "Donation cancelled successfully!")
             else:

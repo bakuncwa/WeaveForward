@@ -1,2 +1,0 @@
-C:\Users\user\AppData\Local\Programs\Python\Python312\Lib\site-packages\django\core\handlers\base.py:62: UserWarning: No directory at: D:\School\WeaveForward\WeaveForward_Frontend\staticfiles\
-  mw_instance = middleware(adapted_handler)

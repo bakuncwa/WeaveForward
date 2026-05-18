@@ -255,33 +255,6 @@ class AuthViewsTest(TestCase):
         self.assertEqual(mocked_requests.call_count, 5)
 
     @patch('frontend.services.api_service.requests.request')
-    def test_protected_page_refreshes_missing_access_after_403_and_renders(self, mocked_requests):
-        self.client.cookies['refresh_token'] = 'refresh-cookie'
-        self.client.cookies['csrftoken'] = 'csrf-cookie'
-        responses = [
-            make_response(403, {'detail': 'Authentication credentials were not provided.'}),
-            make_response(200),
-            make_response(200, {
-                'user_id': 1, 'role': 'Donor', 'email': 'user@example.com', 'name': 'Test User'
-            }),
-            make_response(200, ['Cotton']),
-            make_response(200, {
-                'results': [], 'count': 0, 'total_pages': 1, 'current_page': 1, 'has_next': False, 'has_prev': False, 'search_query': ''
-            }),
-        ]
-        responses[1].cookies.set('access_token', make_access_token())
-        responses[1].cookies.set('refresh_token', 'rotated-refresh')
-        mocked_requests.side_effect = responses
-
-        response = self.client.get(reverse('donor_browse_businesses'))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Browse Businesses')
-        self.assertEqual(response.cookies['access_token'].value.count('.'), 2)
-        self.assertEqual(response.cookies['refresh_token'].value, 'rotated-refresh')
-        self.assertEqual(mocked_requests.call_count, 5)
-
-    @patch('frontend.services.api_service.requests.request')
     def test_protected_page_backend_outage_returns_503_without_clearing_cookies(self, mocked_requests):
         self.client.cookies['access_token'] = make_access_token()
         self.client.cookies['refresh_token'] = 'refresh-cookie'

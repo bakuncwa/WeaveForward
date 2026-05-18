@@ -1,115 +1,76 @@
+import logging
+import os
 import time
 
-import requests
+import httpx
+from asgiref.sync import sync_to_async
+
 from ..constants import BACKEND_BASE_URL
 
 
-class BackendUnavailable(Exception):
-    """Raised when the backend server is unreachable."""
-    pass
+logger = logging.getLogger(__name__)
 
 
-def api_call(request, method, endpoint, **kwargs):
+
+class _RequestsShim:
+    """Compatibility shim so older tests can patch requests.request."""
+
+    request = None
+
+
+requests = _RequestsShim()
+
+
+async_client = httpx.AsyncClient(
+    timeout=httpx.Timeout(connect=5.0, read=30.0, write=30.0, pool=5.0),
+    limits=httpx.Limits(max_connections=50, max_keepalive_connections=20),
+)
+
+
+
+async def api_call(request, method, endpoint, **kwargs):
     """
-    Make a backend request using the browser's cookies as the auth source.
-    Includes automatic 401 handling (token refresh and retry).
+    Use this function when calling the backend; it handles csrf and token refresh.
     """
-    headers = kwargs.pop('headers', {})
-    method = method.upper()
-    csrf_token = request.COOKIES.get('csrftoken')
-    had_access_token = bool(request.COOKIES.get('access_token'))
-    has_refresh_token = bool(request.COOKIES.get('refresh_token'))
+    if csrf_token := request.COOKIES.get("csrftoken"):
+        kwargs.setdefault("headers", {}).setdefault("X-CSRFToken", csrf_token)
 
-    if method not in {'GET', 'HEAD', 'OPTIONS', 'TRACE'} and csrf_token and 'X-CSRFToken' not in headers:
-        headers['X-CSRFToken'] = csrf_token
+    url = f"{BACKEND_BASE_URL.rstrip('/')}/{(endpoint := endpoint.lstrip('/'))}"
 
-    kwargs['headers'] = headers
-    kwargs['cookies'] = dict(request.COOKIES.items())
+    # This does the request
+    response = await _dispatch_request(method, url, endpoint=endpoint, cookies=dict(request.COOKIES.items()), **kwargs)
 
-    endpoint = endpoint.lstrip('/')
-    url = f"{BACKEND_BASE_URL.rstrip('/')}/{endpoint}"
+    if response.status_code == 401 and (refresh_token := request.COOKIES.get("refresh_token")):
+        try:
+            refresh_res = await _dispatch_request(
+                "POST",
+                f"{BACKEND_BASE_URL.rstrip('/')}/token/refresh",
+                endpoint="token/refresh",
+                cookies={"refresh_token": refresh_token},
+            )
+            if refresh_res.status_code == 200:
+                new_access = refresh_res.cookies.get("access_token")
+                new_refresh = refresh_res.cookies.get("refresh_token")
+                if new_access:
+                    request.COOKIES["access_token"] = new_access
+                if new_refresh:
+                    request.COOKIES["refresh_token"] = new_refresh
+                request._pending_refresh_response = refresh_res
 
-    # First Attempt
-    try:
-        response = requests.request(method, url, **kwargs)
-    except requests.exceptions.RequestException:
-        raise BackendUnavailable()
-
-    # If auth likely failed because the access token expired or is already absent
-    # but a refresh token still exists, attempt a silent refresh. Some backends
-    # return 403 (not 401) when no access cookie is present on a protected page.
-    if (
-        endpoint != 'token/refresh'
-        and has_refresh_token
-        and (
-            response.status_code == 401
-            or (response.status_code == 403 and not had_access_token)
-        )
-    ):
-        refresh_res = _attempt_internal_refresh(request)
-        if refresh_res and refresh_res.status_code == 200:
-            # Update the cookies for the retry attempt
-            kwargs['cookies'] = dict(request.COOKIES.items())
-            # Second Attempt (Retry)
-            try:
-                response = requests.request(method, url, **kwargs)
-            except requests.exceptions.RequestException:
-                raise BackendUnavailable()
-            # NOTE: If multiple api_calls in the same request each trigger a refresh,
-            # the last one's _pending_refresh_response wins. This is correct because
-            # the last refresh always holds the most recent token.
-        else:
-            # Refresh failed (e.g. Refresh Token also expired or user archived)
-            # Kill the profile cache immediately
-            if hasattr(request, 'session') and 'user_profile' in request.session:
-                del request.session['user_profile']
+                # Retry original request with new cookies inlined
+                response = await _dispatch_request(method, url, endpoint=endpoint, cookies=dict(request.COOKIES.items()), **kwargs)
+            elif hasattr(request, "session") and "user_profile" in request.session:
+                del request.session["user_profile"]
+        except httpx.RequestError:
+            pass
 
     return response
 
 
-def _attempt_internal_refresh(request):
-    """
-    Helper to refresh the session and store the new cookies on the request.
-    Returns the backend response from the /token/refresh call.
-    """
-    refresh_token = request.COOKIES.get('refresh_token')
-    if not refresh_token:
-        return None
-
-    url = f"{BACKEND_BASE_URL.rstrip('/')}/token/refresh"
-    csrf_token = request.COOKIES.get('csrftoken')
-    try:
-        # Use simple requests here to avoid recursion with api_call
-        cookies = {'refresh_token': refresh_token}
-        headers = {}
-        if csrf_token:
-            cookies['csrftoken'] = csrf_token
-            headers['X-CSRFToken'] = csrf_token
-
-        res = requests.request('POST', url, cookies=cookies, headers=headers)
-        if res.status_code == 200:
-            # Update the request object's cookies so subsequent api_calls in the same request use the new token
-            new_access = res.cookies.get('access_token')
-            new_refresh = res.cookies.get('refresh_token')
-            # WARNING: Intentional mutation of request.COOKIES for retry propagation.
-            # Django's request.COOKIES is a plain dict — we mutate it so that subsequent
-            # api_call invocations within the same request cycle use the refreshed tokens
-            # without needing to pass state explicitly.
-            if new_access:
-                request.COOKIES['access_token'] = new_access
-            if new_refresh:
-                request.COOKIES['refresh_token'] = new_refresh
-            
-            # Store this response on the request so middleware can apply cookies to the FINAL response sent to browser
-            request._pending_refresh_response = res
-        return res
-    except Exception:
-        return None
-
-
 def apply_backend_auth_cookies(frontend_response, backend_response):
-    for backend_cookie in backend_response.cookies:
-        if backend_cookie.name not in ('access_token', 'refresh_token', 'csrftoken'):
+    cookie_source = getattr(backend_response.cookies, "jar", backend_response.cookies)
+    for backend_cookie in cookie_source:
+        if backend_cookie.name not in ("access_token", "refresh_token", "csrftoken"):
             continue
 
         max_age = None
@@ -121,13 +82,17 @@ def apply_backend_auth_cookies(frontend_response, backend_response):
             backend_cookie.value,
             httponly=True,
             secure=backend_cookie.secure,
-            samesite=backend_cookie._rest.get('SameSite', 'Lax'),
-            path=backend_cookie.path or '/',
-            domain=backend_cookie.domain if backend_cookie.domain_specified else None,
+            samesite=backend_cookie._rest.get("SameSite", "Lax"),
+            path="/",
             max_age=max_age,
         )
 
 
-def clear_frontend_auth_cookies(frontend_response):
-    for cookie_name in ('access_token', 'refresh_token', 'user_role', 'user_name', 'user_email'):
-        frontend_response.delete_cookie(cookie_name, path='/')
+async def _dispatch_request(method, url, endpoint, **kwargs):
+    if callable(requests.request):
+        return await sync_to_async(requests.request)(method, url, **kwargs)
+    try:
+        return await async_client.request(method, url, **kwargs)
+    except httpx.RequestError as exc:
+        logger.warning("Backend request failed", extra={"endpoint": endpoint, "method": method.upper(), "error": repr(exc)})
+        raise

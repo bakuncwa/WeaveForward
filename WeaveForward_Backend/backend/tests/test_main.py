@@ -3100,13 +3100,32 @@ class DonationQuotationClaimAPITest(TestCase):
         self.client.force_authenticate(user=self.tuab)
         response = self.client.post(
             reverse('donation-claim', kwargs={'pk': self.donation.donation_id}),
-            {"delivery_method": "PICKUP"},
+            {"delivery_method": "DELIVERY"},
             format='json',
             **self.quotation_headers(),
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(response.data['error'], "SUBSCRIPTION_INACTIVE")
         self.assertEqual(response.data['detail'], "An active PRO subscription is required to claim donations.")
+
+    def test_donation_claim_succeeds_for_pickup_without_pro_subscription(self):
+        # Remove the PRO subscription to simulate a non-pro TUAB
+        Subscription.objects.filter(user=self.tuab).delete()
+        self.client.force_authenticate(user=self.tuab)
+        response = self.client.post(
+            reverse('donation-claim', kwargs={'pk': self.donation.donation_id}),
+            {
+                "delivery_method": "PICKUP",
+            },
+            format='json',
+            **self.quotation_headers(),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.donation.refresh_from_db()
+        self.assertEqual(self.donation.status, 'CLAIMED')
+        self.assertEqual(self.donation.delivery_method, 'PICKUP')
+        self.assertEqual(self.donation.claimed_by_tuab_id, self.tuab.user_id)
 
     def test_donation_claim_rejects_invalid_delivery_method(self):
         self.client.force_authenticate(user=self.tuab)
