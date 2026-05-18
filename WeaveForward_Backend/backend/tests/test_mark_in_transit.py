@@ -75,7 +75,7 @@ class MarkInTransitTest(TestCase):
         response = self.client.post(url)
         
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertIn("You do not own this donation", response.data['detail'])
+        self.assertIn("claimed by your own business", response.data['detail'])
 
     def test_mark_in_transit_inactive_user(self):
         self.donation.claimed_by_tuab = self.inactive_tuab
@@ -88,7 +88,7 @@ class MarkInTransitTest(TestCase):
         # Note: Generic ViewSet retrieve/get_object might fail if user can't see it, 
         # but here the status is UNDER_REVIEW, so authentication passes but status check in service fails.
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertIn("Only active users", response.data['detail'])
+        self.assertIn("business account must be active", response.data['detail'])
 
     def test_mark_in_transit_not_pickup(self):
         self.donation.delivery_method = DonationDeliveryMethod.DELIVERY
@@ -99,7 +99,7 @@ class MarkInTransitTest(TestCase):
         response = self.client.post(url)
         
         self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
-        self.assertIn("Only PICKUP donations", response.data['detail'])
+        self.assertIn("Only pick-up donations", response.data['detail'])
 
     def test_mark_in_transit_not_claimed(self):
         self.donation.status = DonationStatus.PENDING
@@ -110,4 +110,30 @@ class MarkInTransitTest(TestCase):
         response = self.client.post(url)
         
         self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
-        self.assertIn("Donation must be CLAIMED", response.data['detail'])
+        self.assertIn("cannot be marked as in-transit", response.data['detail'])
+
+    def test_mark_in_transit_donor_role(self):
+        # A Donor is not allowed to mark in-transit
+        self.client.force_authenticate(user=self.donor)
+        url = reverse('donation-transit', kwargs={'pk': self.donation.pk})
+        response = self.client.post(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_mark_in_transit_unauthenticated(self):
+        # Unauthenticated user should get 401 Unauthorized
+        url = reverse('donation-transit', kwargs={'pk': self.donation.pk})
+        response = self.client.post(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_mark_in_transit_etag_updated(self):
+        old_updated_at = self.donation.updated_at
+        
+        self.client.force_authenticate(user=self.tuab)
+        url = reverse('donation-transit', kwargs={'pk': self.donation.pk})
+        response = self.client.post(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.donation.refresh_from_db()
+        self.assertNotEqual(self.donation.updated_at, old_updated_at)

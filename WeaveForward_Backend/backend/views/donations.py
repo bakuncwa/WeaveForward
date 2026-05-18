@@ -1,9 +1,11 @@
 from django.db import transaction
 from django.db.models import Q
-from rest_framework import filters, mixins, viewsets, serializers
+from rest_framework import filters, mixins, viewsets, serializers, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
+from rest_framework.exceptions import PermissionDenied, APIException, NotFound
 
 from datetime import timezone as dt_timezone
 from django.utils import timezone
@@ -13,6 +15,7 @@ from ..utils.view_mixins import PaginatedResponseMixin
 from ..models import Donation, Subscription
 from ..serializers import DonationSerializer, QuotationRequestSerializer, DonorDonationUpdateSerializer
 from ..services.donation_service import create_donation, mark_donation_in_transit, donor_update_donation
+from ..services.cancel_donation_service import cancel_donation
 from ..services.etag_service import build_updated_at_etag, matches_if_match
 from ..services.lalamove_service import get_lalamove_quotation
 from ..services.claim_donation_service import claim_donation, sign_quotation_data
@@ -61,10 +64,10 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
         # Non-admins: Cannot see ARCHIVED or other people's non-pending donations
         if user.role != 'Admin':
             if instance.status == 'ARCHIVED':
-                return Response({"detail": "Not found."}, status=404)
+                raise NotFound("Donation not found.")
             
             if instance.status != 'PENDING' and instance.donor != user and instance.claimed_by_tuab != user:
-                return Response({"detail": "Access denied."}, status=403)
+                raise PermissionDenied("Access denied.")
 
         serializer = self.get_serializer(instance)
         response = Response(serializer.data)
@@ -94,66 +97,89 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
         """Creates a new donation via the orchestrated service."""
         # Note: Only ACTIVE admins and ACTIVE donors are allowed to create.
         if request.user.status != 'ACTIVE' or request.user.role not in ['Admin', 'Donor']:
-            return Response({"detail": "Only active admins and donors can create donations."}, status=403)
+            raise PermissionDenied("Only active admins and donors can create donations.")
 
         try:
             donation = create_donation(request=request)
-            response_serializer = DonationSerializer(donation, context={'request': request})
-            response = Response(response_serializer.data, status=201)
-            response['ETag'] = build_updated_at_etag(donation)
-            return response
         except (ValueError, serializers.ValidationError) as e:
             if isinstance(e, serializers.ValidationError):
-                return Response(e.detail, status=400)
-            return Response({"detail": str(e)}, status=400)
-        except Exception:
-            return Response({"detail": "An unexpected error occurred during donation creation."}, status=500)
+                raise
+            exc = APIException(str(e))
+            exc.status_code = 400
+            raise exc
+
+        response_serializer = DonationSerializer(donation, context={'request': request})
+        response = Response(response_serializer.data, status=201)
+        response['ETag'] = build_updated_at_etag(donation)
+        return response
 
     def partial_update(self, request, *args, **kwargs):
         """Update a donation - Restricted to Donor (PENDING only)."""
         user = request.user
         with transaction.atomic():
             # 0. Fetch with Pessimistic Locking
-            if not (donation := Donation.objects.select_for_update().filter(pk=kwargs.get('pk')).first()): return Response({"detail": "Not found."}, status=404)
+            donation = Donation.objects.select_for_update().filter(pk=kwargs.get('pk')).first()
+            if not donation:
+                raise NotFound("Donation not found.")
+
             # 1. ETag Verification (Consistency)
-            if not (if_match := request.headers.get('If-Match')): return Response({"detail": "If-Match header is required."}, status=428)
-            if not matches_if_match(build_updated_at_etag(donation), if_match): return Response({"detail": "ETag mismatch."}, status=412)
+            if_match = request.headers.get('If-Match')
+            if not if_match:
+                exc = APIException("If-Match header is required.")
+                exc.status_code = 428
+                raise exc
+            if not matches_if_match(build_updated_at_etag(donation), if_match):
+                exc = APIException("ETag does not match the current resource version.")
+                exc.status_code = 412
+                raise exc
+
             # 2. Donor Path
             if user.role == 'Donor':
                 # Identity Check
-                if donation.donor != user: return Response({"detail": "Identity Mismatch: You do not own this donation."}, status=403)
+                if donation.donor != user:
+                    raise PermissionDenied("You can only edit donations that you created.")
                 # Status-Specific Logic
                 if donation.status == 'PENDING':
                     try:
                         updated_donation = donor_update_donation(request=request, donation=donation)
-                        serializer = DonationSerializer(updated_donation, context={'request': request})
-                        response = Response(serializer.data)
-                        response['ETag'] = build_updated_at_etag(updated_donation)
-                        return response
                     except (ValueError, serializers.ValidationError) as e:
-                        transaction.set_rollback(True)
-                        return Response(e.detail if isinstance(e, serializers.ValidationError) else {"detail": str(e)}, status=400)
-                    except Exception as e:
-                        transaction.set_rollback(True)
-                        return Response({"detail": f"Internal Update Error: {str(e)}"}, status=500)
+                        if isinstance(e, serializers.ValidationError):
+                            raise
+                        exc = APIException(str(e))
+                        exc.status_code = 400
+                        raise exc
+
+                    serializer = DonationSerializer(updated_donation, context={'request': request})
+                    response = Response(serializer.data)
+                    response['ETag'] = build_updated_at_etag(updated_donation)
+                    return response
                 elif donation.status in ['CLAIMED', 'IN_TRANSIT', 'RECEIVED', 'REJECTED', 'ARCHIVED']:
-                    return Response({"detail": f"Modification Forbidden: Donation is in {donation.status} state."}, status=409)
+                    exc = APIException(f"This donation cannot be modified because its current status is {donation.status.lower().replace('_', ' ')}.")
+                    exc.status_code = 409
+                    raise exc
+
             # 3. Admin Path
-            if user.role == 'Admin':
+            elif user.role == 'Admin':
                 # 3.1. Editable Statuses (Placeholders)
                 if donation.status == 'PENDING':
-                    # TODO: Admin-led correction of pending details
-                    return Response({"detail": "Admin Path: Pending donation correction not yet implemented."}, status=501)
+                    exc = APIException("Admin path for pending donation correction is not yet implemented.")
+                    exc.status_code = 501
+                    raise exc
                 elif donation.status == 'CLAIMED':
-                    # TODO: Admin-led correction of claim details
-                    return Response({"detail": "Admin Path: Claimed donation adjustment not yet implemented."}, status=501)
+                    exc = APIException("Admin path for claimed donation adjustment is not yet implemented.")
+                    exc.status_code = 501
+                    raise exc
                 elif donation.status == 'IN_TRANSIT':
-                    # TODO: Admin-led transit status override
-                    return Response({"detail": "Admin Path: Transit status override not yet implemented."}, status=501)
+                    exc = APIException("Admin path for transit status override is not yet implemented.")
+                    exc.status_code = 501
+                    raise exc
                 # 3.2. Immutable Statuses
                 elif donation.status in ['RECEIVED', 'REJECTED', 'ARCHIVED']:
-                    return Response({"detail": f"Admin Restriction: Donations in {donation.status} status are immutable."}, status=409)
-            return Response({"detail": "Global Restriction: Your role is not authorized to perform updates."}, status=403)
+                    exc = APIException(f"Donations in {donation.status.lower().replace('_', ' ')} status are immutable.")
+                    exc.status_code = 409
+                    raise exc
+
+            raise PermissionDenied("You are not authorized to edit this donation.")
 
     @action(detail=True, methods=['post'])
     def quotation(self, request, pk=None):
@@ -165,37 +191,45 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
         if_match = request.headers.get('If-Match')
         current_etag = build_updated_at_etag(donation)
         if if_match is None:
-            return Response({"detail": "If-Match header is required."}, status=428)
+            exc = APIException("If-Match header is required.")
+            exc.status_code = 428
+            raise exc
         if not matches_if_match(current_etag, if_match):
-            return Response({"detail": "ETag does not match the current resource version."}, status=412)
+            exc = APIException("ETag does not match the current resource version.")
+            exc.status_code = 412
+            raise exc
 
         # 1. Authorization: Role check
         if user.role != 'TUAB':
-            return Response({"detail": "Only TUABs can request a delivery quotation."}, status=403)
+            raise PermissionDenied("Only registered businesses can request a delivery quotation.")
 
         # 2. Authorization: Active PRO Subscription check
         now = timezone.now()
         has_pro = Subscription.objects.filter(user=user, subscription_tier='PRO', status='ACTIVE', end_date__gt=now).exists()
         if not has_pro:
-            return Response({
+            raise PermissionDenied({
                 "error": "SUBSCRIPTION_INACTIVE",
                 "detail": "An active PRO subscription is required to access delivery quotations."
-            }, status=403)
+            })
 
         # 3. Authorization: Max Claims check
         claimed_count = Donation.objects.filter(claimed_by_tuab=user, status__in=['CLAIMED', 'IN_TRANSIT']).count()
         if claimed_count >= user.max_active_claims:
-            return Response({
+            exc = APIException({
                 "error": "MAX_CLAIMS_REACHED",
                 "detail": f"You have reached your limit of {user.max_active_claims} active claims."
-            }, status=409)
+            })
+            exc.status_code = 409
+            raise exc
 
         # 4. Donation Availability Check
         if donation.status != 'PENDING':
-            return Response({
+            exc = APIException({
                 "error": "DONATION_UNAVAILABLE",
                 "detail": "Quotations can only be generated for donations with status 'PENDING'."
-            }, status=409)
+            })
+            exc.status_code = 409
+            raise exc
 
         pickup_date_local = timezone.localtime(donation.preferred_pickup_date)
         window_end = donation.preferred_pickup_window_end
@@ -206,9 +240,9 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
             microsecond=0,
         )
         if timezone.now() > window_end_at:
-            return Response({
-                "detail": "This donation's preferred pickup window has already passed. Delivery can no longer be scheduled."
-            }, status=409)
+            exc = APIException("This donation's preferred pickup window has already passed. Delivery can no longer be scheduled.")
+            exc.status_code = 409
+            raise exc
 
         # 5. Request Validation using Serializer
         serializer = QuotationRequestSerializer(data=request.data, context={'request': request, 'donation': donation})
@@ -257,19 +291,46 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
             if "scheduleAt" in detail and "past date or more than 30 days in advance" in detail:
                 detail = "The donation's scheduled pickup time is no longer valid for delivery quotations. Choose a donation with a future pickup schedule within the next 30 days."
 
-            return Response({
+            exc = APIException({
                 "error": "LALAMOVE_API_ERROR",
                 "detail": detail
-            }, status=result.get("status_code", 400))
+            })
+            exc.status_code = result.get("status_code", 400)
+            raise exc
 
         # 7. Format and return response
-        data = result.get("data", {})
-        stops = data.get("stops", [])
-        total_price = data.get("priceBreakdown", {}).get("total")
+        data = result.get("data") or {}
+        stops = data.get("stops") or []
+        price_breakdown = data.get("priceBreakdown") or {}
+        total_price = price_breakdown.get("total")
         quotation_id = data.get("quotationId")
-        stop_id_1 = stops[0].get("stopId") if len(stops) > 0 else None
-        stop_id_2 = stops[1].get("stopId") if len(stops) > 1 else None
-        expires_at = int(parse_datetime(data.get("expiresAt")).timestamp())
+
+        if len(stops) < 2:
+            exc = APIException("Lalamove quotation did not return the required delivery stops. Please check your address details.")
+            exc.status_code = 502
+            raise exc
+
+        if not total_price or not quotation_id:
+            exc = APIException("Lalamove quotation returned incomplete pricing or reference data.")
+            exc.status_code = 502
+            raise exc
+
+        stop_id_1 = stops[0].get("stopId")
+        stop_id_2 = stops[1].get("stopId")
+
+        expires_at_str = data.get("expiresAt")
+        if not expires_at_str:
+            exc = APIException("Lalamove quotation response is missing the expiration timestamp.")
+            exc.status_code = 502
+            raise exc
+
+        parsed_dt = parse_datetime(expires_at_str)
+        if not parsed_dt:
+            exc = APIException("Lalamove quotation returned an invalid expiration timestamp format.")
+            exc.status_code = 502
+            raise exc
+
+        expires_at = int(parsed_dt.timestamp())
 
         # Generate a signed token (Source of Truth)
         quotation_token = sign_quotation_data({
@@ -299,29 +360,35 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
 
         # 1. Role Check
         if user.role != 'TUAB':
-            return Response({"detail": "Only TUABs can claim donations."}, status=403)
+            raise PermissionDenied("Only registered businesses can claim donations.")
 
         # 2. ETag Verification
         if_match = request.headers.get('If-Match')
         current_etag = build_updated_at_etag(donation)
         if if_match is None:
-            return Response({"detail": "If-Match header is required."}, status=428)
+            exc = APIException("If-Match header is required.")
+            exc.status_code = 428
+            raise exc
         if not matches_if_match(current_etag, if_match):
-            return Response({"detail": "ETag does not match the current resource version."}, status=412)
+            exc = APIException("ETag does not match the current resource version.")
+            exc.status_code = 412
+            raise exc
 
         # 3. Authorization: Active PRO Subscription check (Required for both methods)
         now = timezone.now()
         has_pro = Subscription.objects.filter(user=user, subscription_tier='PRO', status='ACTIVE', end_date__gt=now).exists()
         if not has_pro:
-            return Response({
+            raise PermissionDenied({
                 "error": "SUBSCRIPTION_INACTIVE",
                 "detail": "An active PRO subscription is required to claim donations."
-            }, status=403)
+            })
 
         # 4. Request Data
         delivery_method = request.data.get('delivery_method')
         if delivery_method not in ['PICKUP', 'DELIVERY']:
-            return Response({"detail": "Invalid delivery_method. Must be 'PICKUP' or 'DELIVERY'."}, status=400)
+            exc = APIException("Invalid delivery_method. Must be 'PICKUP' or 'DELIVERY'.")
+            exc.status_code = 400
+            raise exc
 
         claim_params = {
             'delivery_method': delivery_method,
@@ -336,10 +403,7 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
             claim_params=claim_params,
             ip_address=ip_address
         )
-        if result["status_code"] != 200:
-            return Response({"detail": result["detail"]}, status=result["status_code"])
-            
-        return Response(result, status=200)
+        return Response(result, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'])
     def transit(self, request, pk=None):
@@ -354,7 +418,20 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
             ip_address=ip_address
         )
         
-        if result["status_code"] != 200:
-            return Response({"detail": result["detail"]}, status=result["status_code"])
-            
-        return Response(result, status=200)
+        return Response(result, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        """Cancels a donation."""
+        # Retrieve the donation instance from database using view set lookup
+        donation = self.get_object()
+        # Extract authenticated user executing request
+        user = request.user
+        # Resolve real client IP address for the audit log
+        ip_address = get_client_ip(request)
+        # Execute orchestrated donation cancellation service logic raising standard DRF exceptions
+        result = cancel_donation(user=user, donation=donation, ip_address=ip_address)
+        # Return successful cancellation details with 200 OK status
+        return Response(result, status=status.HTTP_200_OK)
+
+

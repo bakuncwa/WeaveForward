@@ -141,7 +141,8 @@ class UserSerializer(serializers.ModelSerializer):
         # 4. Location Lookup & Coordinate Formatting
         lat, lng = data.get('latitude'), data.get('longitude')
         if lat is not None or lng is not None:
-            latitude, longitude = lat or (instance.latitude if instance else None), lng or (instance.longitude if instance else None)
+            latitude = lat if lat is not None else (instance.latitude if instance else None)
+            longitude = lng if lng is not None else (instance.longitude if instance else None)
             
             # Ensure coordinates are formatted to 7 decimal places
             if 'latitude' in data: data['latitude'] = round(float(data['latitude']), 7)

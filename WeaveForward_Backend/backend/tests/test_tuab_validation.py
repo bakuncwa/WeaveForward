@@ -82,3 +82,51 @@ class TUABUpdateValidationTest(TestCase):
         self.assertEqual(self.tuab.business_name, "Updated Business")
         self.assertEqual(self.tuab.max_active_claims, 5)
         self.assertEqual(self.tuab.target_fibers, "wool,denim")
+
+    def test_tuab_edit_own_profile_success(self):
+        # Authenticate as the TUAB user themselves
+        self.client.force_authenticate(user=self.tuab)
+        payload = {
+            "business_name": "My Own Cool Brand",
+        }
+        response = self.client.patch(self.url, payload, format='json', HTTP_IF_MATCH=self.etag)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.tuab.refresh_from_db()
+        self.assertEqual(self.tuab.business_name, "My Own Cool Brand")
+
+    def test_tuab_edit_other_profile_forbidden(self):
+        # Create another TUAB user
+        other_tuab = User.objects.create_user(
+            email="other_tuab@example.com", password="Password123", role="TUAB", contact_no="+639181234568", status="ACTIVE"
+        )
+        # Authenticate as the other TUAB
+        self.client.force_authenticate(user=other_tuab)
+        payload = {
+            "business_name": "Hacked Name"
+        }
+        # Attempt to edit original tuab's profile
+        response = self.client.patch(self.url, payload, format='json', HTTP_IF_MATCH=self.etag)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        
+        # Verify database remained unchanged
+        self.tuab.refresh_from_db()
+        self.assertEqual(self.tuab.business_name, "Initial Name")
+
+    def test_tuab_edit_without_if_match_header_fails(self):
+        self.client.force_authenticate(user=self.tuab)
+        payload = {
+            "business_name": "Headerless Update"
+        }
+        # Omit HTTP_IF_MATCH header
+        response = self.client.patch(self.url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_428_PRECONDITION_REQUIRED)
+
+    def test_tuab_edit_with_mismatched_etag_fails(self):
+        self.client.force_authenticate(user=self.tuab)
+        payload = {
+            "business_name": "Outdated ETag Update"
+        }
+        # Pass a mismatched/stale ETag header
+        stale_etag = '"stale-etag-value-12345"'
+        response = self.client.patch(self.url, payload, format='json', HTTP_IF_MATCH=stale_etag)
+        self.assertEqual(response.status_code, status.HTTP_412_PRECONDITION_FAILED)

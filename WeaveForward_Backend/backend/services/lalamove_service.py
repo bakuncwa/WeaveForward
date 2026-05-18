@@ -93,9 +93,13 @@ def reverse_or_refund_payment(payment_record, amount):
         void_resp = requests.delete(void_url, json={"reason": "Delivery failure reversal."}, headers=headers, timeout=30)
         if void_resp.status_code == 200:
             print(f"[PAYMENT] Successfully VOIDED payment: {payment_record.payment_reference}", flush=True)
-            payment_record.status = PaymentStatus.FAILED
-            payment_record.updated_at = timezone.now()
-            payment_record.save(update_fields=["status", "updated_at"])
+            # Create a new reversal/refund payment record with a negative amount
+            OrderPayment.objects.create(
+                order=payment_record.order,
+                amount=-payment_record.amount,
+                status=PaymentStatus.SUCCESS,
+                payment_reference=f"void-{payment_record.payment_reference}"
+            )
             return True
         else:
             print(f"[PAYMENT] Void failed with status {void_resp.status_code}: {void_resp.text}. Proceeding to Refund...", flush=True)
@@ -115,9 +119,13 @@ def reverse_or_refund_payment(payment_record, amount):
         refund_resp = requests.post(refund_url, json=refund_payload, headers=headers, timeout=30)
         if refund_resp.status_code in [200, 201]:
             print(f"[PAYMENT] Successfully REFUNDED payment: {payment_record.payment_reference}", flush=True)
-            payment_record.status = PaymentStatus.FAILED
-            payment_record.updated_at = timezone.now()
-            payment_record.save(update_fields=["status", "updated_at"])
+            # Create a new reversal/refund payment record with a negative amount
+            OrderPayment.objects.create(
+                order=payment_record.order,
+                amount=-payment_record.amount,
+                status=PaymentStatus.SUCCESS,
+                payment_reference=f"refund-{payment_record.payment_reference}"
+            )
             return True
         else:
             print(f"[PAYMENT] Refund failed: {refund_resp.text}", flush=True)
@@ -272,5 +280,41 @@ def process_lalamove_webhook(payload, client_ip):
         print(f"[LALAMOVE WEBHOOK] [WARNING] Unhandled state transition: {previous_status} -> {status}", flush=True)
 
     return {"status_code": 200, "detail": "Lalamove webhook signature verified successfully."}
+
+
+def cancel_lalamove_order(lalamove_order_id):
+    # Lalamove credentials from settings
+    api_key = settings.LALAMOVE_API_KEY
+    api_secret = settings.LALAMOVE_API_SECRET
+    base_url = "https://rest.sandbox.lalamove.com"
+    path = f"/v3/orders/{lalamove_order_id}"
+    # DELETE request body must be empty string
+    body = ""
+    timestamp = str(int(time.time() * 1000))
+    method = "DELETE"
+    # Construct signature payload
+    signature_payload = f"{timestamp}\r\n{method}\r\n{path}\r\n\r\n{body}"
+    signature = hmac.new(
+        api_secret.encode('utf-8'),
+        signature_payload.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
+    # Construct required headers
+    headers = {
+        "Authorization": f"hmac {api_key}:{timestamp}:{signature}",
+        "Market": "PH",
+        "Request-ID": str(uuid.uuid4()),
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+    # Invoke DELETE request to cancel order
+    response = requests.delete(f"{base_url}{path}", headers=headers)
+    # If API does not return success, return error dictionary
+    if response.status_code not in [200, 204]:
+        return {"error": response.text, "status_code": response.status_code}
+    # Return success status code
+    return {"status_code": response.status_code}
+
+
 
 

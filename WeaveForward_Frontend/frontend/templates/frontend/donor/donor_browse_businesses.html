@@ -362,6 +362,9 @@
         <input type="hidden" id="browse-lat" name="lat" value="{{ request.GET.lat }}" />
         <input type="hidden" id="browse-lng" name="lng" value="{{ request.GET.lng }}" />
       </div>
+      <div id="nominatim-error" class="hidden" style="color:#d9534f; font-size:12px; margin-top:4px; font-weight:500;">
+        Location resolution services are unavailable for proximity-based ordering.
+      </div>
     </div>
     <button class="btn btn-primary" type="submit">Apply Filters</button>
     <button class="btn btn-outline" type="button"
@@ -375,6 +378,18 @@
   </p>
 
   <div id="biz-list">
+    {% if has_error %}
+    <div style="text-align:center; padding:60px 0; color:#d9534f; font-weight:500;">
+      <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom:12px; color:#d9534f; display:inline-block;">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+      </svg>
+      {% if invalid_filters %}
+      <p style="font-size:16px; margin:0;">Invalid location parameters or filter criteria. Please try searching again.</p>
+      {% else %}
+      <p style="font-size:16px; margin:0;">Textile Upcycling Artisan Businesses cannot be retrieved.</p>
+      {% endif %}
+    </div>
+    {% else %}
     {% for biz in businesses %}
     <a class="biz-card" href="{% url 'donor_view_tuab' biz.user_id %}">
       {% if biz.upload %}
@@ -415,6 +430,7 @@
       <p>No businesses found matching your criteria.</p>
     </div>
     {% endfor %}
+    {% endif %}
   </div>
 
   {% if total_pages > 1 %}
@@ -498,6 +514,11 @@
   async function nominatimSearch(val, acId, latId, lngId, inputId) {
     const ac = document.getElementById(acId);
     if (!ac) return;
+    
+    // Clear any previous error banner on input
+    const errorEl = document.getElementById('nominatim-error');
+    if (errorEl) errorEl.classList.add('hidden');
+    
     if (!val || val.length < 3) { ac.classList.add('hidden'); return; }
     clearTimeout(nominatimTimers[acId]);
     nominatimTimers[acId] = setTimeout(async () => {
@@ -511,7 +532,10 @@
           `<div class="ac-item" onclick="selectAC(${i},'${acId}','${latId}','${lngId}','${inputId}')">${r.display_name}</div>`
         ).join('');
         ac.classList.remove('hidden');
-      } catch { ac.classList.add('hidden'); }
+      } catch (err) {
+        ac.classList.add('hidden');
+        if (errorEl) errorEl.classList.remove('hidden');
+      }
     }, 400);
   }
 

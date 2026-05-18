@@ -160,3 +160,146 @@ class DonationCreationTest(TestCase):
         response = self.client.post(reverse('donation-list'), payload, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['donor']['user_id'], self.donor.user_id)
+
+    def test_create_donation_model_unavailable(self):
+        from unittest.mock import patch
+        from backend.services.prediction_service import MatchPredictionService
+        
+        # Force model reload on next call
+        original_model = MatchPredictionService._model
+        MatchPredictionService._model = None
+        
+        try:
+            # Patch builtins.open to simulate missing model/metadata files
+            with patch('builtins.open', side_effect=FileNotFoundError):
+                items = [{"lookup_id": self.lookup.lookup_id, "weight_kg": 1.5, "condition_rating": "Good"}]
+                payload = {
+                    "donor_user_id": self.donor.user_id,
+                    "items": json.dumps(items),
+                    "preferred_pickup_date": (timezone.now() + timedelta(days=5)).isoformat(),
+                    "preferred_pickup_window_start": "10:00:00",
+                    "preferred_pickup_window_end": "12:00:00",
+                    "pickup_display_address": "Test",
+                    "pickup_latitude": "14.5645000",
+                    "pickup_longitude": "120.9930000",
+                }
+                
+                response = self.client.post(reverse('donation-list'), payload, format='multipart')
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn("Prediction model is unavailable", response.data['detail'])
+        finally:
+            MatchPredictionService._model = original_model
+
+    def test_edit_donation_model_unavailable(self):
+        from unittest.mock import patch
+        from backend.services.prediction_service import MatchPredictionService
+        from decimal import Decimal
+        
+        # 1. Create a successful donation first
+        donation = Donation.objects.create(
+            donor=self.donor,
+            preferred_pickup_date='2026-06-01',
+            preferred_pickup_window_start='10:00:00',
+            preferred_pickup_window_end='12:00:00',
+            pickup_display_address="Manila",
+            pickup_latitude=Decimal('14.5645000'),
+            pickup_longitude=Decimal('120.9930000'),
+            status='PENDING'
+        )
+        DonationItem.objects.create(
+            donation=donation,
+            lookup=self.lookup,
+            weight_kg=1.5,
+            condition_rating='GOOD'
+        )
+        
+        self.client.force_authenticate(user=self.donor)
+        
+        # Force model reload on next call
+        original_model = MatchPredictionService._model
+        MatchPredictionService._model = None
+        
+        try:
+            # Patch builtins.open to simulate missing model/metadata files
+            with patch('builtins.open', side_effect=FileNotFoundError):
+                items_payload = [
+                    {
+                        "item_id": DonationItem.objects.filter(donation=donation).first().item_id,
+                        "weight_kg": 2.5
+                    }
+                ]
+                payload = {
+                    "pickup_display_address": "Updated Manila Address",
+                    "items": json.dumps(items_payload)
+                }
+                
+                from backend.services.etag_service import build_updated_at_etag
+                etag = build_updated_at_etag(donation)
+                
+                response = self.client.patch(
+                    reverse('donation-detail', kwargs={'pk': donation.donation_id}),
+                    payload,
+                    HTTP_IF_MATCH=etag
+                )
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn("Prediction model is unavailable", response.data['detail'])
+                
+                # Check that the database update was rolled back
+                donation.refresh_from_db()
+                self.assertEqual(donation.pickup_display_address, "Manila")
+        finally:
+            MatchPredictionService._model = original_model
+
+    def test_edit_donation_metadata_only_does_not_trigger_prediction_model(self):
+        from unittest.mock import patch
+        from backend.services.prediction_service import MatchPredictionService
+        from decimal import Decimal
+        
+        # 1. Create a successful donation first
+        donation = Donation.objects.create(
+            donor=self.donor,
+            preferred_pickup_date='2026-06-01',
+            preferred_pickup_window_start='10:00:00',
+            preferred_pickup_window_end='12:00:00',
+            pickup_display_address="Manila",
+            pickup_latitude=Decimal('14.5645000'),
+            pickup_longitude=Decimal('120.9930000'),
+            status='PENDING'
+        )
+        DonationItem.objects.create(
+            donation=donation,
+            lookup=self.lookup,
+            weight_kg=1.5,
+            condition_rating='GOOD'
+        )
+        
+        self.client.force_authenticate(user=self.donor)
+        
+        # Force model reload on next call
+        original_model = MatchPredictionService._model
+        MatchPredictionService._model = None
+        
+        try:
+            # Patch builtins.open to simulate missing model/metadata files
+            # If the prediction logic runs, it will raise FileNotFoundError.
+            # But since we do NOT pass "items" in the edit payload, it should skip it entirely and succeed!
+            with patch('builtins.open', side_effect=FileNotFoundError):
+                payload = {
+                    "pickup_display_address": "Updated Manila Address"
+                }
+                
+                from backend.services.etag_service import build_updated_at_etag
+                etag = build_updated_at_etag(donation)
+                
+                response = self.client.patch(
+                    reverse('donation-detail', kwargs={'pk': donation.donation_id}),
+                    payload,
+                    HTTP_IF_MATCH=etag
+                )
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                
+                # Verify address was successfully updated without any rollback
+                donation.refresh_from_db()
+                self.assertEqual(donation.pickup_display_address, "Updated Manila Address")
+        finally:
+            MatchPredictionService._model = original_model

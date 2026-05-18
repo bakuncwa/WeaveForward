@@ -1200,3 +1200,41 @@ class DonorDonationDetailViewTest(MiddlewareAuthMixin, TestCase):
         self.assertEqual(response.status_code, 200)
         messages = list(response.context['messages'])
         self.assertTrue(any(str(message) == 'Donation not found.' for message in messages))
+
+
+class DonorCancelDonationViewTest(MiddlewareAuthMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.auth_profile = {
+            'user_id': 11,
+            'role': 'Donor',
+            'first_name': 'Dana',
+            'last_name': 'Cruz',
+        }
+
+    @patch('frontend.views.donor.api_call')
+    def test_donor_cancel_donation_success(self, mocked_api_call):
+        mocked_api_call.return_value = make_response(200, {'detail': 'Donation successfully cancelled.'})
+
+        response = self.client.post(
+            reverse('donor_cancel_donation', kwargs={'donation_id': 88})
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('donor_my_donations'))
+        self.assertEqual(mocked_api_call.call_args.args[1:], ('POST', 'donations/88/cancel'))
+        messages = [msg.message for msg in get_messages(response.wsgi_request)]
+        self.assertIn("Donation cancelled successfully!", messages)
+
+    @patch('frontend.views.donor.api_call')
+    def test_donor_cancel_donation_failure(self, mocked_api_call):
+        mocked_api_call.return_value = make_response(400, {'detail': 'Failed to cancel donation.'})
+
+        response = self.client.post(
+            reverse('donor_cancel_donation', kwargs={'donation_id': 88})
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('donor_my_donations'))
+        messages = [msg.message for msg in get_messages(response.wsgi_request)]
+        self.assertIn("Failed to cancel donation.", messages)
