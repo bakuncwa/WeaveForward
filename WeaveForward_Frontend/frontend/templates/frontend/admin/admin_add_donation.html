@@ -107,8 +107,9 @@
   .trash { background: none; border: none; color: var(--gold); cursor: pointer; }
 
   .ss-wrap { position: relative; }
-  .ss-list { position: absolute; z-index: 100; top: 100%; left: 0; width: 100%; max-height: 200px; overflow-y: auto; background: #fff; border: 1.5px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.15); }
-  .ss-item { padding: 10px 14px; font-size: 13px; cursor: pointer; border-bottom: 1px solid #f5f5f5; color: #666666; font-family: 'Poppins', sans-serif; }
+  .ss-list, .ac-list { position: absolute; z-index: 100; top: 100%; left: 0; width: 100%; max-height: 200px; overflow-y: auto; background: #fff; border: 1.5px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.15); }
+  .ss-item, .ac-item { padding: 10px 14px; font-size: 13px; cursor: pointer; border-bottom: 1px solid #f5f5f5; color: #666666; font-family: 'Poppins', sans-serif; }
+  .ss-item:hover, .ac-item:hover { } /* Hover disabled */
   .ss-item b { display: block; color: var(--gold); font-size: 11px; }
 
   #picker-map { width: 100%; height: 350px; }
@@ -288,9 +289,15 @@
 <script>
   // --- Auto-Location ---
   navigator.geolocation.getCurrentPosition(async({coords:{latitude:t,longitude:g}})=>{
-    document.getElementById('lat').value=t.toFixed(7); document.getElementById('lng').value=g.toFixed(7);
-    const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${t}&lon=${g}`);
-    document.getElementById('addr').value=(await r.json()).display_name||'';
+    try {
+      document.getElementById('lat').value=t.toFixed(7); document.getElementById('lng').value=g.toFixed(7);
+      const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${t}&lon=${g}`);
+      document.getElementById('addr').value=(await r.json()).display_name||'';
+    } catch (e) {
+      if (typeof showFlash === 'function') {
+        showFlash('Location resolution services are unavailable.', 'error');
+      }
+    }
   });
 
   // -------------------------
@@ -335,19 +342,25 @@
       return;
     }
     
-    const res = await fetch(`{% url "material_search_proxy" %}?clothing_type=${type}&brand=${brand}`);
-    const materials = await res.json();
-    
-    mIn.disabled = !materials.length;
-    mIn.placeholder = materials.length ? 'Search...' : 'No combinations found';
-    list.innerHTML = materials.map(m => {
-      const display = `${m.fiber_json} - ${m.category}`.replace(/'/g, "\\'").replace(/\n/g, ' ');
-      return `
-        <div class="ss-item" onclick="selectMat(this, '${m.lookup_id}', '${display}')">
-          <b>${m.category}</b>${m.fiber_json}
-        </div>
-      `;
-    }).join('');
+    try {
+      const res = await fetch(`{% url "material_search_proxy" %}?clothing_type=${type}&brand=${brand}`);
+      if (!res.ok) throw new Error("HTTP error " + res.status);
+      const materials = await res.json();
+      
+      mIn.disabled = !materials.length;
+      mIn.placeholder = materials.length ? 'Search...' : 'No combinations found';
+      list.innerHTML = materials.map(m => {
+        const display = `${m.fiber_json} - ${m.category}`.replace(/'/g, "\\'").replace(/\n/g, ' ');
+        return `
+          <div class="ss-item" onclick="selectMat(this, '${m.lookup_id}', '${display}')">
+            <b>${m.category}</b>${m.fiber_json}
+          </div>
+        `;
+      }).join('');
+    } catch (e) {
+      console.error(e);
+      showFlash("Donation records could not be retrieved.", "error");
+    }
   }
 
   function searchMaterials(inp) {
@@ -372,21 +385,27 @@
     if (!q) return list.classList.add('hidden');
     clearTimeout(dnrTmr);
     dnrTmr = setTimeout(async () => {
-      const res = await fetch(`{% url "donor_search_proxy" %}?search=${encodeURIComponent(q)}&page=${p}&role=Donor`);
-      const data = await res.json();
-      const users = data.results || data; 
-      
-      let html = users.map(u => `
-        <div class="ss-item" onmousedown="slDnr('${u.user_id}', '${u.first_name} ${u.last_name} (${u.email})')">
-          <b>${u.email}</b>${u.first_name} ${u.last_name}
-        </div>
-      `).join('');
+      try {
+        const res = await fetch(`{% url "donor_search_proxy" %}?search=${encodeURIComponent(q)}&page=${p}&role=Donor`);
+        if (!res.ok) throw new Error("HTTP error " + res.status);
+        const data = await res.json();
+        const users = data.results || data; 
+        
+        let html = users.map(u => `
+          <div class="ss-item" onmousedown="slDnr('${u.user_id}', '${u.first_name} ${u.last_name} (${u.email})')">
+            <b>${u.email}</b>${u.first_name} ${u.last_name}
+          </div>
+        `).join('');
 
-      if (data.previous) html = `<div class="ss-item" style="text-align:center" onmousedown="fetchDonors('${q}', ${p-1})"><b>❮ PREV</b></div>` + html;
-      if (data.next) html += `<div class="ss-item" style="text-align:center" onmousedown="fetchDonors('${q}', ${p+1})"><b>NEXT ❯</b></div>`;
-      
-      list.innerHTML = html || '<div class="ss-item">No donors found</div>';
-      list.classList.remove('hidden');
+        if (data.previous) html = `<div class="ss-item" style="text-align:center" onmousedown="fetchDonors('${q}', ${p-1})"><b>❮ PREV</b></div>` + html;
+        if (data.next) html += `<div class="ss-item" style="text-align:center" onmousedown="fetchDonors('${q}', ${p+1})"><b>NEXT ❯</b></div>`;
+        
+        list.innerHTML = html || '<div class="ss-item">No donors found</div>';
+        list.classList.remove('hidden');
+      } catch (err) {
+        console.error(err);
+        showFlash("Donation records could not be retrieved.", "error");
+      }
     }, 300);
   }
 

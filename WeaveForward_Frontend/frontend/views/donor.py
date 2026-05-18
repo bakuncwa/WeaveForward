@@ -19,16 +19,59 @@ def donor_browse_businesses(request):
     lng = request.GET.get('lng')
     category = request.GET.get('category')
     
+    # Validate filter inputs defensively to prevent ValueErrors
+    invalid_filters = False
     if lat and lng:
-        params['lat'] = lat
-        params['lng'] = lng
+        try:
+            float(lat)
+            float(lng)
+            params['lat'] = lat
+            params['lng'] = lng
+        except ValueError:
+            invalid_filters = True
+    elif lat or lng:
+        # Incomplete coordinates are invalid
+        invalid_filters = True
+        
     if category:
         params['category'] = category
+
+    # Inline paginated api_call to capture raw response status and catch network outages locally
+    page = request.GET.get('page', 1)
+    try:
+        current_page = int(page)
+        if current_page < 1:
+            current_page = 1
+    except ValueError:
+        current_page = 1
+        page = '1'
         
-    p_data = get_paginated_data(request, 'users', params=params)
+    search_query = request.GET.get('q', '')
     
+    api_params = params.copy()
+    api_params.update({'page': page, 'search': search_query})
+    
+    has_error = False
+    if invalid_filters:
+        has_error = True
+        data = {}
+    else:
+        try:
+            response = api_call(request, 'GET', 'users', params=api_params)
+            has_error = response.status_code != 200
+            data = response.json() if not has_error else {}
+        except BackendUnavailable:
+            has_error = True
+            data = {}
+    
+    businesses = data.get('results', [])
+    count = data.get('count', 0)
+    total_pages = (count + 9) // 10  # 10 items per page
+    has_next = data.get('next') is not None
+    has_prev = data.get('previous') is not None
+        
     # Process target_fibers into lists for template
-    for biz in p_data.get('results', []):
+    for biz in businesses:
         fibers = biz.get('target_fibers', '')
         if fibers:
             biz['fiber_list'] = [f.strip() for f in fibers.split(',') if f.strip()][:3]
@@ -39,15 +82,17 @@ def donor_browse_businesses(request):
         'page_title': 'Browse Businesses', 
         'user': profile,
         'sidebar_variant': 'donor',
-        'businesses': p_data['results'],
+        'businesses': businesses,
         'categories': categories,
-        'count': p_data['count'],
-        'total_pages': p_data['total_pages'],
-        'current_page': p_data['current_page'],
-        'has_next': p_data['has_next'],
-        'has_prev': p_data['has_prev'],
-        'page_range': range(1, p_data['total_pages'] + 1),
-        'q': p_data['search_query']
+        'count': count,
+        'total_pages': total_pages,
+        'current_page': current_page,
+        'has_next': has_next,
+        'has_prev': has_prev,
+        'page_range': range(1, total_pages + 1),
+        'q': search_query,
+        'has_error': has_error,
+        'invalid_filters': invalid_filters
     })
 
 def donor_my_donations(request):
@@ -377,3 +422,21 @@ def donor_edit_donation(request, donation_id):
             ('POOR', 'Poor'),
         ]
     })
+
+
+def donor_cancel_donation(request, donation_id):
+    if request.method == 'POST':
+        try:
+            response = api_call(request, 'POST', f'donations/{donation_id}/cancel')
+            if response.status_code == 200:
+                messages.success(request, "Donation cancelled successfully!")
+            else:
+                try:
+                    err_data = response.json()
+                except:
+                    err_data = {}
+                error_msg = err_data.get('detail') if isinstance(err_data, dict) else None
+                messages.error(request, error_msg or "Failed to cancel donation.")
+        except Exception as e:
+            messages.error(request, f"System Error: {str(e)}")
+    return redirect('donor_my_donations')

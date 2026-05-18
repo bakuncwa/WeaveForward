@@ -144,26 +144,30 @@ class DonationCreateSerializer(serializers.ModelSerializer):
                 errors['donor_user_id'] = "Donors can only create donations for themselves."
 
         # 6. Items Parsing & DB Validation
-        try:
-            items = json.loads(data.get('items'))
-            if not isinstance(items, list) or not items:
-                errors['items'] = "Items must be a non-empty list."
-            else:
-                lookup_ids = [i.get('lookup_id') for i in items if i.get('lookup_id')]
-                existing_ids = set(BrandFiberLookup.objects.filter(lookup_id__in=lookup_ids, is_active=True).values_list('lookup_id', flat=True))
-                for i in items:
-                    if any(k not in i for k in ['lookup_id', 'weight_kg', 'condition_rating']):
-                        errors['items'] = "Each item must have lookup_id, weight_kg, and condition_rating."
-                        break
-                    if i['lookup_id'] not in existing_ids:
-                        errors['items'] = f"Lookup ID {i['lookup_id']} does not exist."
-                        break
-                    if float(i['weight_kg']) <= 0:
-                        errors['items'] = "Weight must be greater than 0."
-                        break
-                data['items'] = items # Replace string with parsed list
-        except (json.JSONDecodeError, ValueError, TypeError):
-            errors['items'] = "Invalid format for items."
+        items_raw = data.get('items')
+        if not items_raw:
+            errors['items'] = "This field is required."
+        else:
+            try:
+                items = json.loads(items_raw)
+                if not isinstance(items, list) or not items:
+                    errors['items'] = "Items must be a non-empty list."
+                else:
+                    lookup_ids = [i.get('lookup_id') for i in items if i.get('lookup_id')]
+                    existing_ids = set(BrandFiberLookup.objects.filter(lookup_id__in=lookup_ids, is_active=True).values_list('lookup_id', flat=True))
+                    for i in items:
+                        if any(k not in i for k in ['lookup_id', 'weight_kg', 'condition_rating']):
+                            errors['items'] = "Each item must have lookup_id, weight_kg, and condition_rating."
+                            break
+                        if i['lookup_id'] not in existing_ids:
+                            errors['items'] = f"Lookup ID {i['lookup_id']} does not exist."
+                            break
+                        if float(i['weight_kg']) <= 0:
+                            errors['items'] = "Weight must be greater than 0."
+                            break
+                    data['items'] = items # Replace string with parsed list
+            except (json.JSONDecodeError, ValueError, TypeError):
+                errors['items'] = "Invalid format for items."
 
         if errors:
             raise serializers.ValidationError(errors)
@@ -387,9 +391,6 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
 
         # 4. Items Parsing & Validation (Simplified via nested serializer)
         items_json = data.get('items')
-        with open('debug_items_received.json', 'w') as f:
-            f.write(str(items_json))
-        print(f"\n>>> [DEBUG] BACKEND ITEMS RECEIVED SAVED TO debug_items_received.json\n")
         if items_json:
             try:
                 raw_items = json.loads(items_json)
@@ -412,14 +413,6 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError("A donation must have at least one active clothing group.")
 
                 data['items'] = items
-                # Rule: At least one active item must remain
-                active_items_count = self.instance.items.filter(is_archived=False).count()
-                num_archiving = len([i for i in items if i.get('is_archived') and i.get('item_id')])
-                num_adding = len([i for i in items if not i.get('item_id') and not i.get('is_archived')])
-                
-                if (active_items_count - num_archiving + num_adding) < 1:
-                    msg = f"A donation must have at least one active clothing group. (Total active: {active_items_count}, Archiving: {num_archiving}, Adding: {num_adding})"
-                    raise serializers.ValidationError(msg)
 
             except (json.JSONDecodeError, ValueError, TypeError):
                 errors['items'] = "Invalid format for items."

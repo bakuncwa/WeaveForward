@@ -16,7 +16,11 @@ function srchAddr(v) {
       acRes = await res.json();
       getEl('ac').innerHTML = acRes.map((r, i) => `<div class="ac-item" onmousedown="selAddr(${i})">${r.display_name}</div>`).join('');
       getEl('ac').classList.remove('hidden');
-    } catch (e) { console.error("Search failed", e); }
+    } catch (e) { 
+      console.error("Search failed", e); 
+      getEl('ac').innerHTML = `<div style="padding:10px 14px; color:#d9534f; font-weight:500; font-size:12.5px;">Location resolution services are unavailable.</div>`;
+      getEl('ac').classList.remove('hidden');
+    }
   }, 350);
 }
 
@@ -34,27 +38,50 @@ function openMap() {
   const l = +getEl('lat').value || 14.5995, g = +getEl('lng').value || 120.9842;
   tmpLat = l; tmpLng = g;
   
-  if (!map) {
-    map = L.map('picker-map').setView([l, g], 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    mrk = L.marker([l, g], { draggable: true }).addTo(map);
-    
-    mrk.on('dragend', e => { 
-      const p = e.target.getLatLng(); 
-      tmpLat = p.lat; 
-      tmpLng = p.lng; 
-    });
-    
-    map.on('click', e => { 
-      tmpLat = e.latlng.lat; 
-      tmpLng = e.latlng.lng; 
-      mrk.setLatLng(e.latlng); 
-    });
-  } else {
-    map.setView([l, g]); 
-    mrk.setLatLng([l, g]);
-    // Force Leaflet to recalculate its container size since it was hidden
-    setTimeout(() => map.invalidateSize(), 100);
+  if (typeof L === 'undefined') {
+    showMapError();
+    return;
+  }
+  
+  try {
+    if (!map) {
+      map = L.map('picker-map').setView([l, g], 15);
+      const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+      tiles.on('tileerror', showMapError);
+      mrk = L.marker([l, g], { draggable: true }).addTo(map);
+      
+      mrk.on('dragend', e => { 
+        const p = e.target.getLatLng(); 
+        tmpLat = p.lat; 
+        tmpLng = p.lng; 
+      });
+      
+      map.on('click', e => { 
+        tmpLat = e.latlng.lat; 
+        tmpLng = e.latlng.lng; 
+        mrk.setLatLng(e.latlng); 
+      });
+    } else {
+      map.setView([l, g]); 
+      mrk.setLatLng([l, g]);
+      setTimeout(() => map.invalidateSize(), 100);
+    }
+  } catch (err) {
+    showMapError();
+  }
+}
+
+function showMapError() {
+  const pm = getEl('picker-map');
+  if (pm) {
+    pm.style.height = 'auto';
+    pm.innerHTML = `<div style="padding:40px 20px; text-align:center; color:#d9534f; font-weight:500; font-family:'Poppins',sans-serif;"><svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom:12px; display:inline-block;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg><p style="margin:0;">Map service is currently unavailable. Interactive map features have been disabled.</p></div>`;
+  }
+  const btn = document.querySelector('.map-confirm');
+  if (btn) {
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'not-allowed';
   }
 }
 
@@ -74,6 +101,9 @@ async function confirmMap() {
       getEl('addr').value = data.display_name;
     }
   } catch (e) { 
-    console.error("Reverse geocode failed", e); 
+    console.error("Reverse geocode failed", e);
+    if (typeof showFlash === 'function') {
+      showFlash('Location resolution services are unavailable.', 'error');
+    }
   }
 }

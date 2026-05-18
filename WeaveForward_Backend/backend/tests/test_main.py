@@ -9,6 +9,14 @@ import pyotp
 import requests
 from django.test import TestCase, override_settings
 from django.conf import settings
+from django.contrib.auth.hashers import BCryptPasswordHasher
+
+class FastBCryptPasswordHasher(BCryptPasswordHasher):
+    rounds = 4
+
+settings.PASSWORD_HASHERS = [
+    'backend.tests.test_main.FastBCryptPasswordHasher',
+] + list(settings.PASSWORD_HASHERS)
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.urls import resolve, reverse
@@ -2725,6 +2733,24 @@ class PredictionServiceTest(TestCase):
         # Should NOT be a match because polyester (0) < requirement (90) (returns empty because it's below threshold)
         self.assertEqual(len(tuab_preds), 0)
 
+    def test_model_unavailable(self):
+        from unittest.mock import patch
+        from backend.services.prediction_service import MatchPredictionService
+        
+        # Reset any loaded model first to force reload
+        original_model = MatchPredictionService._model
+        MatchPredictionService._model = None
+        
+        try:
+            # Patch builtins.open to raise FileNotFoundError, simulating missing model/metadata files
+            with patch('builtins.open', side_effect=FileNotFoundError):
+                with self.assertRaises(ValueError) as ctx:
+                    MatchPredictionService.load_model()
+                self.assertEqual(str(ctx.exception), "Prediction model is unavailable.")
+        finally:
+            # Restore
+            MatchPredictionService._model = original_model
+
 
 class DonationQuotationClaimAPITest(TestCase):
     def setUp(self):
@@ -3030,4 +3056,67 @@ class DonationQuotationClaimAPITest(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data['detail'], "Quotation has expired.")
+
+    def test_donation_claim_rejects_non_tuab(self):
+        self.client.force_authenticate(user=self.donor)
+        response = self.client.post(
+            reverse('donation-claim', kwargs={'pk': self.donation.donation_id}),
+            {"delivery_method": "PICKUP"},
+            format='json',
+            **self.quotation_headers(),
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data['detail'], "Only registered businesses can claim donations.")
+
+    def test_donation_claim_rejects_missing_etag(self):
+        self.client.force_authenticate(user=self.tuab)
+        headers = self.quotation_headers()
+        headers.pop('HTTP_IF_MATCH', None)  # Remove ETag header
+        response = self.client.post(
+            reverse('donation-claim', kwargs={'pk': self.donation.donation_id}),
+            {"delivery_method": "PICKUP"},
+            format='json',
+            **headers,
+        )
+        self.assertEqual(response.status_code, 428)
+        self.assertEqual(response.data['detail'], "If-Match header is required.")
+
+    def test_donation_claim_rejects_mismatched_etag(self):
+        self.client.force_authenticate(user=self.tuab)
+        headers = self.quotation_headers()
+        headers['HTTP_IF_MATCH'] = '"invalid-etag"'
+        response = self.client.post(
+            reverse('donation-claim', kwargs={'pk': self.donation.donation_id}),
+            {"delivery_method": "PICKUP"},
+            format='json',
+            **headers,
+        )
+        self.assertEqual(response.status_code, 412)
+        self.assertEqual(response.data['detail'], "ETag does not match the current resource version.")
+
+    def test_donation_claim_rejects_inactive_pro_subscription(self):
+        # Cancel or delete the PRO subscription for the TUAB user
+        Subscription.objects.filter(user=self.tuab).delete()
+        self.client.force_authenticate(user=self.tuab)
+        response = self.client.post(
+            reverse('donation-claim', kwargs={'pk': self.donation.donation_id}),
+            {"delivery_method": "PICKUP"},
+            format='json',
+            **self.quotation_headers(),
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data['error'], "SUBSCRIPTION_INACTIVE")
+        self.assertEqual(response.data['detail'], "An active PRO subscription is required to claim donations.")
+
+    def test_donation_claim_rejects_invalid_delivery_method(self):
+        self.client.force_authenticate(user=self.tuab)
+        response = self.client.post(
+            reverse('donation-claim', kwargs={'pk': self.donation.donation_id}),
+            {"delivery_method": "INVALID"},
+            format='json',
+            **self.quotation_headers(),
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['detail'], "Invalid delivery_method. Must be 'PICKUP' or 'DELIVERY'.")
+
 

@@ -133,6 +133,11 @@
         <div class="profile-chips">
           <span class="chip-outline">{{ user.role }}</span>
           <span class="chip-filled">Active</span>
+          {% if user.is_2fa_enabled %}
+            <span class="chip-filled" style="background:#2e7d32">2FA Enabled</span>
+          {% else %}
+            <span class="chip-grey">2FA Disabled</span>
+          {% endif %}
           <span class="chip-grey">Member since {{ user.created_at|date:"F j, Y" }}</span>
         </div>
       </div>

@@ -12,6 +12,7 @@ from ..serializers.donations import DonationCreateSerializer, DonorDonationUpdat
 from .location_service import get_city_and_barangay
 from .audit_service import log_audit, get_client_ip
 from .prediction_service import run_predictions_for_donation
+from rest_framework.exceptions import PermissionDenied, APIException, NotFound
 
 
 def create_donation(*, request):
@@ -113,23 +114,37 @@ def mark_donation_in_transit(*, user, donation, ip_address=None):
     - Current status must be CLAIMED.
     """
     if user.role != 'TUAB':
-        return {"status_code": 403, "detail": "Only TUABs can mark donations as in-transit."}
+        raise PermissionDenied("Only registered businesses can mark donations as in-transit.")
     
     if user.status != 'ACTIVE':
-        return {"status_code": 403, "detail": "Only active users can mark donations as in-transit."}
+        raise PermissionDenied("Your business account must be active to mark donations as in-transit.")
 
     if donation.claimed_by_tuab != user:
-        return {"status_code": 403, "detail": "You do not own this donation."}
+        raise PermissionDenied("You can only manage donations that have been claimed by your own business.")
 
     if donation.delivery_method != 'PICKUP':
-        return {"status_code": 409, "detail": "Only PICKUP donations can be manually marked as in-transit."}
+        exc = APIException("Only pick-up donations can be manually marked as in-transit. Delivery donations are tracked automatically by our logistics partner.")
+        exc.status_code = 409
+        raise exc
 
     if donation.status != DonationStatus.CLAIMED:
-        return {"status_code": 409, "detail": f"Donation must be CLAIMED to be marked as IN_TRANSIT. Current status: {donation.status}"}
+        exc = APIException(f"This donation cannot be marked as in-transit because its current status is {donation.status.lower().replace('_', ' ')}.")
+        exc.status_code = 409
+        raise exc
 
     with transaction.atomic():
+        # Pessimistically lock the donation row to prevent concurrent modifications
+        donation = Donation.objects.select_for_update().get(pk=donation.pk)
+
+        # Re-verify the status under the lock to prevent race conditions
+        if donation.status != DonationStatus.CLAIMED:
+            exc = APIException(f"This donation cannot be marked as in-transit because its current status is {donation.status.lower().replace('_', ' ')}.")
+            exc.status_code = 409
+            raise exc
+
         donation.status = DonationStatus.IN_TRANSIT
-        donation.save()
+        donation.updated_at = timezone.now()
+        donation.save(update_fields=["status", "updated_at"])
         
         log_audit(
             actor=user,
@@ -139,7 +154,7 @@ def mark_donation_in_transit(*, user, donation, ip_address=None):
             fields_modified=["status"]
         )
     
-    return {"status_code": 200, "detail": "Donation marked as in-transit."}
+    return {"detail": "Donation successfully marked as in-transit."}
 
 def donor_update_donation(*, request, donation):
     """
@@ -184,7 +199,11 @@ def donor_update_donation(*, request, donation):
 
                 if item_id:
                     # Update or Archive
-                    item_obj = DonationItem.objects.select_for_update().get(pk=item_id, donation=donation)
+                    try:
+                        item_obj = DonationItem.objects.select_for_update().get(pk=item_id, donation=donation)
+                    except DonationItem.DoesNotExist:
+                        raise NotFound("One of the donation items you are trying to edit could not be found.")
+
                     if is_archived:
                         item_obj.is_archived = True
                     else:
@@ -211,5 +230,13 @@ def donor_update_donation(*, request, donation):
             fields_modified=list(v_data.keys())
         )
 
+        # 5. AI Prediction Trigger
+        # If this fails (technical error), the transaction rolls back and the donation is NOT updated.
+        # We only run predictions if the items were modified.
+        if items_data is not None:
+            try:
+                run_predictions_for_donation(donation.donation_id)
+            except Exception as e:
+                raise ValueError(f"Donation update failed due to AI matching error: {str(e)}")
 
     return donation

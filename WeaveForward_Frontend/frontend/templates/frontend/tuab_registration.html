@@ -670,6 +670,10 @@
     gE('fwrap').classList.toggle('form-wrap-lg', cS === 2);
 
     function go(d) {
+      if (cS === 1 && d === -1) {
+        window.location.href = "{% url 'role_select' %}";
+        return;
+      }
       cS = Math.min(3, Math.max(1, cS + d));
       steps.forEach((st, i) => {
         const n = i + 1;

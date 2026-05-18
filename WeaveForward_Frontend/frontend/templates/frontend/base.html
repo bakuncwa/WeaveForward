@@ -770,7 +770,13 @@
       setTimeout(() => {
         document.querySelectorAll('.wf-alert').forEach(alert => {
           alert.style.opacity = '0';
-          setTimeout(() => alert.remove(), 400);
+          setTimeout(() => {
+            const container = alert.parentElement;
+            alert.remove();
+            if (container && container.classList.contains('wf-flash-messages') && container.children.length === 0) {
+              container.remove();
+            }
+          }, 400);
         });
       }, 5000);
     })();

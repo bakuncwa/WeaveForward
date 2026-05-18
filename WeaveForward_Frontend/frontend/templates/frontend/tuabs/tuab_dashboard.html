@@ -273,11 +273,29 @@
   }
 
   window.addEventListener('load', () => {
-    const map = L.map('tuab-dash-map', { zoomControl: true, scrollWheelZoom: false }).setView([14.5820, 121.0100], 11);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors' }).addTo(map);
+    let map; try { map = L.map('tuab-dash-map', { zoomControl: true, scrollWheelZoom: false }).setView([14.5820, 121.0100], 11); } catch (e) {
+      console.error("Map load failed:", e);
+      const mDiv = document.getElementById('tuab-dash-map');
+      if (mDiv) {
+        mDiv.style.display = 'flex';
+        mDiv.style.alignItems = 'center';
+        mDiv.style.justifyContent = 'center';
+        mDiv.style.background = '#ffebee';
+        mDiv.style.color = '#c62828';
+        mDiv.style.border = '1.5px solid #ffcdd2';
+        mDiv.style.borderRadius = '12px';
+        mDiv.style.fontFamily = "'Poppins', sans-serif";
+        mDiv.style.fontSize = '13px';
+        mDiv.style.fontWeight = '500';
+        mDiv.style.padding = '20px';
+        mDiv.style.textAlign = 'center';
+        mDiv.innerHTML = '⚠️ Map could not be loaded. Please check your internet connection or disable adblockers.';
+      }
+    }
+    if (map) L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors' }).addTo(map);
     
     [...DONATIONS.available, ...DONATIONS.claimed].forEach(d => {
-      if (d.lat && d.lng) {
+      if (map && d.lat && d.lng) {
         L.marker([d.lat, d.lng]).addTo(map).bindPopup(`<b>${d.donor}</b><br>${d.address}`);
       }
     });

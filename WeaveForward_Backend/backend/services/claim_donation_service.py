@@ -13,6 +13,7 @@ from django.conf import settings
 from django.utils.dateparse import parse_datetime
 from ..models import Donation, Order, OrderPayment, OrderStatus, PaymentStatus, DonationStatus, User, DonationDeliveryMethod
 from .audit_service import log_audit
+from rest_framework.exceptions import PermissionDenied, APIException
 
 def sign_quotation_data(data):
     """
@@ -42,43 +43,60 @@ def claim_donation(user, donation, claim_params, ip_address=None):
         user = User.objects.select_for_update().get(pk=user.pk)
         
         if donation.status != DonationStatus.PENDING:
-            return {"status_code": 409, "detail": "Donation is no longer available."}
+            exc = APIException("This donation is no longer available to be claimed.")
+            exc.status_code = 409
+            raise exc
 
         if Donation.objects.filter(claimed_by_tuab=user, status__in=[DonationStatus.CLAIMED, DonationStatus.IN_TRANSIT]).count() >= user.max_active_claims:
-            return {"status_code": 409, "detail": "Active claim limit reached."}
+            exc = APIException(f"You have reached your active claim limit of {user.max_active_claims} active claims. Please complete or cancel your existing claims first.")
+            exc.status_code = 409
+            raise exc
 
         # --- PICKUP WORKFLOW ---
         if delivery_method == 'PICKUP':
             donation.status, donation.claimed_by_tuab, donation.delivery_method = DonationStatus.CLAIMED, user, DonationDeliveryMethod.PICKUP
             donation.save()
             log_audit(user, 'donations', 'STATUS_CHANGE', ip_address, ['status', 'claimed_by_tuab', 'delivery_method'])
-            return {"status_code": 200, "detail": "Donation successfully claimed for pickup."}
+            return {"detail": "Donation successfully claimed for pickup."}
 
         # --- DELIVERY WORKFLOW ---
         quotation_token = claim_params.get('quotation_token')
+        if not quotation_token:
+            exc = APIException("Malformed or expired quotation token.")
+            exc.status_code = 400
+            raise exc
         try:
             # Verify cryptographic integrity and expiry
             data_b64, token_signature = quotation_token.split('.')
             if not hmac.compare_digest(hmac.new(settings.SECRET_KEY.encode(), data_b64.encode(), hashlib.sha256).hexdigest(), token_signature):
-                return {"status_code": 400, "detail": "Invalid quotation signature."}
+                exc = APIException("Invalid quotation signature.")
+                exc.status_code = 400
+                raise exc
             
             token_data = json.loads(base64.urlsafe_b64decode(data_b64 + '=' * (4 - len(data_b64) % 4)).decode())
             if token_data.get('expires_at', 0) < int(time.time()):
-                return {"status_code": 400, "detail": "Quotation has expired."}
+                exc = APIException("Quotation has expired.")
+                exc.status_code = 400
+                raise exc
             
             charge_amount, lalamove_quotation_id, pickup_stop_id, dropoff_stop_id, sch_str = float(token_data['amount']), token_data['quotationId'], token_data['stopId_1'], token_data['stopId_2'], token_data.get('schedule_at')
             order_scheduled_at = parse_datetime(sch_str) if sch_str else timezone.now()
+        except APIException:
+            raise
         except Exception:
-            return {"status_code": 400, "detail": "Malformed or expired quotation token."}
+            exc = APIException("Malformed or expired quotation token.")
+            exc.status_code = 400
+            raise exc
 
         if order_scheduled_at < timezone.now():
-            return {
-                "status_code": 409,
-                "detail": "The selected delivery schedule is already in the past. Request a new quotation with a later time within the pickup window.",
-            }
+            exc = APIException("The selected delivery schedule is in the past. Please request a new quotation with a later time within the pickup window.")
+            exc.status_code = 409
+            raise exc
 
         if not all([user.maya_customer_id, user.maya_card_id]):
-            return {"status_code": 400, "detail": "Payment details are not configured for this user."}
+            exc = APIException("Your payment details are not fully configured. Please setup your credit card in your profile before claiming deliveries.")
+            exc.status_code = 400
+            raise exc
 
         # B. Robust Record Management: Pre-create records to ensure traceability during failures
         maya_reference = f"claim-{donation.donation_id}-{int(timezone.now().timestamp())}"
@@ -98,9 +116,15 @@ def claim_donation(user, donation, claim_params, ip_address=None):
                 payment_record.updated_at = timezone.now()
                 payment_record.save(update_fields=["payment_reference", "status", "updated_at"])
             else:
-                return {"status_code": 502, "detail": f"Maya payment failed: {maya_json.get('message', maya_resp.text)}"}
+                exc = APIException(f"Maya payment failed: {maya_json.get('message', maya_resp.text)}")
+                exc.status_code = 502
+                raise exc
+        except APIException:
+            raise
         except Exception as e:
-            return {"status_code": 502, "detail": f"Maya connectivity error: {str(e)}"}
+            exc = APIException(f"Maya connectivity error: {str(e)}")
+            exc.status_code = 502
+            raise exc
 
         # D. Logistics Integration: Lalamove Order Creation
         l_payload = {"data": {"quotationId": lalamove_quotation_id, "sender": {"stopId": pickup_stop_id, "name": f"{donation.donor.first_name} {donation.donor.last_name}".strip(), "phone": donation.donor.contact_no}, "recipients": [{"stopId": dropoff_stop_id, "name": f"{user.first_name} {user.last_name}".strip(), "phone": user.contact_no}], "metadata": {"notes": "Fragile items"}}}
@@ -125,12 +149,36 @@ def claim_donation(user, donation, claim_params, ip_address=None):
 
         # E. Compensating Transaction: Automatic Reversal (Void) if logistics placement fails
         if not lalamove_success:
-            void_resp = requests.delete(f"{settings.MAYA_SANDBOX_BASE_URL.rstrip('/')}/payments/{maya_payment_id}", json={"reason": "Automatic reversal due to logistics failure."}, headers={'Authorization': settings.MAYA_SANDBOX_SECRET_BASIC_AUTH, 'Content-Type': 'application/json'}, timeout=30)
-            if void_resp.status_code == 200:
-                payment_record.status = PaymentStatus.FAILED
+            void_success = False
+            try:
+                void_resp = requests.delete(
+                    f"{settings.MAYA_SANDBOX_BASE_URL.rstrip('/')}/payments/{maya_payment_id}",
+                    json={"reason": "Automatic reversal due to logistics failure."},
+                    headers={'Authorization': settings.MAYA_SANDBOX_SECRET_BASIC_AUTH, 'Content-Type': 'application/json'},
+                    timeout=30
+                )
+                if void_resp.status_code == 200:
+                    void_success = True
+                    # Create negative payment record for void
+                    OrderPayment.objects.create(
+                        order=payment_record.order,
+                        amount=-payment_record.amount,
+                        status=PaymentStatus.SUCCESS,
+                        payment_reference=f"void-{payment_record.payment_reference}"
+                    )
+            except Exception:
+                pass
+
             payment_record.save()
-            return {"status_code": 502, "detail": f"Delivery placement failed: {lalamove_error_msg}. " + ("Payment has been automatically reversed." if void_resp.status_code == 200 else "Manual refund may be required.")}
+            exc = APIException(
+                f"Delivery placement failed: {lalamove_error_msg}. " +
+                ("Payment has been automatically reversed." if void_success else "Automatic payment reversal failed. Please contact support for a manual refund.")
+            )
+            exc.status_code = 502
+            raise exc
 
-        return {"status_code": 200, "detail": "Donation successfully claimed and delivery scheduled.", "lalamove_order_id": order_record.lalamove_order_id}
+        return {"detail": "Donation successfully claimed and delivery scheduled.", "lalamove_order_id": order_record.lalamove_order_id}
 
-    return {"status_code": 500, "detail": "Internal system error during orchestration."}
+    exc = APIException("Internal system error during orchestration.")
+    exc.status_code = 500
+    raise exc

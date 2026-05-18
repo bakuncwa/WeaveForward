@@ -46,6 +46,7 @@
     .badge-claimed  { background: var(--blue); }
     .badge-pending  { background: var(--gold); }
     .badge-received { background: var(--green); }
+    .badge-cancelled { background: #8c8c8c; }
 
     .action-btns { display: flex; gap: 6px; flex-wrap: wrap; }
     .thumb { width: 58px; height: 58px; object-fit: cover; border-radius: 8px; display: block; background: #f2efe9; }
@@ -95,6 +96,7 @@
                 {% if donation.status == 'IN_TRANSIT' or donation.status == 'CLAIMED' %}badge-claimed
                 {% elif donation.status == 'PENDING' %}badge-pending
                 {% elif donation.status == 'RECEIVED' %}badge-received
+                {% elif donation.status == 'CANCELLED' %}badge-cancelled
                 {% endif %}">
                 {{ donation.status }}
             </span>
@@ -105,7 +107,10 @@
             <a href="{% url 'donor_view_donation' donation.donation_id %}" class="btn btn-outline">View</a>
             {% if donation.status == 'PENDING' %}
                 <a href="{% url 'donor_edit_donation' donation.donation_id %}" class="btn btn-outline">Edit</a>
-                <button class="btn btn-outline">Cancel</button>
+                <form action="{% url 'donor_cancel_donation' donation.donation_id %}" method="post" style="display:inline;" onsubmit="return handleCancelClick(event, this);">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline cancel-btn">Cancel</button>
+                </form>
             {% endif %}
           </div>
         </td>
@@ -127,6 +132,40 @@
 </div>
 
 <script>
+  function handleCancelClick(event, form) {
+    const btn = form.querySelector('.cancel-btn');
+    if (btn.dataset.confirming === 'true') {
+      if (btn.dataset.intervalId) {
+        clearInterval(Number(btn.dataset.intervalId));
+      }
+      return true;
+    }
+    event.preventDefault();
+    btn.dataset.confirming = 'true';
+    
+    let seconds = 3;
+    btn.innerText = `Confirm? (${seconds})`;
+    btn.style.borderColor = '#ff4444';
+    btn.style.color = '#ff4444';
+    
+    const interval = setInterval(() => {
+      seconds--;
+      if (seconds > 0) {
+        btn.innerText = `Confirm? (${seconds})`;
+      } else {
+        clearInterval(interval);
+        delete btn.dataset.confirming;
+        delete btn.dataset.intervalId;
+        btn.innerText = 'Cancel';
+        btn.style.borderColor = '';
+        btn.style.color = '';
+      }
+    }, 1000);
+    
+    btn.dataset.intervalId = interval.toString();
+    return false;
+  }
+
   function filterDonations() {
     const q = document.getElementById('don-search').value.toLowerCase().trim();
     const rows = document.querySelectorAll('#don-tbody tr');

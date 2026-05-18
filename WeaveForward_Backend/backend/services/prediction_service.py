@@ -20,10 +20,13 @@ class MatchPredictionService:
     @classmethod
     def load_model(cls):
         if not cls._model:
-            import catboost as cb
-            m_dir = os.path.join(settings.BASE_DIR, 'backend', 'models')
-            with open(os.path.join(m_dir, 'fiber_match_metadata.json')) as f: cls._metadata = json.load(f)
-            cls._model = cb.CatBoostClassifier().load_model(os.path.join(m_dir, 'catboost_fiber_match.cbm'))
+            try:
+                import catboost as cb
+                m_dir = os.path.join(settings.BASE_DIR, 'backend', 'models')
+                with open(os.path.join(m_dir, 'fiber_match_metadata.json')) as f: cls._metadata = json.load(f)
+                cls._model = cb.CatBoostClassifier().load_model(os.path.join(m_dir, 'catboost_fiber_match.cbm'))
+            except Exception:
+                raise ValueError("Prediction model is unavailable.")
 
     @staticmethod
     def _safe_float(value, default=0.0):
