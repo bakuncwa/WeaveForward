@@ -1,13 +1,15 @@
 import json
+import asyncio
 from datetime import datetime
 from django.contrib import messages
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
+import httpx
 
-from ..services import api_call, BackendUnavailable
+from ..services import api_call
 
 
-def tuab_dashboard(request):
+async def tuab_dashboard(request):
     """TUAB Dashboard showing available and claimed donations (SSR with Pagination)."""
     profile = request.user_profile
     
@@ -32,31 +34,35 @@ def tuab_dashboard(request):
     # Common params for both calls
     common_params = {'search': search_query} if search_query else {}
 
-    # 1. Fetch Available Donations
-    try:
-        params = {'page': avail_page}
-        params.update(common_params)
-        response = api_call(request, 'GET', 'donations', params=params)
-        if response.status_code == 200:
-            data = response.json()
-            available_donations = data.get('results', [])
-            avail_meta['has_next'] = data.get('next') is not None
-            avail_meta['count'] = data.get('count', 0)
-    except Exception:
-        pass
+    avail_params = {'page': avail_page}
+    avail_params.update(common_params)
+    
+    claimed_params = {'page': claimed_page}
+    claimed_params.update(common_params)
 
-    # 2. Fetch My Claimed Donations
+    # 1 & 2. Fetch Available and Claimed Donations in parallel
     try:
-        params = {'page': claimed_page}
-        params.update(common_params)
-        response = api_call(request, 'GET', 'donations/me', params=params)
-        if response.status_code == 200:
-            data = response.json()
-            my_claimed_donations = data.get('results', [])
-            claimed_meta['has_next'] = data.get('next') is not None
-            claimed_meta['count'] = data.get('count', 0)
+        avail_res, claimed_res = await asyncio.gather(
+            api_call(request, 'GET', 'donations', params=avail_params),
+            api_call(request, 'GET', 'donations/me', params=claimed_params),
+            return_exceptions=True
+        )
     except Exception:
-        pass
+        avail_res, claimed_res = None, None
+
+    # Process Available Donations response
+    if avail_res and not isinstance(avail_res, Exception) and avail_res.status_code == 200:
+        data = avail_res.json()
+        available_donations = data.get('results', [])
+        avail_meta['has_next'] = data.get('next') is not None
+        avail_meta['count'] = data.get('count', 0)
+
+    # Process Claimed Donations response
+    if claimed_res and not isinstance(claimed_res, Exception) and claimed_res.status_code == 200:
+        data = claimed_res.json()
+        my_claimed_donations = data.get('results', [])
+        claimed_meta['has_next'] = data.get('next') is not None
+        claimed_meta['count'] = data.get('count', 0)
 
     return render(request, 'frontend/tuabs/tuab_dashboard.html', {
         'page_title': 'Dashboard',
@@ -99,7 +105,7 @@ def tuab_dashboard(request):
     })
 
 
-def tuab_view_donation(request, donation_id):
+async def tuab_view_donation(request, donation_id):
     """TUAB detail page for viewing and claiming a single donation."""
     profile = request.user_profile
 
@@ -118,7 +124,7 @@ def tuab_view_donation(request, donation_id):
 
         try:
             if action == 'transit':
-                response = api_call(
+                response = await api_call(
                     request,
                     'POST',
                     f'donations/{donation_id}/transit',
@@ -126,7 +132,7 @@ def tuab_view_donation(request, donation_id):
                 )
 
             if action == 'claim' or action is None:
-                response = api_call(
+                response = await api_call(
                     request,
                     'POST',
                     f'donations/{donation_id}/claim',
@@ -139,7 +145,7 @@ def tuab_view_donation(request, donation_id):
 
             if action not in {'transit', 'claim', None}:
                 response = JsonResponse({'detail': 'Unsupported action.'}, status=400)
-        except BackendUnavailable:
+        except httpx.RequestError:
             if is_json_request:
                 return JsonResponse({'detail': 'Backend service unreachable.'}, status=503)
             raise
@@ -162,7 +168,7 @@ def tuab_view_donation(request, donation_id):
     # =========================
     # GET: Shared Donation Fetch
     # =========================
-    response = api_call(request, 'GET', f'donations/{donation_id}')
+    response = await api_call(request, 'GET', f'donations/{donation_id}')
     if response.status_code != 200:
         if response.status_code == 403:
             messages.error(request, "Access denied.")
@@ -211,7 +217,7 @@ def tuab_view_donation(request, donation_id):
     })
 
 
-def tuab_quotation_proxy(request, donation_id):
+async def tuab_quotation_proxy(request, donation_id):
     """Proxy quotation requests for authenticated TUABs only."""
     profile = request.user_profile
     if request.method != 'POST':
@@ -226,7 +232,7 @@ def tuab_quotation_proxy(request, donation_id):
 
     headers = {'If-Match': payload.get('current_etag')} if payload.get('current_etag') else {}
     try:
-        response = api_call(
+        response = await api_call(
             request,
             'POST',
             f'donations/{donation_id}/quotation',
@@ -239,17 +245,17 @@ def tuab_quotation_proxy(request, donation_id):
             headers=headers,
         )
         return JsonResponse(response.json(), status=response.status_code)
-    except BackendUnavailable:
+    except httpx.RequestError:
         return JsonResponse({'detail': 'Backend service unreachable.'}, status=503)
 
 
-def tuab_subscribe(request):
+async def tuab_subscribe(request):
     """Handle TUAB Premium Subscription."""
     profile = request.user_profile
 
     # Always force fetch the latest profile directly from the backend to guarantee fresh subscription status
     try:
-        response = api_call(request, 'GET', 'users/me')
+        response = await api_call(request, 'GET', 'users/me')
         if response.status_code == 200:
             profile = response.json()
             if hasattr(request, 'session'):
@@ -289,7 +295,7 @@ def tuab_subscribe(request):
         }
 
         try:
-            response = api_call(request, 'POST', f'users/{profile["user_id"]}/subscription', json=payload)
+            response = await api_call(request, 'POST', f'users/{profile["user_id"]}/subscription', json=payload)
             
             if response.status_code == 200:
                 data = response.json()

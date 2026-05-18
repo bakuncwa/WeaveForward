@@ -26,3 +26,6 @@ Thumbs.db
 *.log
 WeaveForward_Backend/scratch/
 WeaveForward_Backend/media/
+*err.txt
+*out.txt
+diagnostic*.txt

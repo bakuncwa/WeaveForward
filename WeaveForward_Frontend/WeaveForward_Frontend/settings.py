@@ -29,6 +29,7 @@ ALLOWED_HOSTS = ['*']
 
 # Application definition
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'frontend',
@@ -62,7 +63,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'WeaveForward_Frontend.wsgi.application'
+ASGI_APPLICATION = 'WeaveForward_Frontend.asgi.application'
 
 # Database
 # This frontend is 100% STATELESS.

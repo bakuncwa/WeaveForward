@@ -6,7 +6,6 @@ from django.urls import reverse
 from ..services import (
     api_call,
     apply_backend_auth_cookies,
-    clear_frontend_auth_cookies,
     format_errors,
     get_fiber_choices,
 )
@@ -22,39 +21,39 @@ from .tuab import (
     tuab_quotation_proxy,
 )
 
-def two_factor_setup_proxy(request):
+async def two_factor_setup_proxy(request):
     """Proxy to generate 2FA secret for the logged-in user."""
     try:
-        response = api_call(request, 'POST', 'users/me/2fa/setup')
+        response = await api_call(request, 'POST', 'users/me/2fa/setup')
         return JsonResponse(response.json(), status=response.status_code)
     except Exception as e:
         return JsonResponse({'error': f'Backend service unreachable: {str(e)}'}, status=503)
 
-def two_factor_verify_proxy(request):
+async def two_factor_verify_proxy(request):
     """Proxy to verify and enable 2FA for the logged-in user."""
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
     try:
         data = json.loads(request.body)
-        response = api_call(request, 'POST', 'users/me/2fa', json=data)
+        response = await api_call(request, 'POST', 'users/me/2fa', json=data)
         return JsonResponse(response.json(), status=response.status_code)
     except Exception as e:
         return JsonResponse({'error': f'Backend service unreachable: {str(e)}'}, status=503)
 
-def two_factor_disable_proxy(request):
+async def two_factor_disable_proxy(request):
     """Proxy to disable 2FA for the logged-in user."""
     if request.method != 'POST' and request.method != 'DELETE':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
     try:
-        response = api_call(request, 'DELETE', 'users/me/2fa')
+        response = await api_call(request, 'DELETE', 'users/me/2fa')
         return JsonResponse(response.json(), status=response.status_code)
     except Exception as e:
         return JsonResponse({'error': f'Backend service unreachable: {str(e)}'}, status=503)
 
-def role_select(request):
+async def role_select(request):
     return render(request, 'frontend/role_select.html')
 
-def login_view(request):
+async def login_view(request):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
     if request.method == 'POST':
@@ -63,7 +62,7 @@ def login_view(request):
         otp_code = request.POST.get('otp_code')
         
         try:
-            response = api_call(request, 'POST', 'login', json={
+            response = await api_call(request, 'POST', 'login', json={
                 'email': email,
                 'password': password,
                 'otp_code': otp_code
@@ -116,19 +115,20 @@ def login_view(request):
 
     return render(request, 'frontend/login.html')
 
-def logout_view(request):
+async def logout_view(request):
     if request.method != 'POST':
         return HttpResponseNotAllowed(['POST'])
 
     try:
-        response = api_call(request, 'POST', 'logout')
+        response = await api_call(request, 'POST', 'logout')
     except Exception:
         messages.error(request, "Logout failed because the backend is unreachable. Please try again.")
         return redirect(request.META.get('HTTP_REFERER') or reverse('login'))
 
     if response.status_code == 205:
         frontend_response = redirect('login')
-        clear_frontend_auth_cookies(frontend_response)
+        for c in ("access_token", "refresh_token", "user_role", "user_name", "user_email"):
+            frontend_response.delete_cookie(c, path="/")
         request.session.flush()  # Wipe cached profile to prevent stale data on next login
         messages.success(request, "Successfully logged out.")
         return frontend_response
@@ -145,56 +145,56 @@ def logout_view(request):
     messages.error(request, error_message)
     return redirect(request.META.get('HTTP_REFERER') or reverse('login'))
 
-def location_lookup_proxy(request):
+async def location_lookup_proxy(request):
     """SSR Proxy for location lookup."""
     lat = request.GET.get('lat')
     lng = request.GET.get('lng')
     try:
-        response = api_call(request, 'GET', 'location/lookup', params={'lat': lat, 'lng': lng})
+        response = await api_call(request, 'GET', 'location/lookup', params={'lat': lat, 'lng': lng})
         return JsonResponse(response.json(), status=response.status_code)
     except Exception:
         return JsonResponse({'error': 'Backend location service unreachable'}, status=503)
 
-def material_clothing_types_proxy(request):
+async def material_clothing_types_proxy(request):
     """SSR Proxy for fetching unique clothing types."""
     try:
-        response = api_call(request, 'GET', 'brandfiberlookups/clothing_types')
+        response = await api_call(request, 'GET', 'brandfiberlookups/clothing_types')
         return JsonResponse(response.json(), status=response.status_code, safe=False)
     except Exception:
         return JsonResponse({'error': 'Backend service unreachable'}, status=503)
 
-def material_brands_proxy(request):
+async def material_brands_proxy(request):
     """SSR Proxy for fetching brands by clothing type."""
     clothing_type = request.GET.get('clothing_type')
     try:
-        response = api_call(request, 'GET', 'brandfiberlookups/brands', params={'clothing_type': clothing_type})
+        response = await api_call(request, 'GET', 'brandfiberlookups/brands', params={'clothing_type': clothing_type})
         return JsonResponse(response.json(), status=response.status_code, safe=False)
     except Exception:
         return JsonResponse({'error': 'Backend service unreachable'}, status=503)
 
-def material_search_proxy(request):
+async def material_search_proxy(request):
     """SSR Proxy for searching materials/items."""
     try:
-        response = api_call(request, 'GET', 'brandfiberlookups', params=request.GET.dict())
+        response = await api_call(request, 'GET', 'brandfiberlookups', params=request.GET.dict())
         return JsonResponse(response.json(), status=response.status_code, safe=False)
     except Exception:
         return JsonResponse({'error': 'Backend service unreachable'}, status=503)
 
-def donor_search_proxy(request):
+async def donor_search_proxy(request):
     """SSR Proxy for searching active donors only."""
     try:
         params = request.GET.dict()
         params.update({'role': 'Donor', 'status': 'ACTIVE'})
-        response = api_call(request, 'GET', 'users', params=params)
+        response = await api_call(request, 'GET', 'users', params=params)
         return JsonResponse(response.json(), status=response.status_code, safe=False)
     except Exception:
         return JsonResponse({'error': 'Backend service unreachable'}, status=503)
 
-def forgot_password(request):
+async def forgot_password(request):
     if request.method == 'POST':
         email = request.POST.get('email')
         try:
-            response = api_call(request, 'POST', 'password-reset', json={'email': email})
+            response = await api_call(request, 'POST', 'password-reset', json={'email': email})
             if response.status_code == 200:
                 return render(request, 'frontend/forgot_password.html', {'success': "If that email exists in our system, we've sent a password reset link to it."})
             else:
@@ -206,7 +206,7 @@ def forgot_password(request):
             return render(request, 'frontend/forgot_password.html', {'error': "Backend service unreachable."})
     return render(request, 'frontend/forgot_password.html')
 
-def reset_password_confirm(request):
+async def reset_password_confirm(request):
     if request.method == 'GET':
         uidb64 = request.GET.get('uidb64')
         token = request.GET.get('token')
@@ -227,7 +227,7 @@ def reset_password_confirm(request):
         }
 
         try:
-            response = api_call(request, 'POST', 'password-reset/confirm', json=payload)
+            response = await api_call(request, 'POST', 'password-reset/confirm', json=payload)
             if response.status_code == 200:
                 messages.success(request, "Password reset successful! 2FA has been disabled. You can now log in.")
                 return redirect('login')
@@ -250,7 +250,7 @@ def reset_password_confirm(request):
                     'token': token
                 })
 
-def donor_registration(request):
+async def donor_registration(request):
     if request.method == 'POST':
         raw_data = request.POST
         password = raw_data.get('password')
@@ -281,7 +281,7 @@ def donor_registration(request):
         elif not payload['contact_no'].startswith('+'):
             payload['contact_no'] = '+63' + payload['contact_no']
         try:
-            response = api_call(request, 'POST', 'register', json=payload)
+            response = await api_call(request, 'POST', 'register', json=payload)
             if response.status_code == 201:
                 messages.success(request, "Registration successful!")
                 return redirect('login')
@@ -291,8 +291,8 @@ def donor_registration(request):
             messages.error(request, "Backend API is offline or unreachable.")
     return render(request, 'frontend/donor_registration.html')
 
-def tuab_registration(request):
-    fibers = get_fiber_choices(request)
+async def tuab_registration(request):
+    fibers = await get_fiber_choices(request)
     if request.method == 'POST':
         raw_data = request.POST
         password = raw_data.get('password')
@@ -345,7 +345,7 @@ def tuab_registration(request):
         files = {'documentation': request.FILES.get('documentation')} if request.FILES.get('documentation') else None
 
         try:
-            response = api_call(request, 'POST', 'register', data=payload, files=files)
+            response = await api_call(request, 'POST', 'register', data=payload, files=files)
             if response.status_code == 201:
                 messages.success(request, "TUAB Application Submitted!")
                 return redirect('login')

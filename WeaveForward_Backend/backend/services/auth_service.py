@@ -5,8 +5,12 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from rest_framework import exceptions
 from rest_framework.authentication import CSRFCheck
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.settings import api_settings
 
 from ..models import User
+
+ACCESS_COOKIE_NAME = "access_token"
+REFRESH_COOKIE_NAME = "refresh_token"
 
 
 def enforce_csrf(request):
@@ -19,7 +23,7 @@ def enforce_csrf(request):
 
 class CookieJWTAuthentication(JWTAuthentication):
     def authenticate(self, request):
-        raw_token = request.COOKIES.get(settings.AUTH_ACCESS_COOKIE_NAME)
+        raw_token = request.COOKIES.get(ACCESS_COOKIE_NAME)
 
         if raw_token is None:
             return None
@@ -33,39 +37,31 @@ class CookieJWTAuthentication(JWTAuthentication):
 def set_auth_cookies(response, access_token, refresh_token=None):
     if access_token:
         response.set_cookie(
-            settings.AUTH_ACCESS_COOKIE_NAME,
+            ACCESS_COOKIE_NAME,
             access_token,
             httponly=True,
             secure=settings.AUTH_COOKIE_SECURE,
             samesite=settings.AUTH_COOKIE_SAMESITE,
-            domain=settings.AUTH_COOKIE_DOMAIN,
-            path=settings.AUTH_COOKIE_PATH,
-            max_age=settings.AUTH_ACCESS_COOKIE_MAX_AGE,
+            max_age=int(api_settings.ACCESS_TOKEN_LIFETIME.total_seconds()),
         )
     if refresh_token:
         response.set_cookie(
-            settings.AUTH_REFRESH_COOKIE_NAME,
+            REFRESH_COOKIE_NAME,
             refresh_token,
             httponly=True,
             secure=settings.AUTH_COOKIE_SECURE,
             samesite=settings.AUTH_COOKIE_SAMESITE,
-            domain=settings.AUTH_COOKIE_DOMAIN,
-            path=settings.AUTH_COOKIE_PATH,
-            max_age=settings.AUTH_REFRESH_COOKIE_MAX_AGE,
+            max_age=int(api_settings.REFRESH_TOKEN_LIFETIME.total_seconds()),
         )
 
 
 def clear_auth_cookies(response):
     response.delete_cookie(
-        settings.AUTH_ACCESS_COOKIE_NAME,
-        path=settings.AUTH_COOKIE_PATH,
-        domain=settings.AUTH_COOKIE_DOMAIN,
+        ACCESS_COOKIE_NAME,
         samesite=settings.AUTH_COOKIE_SAMESITE,
     )
     response.delete_cookie(
-        settings.AUTH_REFRESH_COOKIE_NAME,
-        path=settings.AUTH_COOKIE_PATH,
-        domain=settings.AUTH_COOKIE_DOMAIN,
+        REFRESH_COOKIE_NAME,
         samesite=settings.AUTH_COOKIE_SAMESITE,
     )
 

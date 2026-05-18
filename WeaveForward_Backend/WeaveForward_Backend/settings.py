@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-from datetime import timedelta
 from dotenv import load_dotenv
 import base64
 
@@ -88,10 +87,6 @@ else:
 
 PASSWORD_HASHERS = [
     'django.contrib.auth.hashers.BCryptPasswordHasher',
-    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
-    'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
-    'django.contrib.auth.hashers.Argon2PasswordHasher',
-    'django.contrib.auth.hashers.ScryptPasswordHasher',
 ]
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -124,30 +119,11 @@ MAYA_SANDBOX_BASE_URL = os.getenv("MAYA_SANDBOX_BASE_URL", "https://pg-sandbox.p
 MAYA_SANDBOX_SECRET_BASIC_AUTH = f"Basic {base64.b64encode((os.getenv('MAYA_API_SECRET_KEY', '') + ':').encode()).decode()}"
 MAYA_SANDBOX_PUBLIC_BASIC_AUTH = f"Basic {base64.b64encode((os.getenv('MAYA_API_PUBLIC_KEY', '') + ':').encode()).decode()}"
 
-CORS_ALLOWED_ORIGINS = [
-    origin.strip()
-    for origin in os.getenv(
-        "CORS_ALLOWED_ORIGINS",
-        f"{FRONTEND_URL},http://127.0.0.1:8001,http://localhost:8001",
-    ).split(",")
-    if origin.strip()
-]
+CORS_ALLOWED_ORIGINS = [FRONTEND_URL]
+CSRF_TRUSTED_ORIGINS = [FRONTEND_URL]
 
-CSRF_TRUSTED_ORIGINS = [
-    origin.strip()
-    for origin in os.getenv(
-        "CSRF_TRUSTED_ORIGINS",
-        f"{FRONTEND_URL},http://127.0.0.1:8001,http://localhost:8001",
-    ).split(",")
-    if origin.strip()
-]
-
-AUTH_ACCESS_COOKIE_NAME = os.getenv("AUTH_ACCESS_COOKIE_NAME", "access_token")
-AUTH_REFRESH_COOKIE_NAME = os.getenv("AUTH_REFRESH_COOKIE_NAME", "refresh_token")
 AUTH_COOKIE_SECURE = os.getenv("AUTH_COOKIE_SECURE", "False") == "True"
 AUTH_COOKIE_SAMESITE = os.getenv("AUTH_COOKIE_SAMESITE", "Lax")
-AUTH_COOKIE_DOMAIN = os.getenv("AUTH_COOKIE_DOMAIN") or None
-AUTH_COOKIE_PATH = os.getenv("AUTH_COOKIE_PATH", "/")
 CORS_ALLOW_CREDENTIALS = True
 
 # Default primary key field type
@@ -176,14 +152,7 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 10,
 }
 
-AUTH_ACCESS_TOKEN_LIFETIME = timedelta(minutes=60)
-AUTH_REFRESH_TOKEN_LIFETIME = timedelta(days=1)
-AUTH_ACCESS_COOKIE_MAX_AGE = int(AUTH_ACCESS_TOKEN_LIFETIME.total_seconds())
-AUTH_REFRESH_COOKIE_MAX_AGE = int(AUTH_REFRESH_TOKEN_LIFETIME.total_seconds())
-
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': AUTH_ACCESS_TOKEN_LIFETIME,
-    'REFRESH_TOKEN_LIFETIME': AUTH_REFRESH_TOKEN_LIFETIME,
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'UPDATE_LAST_LOGIN': False,

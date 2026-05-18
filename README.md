@@ -139,9 +139,9 @@ After initializing the database (see Backend Step 4), you can log in with the fo
    python manage.py migrate
    ```
 
-6. **Start the Development Server**:
+6. **Start the Backend Server**:
    ```powershell
-   python manage.py runserver
+   python manage.py runserver 127.0.0.1:8000
    ```
    *The backend will be accessible at `http://127.0.0.1:8000/`.*
 
@@ -175,11 +175,14 @@ After initializing the database (see Backend Step 4), you can log in with the fo
    python manage.py migrate
    ```
 
-5. **Start the Development Server**:
+5. **Start the Frontend Server**:
    ```powershell
    python manage.py runserver 8001
    ```
    *The frontend will be accessible at `http://127.0.0.1:8001/`.*
+
+> [!NOTE]
+> The frontend is powered by **Daphne ASGI** (integrated directly into the Django development server). This allows it to natively support async middleware and asynchronous backend proxy calls without locking files on Windows during local development.
 
 ---
 
@@ -318,8 +321,8 @@ Features for Donor user role:
 - [x] View TUAB
 - [x] Submit Donation
 - [x] View Donation
-- [ ] Edit Donation
-- [ ] Cancel Donation
+- [x] Edit Donation
+- [x] Cancel Donation
 - [ ] View Donation Impact Dashboard
 - [x] Update Account Information
 - [ ] Donor Features Blackbox Selenium Test Script
@@ -331,7 +334,7 @@ Features for TUAB (Organization) user role:
 - [ ] View Inventory Items
 - [ ] Update Inventory Items
 - [ ] Delete Inventory Items
-- [ ] View Incoming Donations
+- [-] View Incoming Donations
 - [ ] Update Incoming Donations
 - [ ] Archive Incoming Donations
 - [x] View Match Donation Recommendations (CatBoostAI ML Model Integration with DB)

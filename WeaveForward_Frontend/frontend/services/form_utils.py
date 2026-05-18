@@ -1,10 +1,11 @@
 from .api_service import api_call
 
+
 def format_errors(errors):
     """Convert snake_case error keys to Title Case for display (e.g. business_name → Business Name)."""
     return {k.replace('_', ' ').title(): v for k, v in errors.items()}
 
-def get_paginated_data(request, endpoint, params=None, page_size=10):
+async def get_paginated_data(request, endpoint, params=None, page_size=10):
     """Fetch and parse paginated data from the API, including search support."""
     page = request.GET.get('page', 1)
     search_query = request.GET.get('q', '')
@@ -12,7 +13,7 @@ def get_paginated_data(request, endpoint, params=None, page_size=10):
     api_params = params.copy() if params else {}
     api_params.update({'page': page, 'search': search_query})
     
-    response = api_call(request, 'GET', endpoint, params=api_params)
+    response = await api_call(request, 'GET', endpoint, params=api_params)
     data = response.json() if response.status_code == 200 else {'results': [], 'count': 0, 'next': None, 'previous': None}
     
     if isinstance(data, list):

@@ -4,6 +4,6 @@
 echo "Collecting static files for Frontend..."
 python manage.py collectstatic --noinput
 
-# Start Gunicorn (Cloud Run uses $PORT)
-echo "Starting Frontend Gunicorn on port $PORT..."
-exec gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 0 WeaveForward_Frontend.wsgi:application
+# Start Daphne ASGI (Cloud Run uses $PORT)
+echo "Starting Frontend Daphne on port $PORT..."
+exec daphne -b 0.0.0.0 -p $PORT WeaveForward_Frontend.asgi:application
