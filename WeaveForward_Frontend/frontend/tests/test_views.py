@@ -253,6 +253,11 @@ class AuthViewsTest(TestCase):
         self.assertEqual(response.cookies['access_token'].value.count('.'), 2)
         self.assertEqual(response.cookies['refresh_token'].value, 'rotated-refresh')
         self.assertEqual(mocked_requests.call_count, 5)
+        refresh_call = mocked_requests.call_args_list[1]
+        self.assertEqual(refresh_call.args[:2], ('POST', 'http://127.0.0.1:8000/api/token/refresh'))
+        self.assertEqual(refresh_call.kwargs['cookies']['refresh_token'], 'refresh-cookie')
+        self.assertEqual(refresh_call.kwargs['cookies']['csrftoken'], 'csrf-cookie')
+        self.assertEqual(refresh_call.kwargs['headers']['X-CSRFToken'], 'csrf-cookie')
 
     @patch('frontend.services.api_service.requests.request')
     def test_protected_page_backend_outage_returns_503_without_clearing_cookies(self, mocked_requests):

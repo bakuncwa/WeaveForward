@@ -42,11 +42,18 @@ async def api_call(request, method, endpoint, **kwargs):
 
     if response.status_code == 401 and (refresh_token := request.COOKIES.get("refresh_token")):
         try:
+            refresh_cookies = {"refresh_token": refresh_token}
+            refresh_headers = {}
+            if csrf_token := request.COOKIES.get("csrftoken"):
+                refresh_cookies["csrftoken"] = csrf_token
+                refresh_headers["X-CSRFToken"] = csrf_token
+
             refresh_res = await _dispatch_request(
                 "POST",
                 f"{BACKEND_BASE_URL.rstrip('/')}/token/refresh",
                 endpoint="token/refresh",
-                cookies={"refresh_token": refresh_token},
+                cookies=refresh_cookies,
+                headers=refresh_headers,
             )
             if refresh_res.status_code == 200:
                 new_access = refresh_res.cookies.get("access_token")
