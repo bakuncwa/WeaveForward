@@ -388,12 +388,16 @@ async def donor_edit_donation(request, donation_id):
         except Exception as e:
             return JsonResponse({'error': f"System Error: {str(e)}"}, status=503)
 
-    # GET Request: Fetch fresh data and ETag
-    donation_response = await api_call(request, 'GET', f'donations/{donation_id}')
+    # GET Request: Fetch donation, clothing types, and all brands in parallel
+    donation_res, types_res, brands_res = await asyncio.gather(
+        api_call(request, 'GET', f'donations/{donation_id}'),
+        api_call(request, 'GET', 'brandfiberlookups/clothing_types'),
+        api_call(request, 'GET', 'brandfiberlookups/brands')
+    )
     
-    if donation_response.status_code == 200:
-        donation = donation_response.json()
-        etag = donation_response.headers.get('ETag')
+    if donation_res.status_code == 200:
+        donation = donation_res.json()
+        etag = donation_res.headers.get('ETag')
         
         # Check if the donation is in PENDING status
         if donation.get('status') != 'PENDING':
@@ -403,11 +407,6 @@ async def donor_edit_donation(request, donation_id):
         messages.error(request, "Unable to fetch donation data.")
         return redirect('donor_my_donations')
 
-    # Fetch clothing types and all brands for the dropdowns in parallel
-    types_res, brands_res = await asyncio.gather(
-        api_call(request, 'GET', 'brandfiberlookups/clothing_types'),
-        api_call(request, 'GET', 'brandfiberlookups/brands')
-    )
     clothing_types = types_res.json() if types_res.status_code == 200 else []
     all_brands = brands_res.json() if brands_res.status_code == 200 else []
 

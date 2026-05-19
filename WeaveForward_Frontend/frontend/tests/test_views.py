@@ -268,7 +268,7 @@ class AuthViewsTest(TestCase):
         response = self.client.get(reverse('donor_browse_businesses'))
 
         self.assertEqual(response.status_code, 503)
-        self.assertContains(response, 'Our threads are a bit tangled at the moment.', status_code=503)
+        self.assertContains(response, 'Our threads are a little tangled right now.', status_code=503)
         self.assertNotIn('access_token', response.cookies)
         self.assertNotIn('refresh_token', response.cookies)
 
@@ -1147,6 +1147,44 @@ class TuabDonationDetailViewTest(MiddlewareAuthMixin, TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.json()['detail'], 'Only authenticated TUABs can use this endpoint.')
         mocked_api_call.assert_not_called()
+
+
+    @patch('frontend.views.tuab.api_call')
+    def test_tuab_update_incoming_donation_get_renders_resolve_form(self, mocked_api_call):
+        payload = dict(self.donation_payload)
+        payload.update({
+            'status': 'IN_TRANSIT',
+            'claimed_by_tuab': {'user_id': 21, 'business_name': 'Weave Lab'},
+        })
+        mocked_api_call.side_effect = [
+            make_response(200, payload, {'ETag': '"etag-88"'}), # Fetch donation
+            make_response(200, ['Shirt']), # Fetch clothing types
+            make_response(200, ['Brand A']), # Fetch brands
+        ]
+
+        response = self.client.get(reverse('tuab_update_incoming_donation', kwargs={'donation_id': 88}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Resolve Donation')
+        self.assertContains(response, 'id="edit-frm"')
+
+    @patch('frontend.views.tuab.api_call')
+    def test_tuab_update_incoming_donation_post_proxies_resolution(self, mocked_api_call):
+        mocked_api_call.return_value = make_response(200, {'detail': 'Donation resolved.'})
+
+        response = self.client.post(
+            reverse('tuab_update_incoming_donation', kwargs={'donation_id': 88}),
+            data=json.dumps({
+                'status': 'RECEIVED',
+                'items': [],
+            }),
+            content_type='application/json',
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['redirect'], '/tuab/dashboard/')
+        self.assertEqual(mocked_api_call.call_args.args[1:], ('POST', 'donations/88/resolve'))
 
 
 class DonorDonationDetailViewTest(MiddlewareAuthMixin, TestCase):

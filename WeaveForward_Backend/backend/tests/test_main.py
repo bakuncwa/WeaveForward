@@ -165,7 +165,8 @@ class TUABRegistrationTest(TestCase):
             'display_address': 'Manila',
             'target_fibers': 'cotton,wool',
             'max_distance_km': '50.00',
-            'min_biodeg_score': '70.00'
+            'min_biodeg_score': '70.00',
+            'description': 'Valid description of Recycle Co'
         }
 
     def test_valid_tuab_registration(self):
@@ -210,6 +211,7 @@ class TUABRegistrationTest(TestCase):
         self.client.post(reverse('register'), payload, format='multipart')
         
         payload2 = self.valid_payload.copy()
+        payload2['contact_no'] = '+639189999999'
         payload2['documentation'] = SimpleUploadedFile("test.pdf", b"file_content", content_type="application/pdf")
         response = self.client.post(reverse('register'), payload2, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -793,14 +795,25 @@ class UserAPITest(TestCase):
         self.assertFalse(admin_row['is_subscribed'])
         self.assertFalse(donor_row['is_subscribed'])
         self.assertTrue(tuab_active_row['is_subscribed'])
+        self.assertEqual(
+            set(admin_row.keys()),
+            {'user_id', 'email', 'role', 'first_name', 'last_name', 'middle_name', 'business_name', 'contact_no', 'status', 'is_subscribed', 'etag'}
+        )
+        for removed_field in ['barangay', 'city', 'latitude', 'longitude', 'display_address', 'is_2fa_enabled', 'upload', 'created_at', 'updated_at']:
+            self.assertNotIn(removed_field, donor_row)
         
         # Donor sees active TUABs
         self.client.force_authenticate(user=self.donor)
         res = self.client.get(reverse('user-list'))
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(len(res.data['results']), 1)
-        self.assertEqual(res.data['results'][0]['email'], self.tuab_active.email)
-        self.assertNotIn('is_subscribed', res.data['results'][0])
+        public_row = res.data['results'][0]
+        self.assertEqual(public_row['email'], self.tuab_active.email)
+        self.assertNotIn('is_subscribed', public_row)
+        self.assertEqual(
+            set(public_row.keys()),
+            {'user_id', 'email', 'role', 'business_name', 'description', 'barangay', 'city', 'upload', 'target_fibers'}
+        )
 
     def test_admin_user_list_can_filter_by_status(self):
         self.client.force_authenticate(user=self.admin)
@@ -825,6 +838,8 @@ class UserAPITest(TestCase):
         self.assertEqual(res.data['email'], self.tuab_active.email)
         self.assertNotIn('is_subscribed', res.data)
         self.assertNotIn('documentation', res.data)
+        for detailed_field in ['contact_no', 'display_address', 'latitude', 'longitude', 'social_link', 'max_distance_km', 'min_biodeg_score', 'operational_status']:
+            self.assertIn(detailed_field, res.data)
         self.assertIn('ETag', res)
         
         # Donor cannot see inactive TUAB
@@ -841,6 +856,8 @@ class UserAPITest(TestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertIn('ETag', res)
         self.assertFalse(res.data['is_subscribed'])
+        for detailed_field in ['barangay', 'city', 'latitude', 'longitude', 'display_address', 'is_2fa_enabled', 'upload', 'created_at', 'updated_at']:
+            self.assertIn(detailed_field, res.data)
 
         res = self.client.get(reverse('user-detail', kwargs={'pk': self.tuab_active.user_id}))
         self.assertEqual(res.status_code, status.HTTP_200_OK)
@@ -852,15 +869,35 @@ class UserAPITest(TestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.data['email'], self.donor.email)
         self.assertEqual(res['ETag'], build_updated_at_etag(self.donor))
-        self.assertFalse(res.data['is_subscribed'])
+        self.assertNotIn('is_subscribed', res.data)
         self.assertEqual(res.data['latitude'], '14.7715628')
         self.assertEqual(res.data['longitude'], '121.0665894')
+        self.assertEqual(
+            set(res.data.keys()),
+            {
+                'user_id', 'email', 'role', 'first_name', 'last_name', 'middle_name',
+                'contact_no', 'barangay', 'city', 'latitude', 'longitude',
+                'display_address', 'is_2fa_enabled', 'upload', 'created_at',
+                'updated_at', 'etag'
+            }
+        )
 
         self.client.force_authenticate(user=self.tuab_active)
         res = self.client.get(reverse('user-me'))
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.data['email'], self.tuab_active.email)
         self.assertTrue(res.data['is_subscribed'])
+        self.assertEqual(
+            set(res.data.keys()),
+            {
+                'user_id', 'email', 'role', 'business_name', 'description',
+                'social_link', 'max_active_claims', 'target_fibers',
+                'min_biodeg_score', 'max_distance_km', 'operational_status',
+                'contact_no', 'barangay', 'city', 'latitude', 'longitude',
+                'display_address', 'is_2fa_enabled', 'is_subscribed', 'upload',
+                'created_at', 'etag'
+            }
+        )
 
     def test_user_endpoints_serialize_coordinates_with_exactly_7_decimal_places(self):
         self.client.force_authenticate(user=self.admin)
@@ -872,8 +909,8 @@ class UserAPITest(TestCase):
         self.client.force_authenticate(user=self.donor)
         list_res = self.client.get(reverse('user-list'))
         self.assertEqual(list_res.status_code, status.HTTP_200_OK)
-        self.assertEqual(list_res.data['results'][0]['latitude'], '14.7715628')
-        self.assertEqual(list_res.data['results'][0]['longitude'], '121.0665894')
+        self.assertNotIn('latitude', list_res.data['results'][0])
+        self.assertNotIn('longitude', list_res.data['results'][0])
 
     def test_user_patch_self_password_only(self):
         self.client.force_authenticate(user=self.donor)

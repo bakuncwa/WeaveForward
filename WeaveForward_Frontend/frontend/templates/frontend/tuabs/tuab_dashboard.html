@@ -174,7 +174,7 @@
       <td>${getDeliveryMethodLabel(d.delivery_method)}</td>
       <td>${d.items}</td>
       <td><div style="display:flex;gap:6px">
-        <a href="/tuab/donations/${d.id}/" class="btn btn-tuab">Manage</a>
+        <a href="${d.status === 'IN_TRANSIT' ? `/tuab/donations/${d.id}/edit/` : `/tuab/donations/${d.id}/`}" class="btn btn-tuab">Manage</a>
         <button class="btn-flag" onclick="openFlagModal('${d.id}','${tab}')">Flag</button>
       </div></td>
     </tr>`).join('')}

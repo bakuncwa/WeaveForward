@@ -4,9 +4,10 @@ from datetime import datetime
 from django.contrib import messages
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
+from django.utils.dateparse import parse_datetime, parse_time
 import httpx
 
-from ..services import api_call
+from ..services import api_call, format_errors
 
 
 async def tuab_dashboard(request):
@@ -131,7 +132,7 @@ async def tuab_view_donation(request, donation_id):
                     headers=headers,
                 )
 
-            if action == 'claim' or action is None:
+            elif action == 'claim' or action is None:
                 response = await api_call(
                     request,
                     'POST',
@@ -143,7 +144,7 @@ async def tuab_view_donation(request, donation_id):
                     headers=headers,
                 )
 
-            if action not in {'transit', 'claim', None}:
+            else:
                 response = JsonResponse({'detail': 'Unsupported action.'}, status=400)
         except httpx.RequestError:
             if is_json_request:
@@ -179,6 +180,22 @@ async def tuab_view_donation(request, donation_id):
     donation = response.json()
     items = donation.get('items', [])
 
+    # Parse date and times for all templates
+    if donation.get('submitted_at'):
+        dt = parse_datetime(donation['submitted_at'])
+        donation['submitted_at'] = dt
+        donation['created_at'] = dt
+    if donation.get('updated_at'):
+        donation['updated_at'] = parse_datetime(donation['updated_at'])
+    if donation.get('auto_archive_at'):
+        donation['auto_archive_at'] = parse_datetime(donation['auto_archive_at'])
+    if donation.get('preferred_pickup_date'):
+        donation['preferred_pickup_date'] = parse_datetime(donation['preferred_pickup_date'])
+    if donation.get('preferred_pickup_window_start'):
+        donation['preferred_pickup_window_start'] = parse_time(donation['preferred_pickup_window_start'])
+    if donation.get('preferred_pickup_window_end'):
+        donation['preferred_pickup_window_end'] = parse_time(donation['preferred_pickup_window_end'])
+
     # =========================
     # Show: Special Page for Owned Claimed Donation
     # =========================
@@ -201,6 +218,19 @@ async def tuab_view_donation(request, donation_id):
         })
 
     # =========================
+    # Show: Received/Rejected Donation Page
+    # =========================
+    if donation.get('status') in {'RECEIVED', 'REJECTED'}:
+        return render(request, 'frontend/tuabs/tuab_view_received_donation.html', {
+            'page_title': 'View Donation',
+            'sidebar_variant': 'tuab',
+            'user': profile,
+            'users': profile,
+            'donation': donation,
+            'items': items,
+        })
+
+    # =========================
     # Show: Standard Donation Detail Page
     # =========================
     return render(request, 'frontend/tuabs/tuab_view_donation.html', {
@@ -214,6 +244,116 @@ async def tuab_view_donation(request, donation_id):
         'default_dropoff_address': profile.get('display_address', ''),
         'default_dropoff_latitude': profile.get('latitude', ''),
         'default_dropoff_longitude': profile.get('longitude', ''),
+    })
+
+
+async def tuab_update_incoming_donation(request, donation_id):
+    """TUAB page for updating/resolving an incoming donation (resolving at /edit)."""
+    profile = request.user_profile
+
+    # =========================
+    # POST: Submit Resolution
+    # =========================
+    if request.method == 'POST':
+        is_json_request = 'application/json' in (request.content_type or '')
+        try:
+            payload = json.loads(request.body.decode('utf-8')) if is_json_request and request.body else request.POST.dict()
+        except json.JSONDecodeError:
+            payload = request.POST.dict()
+
+        payload.pop('csrfmiddlewaretoken', None)
+        payload.pop('current_etag', None)
+
+        try:
+            response = await api_call(request, 'POST', f'donations/{donation_id}/resolve', data=payload)
+            if response.status_code == 200:
+                messages.success(request, "Donation resolved successfully!")
+                return JsonResponse({'redirect': '/tuab/dashboard/'})
+            else:
+                try:
+                    err_data = response.json()
+                except:
+                    err_data = {'detail': 'Unknown backend error.'}
+                
+                error_msg = err_data.get('detail')
+                errors = []
+                if error_msg:
+                    errors.append(error_msg)
+                elif isinstance(err_data, dict):
+                    formatted = format_errors(err_data)
+                    for field, msgs in formatted.items():
+                        if isinstance(msgs, list):
+                            for msg in msgs:
+                                errors.append(f"{field}: {msg}")
+                        else:
+                            errors.append(f"{field}: {msgs}")
+                
+                if not errors:
+                    errors.append("Resolution failed.")
+
+                return JsonResponse({'errors': errors}, status=400)
+        except Exception as e:
+            return JsonResponse({'errors': [f"System Error: {str(e)}"]}, status=503)
+
+    # =========================
+    # GET: Render Resolve Form
+    # =========================
+    donation_res, types_res, brands_res = await asyncio.gather(
+        api_call(request, 'GET', f'donations/{donation_id}'),
+        api_call(request, 'GET', 'brandfiberlookups/clothing_types'),
+        api_call(request, 'GET', 'brandfiberlookups/brands')
+    )
+
+    if donation_res.status_code != 200:
+        if donation_res.status_code == 403:
+            messages.error(request, "Access denied.")
+        else:
+            messages.error(request, "Donation not found.")
+        return redirect('tuab_dashboard')
+
+    donation = donation_res.json()
+
+    # Validate that status is IN_TRANSIT and owned by this TUAB
+    if (
+        donation.get('status') != 'IN_TRANSIT'
+        or (donation.get('claimed_by_tuab') or {}).get('user_id') != profile.get('user_id')
+    ):
+        messages.error(request, "You are not authorized to resolve this donation.")
+        return redirect('tuab_view_donation', donation_id=donation_id)
+
+    # Parse date and times
+    if donation.get('submitted_at'):
+        dt = parse_datetime(donation['submitted_at'])
+        donation['submitted_at'] = dt
+        donation['created_at'] = dt
+    if donation.get('updated_at'):
+        donation['updated_at'] = parse_datetime(donation['updated_at'])
+    if donation.get('auto_archive_at'):
+        donation['auto_archive_at'] = parse_datetime(donation['auto_archive_at'])
+    if donation.get('preferred_pickup_date'):
+        donation['preferred_pickup_date'] = parse_datetime(donation['preferred_pickup_date'])
+    if donation.get('preferred_pickup_window_start'):
+        donation['preferred_pickup_window_start'] = parse_time(donation['preferred_pickup_window_start'])
+    if donation.get('preferred_pickup_window_end'):
+        donation['preferred_pickup_window_end'] = parse_time(donation['preferred_pickup_window_end'])
+
+    clothing_types = types_res.json() if types_res.status_code == 200 else []
+    all_brands = brands_res.json() if brands_res.status_code == 200 else []
+
+    return render(request, 'frontend/tuabs/tuab_update_incoming_donation.html', {
+        'page_title': 'Update Donation',
+        'user': profile,
+        'donation': donation,
+        'sidebar_variant': 'tuab',
+        'clothing_types': clothing_types,
+        'all_brands': all_brands,
+        'condition_choices': [
+            ('NEW', 'New'),
+            ('LIKE_NEW', 'Like New'),
+            ('GOOD', 'Good'),
+            ('FAIR', 'Fair'),
+            ('POOR', 'Poor'),
+        ]
     })
 
 

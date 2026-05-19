@@ -4,6 +4,7 @@ import os
 from decimal import Decimal
 from datetime import timedelta
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime, parse_date, parse_time
 from io import BytesIO
 from PIL import Image
 from django.core.files.base import ContentFile
@@ -22,7 +23,76 @@ from .brandfiberlookups import BrandFiberLookupSerializer
 
 
 
-class DonationItemSerializer(serializers.ModelSerializer):
+# ------------------------------------------------------------------------------
+# ## Read-Only Serializers
+# ------------------------------------------------------------------------------
+
+class DonationListLookupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BrandFiberLookup
+        fields = ['clothing_type', 'brand', 'dominant_fiber']
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        if ret.get('clothing_type'):
+            ret['clothing_type'] = ret['clothing_type'].capitalize()
+        return ret
+
+
+class DonationListItemSerializer(serializers.ModelSerializer):
+    lookup_details = DonationListLookupSerializer(source='lookup', read_only=True)
+
+    class Meta:
+        model = DonationItem
+        fields = ['lookup_details']
+
+class DonationListDonorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['first_name', 'last_name']
+
+
+class DonationListClaimedBySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['business_name']
+
+
+class DonationListSerializer(serializers.ModelSerializer):
+    donor = DonationListDonorSerializer(read_only=True)
+    claimed_by_tuab = DonationListClaimedBySerializer(read_only=True)
+    items = serializers.SerializerMethodField()
+    upload = serializers.SerializerMethodField()
+    pickup_latitude = serializers.DecimalField(max_digits=9, decimal_places=7, read_only=True)
+    pickup_longitude = serializers.DecimalField(max_digits=10, decimal_places=7, read_only=True)
+
+    class Meta:
+        model = Donation
+        fields = [
+            'donation_id',
+            'donor',
+            'claimed_by_tuab',
+            'items',
+            'upload',
+            'status',
+            'is_flagged',
+            'delivery_method',
+            'pickup_display_address',
+            'pickup_latitude',
+            'pickup_longitude',
+            'preferred_pickup_date',
+            'preferred_pickup_window_start',
+            'preferred_pickup_window_end',
+        ]
+
+    def get_upload(self, obj):
+        return build_upload_url(obj.upload, self.context)
+
+    def get_items(self, obj):
+        active_items = obj.items.filter(is_archived=False)
+        return DonationListItemSerializer(active_items, many=True, context=self.context).data
+
+class DonationDetailItemSerializer(serializers.ModelSerializer):
     lookup_details = BrandFiberLookupSerializer(source='lookup', read_only=True)
 
     class Meta:
@@ -30,7 +100,7 @@ class DonationItemSerializer(serializers.ModelSerializer):
         fields = ['item_id', 'condition_rating', 'weight_kg', 'lookup_details']
 
 
-class DonationUserSerializer(serializers.ModelSerializer):
+class DonationDetailUserSerializer(serializers.ModelSerializer):
     """Minimal user data for nesting in donations."""
     upload = serializers.SerializerMethodField()
 
@@ -40,11 +110,10 @@ class DonationUserSerializer(serializers.ModelSerializer):
 
     def get_upload(self, obj):
         return build_upload_url(obj.upload, self.context)
-
-
-class DonationSerializer(serializers.ModelSerializer):
-    donor = DonationUserSerializer(read_only=True)
-    claimed_by_tuab = DonationUserSerializer(read_only=True)
+    
+class DonationDetailSerializer(serializers.ModelSerializer):
+    donor = DonationDetailUserSerializer(read_only=True)
+    claimed_by_tuab = DonationDetailUserSerializer(read_only=True)
     items = serializers.SerializerMethodField()
     upload = serializers.SerializerMethodField()
     pickup_latitude = serializers.DecimalField(max_digits=9, decimal_places=7, read_only=True)
@@ -59,13 +128,23 @@ class DonationSerializer(serializers.ModelSerializer):
 
     def get_items(self, obj):
         active_items = obj.items.filter(is_archived=False)
-        return DonationItemSerializer(active_items, many=True, context=self.context).data
+        return DonationDetailItemSerializer(active_items, many=True, context=self.context).data
 
 
+# ------------------------------------------------------------------------------
+# ## Create-Only Serializer
+# ------------------------------------------------------------------------------
 class DonationCreateSerializer(serializers.ModelSerializer):
     donor_user_id = serializers.IntegerField(required=False, allow_null=True)
-    items = serializers.CharField(write_only=True)  # JSON string from multipart/form-data
+    items = serializers.CharField(required=False, allow_null=True, allow_blank=True, write_only=True)  # JSON string from multipart/form-data
     donation_image = serializers.ImageField(required=False, allow_null=True, write_only=True)
+
+    preferred_pickup_date = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    preferred_pickup_window_start = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    preferred_pickup_window_end = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    pickup_latitude = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    pickup_longitude = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    pickup_display_address = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
     class Meta:
         model = Donation
@@ -74,6 +153,14 @@ class DonationCreateSerializer(serializers.ModelSerializer):
             'preferred_pickup_date', 'preferred_pickup_window_start', 'preferred_pickup_window_end',
             'pickup_display_address', 'pickup_latitude', 'pickup_longitude'
         ]
+        extra_kwargs = {
+            'pickup_latitude': {'required': False, 'allow_null': True},
+            'pickup_longitude': {'required': False, 'allow_null': True},
+            'preferred_pickup_date': {'required': False, 'allow_null': True},
+            'preferred_pickup_window_start': {'required': False, 'allow_null': True},
+            'preferred_pickup_window_end': {'required': False, 'allow_null': True},
+            'pickup_display_address': {'required': False, 'allow_null': True, 'allow_blank': True},
+        }
 
     def validate(self, data):
         request = self.context.get('request')
@@ -84,46 +171,128 @@ class DonationCreateSerializer(serializers.ModelSerializer):
         if image:
             if image.size > 5 * 1024 * 1024:
                 errors['donation_image'] = "Image size must not exceed 5MB."
-            import os
             if os.path.splitext(image.name)[1].lower() not in ['.jpg', '.jpeg', '.png']:
                 errors['donation_image'] = "Only .jpg, .jpeg, and .png images are allowed."
 
-        # 2. Coordinate Precision & Location Check (NCR only)
-        lat = data.get('pickup_latitude')
-        lng = data.get('pickup_longitude')
-        if request:
-            for field, val in [('pickup_latitude', lat), ('pickup_longitude', lng)]:
-                raw_val = request.data.get(field)
-                if raw_val and not re.match(r'^-?\d+\.\d{7}$', str(raw_val)):
-                    errors[field] = "Must have exactly 7 decimal places (e.g., 14.1234567)."
+        # 2. Required Display Address
+        pickup_display_address = (data.get('pickup_display_address') or '').strip()
+        if not pickup_display_address:
+            errors['pickup_display_address'] = "This field is required."
 
-        if lat is not None and lng is not None and 'pickup_latitude' not in errors:
-            loc = get_city_and_barangay(lat, lng)
-            if not loc:
-                errors['pickup_latitude'] = "Pickup location must be within the National Capital Region (NCR)."
-            else:
-                data['_loc_barangay'] = loc['barangay']
-                data['_loc_city'] = loc['city']
+        # 3. Coordinate Precision & Location Check (NCR only)
+        raw_lat = str(self.initial_data.get('pickup_latitude') or '').strip()
+        raw_lng = str(self.initial_data.get('pickup_longitude') or '').strip()
+        coord_error = False
 
-        # 3. Date & Time Validation
-        now_local = timezone.localtime(timezone.now())
+        if not raw_lat or not raw_lng or raw_lat == 'None' or raw_lng == 'None':
+            if not raw_lat or raw_lat == 'None':
+                errors['pickup_latitude'] = "This field is required."
+            if not raw_lng or raw_lng == 'None':
+                errors['pickup_longitude'] = "This field is required."
+            coord_error = True
+        else:
+            if not re.match(r'^-?\d+\.\d{7}$', raw_lat):
+                errors['pickup_latitude'] = "Must have exactly 7 decimal places (e.g., 14.1234567)."
+                coord_error = True
+            if not re.match(r'^-?\d+\.\d{7}$', raw_lng):
+                errors['pickup_longitude'] = "Must have exactly 7 decimal places (e.g., 14.1234567)."
+                coord_error = True
+
+        if not coord_error:
+            try:
+                lat = Decimal(raw_lat)
+                lng = Decimal(raw_lng)
+                loc = get_city_and_barangay(lat, lng)
+                if not loc:
+                    errors['pickup_latitude'] = "Pickup location must be within the National Capital Region (NCR)."
+                else:
+                    data['pickup_latitude'] = lat
+                    data['pickup_longitude'] = lng
+                    data['_loc_barangay'] = loc['barangay']
+                    data['_loc_city'] = loc['city']
+            except (ValueError, TypeError, ArithmeticError):
+                errors['pickup_latitude'] = "Invalid coordinate format."
+
+        # 4. Required Field Format & Null Checks on Dates & Times
+        raw_date = data.get('preferred_pickup_date')
+        raw_start = data.get('preferred_pickup_window_start')
+        raw_end = data.get('preferred_pickup_window_end')
+
+        parsed_date = None
+        parsed_start = None
+        parsed_end = None
+
+        val_date = str(raw_date or '').strip()
+        if not val_date or val_date == 'None':
+            errors['preferred_pickup_date'] = "This field is required."
+        else:
+            try:
+                parsed_date = parse_datetime(val_date)
+                if parsed_date is not None and timezone.is_naive(parsed_date):
+                    parsed_date = timezone.make_aware(parsed_date)
+                if parsed_date is None:
+                    d = parse_date(val_date)
+                    if d:
+                        parsed_date = timezone.make_aware(timezone.datetime.combine(d, timezone.datetime.min.time()))
+                
+                if parsed_date is None:
+                    errors['preferred_pickup_date'] = "Datetime has wrong format."
+                else:
+                    data['preferred_pickup_date'] = parsed_date
+            except Exception:
+                errors['preferred_pickup_date'] = "Datetime has wrong format."
+
+        val_start = str(raw_start or '').strip()
+        if not val_start or val_start == 'None':
+            errors['preferred_pickup_window_start'] = "This field is required."
+        else:
+            try:
+                parsed_start = parse_time(val_start)
+                if parsed_start is None:
+                    errors['preferred_pickup_window_start'] = "Time has wrong format."
+                else:
+                    data['preferred_pickup_window_start'] = parsed_start
+            except Exception:
+                errors['preferred_pickup_window_start'] = "Time has wrong format."
+
+        val_end = str(raw_end or '').strip()
+        if not val_end or val_end == 'None':
+            errors['preferred_pickup_window_end'] = "This field is required."
+        else:
+            try:
+                parsed_end = parse_time(val_end)
+                if parsed_end is None:
+                    errors['preferred_pickup_window_end'] = "Time has wrong format."
+                else:
+                    data['preferred_pickup_window_end'] = parsed_end
+            except Exception:
+                errors['preferred_pickup_window_end'] = "Time has wrong format."
+
+        # 5. Date & Time Validation
         pick_date = data.get('preferred_pickup_date')
-        if pick_date:
-            pick_date_local = timezone.localtime(pick_date)
-            win_start = data.get('preferred_pickup_window_start')
-            win_end = data.get('preferred_pickup_window_end')
+        win_start = data.get('preferred_pickup_window_start')
+        win_end = data.get('preferred_pickup_window_end')
 
-            if pick_date_local.date() < now_local.date():
-                errors['preferred_pickup_date'] = "Pickup date cannot be in the past."
-            elif pick_date_local.date() > (now_local + timedelta(days=29)).date():
-                errors['preferred_pickup_date'] = "Pickup date cannot be more than 29 days into the future."
-            elif pick_date_local.date() == now_local.date() and win_start and win_start < now_local.time():
-                errors['preferred_pickup_window_start'] = "Pickup window start time cannot be in the past for today's pickup."
+        if 'preferred_pickup_date' not in errors and 'preferred_pickup_window_start' not in errors and 'preferred_pickup_window_end' not in errors:
+            if pick_date:
+                now_local = timezone.localtime(timezone.now())
+                try:
+                    if isinstance(pick_date, timezone.datetime) and timezone.is_naive(pick_date):
+                        pick_date = timezone.make_aware(pick_date)
+                    pick_date_local = timezone.localtime(pick_date)
+                    if pick_date_local.date() < now_local.date():
+                        errors['preferred_pickup_date'] = "Pickup date cannot be in the past."
+                    elif pick_date_local.date() > (now_local + timedelta(days=29)).date():
+                        errors['preferred_pickup_date'] = "Pickup date cannot be more than 29 days into the future."
+                    elif pick_date_local.date() == now_local.date() and win_start and win_start < now_local.time():
+                        errors['preferred_pickup_window_start'] = "Pickup window start time cannot be in the past for today's pickup."
+                except Exception:
+                    pass
 
             if win_start and win_end and win_start >= win_end:
                 errors['preferred_pickup_window_start'] = "Start time must be before end time."
 
-        # 4. Donor Status & Identity Validation
+        # 6. Donor Status & Identity Validation
         donor_id = data.get('donor_user_id')
         if not donor_id:
             if request and request.user.role == UserRole.DONOR:
@@ -143,7 +312,7 @@ class DonationCreateSerializer(serializers.ModelSerializer):
             elif request and request.user.role == UserRole.DONOR and donor_id != request.user.user_id:
                 errors['donor_user_id'] = "Donors can only create donations for themselves."
 
-        # 6. Items Parsing & DB Validation
+        # 7. Items Parsing & DB Validation
         items_raw = data.get('items')
         if not items_raw:
             errors['items'] = "This field is required."
@@ -193,6 +362,9 @@ class DonationCreateSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+# ------------------------------------------------------------------------------
+# ## Quotation Request Serializer
+# ------------------------------------------------------------------------------
 class QuotationRequestSerializer(serializers.ModelSerializer):
     dropoff_address = serializers.CharField(source='dropoff_display_address', max_length=200)
     dropoff_lat = serializers.DecimalField(source='dropoff_latitude', max_digits=9, decimal_places=7)
@@ -260,6 +432,9 @@ class QuotationRequestSerializer(serializers.ModelSerializer):
 
 
 
+# ------------------------------------------------------------------------------
+# ## Update-Only Serializers
+# ------------------------------------------------------------------------------
 class DonationItemUpdateSerializer(serializers.ModelSerializer):
     """Internal serializer to validate individual item updates."""
     item_id = serializers.IntegerField(required=False)
@@ -300,10 +475,18 @@ class DonationItemUpdateSerializer(serializers.ModelSerializer):
         return data
 
 
+
 class DonorDonationUpdateSerializer(serializers.ModelSerializer):
     """Specific serializer for Donors to update their PENDING donations."""
     items = serializers.CharField(required=False)  # JSON string
     donation_image = serializers.ImageField(required=False, allow_null=True)
+
+    preferred_pickup_date = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    preferred_pickup_window_start = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    preferred_pickup_window_end = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    pickup_latitude = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    pickup_longitude = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    pickup_display_address = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
     class Meta:
         model = Donation
@@ -313,12 +496,12 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
             'items', 'donation_image'
         ]
         extra_kwargs = {
-            'pickup_latitude': {'required': False},
-            'pickup_longitude': {'required': False},
-            'preferred_pickup_date': {'required': False},
-            'preferred_pickup_window_start': {'required': False},
-            'preferred_pickup_window_end': {'required': False},
-            'pickup_display_address': {'required': False},
+            'pickup_latitude': {'required': False, 'allow_null': True},
+            'pickup_longitude': {'required': False, 'allow_null': True},
+            'preferred_pickup_date': {'required': False, 'allow_null': True},
+            'preferred_pickup_window_start': {'required': False, 'allow_null': True},
+            'preferred_pickup_window_end': {'required': False, 'allow_null': True},
+            'pickup_display_address': {'required': False, 'allow_null': True, 'allow_blank': True},
         }
 
     def update(self, instance, validated_data):
@@ -348,48 +531,124 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
             if os.path.splitext(image.name)[1].lower() not in ['.jpg', '.jpeg', '.png']:
                 errors['donation_image'] = "Only .jpg, .jpeg, and .png images are allowed."
 
-        # 2. Location Validation
-        lat = data.get('pickup_latitude')
-        lng = data.get('pickup_longitude')
-        if lat is not None or lng is not None:
-            if lat is not None and lng is not None:
-                if request:
-                    for field, val in [('pickup_latitude', lat), ('pickup_longitude', lng)]:
-                        raw_val = request.data.get(field)
-                        if raw_val and not re.match(r'^-?\d+\.\d{7}$', str(raw_val)):
-                            errors[field] = "Must have exactly 7 decimal places (e.g., 14.1234567)."
+        # 2. Address Validation
+        if 'pickup_display_address' in data:
+            pickup_display_address = (data.get('pickup_display_address') or '').strip()
+            if not pickup_display_address:
+                errors['pickup_display_address'] = "This field may not be blank."
 
-                if 'pickup_latitude' not in errors:
-                    loc = get_city_and_barangay(lat, lng)
-                    if not loc:
-                        errors['pickup_latitude'] = "Pickup location must be within the National Capital Region (NCR)."
-                    else:
-                        data['pickup_barangay'] = loc['barangay']
-                        data['pickup_city'] = loc['city']
+        # 3. Location Validation
+        if 'pickup_latitude' in data or 'pickup_longitude' in data:
+            raw_lat = str(self.initial_data.get('pickup_latitude') or '').strip()
+            raw_lng = str(self.initial_data.get('pickup_longitude') or '').strip()
+
+            if not raw_lat or not raw_lng or raw_lat == 'None' or raw_lng == 'None':
+                errors['pickup_latitude'] = "This field may not be null."
+                errors['pickup_longitude'] = "This field may not be null."
             else:
-                errors['pickup_latitude'] = "Both latitude and longitude are required for location updates."
+                coord_error = False
+                if not re.match(r'^-?\d+\.\d{7}$', raw_lat):
+                    errors['pickup_latitude'] = "Must have exactly 7 decimal places (e.g., 14.1234567)."
+                    coord_error = True
+                if not re.match(r'^-?\d+\.\d{7}$', raw_lng):
+                    errors['pickup_longitude'] = "Must have exactly 7 decimal places (e.g., 14.1234567)."
+                    coord_error = True
 
-        # 3. Date & Time Validation
+                if not coord_error:
+                    try:
+                        lat_dec = Decimal(raw_lat)
+                        lng_dec = Decimal(raw_lng)
+                        loc = get_city_and_barangay(lat_dec, lng_dec)
+                        if not loc:
+                            errors['pickup_latitude'] = "Pickup location must be within the National Capital Region (NCR)."
+                        else:
+                            data['pickup_latitude'] = lat_dec
+                            data['pickup_longitude'] = lng_dec
+                            data['pickup_barangay'] = loc['barangay']
+                            data['pickup_city'] = loc['city']
+                    except (ValueError, TypeError, ArithmeticError):
+                        errors['pickup_latitude'] = "Invalid coordinate format."
+
+        # 4. Required Field Null / Format Checks on Dates & Times
+        if 'preferred_pickup_date' in data:
+            raw_date = data.get('preferred_pickup_date')
+            val_date = str(raw_date or '').strip()
+            if not val_date or val_date == 'None':
+                errors['preferred_pickup_date'] = "This field may not be null."
+            else:
+                try:
+                    parsed_date = parse_datetime(val_date)
+                    if parsed_date is not None and timezone.is_naive(parsed_date):
+                        parsed_date = timezone.make_aware(parsed_date)
+                    if parsed_date is None:
+                        d = parse_date(val_date)
+                        if d:
+                            parsed_date = timezone.make_aware(timezone.datetime.combine(d, timezone.datetime.min.time()))
+                    
+                    if parsed_date is None:
+                        errors['preferred_pickup_date'] = "Datetime has wrong format."
+                    else:
+                        data['preferred_pickup_date'] = parsed_date
+                except Exception:
+                    errors['preferred_pickup_date'] = "Datetime has wrong format."
+
+        if 'preferred_pickup_window_start' in data:
+            raw_start = data.get('preferred_pickup_window_start')
+            val_start = str(raw_start or '').strip()
+            if not val_start or val_start == 'None':
+                errors['preferred_pickup_window_start'] = "This field may not be null."
+            else:
+                try:
+                    parsed_start = parse_time(val_start)
+                    if parsed_start is None:
+                        errors['preferred_pickup_window_start'] = "Time has wrong format."
+                    else:
+                        data['preferred_pickup_window_start'] = parsed_start
+                except Exception:
+                    errors['preferred_pickup_window_start'] = "Time has wrong format."
+
+        if 'preferred_pickup_window_end' in data:
+            raw_end = data.get('preferred_pickup_window_end')
+            val_end = str(raw_end or '').strip()
+            if not val_end or val_end == 'None':
+                errors['preferred_pickup_window_end'] = "This field may not be null."
+            else:
+                try:
+                    parsed_end = parse_time(val_end)
+                    if parsed_end is None:
+                        errors['preferred_pickup_window_end'] = "Time has wrong format."
+                    else:
+                        data['preferred_pickup_window_end'] = parsed_end
+                except Exception:
+                    errors['preferred_pickup_window_end'] = "Time has wrong format."
+
+        # 5. Date & Time Validation
         now_local = timezone.localtime(timezone.now())
-        pick_date = data.get('preferred_pickup_date') or self.instance.preferred_pickup_date
-        win_start = data.get('preferred_pickup_window_start') or self.instance.preferred_pickup_window_start
-        win_end = data.get('preferred_pickup_window_end') or self.instance.preferred_pickup_window_end
+        pick_date = data.get('preferred_pickup_date') if 'preferred_pickup_date' in data else self.instance.preferred_pickup_date
+        win_start = data.get('preferred_pickup_window_start') if 'preferred_pickup_window_start' in data else self.instance.preferred_pickup_window_start
+        win_end = data.get('preferred_pickup_window_end') if 'preferred_pickup_window_end' in data else self.instance.preferred_pickup_window_end
 
-        if pick_date:
-            pick_date_local = timezone.localtime(pick_date)
-            if pick_date_local.date() < now_local.date():
-                errors['preferred_pickup_date'] = "Pickup date cannot be in the past."
-            elif pick_date_local.date() > (now_local + timedelta(days=29)).date():
-                errors['preferred_pickup_date'] = "Pickup date cannot be more than 29 days into the future."
-            
-            # Additional check: Today's pickup window cannot start in the past
-            if pick_date_local.date() == now_local.date() and win_start and win_start < now_local.time():
-                errors['preferred_pickup_window_start'] = "Pickup window start time cannot be in the past for today's pickup."
+        if 'preferred_pickup_date' not in errors and 'preferred_pickup_window_start' not in errors and 'preferred_pickup_window_end' not in errors:
+            if pick_date:
+                try:
+                    if isinstance(pick_date, timezone.datetime) and timezone.is_naive(pick_date):
+                        pick_date = timezone.make_aware(pick_date)
+                    pick_date_local = timezone.localtime(pick_date)
+                    if pick_date_local.date() < now_local.date():
+                        errors['preferred_pickup_date'] = "Pickup date cannot be in the past."
+                    elif pick_date_local.date() > (now_local + timedelta(days=29)).date():
+                        errors['preferred_pickup_date'] = "Pickup date cannot be more than 29 days into the future."
+                    
+                    # Additional check: Today's pickup window cannot start in the past
+                    if pick_date_local.date() == now_local.date() and win_start and win_start < now_local.time():
+                        errors['preferred_pickup_window_start'] = "Pickup window start time cannot be in the past for today's pickup."
+                except Exception:
+                    pass
 
-        if win_start and win_end and win_start >= win_end:
-            errors['preferred_pickup_window_start'] = "Start time must be before end time."
+            if win_start and win_end and win_start >= win_end:
+                errors['preferred_pickup_window_start'] = "Start time must be before end time."
 
-        # 4. Items Parsing & Validation (Simplified via nested serializer)
+        # 6. Items Parsing & Validation (Simplified via nested serializer)
         items_json = data.get('items')
         if items_json:
             try:
@@ -423,3 +682,54 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(errors)
 
         return data
+
+
+class DonationResolveSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=[DonationStatus.RECEIVED, DonationStatus.REJECTED])
+    rejection_reason = serializers.CharField(required=False, allow_blank=True, max_length=200)
+    items = serializers.CharField(required=False)
+
+    def validate(self, data):
+        status = data.get('status')
+        rejection_reason = data.get('rejection_reason')
+        items_json = data.get('items')
+        errors = {}
+
+        if status == DonationStatus.REJECTED:
+            if not rejection_reason or not rejection_reason.strip():
+                errors['rejection_reason'] = "Rejection reason is required when status is REJECTED."
+        
+        if items_json:
+            try:
+                raw_items = json.loads(items_json)
+                item_serializer = DonationItemUpdateSerializer(data=raw_items, many=True)
+                item_serializer.is_valid(raise_exception=True)
+                items = item_serializer.validated_data
+
+                # Ownership check (Security)
+                donation = self.context.get('donation')
+                if donation:
+                    existing_item_ids = set(donation.items.values_list('item_id', flat=True))
+                    for i in items:
+                        if i.get('item_id') and i['item_id'] not in existing_item_ids:
+                            raise serializers.ValidationError({"items": f"Item {i['item_id']} does not belong to this donation."})
+                    
+                    # Rule: At least one active item must remain
+                    active_items_count = donation.items.filter(is_archived=False).count()
+                    num_archiving = len([i for i in items if i.get('is_archived') and i.get('item_id')])
+                    num_adding = len([i for i in items if not i.get('item_id') and not i.get('is_archived')])
+                    
+                    if (active_items_count - num_archiving + num_adding) < 1:
+                        raise serializers.ValidationError("A donation must have at least one active clothing group.")
+
+                data['items'] = items
+            except (json.JSONDecodeError, ValueError, TypeError):
+                errors['items'] = "Invalid format for items."
+            except serializers.ValidationError as e:
+                errors['items'] = e.detail
+
+        if errors:
+            raise serializers.ValidationError(errors)
+
+        return data
+

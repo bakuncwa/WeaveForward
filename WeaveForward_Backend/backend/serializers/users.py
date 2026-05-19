@@ -229,8 +229,101 @@ class UserSerializer(serializers.ModelSerializer):
         return data
 
 
-class PublicUserSerializer(serializers.ModelSerializer):
-    """Limited profile serializer for non-admin views."""
+class DonorSelfSerializer(serializers.ModelSerializer):
+    """Dedicated serializer for donor self-profile pages."""
+    etag = serializers.SerializerMethodField(read_only=True)
+    upload = serializers.SerializerMethodField()
+    latitude = serializers.DecimalField(max_digits=9, decimal_places=7, required=False, allow_null=True)
+    longitude = serializers.DecimalField(max_digits=10, decimal_places=7, required=False, allow_null=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'user_id', 'email', 'role', 'first_name', 'last_name', 'middle_name',
+            'contact_no', 'barangay', 'city', 'latitude', 'longitude',
+            'display_address', 'is_2fa_enabled', 'upload', 'created_at',
+            'updated_at', 'etag'
+        ]
+
+    def get_etag(self, obj):
+        return build_updated_at_etag(obj)
+
+    def get_upload(self, obj):
+        return build_upload_url(obj.upload, self.context)
+
+
+class TuabSelfSerializer(serializers.ModelSerializer):
+    """Dedicated serializer for TUAB self-profile/session usage."""
+    etag = serializers.SerializerMethodField(read_only=True)
+    is_subscribed = serializers.SerializerMethodField(read_only=True)
+    upload = serializers.SerializerMethodField()
+    latitude = serializers.DecimalField(max_digits=9, decimal_places=7, required=False, allow_null=True)
+    longitude = serializers.DecimalField(max_digits=10, decimal_places=7, required=False, allow_null=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'user_id', 'email', 'role', 'business_name', 'description',
+            'social_link', 'max_active_claims', 'target_fibers',
+            'min_biodeg_score', 'max_distance_km', 'operational_status',
+            'contact_no', 'barangay', 'city', 'latitude', 'longitude',
+            'display_address', 'is_2fa_enabled', 'is_subscribed', 'upload',
+            'created_at', 'etag'
+        ]
+
+    def get_etag(self, obj):
+        return build_updated_at_etag(obj)
+
+    def get_is_subscribed(self, obj):
+        annotated_value = getattr(obj, 'is_subscribed', None)
+        if annotated_value is not None:
+            return bool(annotated_value)
+        return obj.subscriptions.filter(status=SubscriptionStatus.ACTIVE).exists()
+
+    def get_upload(self, obj):
+        return build_upload_url(obj.upload, self.context)
+
+
+class AdminUserListSerializer(serializers.ModelSerializer):
+    """Slim admin list serializer for user rows."""
+    is_subscribed = serializers.SerializerMethodField(read_only=True)
+    etag = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'user_id', 'email', 'role', 'first_name', 'last_name', 'middle_name',
+            'business_name', 'contact_no', 'status', 'is_subscribed', 'etag'
+        ]
+
+    def get_is_subscribed(self, obj):
+        annotated_value = getattr(obj, 'is_subscribed', None)
+        if annotated_value is not None:
+            return bool(annotated_value)
+        return obj.subscriptions.filter(status=SubscriptionStatus.ACTIVE).exists()
+
+    def get_etag(self, obj):
+        return build_updated_at_etag(obj)
+
+
+class TuabListSerializer(serializers.ModelSerializer):
+    """Slim serializer for non-admin TUAB list views."""
+    upload = serializers.SerializerMethodField()
+    distance_km = serializers.FloatField(read_only=True, required=False)
+
+    class Meta:
+        model = User
+        fields = [
+            'user_id', 'email', 'role', 'business_name', 'description',
+            'barangay', 'city', 'upload', 'distance_km', 'target_fibers'
+        ]
+
+    def get_upload(self, obj):
+        return build_upload_url(obj.upload, self.context)
+
+
+class TuabDetailSerializer(serializers.ModelSerializer):
+    """Limited profile serializer for non-admin TUAB detail views."""
     latitude = serializers.DecimalField(max_digits=9, decimal_places=7, required=False, allow_null=True)
     longitude = serializers.DecimalField(max_digits=10, decimal_places=7, required=False, allow_null=True)
     upload = serializers.SerializerMethodField()

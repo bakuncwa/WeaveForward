@@ -19,6 +19,7 @@ from .tuab import (
     tuab_subscribe,
     tuab_view_donation,
     tuab_quotation_proxy,
+    tuab_update_incoming_donation,
 )
 
 async def two_factor_setup_proxy(request):

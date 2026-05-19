@@ -422,15 +422,26 @@
   // --- 5. Form Submission ---
   function prepareSubmit(e) {
     const items = [];
+    let isValid = true;
     document.querySelectorAll('#cards .restored-card').forEach(card => {
       const lid = card.querySelector('.lookup-id').value;
-      if (!lid) { showFlash('Please select a material for all items.', 'error'); e.preventDefault(); return; }
+      if (!lid) { 
+        if (isValid) {
+          showFlash('Please select a material for all items.', 'error'); 
+        }
+        isValid = false;
+        return; 
+      }
       items.push({
         lookup_id: Number(lid),
         weight_kg: Number(card.querySelector('.weight-in').value),
         condition_rating: card.querySelector('.cond-sel').value
       });
     });
+    if (!isValid) {
+      e.preventDefault();
+      return false;
+    }
     document.getElementById('items-json').value = JSON.stringify(items);
     return true;
   }

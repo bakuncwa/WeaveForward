@@ -1,0 +1,242 @@
+{% extends 'frontend/base.html' %}
+
+{% block content %}
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@600&family=Poppins:wght@400;600;700&display=swap"
+    rel="stylesheet" />
+  <style>
+    :root {
+      --tuab: #e8a020;
+      --tuab-dark: #c8881a;
+      --bg: #f5f4f0;
+      --brd: #e0dbd4;
+      --lt: #fdf6e8;
+    }
+
+    .tuab-view-shell,
+    .tuab-view-shell * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: Poppins, sans-serif;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .layout {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+      width: 100%;
+    }
+
+    .left {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .right {
+      width: 340px;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 768px) {
+      .layout {
+        flex-direction: column;
+      }
+
+      .left,
+      .right {
+        width: 100%;
+      }
+    }
+
+    .card,
+    .panel {
+      background: #fff;
+      border: 1.5px solid var(--brd);
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 14px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .06);
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    @media (max-width: 768px) {
+      .row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .up {
+      font-size: 10px;
+      font-weight: 400;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 4px;
+    }
+
+    .in {
+      width: 100%;
+      height: 40px;
+      border: 1px solid var(--brd);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #333;
+      background: #fdfdfd;
+      outline: none;
+    }
+
+    .in[readonly] {
+      background: #f9f9f9;
+      color: #555;
+    }
+
+    .num {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--tuab);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: Lato, sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    /* Right panel info display */
+    .drow {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid #f6f6f6;
+      font-size: 13px;
+    }
+
+    .drow:last-of-type {
+      border-bottom: none;
+    }
+
+    .lbl {
+      color: #777;
+    }
+
+    .val {
+      font-weight: 600;
+      color: #333;
+      text-align: right;
+    }
+
+    .sep {
+      height: 1px;
+      background: var(--brd);
+      margin: 16px 0;
+    }
+
+    .upload-photo {
+      width: 100%;
+      border-radius: 8px;
+      object-fit: cover;
+      max-height: 200px;
+      border: 1.5px solid var(--brd);
+    }
+  </style>
+
+  <div class="tuab-view-shell">
+    <div class="layout">
+      <div class="left">
+        {% for item in items %}
+        <div class="card">
+          <div class="head">
+            <div class="num">{{ forloop.counter }}</div>
+            <span style="font-weight:400;font-size:15px">Clothing {{ forloop.counter }}</span>
+          </div>
+          <div class="row">
+            <div class="group">
+              <label class="up">Clothing</label>
+              <input class="in" value="{{ item.lookup_details.clothing_type|default:'' }}" readonly>
+            </div>
+            <div class="group">
+              <label class="up">Estimated Weight (kg)</label>
+              <input class="in" value="{{ item.weight_kg|default:'' }}" readonly>
+            </div>
+          </div>
+          <div class="group" style="margin-bottom:14px">
+            <label class="up">Condition</label>
+            <input class="in condition-val" value="{{ item.condition_rating|default:'' }}" readonly>
+          </div>
+          <div class="row" style="margin-bottom:0">
+            <div class="group">
+              <label class="up">Brand</label>
+              <input class="in" value="{{ item.lookup_details.brand|default:'' }}" readonly>
+            </div>
+            <div class="group">
+              <label class="up">Material</label>
+              <input class="in" value="{{ item.lookup_details.fiber_json|default:'Will be approximated' }}" readonly>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="right">
+        <div class="panel">
+          <div class="drow"><span class="lbl">Donor</span><span class="val">{{ donation.donor.first_name|default:'' }} {{ donation.donor.last_name|default:'' }}</span></div>
+          <div class="drow"><span class="lbl">Status</span><span class="val">{{ donation.status|default:'Pending' }}</span></div>
+          <div class="drow"><span class="lbl">Is Flagged</span><span class="val">{{ donation.is_flagged|default:'False' }}</span></div>
+          <div class="drow"><span class="lbl">Flag Reason</span><span class="val">{{ donation.flag_reason|default:'-' }}</span></div>
+          <div class="drow"><span class="lbl">Submitted At</span><span class="val">{{ donation.submitted_at|date:"m-d-Y h:i A"|default:"-" }}</span></div>
+          <div class="drow"><span class="lbl">Updated At</span><span class="val">{{ donation.updated_at|date:"m-d-Y h:i A"|default:"-" }}</span></div>
+          <div class="drow"><span class="lbl">Auto Archive At</span><span class="val">{{ donation.auto_archive_at|date:"m-d-Y h:i A"|default:"-" }}</span></div>
+          <div class="drow"><span class="lbl">Pickup Address</span><span class="val">{{ donation.pickup_display_address|default:'-' }}</span></div>
+          <div class="drow"><span class="lbl">Pickup Preferred Date</span><span class="val">{{ donation.preferred_pickup_date|date:"m-d-Y"|default:"-" }}</span></div>
+          <div class="drow"><span class="lbl">Pickup Preferred Pickup Window</span><span class="val">{% if donation.preferred_pickup_window_start and donation.preferred_pickup_window_end %}{{ donation.preferred_pickup_window_start|time:"h:i A" }} - {{ donation.preferred_pickup_window_end|time:"h:i A" }}{% else %}-{% endif %}</span></div>
+
+          <div class="sep"></div>
+          <img src="{{ donation.upload|default:'' }}"
+            class="upload-photo{% if not donation.upload %} hidden{% endif %}" alt="Donation">
+          <div class="{% if donation.upload %}hidden{% endif %}"
+            style="font-size:12px;color:#999;margin-top:6px">No donation image uploaded.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      document.querySelectorAll('.condition-val').forEach(function (el) {
+        var v = el.value.trim();
+        if (v) {
+          el.value = v.split('_').map(function (w) {
+            return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+          }).join(' ');
+        }
+      });
+    });
+  </script>
+{% endblock %}

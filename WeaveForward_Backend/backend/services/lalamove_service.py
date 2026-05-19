@@ -136,6 +136,10 @@ def reverse_or_refund_payment(payment_record, amount):
 
 
 def process_lalamove_webhook(payload, client_ip):
+    if not payload:
+        print("[LALAMOVE WEBHOOK] [INFO] Received empty payload (verification ping). Returning 200 OK.", flush=True)
+        return {"status_code": 200, "detail": "Lalamove webhook URL verified successfully."}
+
     if not (payload.get("signature") and payload.get("timestamp") and payload.get("data")):
         print("[LALAMOVE WEBHOOK] [REJECTED] Rejecting: Missing signature, timestamp, or data.", flush=True)
         return {"status_code": 400, "detail": "Missing signature verification details."}

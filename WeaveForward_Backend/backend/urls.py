@@ -33,6 +33,7 @@ urlpatterns = [
     path('donations/<int:pk>/quotation', views.DonationViewSet.as_view({'post': 'quotation'}), name='donation-quotation'),
     path('donations/<int:pk>/claim', views.DonationViewSet.as_view({'post': 'claim'}), name='donation-claim'),
     path('donations/<int:pk>/transit', views.DonationViewSet.as_view({'post': 'transit'}), name='donation-transit'),
+    path('donations/<int:pk>/resolve', views.DonationViewSet.as_view({'post': 'resolve'}), name='donation-resolve'),
     path('donations/<int:pk>/cancel', views.DonationViewSet.as_view({'post': 'cancel'}), name='donation-cancel'),
     path('donations/<int:pk>', views.DonationViewSet.as_view({'get': 'retrieve', 'patch': 'partial_update'}), name='donation-detail'),
 

@@ -303,3 +303,184 @@ class DonationCreationTest(TestCase):
                 self.assertEqual(donation.pickup_display_address, "Updated Manila Address")
         finally:
             MatchPredictionService._model = original_model
+
+    def test_edit_donation_validation_errors_all_at_once(self):
+        from decimal import Decimal
+        donation = Donation.objects.create(
+            donor=self.donor,
+            preferred_pickup_date='2026-06-01',
+            preferred_pickup_window_start='10:00:00',
+            preferred_pickup_window_end='12:00:00',
+            pickup_display_address="Manila",
+            pickup_latitude=Decimal('14.5645000'),
+            pickup_longitude=Decimal('120.9930000'),
+            status='PENDING'
+        )
+        DonationItem.objects.create(
+            donation=donation,
+            lookup=self.lookup,
+            weight_kg=1.5,
+            condition_rating='GOOD'
+        )
+        
+        self.client.force_authenticate(user=self.donor)
+        
+        from backend.services.etag_service import build_updated_at_etag
+        etag = build_updated_at_etag(donation)
+        
+        payload = {
+            "pickup_display_address": "  ",
+            "preferred_pickup_date": None,
+            "preferred_pickup_window_start": "  ",
+            "pickup_latitude": "invalid_lat",
+            "pickup_longitude": "120.993",
+        }
+        
+        response = self.client.patch(
+            reverse('donation-detail', kwargs={'pk': donation.donation_id}),
+            payload,
+            HTTP_IF_MATCH=etag,
+            format='json'
+        )
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('pickup_display_address', response.data)
+        self.assertIn('preferred_pickup_date', response.data)
+        self.assertIn('preferred_pickup_window_start', response.data)
+        self.assertIn('pickup_latitude', response.data)
+        self.assertIn('pickup_longitude', response.data)
+
+
+class DonationListSerializerTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.admin = User.objects.create_user(
+            email="admin_list@example.com",
+            password="Password123",
+            role="Admin",
+            contact_no="+639000001001",
+            status="ACTIVE",
+        )
+        self.donor = User.objects.create_user(
+            email="donor_list@example.com",
+            password="Password123",
+            role="Donor",
+            contact_no="+639000001002",
+            status="ACTIVE",
+            first_name="Listy",
+            last_name="Donor",
+        )
+        self.tuab = User.objects.create_user(
+            email="tuab_list@example.com",
+            password="Password123",
+            role="TUAB",
+            contact_no="+639000001003",
+            status="ACTIVE",
+            business_name="Upcycle Labs",
+        )
+        self.upload = Upload.objects.create(file_path="donations/test.jpg", name="test.jpg")
+        self.lookup = BrandFiberLookup.objects.create(
+            category="Tops",
+            brand="Uniqlo",
+            clothing_type="t-shirt",
+            fiber_json='{"cotton": 100}',
+            dominant_fiber="cotton",
+            biodeg_score="88.50",
+            biodeg_tier="HIGH",
+            is_active=True,
+        )
+        self.donation = Donation.objects.create(
+            donor=self.donor,
+            claimed_by_tuab=self.tuab,
+            upload=self.upload,
+            status="PENDING",
+            is_flagged=True,
+            delivery_method="PICKUP",
+            flag_reason="Flag reason should not be listed",
+            auto_archive_at=timezone.now() + timedelta(days=30),
+            pickup_barangay="Barangay 123",
+            pickup_city="Manila",
+            pickup_display_address="123 Test Street",
+            pickup_latitude="14.5645000",
+            pickup_longitude="120.9930000",
+            preferred_pickup_date=timezone.now() + timedelta(days=2),
+            preferred_pickup_window_start="10:00:00",
+            preferred_pickup_window_end="12:00:00",
+            rejection_reason="Unused in list",
+        )
+        DonationItem.objects.create(
+            donation=self.donation,
+            lookup=self.lookup,
+            condition_rating="GOOD",
+            weight_kg="1.500",
+        )
+
+    def test_donation_list_returns_only_slim_fields(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.get(reverse('donation-list'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        donation_data = response.data['results'][0]
+
+        self.assertEqual(
+            set(donation_data.keys()),
+            {
+                'donation_id',
+                'donor',
+                'claimed_by_tuab',
+                'items',
+                'upload',
+                'status',
+                'is_flagged',
+                'delivery_method',
+                'pickup_display_address',
+                'pickup_latitude',
+                'pickup_longitude',
+                'preferred_pickup_date',
+                'preferred_pickup_window_start',
+                'preferred_pickup_window_end',
+            }
+        )
+        self.assertEqual(set(donation_data['donor'].keys()), {'first_name', 'last_name'})
+        self.assertEqual(set(donation_data['claimed_by_tuab'].keys()), {'business_name'})
+        self.assertEqual(set(donation_data['items'][0].keys()), {'lookup_details'})
+        self.assertEqual(
+            set(donation_data['items'][0]['lookup_details'].keys()),
+            {'clothing_type', 'brand', 'dominant_fiber'}
+        )
+        self.assertEqual(donation_data['items'][0]['lookup_details']['clothing_type'], 'T-shirt')
+
+        for removed_field in ['pickup_barangay', 'pickup_city', 'flag_reason', 'auto_archive_at', 'submitted_at', 'rejection_reason', 'updated_at']:
+            self.assertNotIn(removed_field, donation_data)
+
+    def test_donation_me_uses_same_slim_shape(self):
+        self.client.force_authenticate(user=self.donor)
+
+        response = self.client.get(reverse('donation-me'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        donation_data = response.data['results'][0]
+        self.assertEqual(set(donation_data['donor'].keys()), {'first_name', 'last_name'})
+        self.assertEqual(set(donation_data['claimed_by_tuab'].keys()), {'business_name'})
+        self.assertNotIn('submitted_at', donation_data)
+        self.assertNotIn('item_id', donation_data['items'][0])
+        self.assertNotIn('weight_kg', donation_data['items'][0])
+
+    def test_donation_retrieve_remains_detailed(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.get(reverse('donation-detail', kwargs={'pk': self.donation.donation_id}))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        donation_data = response.data
+
+        for detailed_field in ['pickup_barangay', 'pickup_city', 'flag_reason', 'auto_archive_at', 'submitted_at', 'rejection_reason', 'updated_at']:
+            self.assertIn(detailed_field, donation_data)
+
+        self.assertIn('user_id', donation_data['donor'])
+        self.assertIn('item_id', donation_data['items'][0])
+        self.assertIn('condition_rating', donation_data['items'][0])
+        self.assertIn('weight_kg', donation_data['items'][0])
+        self.assertIn('lookup_id', donation_data['items'][0]['lookup_details'])
+
