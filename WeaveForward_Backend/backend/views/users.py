@@ -12,7 +12,11 @@ from ..utils.view_mixins import PaginatedResponseMixin
 
 from ..models import Subscription, SubscriptionStatus, User, UserRole, UserAccountStatus, UserOperationalStatus
 from ..serializers import (
-    PublicUserSerializer, 
+    AdminUserListSerializer,
+    DonorSelfSerializer,
+    TuabDetailSerializer,
+    TuabSelfSerializer,
+    TuabListSerializer,
     UserSerializer, 
     TwoFactorSerializer,
     SubscribeSetupSerializer,
@@ -37,8 +41,17 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
 
     def get_serializer_class(self):
         if hasattr(self, 'request') and hasattr(self.request, 'user'):
-            if self.request.user.role != 'Admin' and self.action in ['list', 'retrieve']:
-                return PublicUserSerializer
+            if self.request.user.role != 'Admin':
+                if self.action == 'list':
+                    return TuabListSerializer
+                if self.action == 'retrieve':
+                    return TuabDetailSerializer
+                if self.action == 'me' and self.request.user.role == UserRole.DONOR:
+                    return DonorSelfSerializer
+                if self.action == 'me' and self.request.user.role == UserRole.TUAB:
+                    return TuabSelfSerializer
+            if self.request.user.role == 'Admin' and self.action == 'list':
+                return AdminUserListSerializer
         return UserSerializer
 
     def get_queryset(self):

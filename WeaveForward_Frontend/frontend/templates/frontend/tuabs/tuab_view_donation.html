@@ -448,12 +448,12 @@
           <div class="drow"><span class="lbl">Status</span><span class="val">{{ donation.status|default:'Pending' }}</span></div>
           <div class="drow"><span class="lbl">Is Flagged</span><span class="val">{{ donation.is_flagged|default:'False' }}</span></div>
           <div class="drow"><span class="lbl">Flag Reason</span><span class="val">{{ donation.flag_reason|default:'-' }}</span></div>
-          <div class="drow"><span class="lbl">Submitted At</span><span class="val">{{ donation.submitted_at|default:'-'|slice:':19' }}</span></div>
-          <div class="drow"><span class="lbl">Updated At</span><span class="val">{{ donation.updated_at|default:'-'|slice:':19' }}</span></div>
-          <div class="drow"><span class="lbl">Auto Archive At</span><span class="val">{{ donation.auto_archive_at|default:'-' }}</span></div>
+          <div class="drow"><span class="lbl">Submitted At</span><span class="val">{{ donation.submitted_at|date:"m-d-Y h:i A"|default:"-" }}</span></div>
+          <div class="drow"><span class="lbl">Updated At</span><span class="val">{{ donation.updated_at|date:"m-d-Y h:i A"|default:"-" }}</span></div>
+          <div class="drow"><span class="lbl">Auto Archive At</span><span class="val">{{ donation.auto_archive_at|date:"m-d-Y h:i A"|default:"-" }}</span></div>
           <div class="drow"><span class="lbl">Pickup Address</span><span class="val">{{ donation.pickup_display_address|default:'-' }}</span></div>
-          <div class="drow"><span class="lbl">Pickup Preferred Date</span><span class="val">{{ donation.preferred_pickup_date|slice:':10' }}</span></div>
-          <div class="drow"><span class="lbl">Pickup Preferred Pickup Window</span><span class="val">{{ donation.preferred_pickup_window_start|slice:':5'|default:"-" }} - {{ donation.preferred_pickup_window_end|slice:':5'|default:"-" }}</span></div>
+          <div class="drow"><span class="lbl">Pickup Preferred Date</span><span class="val">{{ donation.preferred_pickup_date|date:"m-d-Y"|default:"-" }}</span></div>
+          <div class="drow"><span class="lbl">Pickup Preferred Pickup Window</span><span class="val">{% if donation.preferred_pickup_window_start and donation.preferred_pickup_window_end %}{{ donation.preferred_pickup_window_start|time:"h:i A" }} - {{ donation.preferred_pickup_window_end|time:"h:i A" }}{% else %}-{% endif %}</span></div>
 
           <div class="sep"></div>
           <img src="{{ donation.upload|default:'' }}"

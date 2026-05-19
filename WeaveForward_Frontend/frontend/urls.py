@@ -35,6 +35,7 @@ urlpatterns = [
     # --- TUAB ---
     path('tuab/dashboard/', views.tuab_dashboard, name='tuab_dashboard'),
     path('tuab/donations/<int:donation_id>/', views.tuab_view_donation, name='tuab_view_donation'),
+    path('tuab/donations/<int:donation_id>/edit/', views.tuab_update_incoming_donation, name='tuab_update_incoming_donation'),
     path('api/tuab/donations/<int:donation_id>/quotation/', views.tuab_quotation_proxy, name='tuab_quotation_proxy'),
     path('tuab/subscribe/', views.tuab_subscribe, name='tuab_subscribe'),
     

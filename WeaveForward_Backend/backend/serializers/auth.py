@@ -1,6 +1,7 @@
 import io
 import os
 import re
+from decimal import Decimal
 
 import pyotp
 from django.contrib.auth import authenticate
@@ -24,6 +25,9 @@ from ..services.brand_fiber_lookup_service import get_allowed_fibers
 
 
 class DonorRegisterSerializer(serializers.ModelSerializer):
+    email = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    contact_no = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+
     class Meta:
         model = User
         fields = [
@@ -32,35 +36,97 @@ class DonorRegisterSerializer(serializers.ModelSerializer):
             'display_address', 'latitude', 'longitude'
         ]
         extra_kwargs = {
-            'password': {'write_only': True},
-            'middle_name': {'required': False, 'allow_blank': True},
-            'display_address': {'required': True},
-            'latitude': {'required': True},
-            'longitude': {'required': True},
+            'password': {'write_only': True, 'required': False, 'allow_null': True, 'allow_blank': True},
+            'first_name': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'last_name': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'middle_name': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'display_address': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'latitude': {'required': False, 'allow_null': True},
+            'longitude': {'required': False, 'allow_null': True},
         }
 
     def validate(self, data):
-        # 1. Password strength
-        pw = data.get('password', '')
-        if len(pw) < 8 or not any(c.isalpha() for c in pw) or not any(c.isdigit() for c in pw):
-            raise serializers.ValidationError({"password": "Password must be at least 8 characters and contain both letters and numbers."})
+        errors = {}
 
-        # 2. Phone validation (+63 prefix, 13 chars)
-        if not re.match(r'^\+63\d{10}$', data.get('contact_no', '')):
-            raise serializers.ValidationError({"phone": "Phone must be +63 followed by 10 digits."})
+        # 1. First Name
+        first_name = (data.get('first_name') or '').strip()
+        if not first_name:
+            errors["first_name"] = ["First name is required."]
+        elif len(first_name) > 50:
+            errors["first_name"] = ["Ensure this field has no more than 50 characters."]
 
-        # 3. Coordinate precision check (exactly 7 decimals)
-        raw_lat, raw_lng = str(self.initial_data.get('latitude', '')), str(self.initial_data.get('longitude', ''))
-        if '.' not in raw_lat or len(raw_lat.split('.')[-1]) != 7 or '.' not in raw_lng or len(raw_lng.split('.')[-1]) != 7:
-            raise serializers.ValidationError({"location": "Coordinates must be sent with exactly 7 decimal places."})
+        # 2. Last Name
+        last_name = (data.get('last_name') or '').strip()
+        if not last_name:
+            errors["last_name"] = ["Last name is required."]
+        elif len(last_name) > 50:
+            errors["last_name"] = ["Ensure this field has no more than 50 characters."]
 
-        # 4. NCR (Metro Manila) Geofence Check
-        loc = get_city_and_barangay(data.get('latitude'), data.get('longitude'))
-        if not loc:
-            raise serializers.ValidationError({"location": "Location must be within Metro Manila (NCR)."})
+        # 3. Middle Name
+        middle_name = (data.get('middle_name') or '').strip()
+        if middle_name and len(middle_name) > 50:
+            errors["middle_name"] = ["Ensure this field has no more than 50 characters."]
 
-        # 5. Internal data population
-        data['city'], data['barangay'] = loc['city'], loc['barangay']
+        # 4. Email validation
+        email = (data.get('email') or '').strip()
+        if not email:
+            errors["email"] = ["Email is required."]
+        elif len(email) > 100:
+            errors["email"] = ["Ensure this field has no more than 100 characters."]
+        elif not re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', email):
+            errors["email"] = ["Enter a valid email address."]
+        elif User.objects.filter(email__iexact=email).exists():
+            errors["email"] = ["User with this email already exists."]
+
+        # 5. Phone validation
+        contact_no = (data.get('contact_no') or '').strip()
+        if not contact_no:
+            errors["contact_no"] = ["Phone must be +63 followed by 10 digits."]
+        elif not re.match(r'^\+63\d{10}$', contact_no):
+            errors["contact_no"] = ["Phone must be +63 followed by 10 digits."]
+        elif User.objects.filter(contact_no=contact_no).exists():
+            errors["contact_no"] = ["User with this phone number already exists."]
+
+        # 6. Password strength
+        pw = data.get('password', '') or ''
+        if not pw:
+            errors["password"] = ["Password is required."]
+        elif len(pw) < 8 or not any(c.isalpha() for c in pw) or not any(c.isdigit() for c in pw):
+            errors["password"] = ["Password must be at least 8 characters and contain both letters and numbers."]
+
+        # 7. Display address
+        display_address = (data.get('display_address') or '').strip()
+        if not display_address:
+            errors["display_address"] = ["Display address is required."]
+
+        # 8. Coordinates & NCR lookup
+        raw_lat = str(self.initial_data.get('latitude') or '').strip()
+        raw_lng = str(self.initial_data.get('longitude') or '').strip()
+        coord_error = False
+        if not raw_lat or not raw_lng:
+            errors["location"] = ["Coordinates are required."]
+            coord_error = True
+        elif '.' not in raw_lat or len(raw_lat.split('.')[-1]) != 7 or '.' not in raw_lng or len(raw_lng.split('.')[-1]) != 7:
+            errors["location"] = ["Coordinates must be sent with exactly 7 decimal places."]
+            coord_error = True
+
+        if not coord_error:
+            try:
+                lat = Decimal(raw_lat)
+                lng = Decimal(raw_lng)
+                loc = get_city_and_barangay(lat, lng)
+                if not loc:
+                    errors["location"] = ["Location must be within Metro Manila (NCR)."]
+                else:
+                    data['latitude'] = lat
+                    data['longitude'] = lng
+                    data['city'], data['barangay'] = loc['city'], loc['barangay']
+            except (ValueError, TypeError, ArithmeticError):
+                errors["location"] = ["Invalid coordinate format."]
+
+        if errors:
+            raise serializers.ValidationError(errors)
+
         return data
 
     def create(self, validated_data):
@@ -72,7 +138,9 @@ class DonorRegisterSerializer(serializers.ModelSerializer):
 
 class TUABRegisterSerializer(serializers.ModelSerializer):
     social_link = serializers.URLField(required=False)
-    documentation = serializers.FileField(required=True)
+    documentation = serializers.FileField(required=False, allow_null=True)
+    email = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    contact_no = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
     class Meta:
         model = User
@@ -82,63 +150,148 @@ class TUABRegisterSerializer(serializers.ModelSerializer):
             'target_fibers', 'max_distance_km', 'min_biodeg_score', 'documentation'
         ]
         extra_kwargs = {
-            'password': {'write_only': True},
-            'business_name': {'required': True},
-            'description': {'required': False},
-            'display_address': {'required': True},
-            'latitude': {'required': True},
-            'longitude': {'required': True},
-            'target_fibers': {'required': True},
-            'max_distance_km': {'required': True},
-            'min_biodeg_score': {'required': True},
+            'password': {'write_only': True, 'required': False, 'allow_null': True, 'allow_blank': True},
+            'business_name': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'description': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'display_address': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'latitude': {'required': False, 'allow_null': True},
+            'longitude': {'required': False, 'allow_null': True},
+            'target_fibers': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'max_distance_km': {'required': False, 'allow_null': True},
+            'min_biodeg_score': {'required': False, 'allow_null': True},
         }
 
     def validate(self, data):
-        # 1. Password strength
-        pw = data.get('password', '')
-        if len(pw) < 8 or not any(c.isalpha() for c in pw) or not any(c.isdigit() for c in pw):
-            raise serializers.ValidationError({"password": "Password must be at least 8 characters and contain both letters and numbers."})
+        errors = {}
 
-        # 2. Phone validation
-        if not re.match(r'^\+63\d{10}$', data.get('contact_no', '')):
-            raise serializers.ValidationError({"contact_no": "Phone must be +63 followed by 10 digits."})
+        # 1. Business Name
+        business_name = (data.get('business_name') or '').strip()
+        if not business_name:
+            errors["business_name"] = ["Business name is required."]
+        elif len(business_name) > 125:
+            errors["business_name"] = ["Ensure this field has no more than 125 characters."]
 
-        # 3. File validation (TUAB Specific Extensions & Size)
-        documentation = self.initial_data.get('documentation')
-        if documentation:
+        # 2. Email validation
+        email = (data.get('email') or '').strip()
+        if not email:
+            errors["email"] = ["Email is required."]
+        elif len(email) > 100:
+            errors["email"] = ["Ensure this field has no more than 100 characters."]
+        elif not re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', email):
+            errors["email"] = ["Enter a valid email address."]
+        elif User.objects.filter(email__iexact=email).exists():
+            errors["email"] = ["User with this email already exists."]
+
+        # 3. Phone validation
+        contact_no = (data.get('contact_no') or '').strip()
+        if not contact_no:
+            errors["contact_no"] = ["Phone must be +63 followed by 10 digits."]
+        elif not re.match(r'^\+63\d{10}$', contact_no):
+            errors["contact_no"] = ["Phone must be +63 followed by 10 digits."]
+        elif User.objects.filter(contact_no=contact_no).exists():
+            errors["contact_no"] = ["User with this phone number already exists."]
+
+        # 4. Password strength
+        pw = data.get('password', '') or ''
+        if not pw:
+            errors["password"] = ["Password is required."]
+        elif len(pw) < 8 or not any(c.isalpha() for c in pw) or not any(c.isdigit() for c in pw):
+            errors["password"] = ["Password must be at least 8 characters and contain both letters and numbers."]
+
+        # 5. Description validation
+        description = (data.get('description') or '').strip()
+        if not description:
+            errors["description"] = ["Description is required."]
+
+        # 6. Display address
+        display_address = (data.get('display_address') or '').strip()
+        if not display_address:
+            errors["display_address"] = ["Display address is required."]
+
+        # 7. File validation (TUAB Specific Extensions & Size)
+        documentation = self.initial_data.get('documentation') or data.get('documentation')
+        if not documentation:
+            errors["documentation"] = ["No file was submitted."]
+        else:
             ext = os.path.splitext(documentation.name)[1].lower()
             if ext not in TUAB_REG_ALLOWED_EXTENSIONS:
-                raise serializers.ValidationError({"documentation": f"Only {', '.join(TUAB_REG_ALLOWED_EXTENSIONS)} files are allowed for registration."})
+                errors["documentation"] = [f"Only {', '.join(TUAB_REG_ALLOWED_EXTENSIONS)} files are allowed for registration."]
             if hasattr(documentation, 'size') and documentation.size > TUAB_REG_MAX_SIZE:
-                raise serializers.ValidationError({"documentation": f"File size must be under {TUAB_REG_MAX_SIZE // (1024*1024)}MB."})
+                errors["documentation"] = [f"File size must be under {TUAB_REG_MAX_SIZE // (1024*1024)}MB."]
 
-        # 4. Strict Fiber Format and Whitelist Validation
-        raw_fibers = data.get('target_fibers', '')
-        if ' ' in raw_fibers or any(c.isupper() for c in raw_fibers):
-            raise serializers.ValidationError({"target_fibers": "Fibers must be strictly lowercase and comma-separated with no spaces."})
+        # 8. Strict Fiber Format and Whitelist Validation
+        raw_fibers = (data.get('target_fibers') or '').strip()
+        if not raw_fibers:
+            errors["target_fibers"] = ["At least one preferred fiber type is required."]
+        elif ' ' in raw_fibers or any(c.isupper() for c in raw_fibers):
+            errors["target_fibers"] = ["Fibers must be strictly lowercase and comma-separated with no spaces."]
+        else:
+            input_fibers = [f for f in raw_fibers.split(',') if f]
+            if not input_fibers:
+                errors["target_fibers"] = ["At least one preferred fiber type is required."]
+            else:
+                db_fibers = get_allowed_fibers()
+                invalid = [f for f in input_fibers if f not in db_fibers]
+                if invalid:
+                    errors["target_fibers"] = [f"Invalid fibers (not in our database): {', '.join(invalid)}"]
+                else:
+                    data['target_fibers'] = raw_fibers
 
-        input_fibers = [f for f in raw_fibers.split(',') if f]
-        if not input_fibers:
-            raise serializers.ValidationError({"target_fibers": "At least one preferred fiber type is required."})
+        # 9. Coordinates & NCR lookup
+        raw_lat = str(self.initial_data.get('latitude') or '').strip()
+        raw_lng = str(self.initial_data.get('longitude') or '').strip()
+        coord_error = False
+        if not raw_lat or not raw_lng:
+            errors["location"] = ["Coordinates are required."]
+            coord_error = True
+        elif '.' not in raw_lat or len(raw_lat.split('.')[-1]) != 7 or '.' not in raw_lng or len(raw_lng.split('.')[-1]) != 7:
+            errors["location"] = ["Coordinates must be sent with exactly 7 decimal places."]
+            coord_error = True
 
-        # Dynamically validate against fibers in the DB
-        db_fibers = get_allowed_fibers()
-        invalid = [f for f in input_fibers if f not in db_fibers]
-        if invalid:
-            raise serializers.ValidationError({"target_fibers": f"Invalid fibers (not in our database): {', '.join(invalid)}"})
-        data['target_fibers'] = raw_fibers
+        if not coord_error:
+            try:
+                lat = Decimal(raw_lat)
+                lng = Decimal(raw_lng)
+                loc = get_city_and_barangay(lat, lng)
+                if not loc:
+                    errors["location"] = ["Location must be within Metro Manila (NCR)."]
+                else:
+                    data['latitude'] = lat
+                    data['longitude'] = lng
+                    data['city'], data['barangay'] = loc['city'], loc['barangay']
+            except (ValueError, TypeError, ArithmeticError):
+                errors["location"] = ["Invalid coordinate format."]
 
-        # 5. Coordinate precision check
-        raw_lat = str(self.initial_data.get('latitude', ''))
-        raw_lng = str(self.initial_data.get('longitude', ''))
-        if '.' not in raw_lat or len(raw_lat.split('.')[-1]) != 7 or '.' not in raw_lng or len(raw_lng.split('.')[-1]) != 7:
-            raise serializers.ValidationError({"location": "Coordinates must be sent with exactly 7 decimal places."})
+        # 10. Max Distance
+        raw_dist = data.get('max_distance_km')
+        if raw_dist is None or (isinstance(raw_dist, str) and not raw_dist.strip()):
+            errors["max_distance_km"] = ["Max distance is required."]
+        else:
+            try:
+                dist = Decimal(str(raw_dist))
+                if dist < 0 or dist > 1000:
+                    errors["max_distance_km"] = ["Max distance must be between 0 and 1000 km."]
+                else:
+                    data['max_distance_km'] = dist
+            except (ValueError, TypeError, ArithmeticError):
+                errors["max_distance_km"] = ["A valid number is required."]
 
-        # 6. NCR Lookup
-        loc = get_city_and_barangay(data.get('latitude'), data.get('longitude'))
-        if not loc:
-            raise serializers.ValidationError({"location": "Location must be within Metro Manila (NCR)."})
-        data['city'], data['barangay'] = loc['city'], loc['barangay']
+        # 11. Min Biodeg Score
+        raw_score = data.get('min_biodeg_score')
+        if raw_score is None or (isinstance(raw_score, str) and not raw_score.strip()):
+            errors["min_biodeg_score"] = ["Min. Biodegradability Score is required."]
+        else:
+            try:
+                score = Decimal(str(raw_score))
+                if score < 0 or score > 100:
+                    errors["min_biodeg_score"] = ["Min. Biodegradability Score must be between 0 and 100."]
+                else:
+                    data['min_biodeg_score'] = score
+            except (ValueError, TypeError, ArithmeticError):
+                errors["min_biodeg_score"] = ["A valid number is required."]
+
+        if errors:
+            raise serializers.ValidationError(errors)
 
         return data
 

@@ -325,9 +325,8 @@ async def admin_archive_user_proxy(request, user_id):
 async def admin_edit_tuab(request, user_id):
     profile = request.user_profile
 
-    fibers = await get_fiber_choices(request)
-
     if request.method == 'POST':
+        fibers = await get_fiber_choices(request)
         raw_data = request.POST
         password = raw_data.get('password')
         confirm_password = raw_data.get('confirm_password')
@@ -394,7 +393,11 @@ async def admin_edit_tuab(request, user_id):
             'fibers': fibers
         })
 
-    response = await api_call(request, 'GET', f'users/{user_id}')
+    # GET Request: Fetch fiber choices and user details in parallel
+    fibers, response = await asyncio.gather(
+        get_fiber_choices(request),
+        api_call(request, 'GET', f'users/{user_id}')
+    )
     if response.status_code != 200:
         messages.error(request, "TUAB not found.")
         return redirect('admin_view_tuabs')

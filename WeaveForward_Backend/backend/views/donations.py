@@ -13,9 +13,10 @@ from django.utils.dateparse import parse_datetime
 from django_filters.rest_framework import DjangoFilterBackend
 from ..utils.view_mixins import PaginatedResponseMixin
 from ..models import Donation, Subscription
-from ..serializers import DonationSerializer, QuotationRequestSerializer, DonorDonationUpdateSerializer
+from ..serializers import DonationDetailSerializer, DonationListSerializer, QuotationRequestSerializer, DonorDonationUpdateSerializer, DonationResolveSerializer
 from ..services.donation_service import create_donation, mark_donation_in_transit, donor_update_donation
 from ..services.cancel_donation_service import cancel_donation
+from ..services.resolve_donation_service import resolve_donation
 from ..services.etag_service import build_updated_at_etag, matches_if_match
 from ..services.lalamove_service import get_lalamove_quotation
 from ..services.claim_donation_service import claim_donation, sign_quotation_data
@@ -25,11 +26,15 @@ from ..services.location_service import get_city_and_barangay
 
 class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin, PaginatedResponseMixin):
     permission_classes = [IsAuthenticated]
-    serializer_class = DonationSerializer
+    serializer_class = DonationDetailSerializer
     filter_backends = [filters.SearchFilter, DjangoFilterBackend]
     filterset_fields = ['status']
     search_fields = ['=donation_id']
 
+    def get_serializer_class(self):
+        if getattr(self, 'action', None) in ['list', 'me']:
+            return DonationListSerializer
+        return DonationDetailSerializer
 
     def get_queryset(self):
         """Base queryset for all donation actions."""
@@ -108,7 +113,7 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
             exc.status_code = 400
             raise exc
 
-        response_serializer = DonationSerializer(donation, context={'request': request})
+        response_serializer = DonationDetailSerializer(donation, context={'request': request})
         response = Response(response_serializer.data, status=201)
         response['ETag'] = build_updated_at_etag(donation)
         return response
@@ -149,7 +154,7 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
                         exc.status_code = 400
                         raise exc
 
-                    serializer = DonationSerializer(updated_donation, context={'request': request})
+                    serializer = DonationDetailSerializer(updated_donation, context={'request': request})
                     response = Response(serializer.data)
                     response['ETag'] = build_updated_at_etag(updated_donation)
                     return response
@@ -433,6 +438,33 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
         # Execute orchestrated donation cancellation service logic raising standard DRF exceptions
         result = cancel_donation(user=user, donation=donation, ip_address=ip_address)
         # Return successful cancellation details with 200 OK status
+        return Response(result, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'])
+    def resolve(self, request, pk=None):
+        """Resolves a donation by marking it as RECEIVED or REJECTED."""
+        user = request.user
+        if user.role not in ["Admin", "TUAB"]:
+            raise PermissionDenied("You are not authorized to resolve this donation.")
+
+        donation = self.get_object()
+
+        # Authorization checks
+        if user.role == "TUAB":
+            if donation.claimed_by_tuab != user:
+                raise PermissionDenied("You can only resolve donations claimed by your own business.")
+            if user.status != "ACTIVE":
+                raise PermissionDenied("Your business account must be active to resolve donations.")
+
+        (serializer := DonationResolveSerializer(data=request.data, context={'donation': donation})).is_valid(raise_exception=True)
+        
+        result = resolve_donation(
+            user=user,
+            donation=donation,
+            validated_data=serializer.validated_data,
+            ip_address=get_client_ip(request)
+        )
+        
         return Response(result, status=status.HTTP_200_OK)
 
 

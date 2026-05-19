@@ -16,6 +16,10 @@ LALAMOVE_WEBHOOK_IP = '52.76.164.226'
 def webhooks(request):
     client_ip = get_client_ip(request)
     payload = request.data if isinstance(request.data, dict) else {}
+    
+    print("[WEBHOOK RECEIVED] IP:", client_ip, flush=True)
+    print("[WEBHOOK RECEIVED] HEADERS:", dict(request.headers), flush=True)
+    print("[WEBHOOK RECEIVED] PAYLOAD:", payload, flush=True)
 
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR', '')
     x_forwarded_ips = [ip.strip() for ip in x_forwarded_for.split(',')] if x_forwarded_for else []

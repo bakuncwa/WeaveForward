@@ -3,3 +3,5 @@ from .two_factor_service import enable_two_factor
 from .unclaim_donation_service import unclaim_tuab_donations
 from .upload_service import build_upload_url
 from .user_archive_service import archive_user
+from .resolve_donation_service import resolve_donation
+
