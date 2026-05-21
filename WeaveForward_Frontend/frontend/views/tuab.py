@@ -218,6 +218,15 @@ async def tuab_view_donation(request, donation_id):
         })
 
     # =========================
+    # Redirect: Owned In-Transit Donation
+    # =========================
+    if (
+        donation.get('status') == 'IN_TRANSIT'
+        and (donation.get('claimed_by_tuab') or {}).get('user_id') == profile.get('user_id')
+    ):
+        return redirect('tuab_update_incoming_donation', donation_id=donation_id)
+
+    # =========================
     # Show: Received/Rejected Donation Page
     # =========================
     if donation.get('status') in {'RECEIVED', 'REJECTED'}:

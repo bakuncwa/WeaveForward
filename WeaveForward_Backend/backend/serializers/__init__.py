@@ -10,7 +10,7 @@ from .brandfiberlookups import BrandFiberLookupSerializer
 from .donations import (
     DonationDetailItemSerializer, DonationDetailSerializer, DonationDetailUserSerializer, DonationListSerializer, 
     DonationCreateSerializer, QuotationRequestSerializer, DonorDonationUpdateSerializer,
-    DonationResolveSerializer
+    DonationResolveSerializer, AdminDonationUpdateSerializer
 )
 
 

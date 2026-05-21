@@ -136,8 +136,6 @@ class UserSerializer(serializers.ModelSerializer):
                 if invalid:
                     errors['target_fibers'] = f"Invalid fibers (not in our database): {', '.join(invalid)}"
 
-        if errors: raise serializers.ValidationError(errors)
-
         # 4. Location Lookup & Coordinate Formatting
         lat, lng = data.get('latitude'), data.get('longitude')
         if lat is not None or lng is not None:
@@ -149,13 +147,16 @@ class UserSerializer(serializers.ModelSerializer):
             if 'longitude' in data: data['longitude'] = round(float(data['longitude']), 7)
 
             if not (loc := get_city_and_barangay(latitude, longitude)):
-                raise serializers.ValidationError({"location": "Location must be within Metro Manila (NCR)."})
-            data.update({'city': loc['city'], 'barangay': loc['barangay']})
+                errors["location"] = "Location must be within Metro Manila (NCR)."
+            else:
+                data.update({'city': loc['city'], 'barangay': loc['barangay']})
             
         # 4. Phone format (Universal)
         if 'contact_no' in data and data['contact_no']:
             if not re.match(r'^\+63\d{10}$', data['contact_no']):
-                raise serializers.ValidationError({"contact_no": "Phone must be +63 followed by 10 digits."})
+                errors["contact_no"] = "Phone must be +63 followed by 10 digits."
+
+        if errors: raise serializers.ValidationError(errors)
 
         return data
 
@@ -287,13 +288,12 @@ class TuabSelfSerializer(serializers.ModelSerializer):
 class AdminUserListSerializer(serializers.ModelSerializer):
     """Slim admin list serializer for user rows."""
     is_subscribed = serializers.SerializerMethodField(read_only=True)
-    etag = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = User
         fields = [
             'user_id', 'email', 'role', 'first_name', 'last_name', 'middle_name',
-            'business_name', 'contact_no', 'status', 'is_subscribed', 'etag'
+            'business_name', 'contact_no', 'status', 'is_subscribed'
         ]
 
     def get_is_subscribed(self, obj):
@@ -301,9 +301,6 @@ class AdminUserListSerializer(serializers.ModelSerializer):
         if annotated_value is not None:
             return bool(annotated_value)
         return obj.subscriptions.filter(status=SubscriptionStatus.ACTIVE).exists()
-
-    def get_etag(self, obj):
-        return build_updated_at_etag(obj)
 
 
 class TuabListSerializer(serializers.ModelSerializer):

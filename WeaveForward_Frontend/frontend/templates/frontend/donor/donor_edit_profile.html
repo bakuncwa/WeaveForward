@@ -249,6 +249,11 @@
 
     async function submitProfile(skipRedirect = false) {
         const form = $('ep-form'), btn = $('save-btn');
+        const addressChanged = (($('addr').value || '').trim() !== (initialData.display_address || '').trim());
+        if (addressChanged && (!$('lat').value.trim() || !$('lng').value.trim())) {
+            showFlash('Please reselect the display address so fresh coordinates are saved.', 'error');
+            return false;
+        }
         btn.disabled = true; btn.textContent = 'Saving...';
 
         const fd = new FormData(form), toSend = new FormData();
@@ -378,6 +383,8 @@
         if (d.display_name) $('addr').value = d.display_name;
     }
     function searchAddress(q) {
+        $('lat').value = '';
+        $('lng').value = '';
         if (q.length < 3) return $('addr-ac').classList.add('hidden');
         clearTimeout(acTimer);
         acTimer = setTimeout(async () => {

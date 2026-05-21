@@ -202,20 +202,24 @@ async def donor_create_donation(request):
                     err_data = response.json()
                 except:
                     err_data = {'detail': 'Unknown backend error.'}
-                
-                # Extract detailed error information
-                error_msg = err_data.get('detail')
-                if not error_msg and isinstance(err_data, dict):
+
+                if isinstance(err_data, dict):
+                    detail_msg = err_data.get('detail')
+                    if detail_msg:
+                        return JsonResponse({'error': detail_msg}, status=response.status_code)
+
                     formatted = format_errors(err_data)
                     error_list = []
                     for field, msgs in formatted.items():
                         if isinstance(msgs, list):
-                            error_list.append(f"{field}: {', '.join(msgs)}")
+                            error_list.extend(f"{field}: {msg}" for msg in msgs)
                         else:
                             error_list.append(f"{field}: {msgs}")
-                    error_msg = " | ".join(error_list)
 
-                return JsonResponse({'error': error_msg or "Failed to create donation."}, status=400)
+                    if error_list:
+                        return JsonResponse({'errors': error_list}, status=response.status_code)
+
+                return JsonResponse({'error': "Failed to create donation."}, status=response.status_code)
         except Exception as e:
             return JsonResponse({'error': f"System Error: {str(e)}"}, status=500)
 
@@ -357,6 +361,7 @@ async def donor_edit_donation(request, donation_id):
         for k in ['csrfmiddlewaretoken', 'current_etag', '_method']:
             payload.pop(k, None)
 
+
         # 4. Proxy PATCH to backend
         headers = {'If-Match': submitted_etag} if submitted_etag else {}
         try:
@@ -371,20 +376,24 @@ async def donor_edit_donation(request, donation_id):
                     err_data = response.json()
                 except:
                     err_data = {'detail': 'Unknown backend error.'}
-                
-                # Extract detailed error information
-                error_msg = err_data.get('detail')
-                if not error_msg and isinstance(err_data, dict):
+
+                if isinstance(err_data, dict):
+                    detail_msg = err_data.get('detail')
+                    if detail_msg:
+                        return JsonResponse({'error': detail_msg}, status=response.status_code)
+
                     formatted = format_errors(err_data)
                     error_list = []
                     for field, msgs in formatted.items():
                         if isinstance(msgs, list):
-                            error_list.append(f"{field}: {', '.join(msgs)}")
+                            error_list.extend(f"{field}: {msg}" for msg in msgs)
                         else:
                             error_list.append(f"{field}: {msgs}")
-                    error_msg = " | ".join(error_list)
 
-                return JsonResponse({'error': error_msg or "Update failed."}, status=400)
+                    if error_list:
+                        return JsonResponse({'errors': error_list}, status=response.status_code)
+
+                return JsonResponse({'error': "Update failed."}, status=response.status_code)
         except Exception as e:
             return JsonResponse({'error': f"System Error: {str(e)}"}, status=503)
 

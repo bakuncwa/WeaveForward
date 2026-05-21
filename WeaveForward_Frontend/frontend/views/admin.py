@@ -1,8 +1,9 @@
 import json
 import asyncio
 from django.shortcuts import render, redirect
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseNotAllowed
 from django.contrib import messages
+from django.urls import reverse
 from django.utils.dateparse import parse_datetime
 from ..constants import BACKEND_BASE_URL
 from ..services import api_call, get_paginated_data, format_errors, get_fiber_choices
@@ -300,16 +301,10 @@ async def admin_archive_user_proxy(request, user_id):
     profile = request.user_profile
     
     if request.method == 'POST':
-        submitted_etag = request.POST.get('etag')
-        headers = {'If-Match': submitted_etag} if submitted_etag else {}
         try:
-            response = await api_call(request, 'DELETE', f'users/{user_id}', headers=headers)
+            response = await api_call(request, 'DELETE', f'users/{user_id}')
             if response.status_code == 204:
                 messages.success(request, "User archived successfully.")
-            elif response.status_code == 412:
-                messages.error(request, "This user was updated somewhere else. Refresh the page and try archiving again.")
-            elif response.status_code == 428:
-                messages.error(request, "We couldn't verify the latest user version. Refresh the page and try again.")
             else:
                 response_data = response.json() if hasattr(response, 'json') else {}
                 messages.error(request, response_data.get('detail', 'Unable to archive user.'))
@@ -437,19 +432,24 @@ async def admin_add_donation(request):
                     err_data = response.json()
                 except:
                     err_data = {'detail': 'Unknown backend error.'}
-                
-                error_msg = err_data.get('detail')
-                if not error_msg and isinstance(err_data, dict):
+
+                if isinstance(err_data, dict):
+                    detail_msg = err_data.get('detail')
+                    if detail_msg:
+                        return JsonResponse({'error': detail_msg}, status=response.status_code)
+
                     formatted = format_errors(err_data)
                     error_list = []
                     for field, msgs in formatted.items():
                         if isinstance(msgs, list):
-                            error_list.append(f"{field}: {', '.join(msgs)}")
+                            error_list.extend(f"{field}: {msg}" for msg in msgs)
                         else:
                             error_list.append(f"{field}: {msgs}")
-                    error_msg = " | ".join(error_list)
 
-                return JsonResponse({'error': error_msg or "Failed to create donation."}, status=400)
+                    if error_list:
+                        return JsonResponse({'errors': error_list}, status=response.status_code)
+
+                return JsonResponse({'error': "Failed to create donation."}, status=response.status_code)
         except Exception as e:
             return JsonResponse({'error': f"System Error: {str(e)}"}, status=500)
 
@@ -495,3 +495,139 @@ async def admin_view_donation(request, donation_id):
         'donation': donation,
         'items': donation.get('items', [])
     })
+
+async def admin_edit_donation(request, donation_id):
+    profile = request.user_profile
+
+    if request.method == 'POST':
+        payload = request.POST.dict()
+        submitted_etag = payload.get('current_etag')
+        
+        for k in ['csrfmiddlewaretoken', 'current_etag']:
+            payload.pop(k, None)
+
+        files = {}
+        if 'donation_image' in request.FILES:
+            files['donation_image'] = request.FILES['donation_image']
+
+        headers = {'If-Match': submitted_etag} if submitted_etag else {}
+        patch_kwargs = {'headers': headers, 'data': payload}
+        if files:
+            patch_kwargs['files'] = files
+
+        try:
+            response = await api_call(request, 'PATCH', f'donations/{donation_id}', **patch_kwargs)
+            if 200 <= response.status_code < 300:
+                messages.success(request, "Donation updated successfully!")
+                return JsonResponse({'redirect': f'/admin/donations/{donation_id}/'})
+            elif response.status_code == 412:
+                return JsonResponse({'error': 'This donation was updated by someone else. Please refresh and try again.'}, status=412)
+            elif response.status_code == 428:
+                return JsonResponse({'error': "We couldn't verify the donation's latest version. Please refresh and try again."}, status=428)
+            else:
+                try:
+                    err_data = response.json()
+                except Exception:
+                    err_data = {'detail': 'Unknown backend error.'}
+
+                if isinstance(err_data, dict):
+                    detail_msg = err_data.get('detail')
+                    if detail_msg:
+                        return JsonResponse({'error': detail_msg}, status=response.status_code)
+
+                    formatted = format_errors(err_data)
+                    error_list = []
+                    for field, msgs in formatted.items():
+                        if isinstance(msgs, list):
+                            error_list.extend(f"{field}: {msg}" for msg in msgs)
+                        else:
+                            error_list.append(f"{field}: {msgs}")
+
+                    if error_list:
+                        return JsonResponse({'errors': error_list}, status=response.status_code)
+
+                return JsonResponse({'error': "Failed to update donation."}, status=response.status_code)
+        except Exception as e:
+            return JsonResponse({'error': f"System Error: {str(e)}"}, status=400)
+
+    response = await api_call(request, 'GET', f'donations/{donation_id}')
+    if response.status_code != 200:
+        messages.error(request, "Donation not found.")
+        return redirect('admin_view_donations')
+
+    donation = response.json()
+    if donation.get('status') == 'ARCHIVED':
+        messages.error(request, "Archived donations cannot be edited.")
+        return redirect('admin_view_donations')
+    current_etag = response.headers.get('ETag', '')
+
+    types_res, brands_res = await asyncio.gather(
+        api_call(request, 'GET', 'brandfiberlookups/clothing_types'),
+        api_call(request, 'GET', 'brandfiberlookups/brands')
+    )
+    clothing_types = types_res.json() if types_res.status_code == 200 else []
+    all_brands = brands_res.json() if brands_res.status_code == 200 else []
+
+    return render(request, 'frontend/admin/admin_edit_donation.html', {
+        'page_title': 'Edit Donation',
+        'user': profile,
+        'donation': donation,
+        'current_etag': current_etag,
+        'clothing_types': clothing_types,
+        'all_brands': all_brands,
+        'condition_choices': [
+            ('NEW', 'New'),
+            ('LIKE_NEW', 'Like New'),
+            ('GOOD', 'Good'),
+            ('FAIR', 'Fair'),
+            ('POOR', 'Poor'),
+        ]
+    })
+
+
+async def admin_cancel_donation(request, donation_id):
+    profile = request.user_profile
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+
+    try:
+        response = await api_call(request, 'POST', f'donations/{donation_id}/cancel')
+        if response.status_code == 200:
+            return JsonResponse({'redirect': reverse('admin_view_donations')})
+
+        try:
+            err_data = response.json()
+        except Exception:
+            err_data = {}
+        error_msg = err_data.get('detail') if isinstance(err_data, dict) else None
+        return JsonResponse(
+            {'error': error_msg or "Failed to cancel donation."},
+            status=response.status_code,
+        )
+    except Exception as e:
+        return JsonResponse({'error': f"System Error: {str(e)}"}, status=500)
+
+
+async def admin_archive_donation(request, donation_id):
+    profile = request.user_profile
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+
+    try:
+        response = await api_call(request, 'POST', f'donations/{donation_id}/archive')
+        if response.status_code == 200:
+            return JsonResponse({'redirect': reverse('admin_view_donations')})
+
+        try:
+            err_data = response.json()
+        except Exception:
+            err_data = {}
+
+        error_msg = err_data.get('detail') if isinstance(err_data, dict) else None
+        return JsonResponse(
+            {'error': error_msg or "Failed to archive donation."},
+            status=response.status_code,
+        )
+    except Exception as e:
+        return JsonResponse({'error': f"System Error: {str(e)}"}, status=500)
+

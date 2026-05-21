@@ -80,6 +80,9 @@ def claim_donation(user, donation, claim_params, ip_address=None):
                 raise exc
             
             charge_amount, lalamove_quotation_id, pickup_stop_id, dropoff_stop_id, sch_str = float(token_data['amount']), token_data['quotationId'], token_data['stopId_1'], token_data['stopId_2'], token_data.get('schedule_at')
+            quoted_dropoff_address = token_data.get('dropoff_address') or user.display_address or "N/A"
+            quoted_dropoff_lat = Decimal(str(token_data.get('dropoff_latitude') if token_data.get('dropoff_latitude') is not None else user.latitude or 0))
+            quoted_dropoff_lng = Decimal(str(token_data.get('dropoff_longitude') if token_data.get('dropoff_longitude') is not None else user.longitude or 0))
             order_scheduled_at = parse_datetime(sch_str) if sch_str else timezone.now()
         except APIException:
             raise
@@ -101,7 +104,7 @@ def claim_donation(user, donation, claim_params, ip_address=None):
         # B. Robust Record Management: Pre-create records to ensure traceability during failures
         maya_reference = f"claim-{donation.donation_id}-{int(timezone.now().timestamp())}"
         order_expires_at = order_scheduled_at + timedelta(hours=2)
-        order_record = Order.objects.create(donation=donation, status=OrderStatus.FAILED, dropoff_display_address=user.display_address or "N/A", dropoff_latitude=user.latitude or 0, dropoff_longitude=user.longitude or 0, scheduled_at=order_scheduled_at, expires_at=order_expires_at)
+        order_record = Order.objects.create(donation=donation, status=OrderStatus.FAILED, dropoff_display_address=quoted_dropoff_address, dropoff_latitude=quoted_dropoff_lat, dropoff_longitude=quoted_dropoff_lng, scheduled_at=order_scheduled_at, expires_at=order_expires_at)
         payment_record = OrderPayment.objects.create(order=order_record, amount=Decimal(str(charge_amount)), status=PaymentStatus.FAILED, payment_reference=maya_reference)
 
         # C. Payment Integration: Maya Vault Charge

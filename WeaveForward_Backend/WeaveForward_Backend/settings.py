@@ -7,12 +7,110 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-default-key-change-me')
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'True') == 'True'
-USE_GCS = os.getenv('USE_GCS', 'False') == 'True'
 
-ALLOWED_HOSTS = ['*']
+def _get_bool_env(name, default):
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _get_list_env(name, default=None, required=False):
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        values = list(default or [])
+    else:
+        values = [item.strip() for item in raw_value.split(",") if item.strip()]
+
+    if required and not values:
+        raise RuntimeError(f"{name} is required in production.")
+    return values
+
+
+def _get_env(name, default=None, required=False):
+    value = os.getenv(name, default)
+    if value is None:
+        value = ""
+    if required and not str(value).strip():
+        raise RuntimeError(f"{name} is required in production.")
+    return value
+
+
+ENVIRONMENT = _get_env("ENVIRONMENT", "development").strip().lower()
+if ENVIRONMENT not in {"development", "production"}:
+    raise RuntimeError("ENVIRONMENT must be either 'development' or 'production'.")
+IS_PRODUCTION = ENVIRONMENT == "production"
+
+##################################################
+# Environment configuration
+# Required in production:
+# - ENVIRONMENT=production
+# - SECRET_KEY
+# - ALLOWED_HOSTS
+# - FRONTEND_URL
+# - DB_NAME
+# - DB_USER
+# - DB_PASSWORD
+# - CLOUD_SQL_CONNECTION_NAME
+# - GS_BUCKET_NAME
+# - RESEND_API_KEY
+# - LALAMOVE_API_KEY
+# - LALAMOVE_API_SECRET
+# - MAYA_API_SECRET_KEY
+# - MAYA_API_PUBLIC_KEY
+# - MAYA_SANDBOX_BASE_URL
+##################################################
+
+SECRET_KEY = _get_env(
+    "SECRET_KEY",
+    default="django-insecure-default-key-change-me" if not IS_PRODUCTION else None,
+    required=IS_PRODUCTION,
+)
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = _get_bool_env("DEBUG", default=not IS_PRODUCTION)
+USE_GCS = True if IS_PRODUCTION else _get_bool_env("USE_GCS", default=False)
+
+ALLOWED_HOSTS = _get_list_env(
+    "ALLOWED_HOSTS",
+    default=["127.0.0.1", "localhost"] if not IS_PRODUCTION else None,
+    required=IS_PRODUCTION,
+)
+
+FRONTEND_URL = _get_env(
+    "FRONTEND_URL",
+    default="http://127.0.0.1:8001" if not IS_PRODUCTION else None,
+    required=IS_PRODUCTION,
+)
+CORS_ALLOWED_ORIGINS = [FRONTEND_URL]
+CSRF_TRUSTED_ORIGINS = [FRONTEND_URL]
+
+AUTH_COOKIE_SECURE = _get_bool_env("AUTH_COOKIE_SECURE", default=IS_PRODUCTION)
+AUTH_COOKIE_SAMESITE = "Lax"
+
+DB_NAME = _get_env("DB_NAME", default="weaveforward_db" if not IS_PRODUCTION else None, required=IS_PRODUCTION)
+DB_USER = _get_env("DB_USER", default="root" if not IS_PRODUCTION else None, required=IS_PRODUCTION)
+DB_PASSWORD = _get_env("DB_PASSWORD", default="" if not IS_PRODUCTION else None, required=IS_PRODUCTION)
+CLOUD_SQL_CONNECTION_NAME = _get_env("CLOUD_SQL_CONNECTION_NAME", default=None, required=IS_PRODUCTION)
+DB_HOST = _get_env("DB_HOST", default="127.0.0.1")
+DB_PORT = _get_env("DB_PORT", default="3306")
+
+CATALOG_CSV_PATH = _get_env("CATALOG_CSV_PATH", "backend/data/webscraped_data/webscraped_catalog_archive.csv")
+RESEND_API_KEY = _get_env("RESEND_API_KEY", default=None, required=IS_PRODUCTION)
+LALAMOVE_API_KEY = _get_env("LALAMOVE_API_KEY", default=None, required=IS_PRODUCTION)
+LALAMOVE_API_SECRET = _get_env("LALAMOVE_API_SECRET", default=None, required=IS_PRODUCTION)
+MAYA_API_SECRET_KEY = _get_env("MAYA_API_SECRET_KEY", default=None, required=IS_PRODUCTION)
+MAYA_API_PUBLIC_KEY = _get_env("MAYA_API_PUBLIC_KEY", default=None, required=IS_PRODUCTION)
+MAYA_SANDBOX_BASE_URL = _get_env(
+    "MAYA_SANDBOX_BASE_URL",
+    default="https://pg-sandbox.paymaya.com/payments/v1" if not IS_PRODUCTION else None,
+    required=IS_PRODUCTION,
+)
+MAYA_SANDBOX_SECRET_BASIC_AUTH = f"Basic {base64.b64encode((MAYA_API_SECRET_KEY + ':').encode()).decode()}"
+MAYA_SANDBOX_PUBLIC_BASIC_AUTH = f"Basic {base64.b64encode((MAYA_API_PUBLIC_KEY + ':').encode()).decode()}"
+
+GS_BUCKET_NAME = _get_env('GS_BUCKET_NAME', default=None, required=IS_PRODUCTION)
+GS_PROJECT_ID = _get_env('GS_PROJECT_ID')  # Optional, uses default cred project if not set
+##################################################
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -72,18 +170,17 @@ WSGI_APPLICATION = 'WeaveForward_Backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv('DB_NAME', 'weaveforward_db'),
-        'USER': os.getenv('DB_USER', 'root'),
-        'PASSWORD': os.getenv('DB_PASSWORD', ''),
+        'NAME': DB_NAME,
+        'USER': DB_USER,
+        'PASSWORD': DB_PASSWORD,
     }
 }
 
-# If running on GCP Cloud Run, connect via Unix Socket
-if os.getenv('CLOUD_SQL_CONNECTION_NAME'):
-    DATABASES['default']['HOST'] = f'/cloudsql/{os.getenv("CLOUD_SQL_CONNECTION_NAME")}'
+if CLOUD_SQL_CONNECTION_NAME:
+    DATABASES['default']['HOST'] = f'/cloudsql/{CLOUD_SQL_CONNECTION_NAME}'
 else:
-    DATABASES['default']['HOST'] = os.getenv('DB_HOST', '127.0.0.1')
-    DATABASES['default']['PORT'] = os.getenv('DB_PORT', '3306')
+    DATABASES['default']['HOST'] = DB_HOST
+    DATABASES['default']['PORT'] = DB_PORT
 
 PASSWORD_HASHERS = [
     'django.contrib.auth.hashers.BCryptPasswordHasher',
@@ -106,24 +203,6 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-
-# Environment-based settings
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://127.0.0.1:8001")
-RESEND_API_KEY = os.getenv("RESEND_API_KEY")
-CATALOG_CSV_PATH = os.getenv("CATALOG_CSV_PATH", "backend/data/webscraped_data/webscraped_catalog_archive.csv")
-LALAMOVE_API_KEY = os.getenv("LALAMOVE_API_KEY")
-LALAMOVE_API_SECRET = os.getenv("LALAMOVE_API_SECRET")
-
-MAYA_SANDBOX_BASE_URL = os.getenv("MAYA_SANDBOX_BASE_URL", "https://pg-sandbox.paymaya.com/payments/v1")
-
-MAYA_SANDBOX_SECRET_BASIC_AUTH = f"Basic {base64.b64encode((os.getenv('MAYA_API_SECRET_KEY', '') + ':').encode()).decode()}"
-MAYA_SANDBOX_PUBLIC_BASIC_AUTH = f"Basic {base64.b64encode((os.getenv('MAYA_API_PUBLIC_KEY', '') + ':').encode()).decode()}"
-
-CORS_ALLOWED_ORIGINS = [FRONTEND_URL]
-CSRF_TRUSTED_ORIGINS = [FRONTEND_URL]
-
-AUTH_COOKIE_SECURE = os.getenv("AUTH_COOKIE_SECURE", "False") == "True"
-AUTH_COOKIE_SAMESITE = os.getenv("AUTH_COOKIE_SAMESITE", "Lax")
 CORS_ALLOW_CREDENTIALS = True
 
 # Default primary key field type
@@ -136,8 +215,6 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 if USE_GCS:
     DEFAULT_FILE_STORAGE = 'storages.backends.gcloud.GoogleCloudStorage'
-    GS_BUCKET_NAME = os.getenv('GS_BUCKET_NAME')
-    GS_PROJECT_ID = os.getenv('GS_PROJECT_ID') # Optional, uses default cred project if not set
     GS_DEFAULT_ACL = None
     GS_QUERYSTRING_AUTH = False
 

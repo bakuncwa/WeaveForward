@@ -1,6 +1,7 @@
 #!/bin/bash
+set -e
 
-# Wait for database server to be ready and create database if it doesn't exist
+# Wait for database server to be ready
 echo "Waiting for database server..."
 while ! python -c "
 import MySQLdb
@@ -19,20 +20,15 @@ except Exception:
   sleep 1
 done
 
-echo "Database server is up! Ensuring database exists..."
-python init_db.py
+echo "Database server is up."
 
-# Apply database migrations
+# Apply database migrations on startup so new app revisions can serve the latest schema.
 echo "Applying database migrations..."
 python manage.py migrate --noinput
 
-# Collect static files (ensure latest assets are ready)
+# Collect static files to ensure the runtime has the latest compiled asset set.
 echo "Collecting static files..."
 python manage.py collectstatic --noinput
-
-# Setup admin user from environment variables
-echo "Setting up admin user..."
-python manage.py setup_admin
 
 # Start Gunicorn (Cloud Run uses $PORT)
 echo "Starting Gunicorn on port $PORT..."

@@ -420,13 +420,6 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
         except User.DoesNotExist:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        if_match = request.headers.get('If-Match')
-        current_etag = build_updated_at_etag(target_user)
-        if if_match is None:
-            return Response({"detail": "If-Match header is required."}, status=status.HTTP_428_PRECONDITION_REQUIRED)
-        if not matches_if_match(current_etag, if_match):
-            return Response({"detail": "ETag does not match the current resource version."}, status=status.HTTP_412_PRECONDITION_FAILED)
-
         ip_address = get_client_ip(request)
         with transaction.atomic():
             result = archive_user(target_user_id=kwargs['pk'])
