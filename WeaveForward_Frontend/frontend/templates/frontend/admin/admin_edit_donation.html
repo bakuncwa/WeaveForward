@@ -134,6 +134,22 @@
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15); /* More compact shadow */
   }
   .btn-submit:hover { } /* Hover disabled */
+
+  .btn-cancel {
+    width: 100%;
+    padding: 12px;
+    cursor: pointer;
+    font-family: 'Poppins', sans-serif;
+    border: 1.5px solid var(--bad);
+    background: transparent;
+    color: var(--bad);
+    border-radius: 30px;
+    margin-top: 10px;
+    font-weight: 400;
+    font-size: 16px;
+    outline: none;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  }
   .trash { background: none; border: none; color: var(--gold); cursor: pointer; }
 
   .ss-wrap { position: relative; }
@@ -257,6 +273,22 @@
       <!-- Right: Global Info -->
       <div class="restored-right">
         <div class="restored-panel">
+
+          <!-- Flagged Status -->
+          <div class="restored-group" style="margin-bottom:18px">
+            <label class="sub-title">Flagged Status</label>
+            <select class="restored-sel" name="is_flagged">
+              <option value="false" {% if not donation.is_flagged %}selected{% endif %}>No</option>
+              <option value="true" {% if donation.is_flagged %}selected{% endif %}>Yes</option>
+            </select>
+          </div>
+
+          <!-- Auto Archive At -->
+          <div class="restored-group" style="margin-bottom:18px">
+            <label class="sub-title">Auto Archive At</label>
+            <input class="restored-in restored-in-lg" type="datetime-local" name="auto_archive_at" value="{{ donation.auto_archive_at|slice:':16' }}" min="{% now 'Y-m-d\\TH:i' %}">
+          </div>
+
           <div class="restored-group" style="margin-bottom:18px">
             <label class="sub-title">Preferred Pick-Up Date</label>
             <input class="restored-in restored-in-lg" type="date" name="preferred_pickup_date" value="{{ donation.preferred_pickup_date|slice:':10' }}" required>
@@ -271,7 +303,7 @@
               <input class="restored-in" type="time" name="preferred_pickup_window_end" value="{{ donation.preferred_pickup_window_end|slice:':5' }}" required>
             </div>
           </div>
-          <div class="restored-group">
+          <div class="restored-group" style="margin-bottom:18px">
             <label class="sub-title">Pick-Up Location</label>
             <div class="pin-wrap">
               <input id="addr" class="restored-in restored-in-lg" name="pickup_display_address" value="{{ donation.pickup_display_address }}" oninput="srchAddr(this.value)" onblur="setTimeout(()=>getEl('ac').classList.add('hidden'),200)" required>
@@ -283,7 +315,25 @@
               <input type="hidden" id="lng" name="pickup_longitude" value="{{ donation.pickup_longitude }}" data-initial="{{ donation.pickup_longitude }}">
             </div>
           </div>
+
+          <!-- Drop-Off Location (if DELIVERY method) -->
+          {% if donation.delivery_method == 'DELIVERY' %}
+          <div class="restored-group" style="margin-bottom:18px">
+            <label class="sub-title">Drop-Off Location</label>
+            <div class="pin-wrap">
+              <input id="dropoff_addr" class="restored-in restored-in-lg" name="dropoff_display_address" value="{{ donation.dropoff_display_address|default:'' }}" oninput="srchAddr(this.value, 'dropoff')" onblur="setTimeout(()=>getEl('dropoff_ac').classList.add('hidden'),200)">
+              <button type="button" class="pin" onclick="openMap('dropoff')">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              </button>
+              <div id="dropoff_ac" class="ac-list hidden"></div>
+              <input type="hidden" id="dropoff_lat" name="dropoff_latitude" value="{{ donation.dropoff_latitude|default:'' }}" data-initial="{{ donation.dropoff_latitude|default:'' }}">
+              <input type="hidden" id="dropoff_lng" name="dropoff_longitude" value="{{ donation.dropoff_longitude|default:'' }}" data-initial="{{ donation.dropoff_longitude|default:'' }}">
+            </div>
+          </div>
+          {% endif %}
+
           <button type="submit" class="btn-submit">Submit Donation</button>
+          <button type="button" class="btn-cancel" onclick="cancelDonation()">Cancel Donation</button>
         </div>
 
         <div class="restored-panel">
@@ -542,9 +592,18 @@
     const addrEl = document.getElementById('addr');
     const latEl = document.getElementById('lat');
     const lngEl = document.getElementById('lng');
-    const addressChanged = addrEl.value.trim() !== (initialData.pickup_display_address || '').trim();
-    if (addressChanged && (!latEl.value.trim() || !lngEl.value.trim())) {
+    const pickupAddressChanged = addrEl && addrEl.value.trim() !== (initialData.pickup_display_address || '').trim();
+    if (pickupAddressChanged && (!latEl.value.trim() || !lngEl.value.trim())) {
       showFlash('Please reselect the pickup location after editing the address so fresh coordinates are saved.', 'error');
+      return;
+    }
+
+    const dropoffAddrEl = document.getElementById('dropoff_addr');
+    const dropoffLatEl = document.getElementById('dropoff_lat');
+    const dropoffLngEl = document.getElementById('dropoff_lng');
+    const dropoffAddressChanged = dropoffAddrEl && dropoffAddrEl.value.trim() !== (initialData.dropoff_display_address || '').trim();
+    if (dropoffAddressChanged && (!dropoffLatEl.value.trim() || !dropoffLngEl.value.trim())) {
+      showFlash('Please reselect the dropoff location after editing the address so fresh coordinates are saved.', 'error');
       return;
     }
     
@@ -580,9 +639,17 @@
         body: fd,
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
       });
-      const data = await res.json();
-      if (res.ok) {
+      const rawText = await res.text();
+      let data = {};
+      try {
+        data = rawText ? JSON.parse(rawText) : {};
+      } catch {
+        data = { error: rawText || `Request failed with ${res.status} ${res.statusText}` };
+      }
+      if (res.ok && data.redirect) {
         window.location.href = data.redirect;
+      } else if (res.ok) {
+        showFlash(data.error || 'Donation updated, but the next page could not be determined. Please go back to Donations.', 'error');
       } else {
         if (data.errors && Array.isArray(data.errors)) {
           data.errors.forEach(err => showFlash(err, 'error'));
@@ -604,6 +671,20 @@
       document.getElementById('img-prv').src = URL.createObjectURL(f);
       document.getElementById('img-prv').style.display = 'block';
       document.getElementById('img-ph').style.display = 'none';
+    }
+  }
+
+  async function cancelDonation() {
+    try {
+      const res = await fetch("{% url 'admin_cancel_donation' donation.donation_id %}", {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}', 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      const data = await res.json();
+      if (data.redirect) window.location.href = data.redirect;
+      else showFlash(data.error || 'Cancellation failed', 'error');
+    } catch (e) {
+      showFlash(e.message, 'error');
     }
   }
 

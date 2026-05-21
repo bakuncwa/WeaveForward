@@ -571,6 +571,8 @@
 
   function srchAddr(v) {
     const ac = getEl('ac');
+    getEl('lat').value = '';
+    getEl('lng').value = '';
     if (v.length < 3) return ac.classList.add('hidden');
     clearTimeout(acTmr);
     acTmr = setTimeout(async () => {
@@ -600,8 +602,12 @@
   function stageRemovePayment(btn) { getEl('remove-pay').value = '1'; btn.textContent = 'Will unsubscribe on save'; btn.disabled = true; }
 
   getEl('frm').onsubmit = e => {
-    // Standard form submission. 
-    // Server-side validation in views.py will handle password mismatch.
+    const addrEl = getEl('addr');
+    const addressChanged = norm(addrEl) !== (initial.display_address || '');
+    if (addressChanged && (!getEl('lat').value.trim() || !getEl('lng').value.trim())) {
+      e.preventDefault();
+      alert('Please reselect the display address so fresh coordinates are saved.');
+    }
   };
 
   // --- 8. Init ---

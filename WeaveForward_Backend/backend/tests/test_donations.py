@@ -484,3 +484,351 @@ class DonationListSerializerTest(TestCase):
         self.assertIn('weight_kg', donation_data['items'][0])
         self.assertIn('lookup_id', donation_data['items'][0]['lookup_details'])
 
+
+from unittest.mock import patch
+from decimal import Decimal
+from backend.models import Order
+
+class AdminDonationUpdateTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.admin = User.objects.create_user(
+            email="admin_update@example.com",
+            password="Password123",
+            role="Admin",
+            contact_no="+639000002001",
+            status="ACTIVE"
+        )
+        self.donor = User.objects.create_user(
+            email="donor_update@example.com",
+            password="Password123",
+            role="Donor",
+            contact_no="+639000002002",
+            status="ACTIVE"
+        )
+        self.tuab = User.objects.create_user(
+            email="tuab_update@example.com",
+            password="Password123",
+            role="TUAB",
+            contact_no="+639000002003",
+            status="ACTIVE",
+            business_name="Test Business"
+        )
+        self.lookup = BrandFiberLookup.objects.create(
+            category="Tops",
+            brand="Uniqlo",
+            clothing_type="t-shirt",
+            fiber_json='{"cotton": 100}',
+            dominant_fiber="cotton",
+            biodeg_score="88.50",
+            biodeg_tier="HIGH",
+            is_active=True,
+        )
+        # Create a claimed donation
+        self.donation = Donation.objects.create(
+            donor=self.donor,
+            claimed_by_tuab=self.tuab,
+            status="CLAIMED",
+            delivery_method="DELIVERY",
+            pickup_display_address="DLSU Manila",
+            pickup_latitude=Decimal('14.5645000'),
+            pickup_longitude=Decimal('120.9930000'),
+            preferred_pickup_date=timezone.now() + timedelta(days=2),
+            preferred_pickup_window_start="10:00:00",
+            preferred_pickup_window_end="12:00:00"
+        )
+        DonationItem.objects.create(
+            donation=self.donation,
+            lookup=self.lookup,
+            condition_rating="GOOD",
+            weight_kg="1.500",
+        )
+        # Create associated order
+        self.order = Order.objects.create(
+            donation=self.donation,
+            lalamove_order_id="12345_lalamove",
+            status="ASSIGNING_DRIVER",
+            dropoff_display_address="Initial Address",
+            dropoff_latitude=Decimal('14.5648520'),
+            dropoff_longitude=Decimal('120.9978767')
+        )
+
+    @patch('requests.patch')
+    def test_admin_update_claimed_only_dropoff_success(self, mock_patch):
+        mock_patch.return_value.status_code = 200
+        mock_patch.return_value.json.return_value = {"status": "SUCCESS"}
+
+        self.client.force_authenticate(user=self.admin)
+        from backend.services.etag_service import build_updated_at_etag
+        etag = build_updated_at_etag(self.donation)
+
+        payload = {
+            "dropoff_display_address": "CSB Taft Manila",
+            "dropoff_latitude": "14.5648520",
+            "dropoff_longitude": "120.9978767"
+        }
+
+        response = self.client.patch(
+            reverse('donation-detail', kwargs={'pk': self.donation.donation_id}),
+            payload,
+            HTTP_IF_MATCH=etag,
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.dropoff_display_address, "CSB Taft Manila")
+        mock_patch.assert_called_once()
+
+    def test_admin_update_claimed_blocked_pickup_fields(self):
+        self.client.force_authenticate(user=self.admin)
+        from backend.services.etag_service import build_updated_at_etag
+        etag = build_updated_at_etag(self.donation)
+
+        # Attempt to change pickup address (which is blocked)
+        payload = {
+            "pickup_display_address": "New Pickup Address"
+        }
+
+        response = self.client.patch(
+            reverse('donation-detail', kwargs={'pk': self.donation.donation_id}),
+            payload,
+            HTTP_IF_MATCH=etag,
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("pickup_display_address", response.data)
+        self.assertEqual(response.data["pickup_display_address"][0], "Cannot edit pickup location details once the delivery has been claimed.")
+
+    @patch('requests.patch')
+    def test_admin_update_claimed_allowed_non_pickup_fields(self, mock_patch):
+        mock_patch.return_value.status_code = 200
+        mock_patch.return_value.json.return_value = {"status": "SUCCESS"}
+
+        self.client.force_authenticate(user=self.admin)
+        from backend.services.etag_service import build_updated_at_etag
+        etag = build_updated_at_etag(self.donation)
+
+        # Admin updates dropoff and is_flagged (both allowed)
+        payload = {
+            "is_flagged": True,
+            "dropoff_display_address": "CSB Taft Manila",
+            "dropoff_latitude": "14.5648520",
+            "dropoff_longitude": "120.9978767"
+        }
+
+        response = self.client.patch(
+            reverse('donation-detail', kwargs={'pk': self.donation.donation_id}),
+            payload,
+            HTTP_IF_MATCH=etag,
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        self.donation.refresh_from_db()
+        self.assertTrue(self.donation.is_flagged)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.dropoff_display_address, "CSB Taft Manila")
+        mock_patch.assert_called_once()
+
+    def test_donor_cannot_edit_claimed_donation(self):
+        self.client.force_authenticate(user=self.donor)
+        from backend.services.etag_service import build_updated_at_etag
+        etag = build_updated_at_etag(self.donation)
+
+        payload = {
+            "dropoff_display_address": "CSB Taft Manila",
+            "dropoff_latitude": "14.5648520",
+            "dropoff_longitude": "120.9978767"
+        }
+
+        response = self.client.patch(
+            reverse('donation-detail', kwargs={'pk': self.donation.donation_id}),
+            payload,
+            HTTP_IF_MATCH=etag,
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+
+    def test_admin_update_pickup_donation_fails_with_dropoff(self):
+        pickup_donation = Donation.objects.create(
+            donor=self.donor,
+            status="PENDING",
+            delivery_method="PICKUP",
+            pickup_display_address="DLSU Manila",
+            pickup_latitude=Decimal('14.5645000'),
+            pickup_longitude=Decimal('120.9930000'),
+            preferred_pickup_date=timezone.now() + timedelta(days=2),
+            preferred_pickup_window_start="10:00:00",
+            preferred_pickup_window_end="12:00:00"
+        )
+        DonationItem.objects.create(
+            donation=pickup_donation,
+            lookup=self.lookup,
+            condition_rating="GOOD",
+            weight_kg="1.500",
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        from backend.services.etag_service import build_updated_at_etag
+        etag = build_updated_at_etag(pickup_donation)
+
+        payload = {
+            "dropoff_display_address": "CSB Taft Manila",
+            "dropoff_latitude": "14.5648520",
+            "dropoff_longitude": "120.9978767"
+        }
+
+        response = self.client.patch(
+            reverse('donation-detail', kwargs={'pk': pickup_donation.donation_id}),
+            payload,
+            HTTP_IF_MATCH=etag,
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        for field in ["dropoff_display_address", "dropoff_latitude", "dropoff_longitude"]:
+            self.assertIn(field, response.data)
+            self.assertEqual(response.data[field][0], "Dropoff details are not allowed for PICKUP donations.")
+
+    def test_admin_update_received_blocked_fields(self):
+        # Move donation and order status to RECEIVED
+        self.donation.status = "RECEIVED"
+        self.donation.save()
+        self.order.status = "COMPLETED"
+        self.order.save()
+
+        self.client.force_authenticate(user=self.admin)
+        from backend.services.etag_service import build_updated_at_etag
+        etag = build_updated_at_etag(self.donation)
+
+        # Attempt to change dropoff address
+        payload = {
+            "dropoff_display_address": "New Dropoff Address"
+        }
+        response = self.client.patch(
+            reverse('donation-detail', kwargs={'pk': self.donation.donation_id}),
+            payload,
+            HTTP_IF_MATCH=etag,
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("dropoff_display_address", response.data)
+        self.assertEqual(response.data["dropoff_display_address"][0], "Cannot edit dropoff location details once the delivery is received.")
+
+        # Attempt to change pickup address
+        payload = {
+            "pickup_display_address": "New Pickup Address"
+        }
+        response = self.client.patch(
+            reverse('donation-detail', kwargs={'pk': self.donation.donation_id}),
+            payload,
+            HTTP_IF_MATCH=etag,
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("pickup_display_address", response.data)
+        self.assertEqual(response.data["pickup_display_address"][0], "Cannot edit pickup location details once the delivery is received.")
+
+    def test_admin_update_rejected_blocked_fields(self):
+        # Move donation and order status to REJECTED / FAILED
+        self.donation.status = "REJECTED"
+        self.donation.save()
+        self.order.status = "FAILED"
+        self.order.save()
+
+        self.client.force_authenticate(user=self.admin)
+        from backend.services.etag_service import build_updated_at_etag
+        etag = build_updated_at_etag(self.donation)
+
+        # Attempt to change dropoff address
+        payload = {
+            "dropoff_display_address": "New Dropoff Address"
+        }
+        response = self.client.patch(
+            reverse('donation-detail', kwargs={'pk': self.donation.donation_id}),
+            payload,
+            HTTP_IF_MATCH=etag,
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("dropoff_display_address", response.data)
+        self.assertEqual(response.data["dropoff_display_address"][0], "Cannot edit dropoff location details once the delivery is rejected.")
+
+        # Attempt to change pickup address
+        payload = {
+            "pickup_display_address": "New Pickup Address"
+        }
+        response = self.client.patch(
+            reverse('donation-detail', kwargs={'pk': self.donation.donation_id}),
+            payload,
+            HTTP_IF_MATCH=etag,
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("pickup_display_address", response.data)
+        self.assertEqual(response.data["pickup_display_address"][0], "Cannot edit pickup location details once the delivery is rejected.")
+
+    def test_admin_edit_items_triggers_prediction_model(self):
+        from backend.services.prediction_service import MatchPredictionService
+
+        self.client.force_authenticate(user=self.admin)
+        original_model = MatchPredictionService._model
+        MatchPredictionService._model = None
+
+        try:
+            with patch('builtins.open', side_effect=FileNotFoundError):
+                item = DonationItem.objects.filter(donation=self.donation).first()
+                payload = {
+                    "items": json.dumps([
+                        {
+                            "item_id": item.item_id,
+                            "weight_kg": "2.000"
+                        }
+                    ])
+                }
+
+                from backend.services.etag_service import build_updated_at_etag
+                etag = build_updated_at_etag(self.donation)
+
+                response = self.client.patch(
+                    reverse('donation-detail', kwargs={'pk': self.donation.donation_id}),
+                    payload,
+                    HTTP_IF_MATCH=etag,
+                    format='json'
+                )
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn("Prediction model is unavailable", response.data['detail'])
+        finally:
+            MatchPredictionService._model = original_model
+
+    def test_admin_metadata_only_does_not_trigger_prediction_model(self):
+        from backend.services.prediction_service import MatchPredictionService
+
+        self.client.force_authenticate(user=self.admin)
+        original_model = MatchPredictionService._model
+        MatchPredictionService._model = None
+
+        try:
+            with patch('builtins.open', side_effect=FileNotFoundError):
+                payload = {
+                    "is_flagged": True
+                }
+
+                from backend.services.etag_service import build_updated_at_etag
+                etag = build_updated_at_etag(self.donation)
+
+                response = self.client.patch(
+                    reverse('donation-detail', kwargs={'pk': self.donation.donation_id}),
+                    payload,
+                    HTTP_IF_MATCH=etag,
+                    format='json'
+                )
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+                self.donation.refresh_from_db()
+                self.assertTrue(self.donation.is_flagged)
+        finally:
+            MatchPredictionService._model = original_model
+
+
+

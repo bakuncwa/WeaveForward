@@ -13,7 +13,8 @@ from rest_framework import serializers
 
 from ..models import (
     BrandFiberLookup, Donation, DonationItem, Upload, User, 
-    UserAccountStatus, UserRole, DonationStatus, DonationItemConditionRating, Order
+    UserAccountStatus, UserRole, DonationStatus, DonationItemConditionRating, Order,
+    DonationDeliveryMethod
 )
 from ..services.location_service import get_city_and_barangay
 from ..services.upload_service import build_upload_url
@@ -118,6 +119,9 @@ class DonationDetailSerializer(serializers.ModelSerializer):
     upload = serializers.SerializerMethodField()
     pickup_latitude = serializers.DecimalField(max_digits=9, decimal_places=7, read_only=True)
     pickup_longitude = serializers.DecimalField(max_digits=10, decimal_places=7, read_only=True)
+    dropoff_display_address = serializers.SerializerMethodField()
+    dropoff_latitude = serializers.SerializerMethodField()
+    dropoff_longitude = serializers.SerializerMethodField()
 
     class Meta:
         model = Donation
@@ -129,6 +133,30 @@ class DonationDetailSerializer(serializers.ModelSerializer):
     def get_items(self, obj):
         active_items = obj.items.filter(is_archived=False)
         return DonationDetailItemSerializer(active_items, many=True, context=self.context).data
+
+    def get_dropoff_display_address(self, obj):
+        request = self.context.get('request')
+        if request and request.user and request.user.role == 'Admin':
+            order = obj.orders.first()
+        else:
+            order = obj.orders.exclude(status__in=["CANCELLED", "FAILED"]).first()
+        return order.dropoff_display_address if order else None
+
+    def get_dropoff_latitude(self, obj):
+        request = self.context.get('request')
+        if request and request.user and request.user.role == 'Admin':
+            order = obj.orders.first()
+        else:
+            order = obj.orders.exclude(status__in=["CANCELLED", "FAILED"]).first()
+        return order.dropoff_latitude if order else None
+
+    def get_dropoff_longitude(self, obj):
+        request = self.context.get('request')
+        if request and request.user and request.user.role == 'Admin':
+            order = obj.orders.first()
+        else:
+            order = obj.orders.exclude(status__in=["CANCELLED", "FAILED"]).first()
+        return order.dropoff_longitude if order else None
 
 
 # ------------------------------------------------------------------------------
@@ -452,7 +480,6 @@ class DonationItemUpdateSerializer(serializers.ModelSerializer):
     def validate(self, data):
         item_id = data.get('item_id')
         is_archived = data.get('is_archived', False)
-        print(f"\n>>> [DEBUG] ITEM {item_id} INITIAL_DATA: {self.initial_data}\n")
         
         # 1. REMOVING (Archive Case)
         if is_archived:
@@ -539,6 +566,9 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
 
         # 3. Location Validation
         if 'pickup_latitude' in data or 'pickup_longitude' in data:
+            if 'pickup_display_address' not in data or not (data.get('pickup_display_address') or '').strip():
+                errors['pickup_display_address'] = "This field is required when updating coordinates."
+
             raw_lat = str(self.initial_data.get('pickup_latitude') or '').strip()
             raw_lng = str(self.initial_data.get('pickup_longitude') or '').strip()
 
@@ -732,4 +762,211 @@ class DonationResolveSerializer(serializers.Serializer):
             raise serializers.ValidationError(errors)
 
         return data
+
+
+class AdminDonationUpdateSerializer(serializers.ModelSerializer):
+    """Specific serializer for Admins to update donations and nested donation items."""
+    items = serializers.CharField(required=False)  # JSON string for items
+    donation_image = serializers.ImageField(required=False, allow_null=True)
+
+    # Optional fields for dropoff location (associated Order fields)
+    dropoff_display_address = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    dropoff_latitude = serializers.DecimalField(required=False, max_digits=18, decimal_places=15, allow_null=True)
+    dropoff_longitude = serializers.DecimalField(required=False, max_digits=18, decimal_places=15, allow_null=True)
+
+    class Meta:
+        model = Donation
+        fields = [
+            'is_flagged', 'auto_archive_at',
+            'pickup_display_address', 'pickup_latitude', 'pickup_longitude',
+            'preferred_pickup_date', 'preferred_pickup_window_start', 'preferred_pickup_window_end',
+            'items', 'donation_image', 'dropoff_display_address', 'dropoff_latitude', 'dropoff_longitude'
+        ]
+
+    def validate(self, data):
+        if not self.instance:
+            return data
+
+        errors = {}
+        current_delivery_method = self.instance.delivery_method
+        current_status = self.instance.status
+
+        # 0. Image Validation (consistent with Donor restrictions)
+        image = data.get('donation_image')
+        if image:
+            if image.size > 5 * 1024 * 1024:
+                errors['donation_image'] = "Image size must not exceed 5MB."
+            if os.path.splitext(image.name)[1].lower() not in ['.jpg', '.jpeg', '.png']:
+                errors['donation_image'] = "Only .jpg, .jpeg, and .png images are allowed."
+        if 'auto_archive_at' in data and data['auto_archive_at'] and data['auto_archive_at'] < timezone.now(): errors['auto_archive_at'] = "Auto archive cannot be earlier than today."
+
+        # 1. State-based Lock Validation
+        # Rules:
+        # - If status is CLAIMED:
+        #   Locked fields: The pickup details (pickup_display_address, pickup_latitude,
+        #   pickup_longitude, preferred_pickup_date, preferred_pickup_window_start,
+        #   preferred_pickup_window_end) cannot be changed.
+        # - If status is IN_TRANSIT, RECEIVED, or REJECTED:
+        #   Locked fields: The pickup details (above) cannot be changed.
+        #   Locked fields: The dropoff details (dropoff_display_address, dropoff_latitude,
+        #   dropoff_longitude) cannot be changed.
+        if current_delivery_method == DonationDeliveryMethod.DELIVERY:
+            if current_status == DonationStatus.CLAIMED:
+                if intersecting := set(data.keys()).intersection({
+                    'pickup_display_address', 'pickup_latitude', 'pickup_longitude',
+                    'preferred_pickup_date', 'preferred_pickup_window_start', 'preferred_pickup_window_end'
+                }):
+                    for field in intersecting:
+                        if 'date' in field or 'window' in field:
+                            errors[field] = "Cannot edit pickup date/time windows once the delivery has been claimed."
+                        else:
+                            errors[field] = "Cannot edit pickup location details once the delivery has been claimed."
+            elif current_status in [DonationStatus.IN_TRANSIT, DonationStatus.RECEIVED, DonationStatus.REJECTED]:
+                status_str = "in transit" if current_status == DonationStatus.IN_TRANSIT else current_status.lower()
+                if intersecting_dropoff := set(data.keys()).intersection({
+                    'dropoff_display_address', 'dropoff_latitude', 'dropoff_longitude'
+                }):
+                    for field in intersecting_dropoff:
+                        errors[field] = f"Cannot edit dropoff location details once the delivery is {status_str}."
+                
+                if intersecting_pickup := set(data.keys()).intersection({
+                    'pickup_display_address', 'pickup_latitude', 'pickup_longitude',
+                    'preferred_pickup_date', 'preferred_pickup_window_start', 'preferred_pickup_window_end'
+                }):
+                    for field in intersecting_pickup:
+                        if 'date' in field or 'window' in field:
+                            errors[field] = f"Cannot edit pickup date/time windows once the delivery is {status_str}."
+                        else:
+                            errors[field] = f"Cannot edit pickup location details once the delivery is {status_str}."
+
+        # 2. Coordinate & Location Validation (only if they aren't blocked by state lock)
+        if ('pickup_latitude' in data or 'pickup_longitude' in data) and 'pickup_latitude' not in errors and 'pickup_longitude' not in errors:
+            if 'pickup_latitude' not in self.initial_data or 'pickup_longitude' not in self.initial_data:
+                errors['pickup_latitude'] = "Both pickup_latitude and pickup_longitude are required to update coordinates."
+            if 'pickup_display_address' not in data or not (data.get('pickup_display_address') or '').strip():
+                errors['pickup_display_address'] = "This field is required when updating coordinates."
+
+            if 'pickup_latitude' not in errors:
+                raw_lat = str(self.initial_data.get('pickup_latitude') or '').strip()
+                raw_lng = str(self.initial_data.get('pickup_longitude') or '').strip()
+
+                coord_error = False
+                if not re.match(r'^-?\d+\.\d{7}$', raw_lat):
+                    errors['pickup_latitude'] = "Must have exactly 7 decimal places (e.g., 14.1234567)."
+                    coord_error = True
+                if not re.match(r'^-?\d+\.\d{7}$', raw_lng):
+                    errors['pickup_longitude'] = "Must have exactly 7 decimal places (e.g., 14.1234567)."
+                    coord_error = True
+
+                if not coord_error:
+                    try:
+                        lat_dec = Decimal(raw_lat)
+                        lng_dec = Decimal(raw_lng)
+                        loc = get_city_and_barangay(lat_dec, lng_dec)
+                        if not loc:
+                            errors['pickup_latitude'] = "Pickup location must be within the National Capital Region (NCR)."
+                        else:
+                            data['pickup_barangay'] = loc['barangay']
+                            data['pickup_city'] = loc['city']
+                    except (ValueError, TypeError, ArithmeticError):
+                        errors['pickup_latitude'] = "Invalid coordinate format."
+
+        # 2.1 Dropoff Coordinate & Location Validation (only if they aren't blocked by state lock/delivery method)
+        if current_delivery_method == DonationDeliveryMethod.PICKUP:
+            for field in ['dropoff_display_address', 'dropoff_latitude', 'dropoff_longitude']:
+                if field in data:
+                    errors[field] = "Dropoff details are not allowed for PICKUP donations."
+        elif ('dropoff_latitude' in data or 'dropoff_longitude' in data) and 'dropoff_latitude' not in errors and 'dropoff_longitude' not in errors:
+            if 'dropoff_latitude' not in self.initial_data or 'dropoff_longitude' not in self.initial_data:
+                errors['dropoff_latitude'] = "Both dropoff_latitude and dropoff_longitude are required to update coordinates."
+            if 'dropoff_display_address' not in data or not (data.get('dropoff_display_address') or '').strip():
+                errors['dropoff_display_address'] = "This field is required when updating coordinates."
+
+            if 'dropoff_latitude' not in errors:
+                raw_lat = str(self.initial_data.get('dropoff_latitude') or '').strip()
+                raw_lng = str(self.initial_data.get('dropoff_longitude') or '').strip()
+
+                coord_error = False
+                if not re.match(r'^-?\d+\.\d{7}$', raw_lat):
+                    errors['dropoff_latitude'] = "Must have exactly 7 decimal places (e.g., 14.1234567)."
+                    coord_error = True
+                if not re.match(r'^-?\d+\.\d{7}$', raw_lng):
+                    errors['dropoff_longitude'] = "Must have exactly 7 decimal places (e.g., 14.1234567)."
+                    coord_error = True
+
+                if not coord_error:
+                    try:
+                        lat_dec = Decimal(raw_lat)
+                        lng_dec = Decimal(raw_lng)
+                        loc = get_city_and_barangay(lat_dec, lng_dec)
+                        if not loc:
+                            errors['dropoff_latitude'] = "Dropoff location must be within the National Capital Region (NCR)."
+                    except (ValueError, TypeError, ArithmeticError):
+                        errors['dropoff_latitude'] = "Invalid coordinate format."
+
+        # 3. Date & Time Validation
+        now_local = timezone.localtime(timezone.now())
+        pick_date = data.get('preferred_pickup_date') if 'preferred_pickup_date' in data else self.instance.preferred_pickup_date
+        win_start = data.get('preferred_pickup_window_start') if 'preferred_pickup_window_start' in data else self.instance.preferred_pickup_window_start
+        win_end = data.get('preferred_pickup_window_end') if 'preferred_pickup_window_end' in data else self.instance.preferred_pickup_window_end
+
+        if 'preferred_pickup_date' not in errors and 'preferred_pickup_window_start' not in errors and 'preferred_pickup_window_end' not in errors:
+            if pick_date:
+                try:
+                    if isinstance(pick_date, timezone.datetime) and timezone.is_naive(pick_date):
+                        pick_date = timezone.make_aware(pick_date)
+                    pick_date_local = timezone.localtime(pick_date)
+                    if pick_date_local.date() < now_local.date():
+                        errors['preferred_pickup_date'] = "Pickup date cannot be in the past."
+                    elif pick_date_local.date() > (now_local + timedelta(days=29)).date():
+                        errors['preferred_pickup_date'] = "Pickup date cannot be more than 29 days into the future."
+                    
+                    # Additional check: Today's pickup window cannot start in the past
+                    if pick_date_local.date() == now_local.date() and win_start and win_start < now_local.time():
+                        errors['preferred_pickup_window_start'] = "Pickup window start time cannot be in the past for today's pickup."
+                except Exception:
+                    pass
+
+            if win_start and win_end and win_start >= win_end:
+                errors['preferred_pickup_window_start'] = "Start time must be before end time."
+
+        # 4. Items validation (reusing items updates logic)
+        items_json = data.get('items')
+        if items_json:
+            try:
+                raw_items = json.loads(items_json)
+                item_serializer = DonationItemUpdateSerializer(data=raw_items, many=True)
+                if not item_serializer.is_valid():
+                    errors['items'] = item_serializer.errors
+                else:
+                    items = item_serializer.validated_data
+
+                    # Ownership check
+                    existing_item_ids = set(self.instance.items.values_list('item_id', flat=True))
+                    ownership_error = False
+                    for i in items:
+                        if i.get('item_id') and i['item_id'] not in existing_item_ids:
+                            errors['items'] = f"Item {i['item_id']} does not belong to this donation."
+                            ownership_error = True
+                            break
+
+                    if not ownership_error:
+                        # Rule: At least one active item must remain
+                        active_items_count = self.instance.items.filter(is_archived=False).count()
+                        num_archiving = len([i for i in items if i.get('is_archived') and i.get('item_id')])
+                        num_adding = len([i for i in items if not i.get('item_id') and not i.get('is_archived')])
+
+                        if (active_items_count - num_archiving + num_adding) < 1:
+                            errors['items'] = "A donation must have at least one active clothing group."
+                        else:
+                            data['items'] = items
+
+            except (json.JSONDecodeError, ValueError, TypeError):
+                errors['items'] = "Invalid format for items."
+
+        if errors:
+            raise serializers.ValidationError(errors)
+
+        return data
+
 

@@ -3,6 +3,7 @@
 import os, json, logging, math, pandas as pd
 from django.db import transaction
 from django.conf import settings
+from django.utils import timezone
 from backend.models import User, DonationItem, MatchPrediction, UserAccountStatus, SubscriptionStatus, SubscriptionTier
 
 logger = logging.getLogger(__name__)
@@ -260,40 +261,33 @@ def run_predictions_for_donation(donation_id):
         df[column] = pd.to_numeric(df[column], errors="coerce").fillna(0.0)
 
     probs = MatchPredictionService._model.predict_proba(df)[:, 1]
-    thresh = meta.get("fiber_match_threshold", 85.0) / 100.0
+    thresh = meta.get("fiber_match_threshold", 50.0) / 100.0
+    run_timestamp = timezone.now()
     
-    # Identify the single highest predicting match
+    # Revert to database persistence for predictions
     sorted_indexes = sorted(range(len(pair_data)), key=probs.__getitem__, reverse=True)
-    
-    if not sorted_indexes:
-        return []
+    preds = [
+        MatchPrediction(
+            item_id=pair_data[index][0],
+            tuab_id=pair_data[index][1],
+            is_match=probs[index] >= thresh,
+            match_prob=float(probs[index]),
+            pct_target_fiber=pair_data[index][2],
+            biodeg_target_fiber=pair_data[index][3],
+            distance_km=pair_data[index][4],
+            is_archived_version=False,
+            predicted_at=run_timestamp,
+        )
+        for index in sorted_indexes
+    ]
 
-    best_idx = sorted_indexes[0]
-    best_prob = float(probs[best_idx])
-    
-    # We only proceed if the best match meets the threshold
-    if best_prob < thresh:
-        logger.info(f"No match found for donation {donation_id} above threshold {thresh}")
-        return []
+    item_ids = [item["item_id"] for item in items]
+    print(f"\n[AI-MATCHING] Running predictions for donation {donation_id} with active items: {item_ids}")
+    with transaction.atomic():
+        archived_count = MatchPrediction.objects.filter(item_id__in=item_ids, is_archived_version=False).update(is_archived_version=True)
+        print(f"[AI-MATCHING] Archived {archived_count} existing predictions.")
+        created_preds = MatchPrediction.objects.bulk_create(preds, batch_size=2000)
+        print(f"[AI-MATCHING] Successfully created {len(created_preds)} new predictions.")
 
-    item_id, tuab_id, pct_fiber, biodeg, dist = pair_data[best_idx]
-    
-    # Create the prediction object in memory only (no persistence as requested)
-    best_match = MatchPrediction(
-        item_id=item_id,
-        tuab_id=tuab_id,
-        is_match=True,
-        match_prob=best_prob,
-        pct_target_fiber=pct_fiber,
-        biodeg_target_fiber=biodeg,
-        distance_km=dist,
-        is_archived_version=False,
-    )
+    return preds
 
-    # Placeholder for Email Notification via Resend
-    # Since we are not persisting, we notify the business directly.
-    # from .email_service import send_match_notification
-    # tuab = User.objects.get(pk=tuab_id)
-    # send_match_notification(to_email=tuab.email, item_id=item_id, prob=best_prob)
-
-    return [best_match]

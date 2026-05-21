@@ -466,7 +466,11 @@
       if (res.ok) {
         window.location.href = data.redirect;
       } else {
-        showFlash(data.error || 'Validation failed. Please check your inputs.', 'error');
+        if (data.errors && Array.isArray(data.errors)) {
+          data.errors.forEach(err => showFlash(err, 'error'));
+        } else {
+          showFlash(data.error || 'Validation failed. Please check your inputs.', 'error');
+        }
       }
     } catch (err) {
       showFlash('System error: ' + err.message, 'error');

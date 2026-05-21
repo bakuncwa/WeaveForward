@@ -441,6 +441,8 @@
 
   function srchAddr(v) {
     const ac = getEl('ac');
+    getEl('lat').value = '';
+    getEl('lng').value = '';
     if (v.length < 3) return ac.classList.add('hidden');
     clearTimeout(acTmr);
     acTmr = setTimeout(async () => {
@@ -500,6 +502,13 @@
     if ((pw || cpw) && pw !== cpw) {
       e.preventDefault();
       alert('Passwords do not match.');
+      return;
+    }
+    const addrEl = getEl('addr');
+    const addressChanged = snapshotNamedFieldValue(addrEl) !== (initialNamedFieldValues.display_address || '');
+    if (addressChanged && (!getEl('lat').value.trim() || !getEl('lng').value.trim())) {
+      e.preventDefault();
+      alert('Please reselect the pickup location after editing the address so fresh coordinates are saved.');
       return;
     }
 

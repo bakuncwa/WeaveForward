@@ -14,8 +14,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from ..utils.view_mixins import PaginatedResponseMixin
 from ..models import Donation, Subscription
 from ..serializers import DonationDetailSerializer, DonationListSerializer, QuotationRequestSerializer, DonorDonationUpdateSerializer, DonationResolveSerializer
-from ..services.donation_service import create_donation, mark_donation_in_transit, donor_update_donation
-from ..services.cancel_donation_service import cancel_donation
+from ..services.donation_service import create_donation, mark_donation_in_transit, donor_update_donation, admin_update_donation, cancel_donation, archive_donation
 from ..services.resolve_donation_service import resolve_donation
 from ..services.etag_service import build_updated_at_etag, matches_if_match
 from ..services.lalamove_service import get_lalamove_quotation
@@ -165,24 +164,26 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
 
             # 3. Admin Path
             elif user.role == 'Admin':
-                # 3.1. Editable Statuses (Placeholders)
-                if donation.status == 'PENDING':
-                    exc = APIException("Admin path for pending donation correction is not yet implemented.")
-                    exc.status_code = 501
-                    raise exc
-                elif donation.status == 'CLAIMED':
-                    exc = APIException("Admin path for claimed donation adjustment is not yet implemented.")
-                    exc.status_code = 501
-                    raise exc
-                elif donation.status == 'IN_TRANSIT':
-                    exc = APIException("Admin path for transit status override is not yet implemented.")
-                    exc.status_code = 501
-                    raise exc
-                # 3.2. Immutable Statuses
-                elif donation.status in ['RECEIVED', 'REJECTED', 'ARCHIVED']:
-                    exc = APIException(f"Donations in {donation.status.lower().replace('_', ' ')} status are immutable.")
+                # 3.1. Immutable Statuses
+                if donation.status == 'ARCHIVED':
+                    exc = APIException("Donations in archived status are immutable.")
                     exc.status_code = 409
                     raise exc
+
+                # 3.2. Perform Admin Update
+                try:
+                    updated_donation = admin_update_donation(request=request, donation=donation)
+                except (ValueError, serializers.ValidationError) as e:
+                    if isinstance(e, serializers.ValidationError):
+                        raise
+                    exc = APIException(str(e))
+                    exc.status_code = 400
+                    raise exc
+
+                serializer = DonationDetailSerializer(updated_donation, context={'request': request})
+                response = Response(serializer.data)
+                response['ETag'] = build_updated_at_etag(updated_donation)
+                return response
 
             raise PermissionDenied("You are not authorized to edit this donation.")
 
@@ -343,6 +344,9 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
             "quotationId": quotation_id,
             "stopId_1": stop_id_1,
             "stopId_2": stop_id_2,
+            "dropoff_address": dropoff_address,
+            "dropoff_latitude": dropoff_lat,
+            "dropoff_longitude": dropoff_lng,
             "schedule_at": schedule_at_str,
             "expires_at": expires_at
         })
@@ -441,6 +445,20 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
         return Response(result, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'])
+    def archive(self, request, pk=None):
+        """Archives a donation (Admin-only)."""
+        # Retrieve the donation instance using view set lookup
+        donation = self.get_object()
+        # Extract authenticated user executing request
+        user = request.user
+        # Resolve real client IP address for the audit log
+        ip_address = get_client_ip(request)
+        # Execute orchestrated donation archiving service logic raising standard DRF exceptions
+        result = archive_donation(user=user, donation=donation, ip_address=ip_address)
+        # Return successful archiving details with 200 OK status
+        return Response(result, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'])
     def resolve(self, request, pk=None):
         """Resolves a donation by marking it as RECEIVED or REJECTED."""
         user = request.user
@@ -466,5 +484,3 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
         )
         
         return Response(result, status=status.HTTP_200_OK)
-
-

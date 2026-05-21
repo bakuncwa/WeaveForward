@@ -425,6 +425,7 @@
     wrap.querySelector('.mat-in').value = text;
     wrap.querySelector('.lookup-id').value = id;
     wrap.querySelector('.ss-list').classList.add('hidden');
+    wrap.closest('.restored-card')?.setAttribute('data-changed', 'true');
   }
 
   // Hide material list on click outside
@@ -445,6 +446,8 @@
         if (itemId) items.push({ item_id: Number(itemId), is_archived: true });
         return; // Don't add data for deleted cards
       }
+      
+      if (itemId && !card.hasAttribute('data-changed') && !isDeleted) return;
       
       const lid = card.querySelector('.lookup-id').value;
       if (!lid) { 
@@ -515,7 +518,12 @@
     btn.innerText = 'Submitting...';
     try {
       document.querySelectorAll('.btn-received, .btn-rejected').forEach(b => b.disabled = true);
-      const fd = new FormData(frm);
+      const fd = new FormData();
+      fd.append('csrfmiddlewaretoken', frm.elements.csrfmiddlewaretoken.value);
+      fd.append('status', status);
+      if (rejectionReason) fd.append('rejection_reason', rejectionReason);
+      const itemsValue = document.getElementById('items-json').value;
+      if (itemsValue && itemsValue !== '[]') fd.append('items', itemsValue);
       const res = await fetch(window.location.pathname, {
         method: 'POST',
         body: fd,
@@ -545,5 +553,8 @@
     if (bSel.value) loadMaterials(bSel);
   });
   isInit = false;
+
+  // Track changes on items: mark card container with data-changed when any input or select changes inside it.
+  document.getElementById('cards').addEventListener('input', e => e.target.closest('.restored-card')?.setAttribute('data-changed', 'true'));
 </script>
 {% endblock %}

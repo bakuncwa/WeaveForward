@@ -5,21 +5,33 @@
 
 const getEl = id => document.getElementById(id);
 let map, mrk, tmpLat, tmpLng, acTmr, acRes = [];
+let activePrefix = '';
 
 // 1. Search for addresses as you type (Nominatim API)
-function srchAddr(v) {
-  if (v.length < 3) return getEl('ac').classList.add('hidden');
+function srchAddr(v, prefix = '') {
+  activePrefix = prefix;
+  const acId = prefix ? prefix + '_ac' : 'ac';
+  
+  // Clear coordinates since the address text is being modified
+  const latId = prefix ? prefix + '_lat' : 'lat';
+  const lngId = prefix ? prefix + '_lng' : 'lng';
+  const latEl = getEl(latId);
+  const lngEl = getEl(lngId);
+  if (latEl) latEl.value = '';
+  if (lngEl) lngEl.value = '';
+
+  if (v.length < 3) return getEl(acId).classList.add('hidden');
   clearTimeout(acTmr);
   acTmr = setTimeout(async () => {
     try {
       const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(v + ', Philippines')}&limit=5&countrycodes=ph`);
       acRes = await res.json();
-      getEl('ac').innerHTML = acRes.map((r, i) => `<div class="ac-item" onmousedown="selAddr(${i})">${r.display_name}</div>`).join('');
-      getEl('ac').classList.remove('hidden');
+      getEl(acId).innerHTML = acRes.map((r, i) => `<div class="ac-item" onmousedown="selAddr(${i})">${r.display_name}</div>`).join('');
+      getEl(acId).classList.remove('hidden');
     } catch (e) { 
       console.error("Search failed", e); 
-      getEl('ac').innerHTML = `<div style="padding:10px 14px; color:#d9534f; font-weight:500; font-size:12.5px;">Location resolution services are unavailable.</div>`;
-      getEl('ac').classList.remove('hidden');
+      getEl(acId).innerHTML = `<div style="padding:10px 14px; color:#d9534f; font-weight:500; font-size:12.5px;">Location resolution services are unavailable.</div>`;
+      getEl(acId).classList.remove('hidden');
     }
   }, 350);
 }
@@ -27,15 +39,22 @@ function srchAddr(v) {
 // 2. Select an address from the suggestions list
 function selAddr(i) {
   const r = acRes[i];
-  getEl('addr').value = r.display_name;
-  getEl('lat').value = (+r.lat).toFixed(7);
-  getEl('lng').value = (+r.lon).toFixed(7);
+  const addrId = activePrefix ? activePrefix + '_addr' : 'addr';
+  const latId = activePrefix ? activePrefix + '_lat' : 'lat';
+  const lngId = activePrefix ? activePrefix + '_lng' : 'lng';
+  getEl(addrId).value = r.display_name;
+  getEl(latId).value = (+r.lat).toFixed(7);
+  getEl(lngId).value = (+r.lon).toFixed(7);
 }
 
 // 3. Open the Map Modal and initialize Leaflet if needed
-function openMap() {
+function openMap(prefix = '') {
+  activePrefix = prefix;
   getEl('map-modal').classList.remove('hidden');
-  const l = +getEl('lat').value || 14.5995, g = +getEl('lng').value || 120.9842;
+  
+  const latId = prefix ? prefix + '_lat' : 'lat';
+  const lngId = prefix ? prefix + '_lng' : 'lng';
+  const l = +getEl(latId).value || 14.5995, g = +getEl(lngId).value || 120.9842;
   tmpLat = l; tmpLng = g;
   
   if (typeof L === 'undefined') {
@@ -90,15 +109,19 @@ const closeMap = () => getEl('map-modal').classList.add('hidden');
 
 // 5. Confirm the selection and perform reverse geocoding
 async function confirmMap() {
-  getEl('lat').value = tmpLat.toFixed(7);
-  getEl('lng').value = tmpLng.toFixed(7);
+  const addrId = activePrefix ? activePrefix + '_addr' : 'addr';
+  const latId = activePrefix ? activePrefix + '_lat' : 'lat';
+  const lngId = activePrefix ? activePrefix + '_lng' : 'lng';
+  
+  getEl(latId).value = tmpLat.toFixed(7);
+  getEl(lngId).value = tmpLng.toFixed(7);
   closeMap();
   
   try {
     const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${tmpLat}&lon=${tmpLng}`);
     const data = await res.json();
     if (data.display_name) {
-      getEl('addr').value = data.display_name;
+      getEl(addrId).value = data.display_name;
     }
   } catch (e) { 
     console.error("Reverse geocode failed", e);

@@ -131,7 +131,7 @@ After initializing the database (see Backend Step 4), you can log in with the fo
 4. **Initialize the Database**:
    Execute the database initialization script to automate the creation of the MySQL schema and seed the initial administrator account:
    ```powershell
-   python init_db.py
+   python manage.py bootstrap_environment
    ```
 
 5. **Apply Database Migrations**:
@@ -334,12 +334,11 @@ Features for TUAB (Organization) user role:
 - [ ] View Inventory Items
 - [ ] Update Inventory Items
 - [ ] Delete Inventory Items
-- [-] View Incoming Donations
-- [ ] Update Incoming Donations
+- [x] View Incoming Donations
+- [x] Update Incoming Donations
 - [ ] Archive Incoming Donations
 - [x] View Match Donation Recommendations (CatBoostAI ML Model Integration with DB)
 - [ ] View Circular Economy Impact Dashboard
-- [ ] Update Account Information
 - [x] Subscribe for Premium Features
 - [ ] View Payment History
 - [ ] Update Account Information
@@ -358,6 +357,8 @@ Features for Admin user role:
 - [x] Edit TUABs
 - [x] Archive TUABs
 - [x] View Donations
+- [x] Edit Donations
+- [x] Archive Donations
 - [ ] View Donation Impact Dashboard
 - [ ] View Circular Economy Impact Dashboard
 - [ ] View Payments

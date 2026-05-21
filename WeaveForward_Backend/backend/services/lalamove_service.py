@@ -72,7 +72,11 @@ def get_lalamove_quotation(pickup_lat, pickup_lng, pickup_address, dropoff_lat, 
     response = requests.post(f"{base_url}{path}", headers=headers, data=body)
     
     if response.status_code != 201 and response.status_code != 200:
-        return {"error": response.json(), "status_code": response.status_code}
+        try:
+            err = response.json()
+        except ValueError:
+            err = response.text
+        return {"error": err, "status_code": response.status_code}
         
     return response.json()
 
@@ -187,6 +191,10 @@ def process_lalamove_webhook(payload, client_ip):
             order_record.status = OrderStatus.ON_GOING
             order_record.updated_at = timezone.now()
             order_record.save(update_fields=["status", "updated_at"])
+
+            donation_record = order_record.donation
+            donation_record.updated_at = timezone.now()
+            donation_record.save(update_fields=["updated_at"])
             return {"status_code": 200, "detail": "Order status updated to ON_GOING successfully."}
 
         # "ON_GOING" -> "PICKED_UP"
@@ -216,6 +224,10 @@ def process_lalamove_webhook(payload, client_ip):
             order_record.status = OrderStatus.COMPLETED
             order_record.updated_at = timezone.now()
             order_record.save(update_fields=["status", "updated_at"])
+
+            donation_record = order_record.donation
+            donation_record.updated_at = timezone.now()
+            donation_record.save(update_fields=["updated_at"])
             return {"status_code": 200, "detail": "Order status updated to COMPLETED successfully."}
 
         # "ON_GOING" -> "ASSIGNING_DRIVER" (Driver Rejected / Reassigning)
@@ -252,6 +264,10 @@ def process_lalamove_webhook(payload, client_ip):
                 order_record.no_reassigned += 1
                 order_record.updated_at = timezone.now()
                 order_record.save(update_fields=["status", "no_reassigned", "updated_at"])
+
+                donation_record = order_record.donation
+                donation_record.updated_at = timezone.now()
+                donation_record.save(update_fields=["updated_at"])
                 return {"status_code": 200, "detail": "Order status reverted to ASSIGNING_DRIVER and reassignment count incremented."}
 
         # Any -> "EXPIRED"
@@ -318,6 +334,80 @@ def cancel_lalamove_order(lalamove_order_id):
         return {"error": response.text, "status_code": response.status_code}
     # Return success status code
     return {"status_code": response.status_code}
+
+
+def update_lalamove_order(
+    lalamove_order_id,
+    pickup_lat,
+    pickup_lng,
+    pickup_address,
+    dropoff_lat,
+    dropoff_lng,
+    dropoff_address,
+    pickup_name=None,
+    pickup_phone=None,
+    dropoff_name=None,
+    dropoff_phone=None,
+):
+    api_key = settings.LALAMOVE_API_KEY
+    api_secret = settings.LALAMOVE_API_SECRET
+    base_url = "https://rest.sandbox.lalamove.com"
+    path = f"/v3/orders/{lalamove_order_id}"
+
+    formatted_pickup_lat = "{:.7f}".format(float(pickup_lat))
+    formatted_pickup_lng = "{:.7f}".format(float(pickup_lng))
+    formatted_dropoff_lat = "{:.7f}".format(float(dropoff_lat))
+    formatted_dropoff_lng = "{:.7f}".format(float(dropoff_lng))
+
+    data = {
+        "data": {
+            "stops": [
+                {
+                    "coordinates": {
+                        "lat": formatted_pickup_lat,
+                        "lng": formatted_pickup_lng
+                    },
+                    "address": pickup_address,
+                    "name": pickup_name or "",
+                    "phone": pickup_phone or "",
+                },
+                {
+                    "coordinates": {
+                        "lat": formatted_dropoff_lat,
+                        "lng": formatted_dropoff_lng
+                    },
+                    "address": dropoff_address,
+                    "name": dropoff_name or "",
+                    "phone": dropoff_phone or "",
+                }
+            ]
+        }
+    }
+
+    timestamp = str(int(time.time() * 1000))
+    method = "PATCH"
+    body = json.dumps(data, separators=(',', ':'))
+
+    signature_payload = f"{timestamp}\r\n{method}\r\n{path}\r\n\r\n{body}"
+    signature = hmac.new(
+        api_secret.encode('utf-8'),
+        signature_payload.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
+
+    headers = {
+        "Authorization": f"hmac {api_key}:{timestamp}:{signature}",
+        "Market": "PH",
+        "Request-ID": str(uuid.uuid4()),
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+
+    response = requests.patch(f"{base_url}{path}", headers=headers, data=body)
+    if response.status_code not in [200, 201, 204]:
+        return {"error": response.text, "status_code": response.status_code}
+    return response.json() if response.status_code in [200, 201] else {"status_code": response.status_code}
+
 
 
 

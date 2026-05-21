@@ -503,8 +503,8 @@ class AdminViewTuabsTest(MiddlewareAuthMixin, TestCase):
         self.assertContains(response, 'Search TUABs...')
         self.assertNotContains(response, 'function authFetch')
         self.assertContains(response, 'data-api-url="/admin/users/11/archive/"')
-        self.assertContains(response, 'data-user-etag="W/&quot;etag-11&quot;"')
-        self.assertContains(response, 'name="etag"')
+        self.assertNotContains(response, 'data-user-etag=')
+        self.assertNotContains(response, 'name="etag"')
         self.assertContains(response, 'href="/admin/tuabs/11/"')
         self.assertContains(response, 'href="/admin/tuabs/add/"')
         self.assertContains(response, 'Add TUAB')
@@ -538,8 +538,8 @@ class AdminViewDonorsTest(MiddlewareAuthMixin, TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'data-api-url="/admin/users/7/archive/"')
-        self.assertContains(response, 'data-user-etag="W/&quot;etag-7&quot;"')
-        self.assertContains(response, 'name="etag"')
+        self.assertNotContains(response, 'data-user-etag=')
+        self.assertNotContains(response, 'name="etag"')
 
 
 class AdminAddTuabViewTest(MiddlewareAuthMixin, TestCase):
@@ -695,38 +695,29 @@ class AdminArchiveProxyTest(MiddlewareAuthMixin, TestCase):
     def test_admin_archive_proxy_calls_backend_delete(self, mocked_api_call):
         mocked_api_call.return_value = make_response(204)
         
-        response = self.client.post(reverse('admin_archive_user_proxy', kwargs={'user_id': 11}), {'etag': '"etag-1"'})
+        response = self.client.post(reverse('admin_archive_user_proxy', kwargs={'user_id': 11}))
         
         self.assertEqual(response.status_code, 302)
         self.assertEqual(mocked_api_call.call_args.args[1:], ('DELETE', 'users/11'))
-        self.assertEqual(mocked_api_call.call_args.kwargs['headers']['If-Match'], '"etag-1"')
+        self.assertNotIn('headers', mocked_api_call.call_args.kwargs)
 
     @patch('frontend.views.admin.api_call')
     def test_admin_archive_proxy_sets_success_message(self, mocked_api_call):
         mocked_api_call.return_value = make_response(204)
 
-        response = self.client.post(reverse('admin_archive_user_proxy', kwargs={'user_id': 11}), {'etag': '"etag-1"'})
+        response = self.client.post(reverse('admin_archive_user_proxy', kwargs={'user_id': 11}))
 
         messages = [message.message for message in get_messages(response.wsgi_request)]
         self.assertIn("User archived successfully.", messages)
 
     @patch('frontend.views.admin.api_call')
-    def test_admin_archive_proxy_handles_stale_etag(self, mocked_api_call):
-        mocked_api_call.return_value = make_response(412, {'detail': 'ETag does not match the current resource version.'})
+    def test_admin_archive_proxy_surfaces_backend_error(self, mocked_api_call):
+        mocked_api_call.return_value = make_response(409, {'detail': 'Unable to archive user right now.'})
 
-        response = self.client.post(reverse('admin_archive_user_proxy', kwargs={'user_id': 11}), {'etag': '"etag-1"'})
-
-        messages = [message.message for message in get_messages(response.wsgi_request)]
-        self.assertIn("This user was updated somewhere else. Refresh the page and try archiving again.", messages)
-
-    @patch('frontend.views.admin.api_call')
-    def test_admin_archive_proxy_handles_missing_etag(self, mocked_api_call):
-        mocked_api_call.return_value = make_response(428, {'detail': 'If-Match header is required.'})
-
-        response = self.client.post(reverse('admin_archive_user_proxy', kwargs={'user_id': 11}), {'etag': ''})
+        response = self.client.post(reverse('admin_archive_user_proxy', kwargs={'user_id': 11}))
 
         messages = [message.message for message in get_messages(response.wsgi_request)]
-        self.assertIn("We couldn't verify the latest user version. Refresh the page and try again.", messages)
+        self.assertIn("Unable to archive user right now.", messages)
 
     def test_admin_archive_proxy_denies_non_admin(self):
         self.auth_profile = {'role': 'Donor'}
@@ -906,6 +897,219 @@ class DonorEditProfileViewTest(MiddlewareAuthMixin, TestCase):
         self.assertEqual(response.json()['detail'], 'Only active users can be edited.')
 
 
+class DonorEditDonationViewTest(MiddlewareAuthMixin, TestCase):
+    auth_profile = {
+        'user_id': 7,
+        'role': 'Donor',
+        'first_name': 'Juan',
+        'last_name': 'Dela Cruz',
+    }
+
+    @patch('frontend.views.donor.api_call')
+    def test_post_proxies_sparse_patch_payload(self, mocked_api_call):
+        mocked_api_call.return_value = make_response(200, {'detail': 'Donation updated.'})
+
+        response = self.client.post(
+            reverse('donor_edit_donation', kwargs={'donation_id': 88}),
+            {
+                'current_etag': '"etag-88"',
+                '_method': 'PATCH',
+                'items': '[{"item_id":1,"weight_kg":2}]',
+            },
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['redirect'], '/donor/my-donations/88/')
+        self.assertEqual(mocked_api_call.call_args.args[1:], ('PATCH', 'donations/88'))
+        self.assertEqual(mocked_api_call.call_args.kwargs['headers']['If-Match'], '"etag-88"')
+        self.assertEqual(
+            mocked_api_call.call_args.kwargs['data'],
+            {'items': '[{"item_id":1,"weight_kg":2}]'},
+        )
+
+
+class AdminEditDonationViewTest(MiddlewareAuthMixin, TestCase):
+    auth_profile = {
+        'user_id': 1,
+        'role': 'Admin',
+        'first_name': 'Admin',
+    }
+
+    @patch('frontend.views.admin.api_call')
+    def test_get_archived_donation_redirects_to_list(self, mocked_api_call):
+        mocked_api_call.return_value = make_response(200, {
+            'donation_id': 88,
+            'status': 'ARCHIVED',
+            'items': [],
+        })
+
+        response = self.client.get(reverse('admin_edit_donation', kwargs={'donation_id': 88}))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('admin_view_donations'))
+        self.assertEqual(mocked_api_call.call_args.args[1:], ('GET', 'donations/88'))
+
+    @patch('frontend.views.admin.api_call')
+    def test_post_proxies_sparse_patch_payload(self, mocked_api_call):
+        mocked_api_call.return_value = make_response(200, {'detail': 'Donation updated.'})
+
+        response = self.client.post(
+            reverse('admin_edit_donation', kwargs={'donation_id': 88}),
+            {
+                'current_etag': '"etag-88"',
+                'dropoff_display_address': 'CSB Taft Manila',
+            },
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['redirect'], '/admin/donations/88/')
+        self.assertEqual(mocked_api_call.call_args.args[1:], ('PATCH', 'donations/88'))
+        self.assertEqual(mocked_api_call.call_args.kwargs['headers']['If-Match'], '"etag-88"')
+        self.assertEqual(
+            mocked_api_call.call_args.kwargs['data'],
+            {'dropoff_display_address': 'CSB Taft Manila'},
+        )
+
+
+class AdminCancelDonationViewTest(MiddlewareAuthMixin, TestCase):
+    auth_profile = {
+        'user_id': 1,
+        'role': 'Admin',
+        'first_name': 'Admin',
+    }
+
+    def test_get_not_allowed(self):
+        response = self.client.get(
+            reverse('admin_cancel_donation', kwargs={'donation_id': 88})
+        )
+        self.assertEqual(response.status_code, 405)
+
+    @patch('frontend.views.admin.api_call')
+    def test_post_success(self, mocked_api_call):
+        mocked_api_call.return_value = make_response(200, {'detail': 'Donation successfully cancelled.'})
+
+        response = self.client.post(
+            reverse('admin_cancel_donation', kwargs={'donation_id': 88}),
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['redirect'], reverse('admin_view_donations'))
+        mocked_api_call.assert_called_once()
+        self.assertEqual(mocked_api_call.call_args.args[1:], ('POST', 'donations/88/cancel'))
+
+    @patch('frontend.views.admin.api_call')
+    def test_post_backend_error(self, mocked_api_call):
+        mocked_api_call.return_value = make_response(400, {'detail': 'Cannot cancel this donation.'})
+
+        response = self.client.post(
+            reverse('admin_cancel_donation', kwargs={'donation_id': 88}),
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()['error'], 'Cannot cancel this donation.')
+
+
+class AdminViewDonationsTest(MiddlewareAuthMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.profile = {'role': 'Admin', 'first_name': 'Admin'}
+
+    @patch('frontend.views.admin.get_paginated_data')
+    def test_admin_view_donations_renders_archive_button(self, mocked_page_data):
+        mocked_page_data.return_value = {
+            'results': [{
+                'donation_id': 88,
+                'status': 'PENDING',
+                'is_flagged': False,
+                'items': [],
+                'claimed_by_tuab': None,
+                'upload': None,
+            }],
+            'count': 1,
+            'total_pages': 1,
+            'current_page': 1,
+            'has_next': False,
+            'has_prev': False,
+            'search_query': '',
+        }
+
+        response = self.client.get(reverse('admin_view_donations'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'href="/admin/donations/88/"')
+        self.assertContains(response, 'href="/admin/donations/88/edit/"')
+        self.assertContains(response, 'data-api-url="/admin/donations/88/archive/"')
+        self.assertNotContains(response, 'data-donation-etag=')
+
+    @patch('frontend.views.admin.get_paginated_data')
+    def test_admin_view_donations_hides_edit_for_archived_rows(self, mocked_page_data):
+        mocked_page_data.return_value = {
+            'results': [{
+                'donation_id': 89,
+                'status': 'ARCHIVED',
+                'is_flagged': False,
+                'items': [],
+                'claimed_by_tuab': None,
+                'upload': None,
+            }],
+            'count': 1,
+            'total_pages': 1,
+            'current_page': 1,
+            'has_next': False,
+            'has_prev': False,
+            'search_query': '',
+        }
+
+        response = self.client.get(reverse('admin_view_donations'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'href="/admin/donations/89/"')
+        self.assertNotContains(response, 'href="/admin/donations/89/edit/"')
+        self.assertNotContains(response, 'data-api-url="/admin/donations/89/archive/"')
+
+
+class AdminArchiveDonationViewTest(MiddlewareAuthMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.profile = {'role': 'Admin', 'first_name': 'Admin'}
+
+    def test_get_not_allowed(self):
+        response = self.client.get(reverse('admin_archive_donation', kwargs={'donation_id': 88}))
+        self.assertEqual(response.status_code, 405)
+
+    @patch('frontend.views.admin.api_call')
+    def test_post_success_fetches_etag_then_archives(self, mocked_api_call):
+        mocked_api_call.return_value = make_response(200, {'detail': 'Donation successfully archived.'})
+
+        response = self.client.post(
+            reverse('admin_archive_donation', kwargs={'donation_id': 88}),
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['redirect'], reverse('admin_view_donations'))
+        self.assertEqual(mocked_api_call.call_args.args[1:], ('POST', 'donations/88/archive'))
+        self.assertNotIn('headers', mocked_api_call.call_args.kwargs)
+
+    @patch('frontend.views.admin.api_call')
+    def test_post_preserves_backend_status_on_error(self, mocked_api_call):
+        mocked_api_call.return_value = make_response(403, {'detail': 'You are not authorized to archive this donation.'})
+
+        response = self.client.post(
+            reverse('admin_archive_donation', kwargs={'donation_id': 88}),
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()['error'], 'You are not authorized to archive this donation.')
+        self.assertEqual(mocked_api_call.call_args.args[1:], ('POST', 'donations/88/archive'))
+        self.assertNotIn('headers', mocked_api_call.call_args.kwargs)
+
+
 class TuabDonationDetailViewTest(MiddlewareAuthMixin, TestCase):
     def setUp(self):
         super().setUp()
@@ -1073,6 +1277,21 @@ class TuabDonationDetailViewTest(MiddlewareAuthMixin, TestCase):
         self.assertContains(response, 'CLAIMED')
 
     @patch('frontend.views.tuab.api_call')
+    def test_tuab_view_donation_redirects_owned_in_transit_to_edit(self, mocked_api_call):
+        payload = dict(self.donation_payload)
+        payload.update({
+            'status': 'IN_TRANSIT',
+            'delivery_method': 'DELIVERY',
+            'claimed_by_tuab': {'user_id': 21, 'business_name': 'Weave Lab'},
+        })
+        mocked_api_call.return_value = make_response(200, payload, {'ETag': '"etag-88"'})
+
+        response = self.client.get(reverse('tuab_view_donation', kwargs={'donation_id': 88}))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('tuab_update_incoming_donation', kwargs={'donation_id': 88}))
+
+    @patch('frontend.views.tuab.api_call')
     def test_tuab_view_donation_proxies_transit_action(self, mocked_api_call):
         mocked_api_call.return_value = make_response(200, {'detail': 'Donation marked as in-transit.'})
 
@@ -1150,31 +1369,13 @@ class TuabDonationDetailViewTest(MiddlewareAuthMixin, TestCase):
 
 
     @patch('frontend.views.tuab.api_call')
-    def test_tuab_update_incoming_donation_get_renders_resolve_form(self, mocked_api_call):
-        payload = dict(self.donation_payload)
-        payload.update({
-            'status': 'IN_TRANSIT',
-            'claimed_by_tuab': {'user_id': 21, 'business_name': 'Weave Lab'},
-        })
-        mocked_api_call.side_effect = [
-            make_response(200, payload, {'ETag': '"etag-88"'}), # Fetch donation
-            make_response(200, ['Shirt']), # Fetch clothing types
-            make_response(200, ['Brand A']), # Fetch brands
-        ]
-
-        response = self.client.get(reverse('tuab_update_incoming_donation', kwargs={'donation_id': 88}))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Resolve Donation')
-        self.assertContains(response, 'id="edit-frm"')
-
-    @patch('frontend.views.tuab.api_call')
     def test_tuab_update_incoming_donation_post_proxies_resolution(self, mocked_api_call):
         mocked_api_call.return_value = make_response(200, {'detail': 'Donation resolved.'})
 
         response = self.client.post(
             reverse('tuab_update_incoming_donation', kwargs={'donation_id': 88}),
             data=json.dumps({
+                'current_etag': '"etag-88"',
                 'status': 'RECEIVED',
                 'items': [],
             }),
@@ -1185,6 +1386,10 @@ class TuabDonationDetailViewTest(MiddlewareAuthMixin, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['redirect'], '/tuab/dashboard/')
         self.assertEqual(mocked_api_call.call_args.args[1:], ('POST', 'donations/88/resolve'))
+        self.assertEqual(
+            mocked_api_call.call_args.kwargs['data'],
+            {'status': 'RECEIVED', 'items': []},
+        )
 
 
 class DonorDonationDetailViewTest(MiddlewareAuthMixin, TestCase):
