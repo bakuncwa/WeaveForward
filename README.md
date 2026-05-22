@@ -323,7 +323,7 @@ Features for Donor user role:
 - [x] View Donation
 - [x] Edit Donation
 - [x] Cancel Donation
-- [ ] View Donation Impact Dashboard
+- [x] View Donation Impact Dashboard
 - [x] Update Account Information
 - [ ] Donor Features Blackbox Selenium Test Script
 
@@ -359,7 +359,7 @@ Features for Admin user role:
 - [x] View Donations
 - [x] Edit Donations
 - [x] Archive Donations
-- [ ] View Donation Impact Dashboard
+- [x] View Donation Impact Dashboard
 - [ ] View Circular Economy Impact Dashboard
 - [ ] View Payments
 - [ ] Admin Features Blackbox Selenium Test Script
