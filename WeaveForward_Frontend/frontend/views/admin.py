@@ -631,3 +631,70 @@ async def admin_archive_donation(request, donation_id):
     except Exception as e:
         return JsonResponse({'error': f"System Error: {str(e)}"}, status=500)
 
+
+async def admin_impact_dashboard(request):
+    """View to display aggregate donation metrics and a Leaflet map of NCR barangays for Admin."""
+    profile = request.user_profile
+
+    # Extract filter parameters
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+    pickup_city = request.GET.get('pickup_city', '')
+    clothing_type = request.GET.get('clothing_type', '')
+
+    api_params = {}
+    if date_from:
+        api_params['date_from'] = date_from
+    if date_to:
+        api_params['date_to'] = date_to
+    if pickup_city and pickup_city != 'All Cities':
+        api_params['pickup_city'] = pickup_city
+    if clothing_type and clothing_type != 'All Types':
+        api_params['clothing_type'] = clothing_type
+
+    # Fetch backend impact-dashboard metrics and clothing types concurrently
+    dashboard_data = {}
+    clothing_types = []
+    try:
+        response, types_res = await asyncio.gather(
+            api_call(request, 'GET', 'impact-dashboard', params=api_params),
+            api_call(request, 'GET', 'brandfiberlookups/clothing_types')
+        )
+        if response.status_code == 200:
+            dashboard_data = response.json()
+        else:
+            messages.error(request, "Failed to load donation metrics from the backend.")
+        
+        if types_res.status_code == 200:
+            clothing_types = types_res.json()
+    except Exception as e:
+        messages.error(request, f"Backend service unreachable: {str(e)}")
+
+    # Static list of cities matching the templates
+    cities = [
+        "Manila", "Quezon City", "Caloocan", "Makati", "Pasig", "Taguig",
+        "Mandaluyong", "Pasay", "Parañaque", "Las Piñas", "Muntinlupa",
+        "Marikina", "San Juan", "Valenzuela", "Navotas", "Malabon", "Pateros"
+    ]
+
+    total_donations = dashboard_data.get('donations', 0)
+    claimed_count = dashboard_data.get('donors', 0)  # Map unique donors to the second stat slot
+    leaderboard = dashboard_data.get('top_donors', [])
+    donations_json = json.dumps(dashboard_data.get('barangay_breakdown', []))
+
+    return render(request, 'frontend/admin/admin_impact_dashboard.html', {
+        'page_title': 'Donation Impact Dashboard',
+        'user': profile,
+        'total_donations': total_donations,
+        'claimed_count': claimed_count,
+        'leaderboard': leaderboard,
+        'cities': cities,
+        'clothing_types': clothing_types,
+        'donations_json': donations_json,
+        'date_from': date_from,
+        'date_to': date_to,
+        'selected_city': pickup_city,
+        'selected_clothing_type': clothing_type,
+    })
+
+

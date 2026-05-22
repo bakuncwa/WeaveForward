@@ -38,6 +38,9 @@ urlpatterns = [
     path('donations/<int:pk>/archive', views.DonationViewSet.as_view({'post': 'archive'}), name='donation-archive'),
     path('donations/<int:pk>', views.DonationViewSet.as_view({'get': 'retrieve', 'patch': 'partial_update'}), name='donation-detail'),
 
+    # --- IMPACT DASHBOARD ---
+    path('impact-dashboard', views.ImpactDashboardViewSet.as_view({'get': 'list'}), name='impact-dashboard'),
+
     # --- MATERIALS ---
     path('brandfiberlookups', views.BrandFiberLookupViewset.as_view({'get': 'list'}), name='material-list'),
     path('brandfiberlookups/fibers', views.BrandFiberLookupViewset.as_view({'get': 'fibers'}), name='material-fibers'),

@@ -11,3 +11,4 @@ from .locations import lookup_location
 from .donations import DonationViewSet
 from .brandfiberlookups import BrandFiberLookupViewset
 from .webhooks import webhooks
+from .impact_dashboard import ImpactDashboardViewSet

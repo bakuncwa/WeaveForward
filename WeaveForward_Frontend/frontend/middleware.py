@@ -47,47 +47,53 @@ class TokenRefreshMiddleware:
         access_token = request.COOKIES.get("access_token")
         refresh_token = request.COOKIES.get("refresh_token")
 
+        print(f"[MIDDLEWARE DEBUG] path={path} has_access={bool(access_token)} has_refresh={bool(refresh_token)}")
+
         # Fully anonymous visitors can view guest-only pages normally.
         if path in GUEST_ONLY_PATHS and not access_token and not refresh_token:
+            print(f"[MIDDLEWARE DEBUG] DECISION: anonymous guest pass-through for {path}")
             return await self.get_response(request)
-
-        # Visitors with only a stale refresh token should still see the page, but we clear dead auth cookies.
-        if path in GUEST_ONLY_PATHS and not access_token and refresh_token:
-            response = await self.get_response(request)
-            for c in AUTH_COOKIE_NAMES:
-                response.delete_cookie(c, path="/")
-            return response
 
         # Protected routes require at least some auth cookie before we even try /users/me.
         if any(path.startswith(prefix) for prefix in PROTECTED_PREFIXES) and not access_token and not refresh_token:
+            print(f"[MIDDLEWARE DEBUG] DECISION: no auth cookies at all -> means you never logged in, or all cookies were already cleared by a previous failed refresh. Redirecting to login for {path}")
             return redirect("login")
 
         # Any request carrying auth cookies must be verified against the fresh /users/me backend profile.
         if access_token or refresh_token:
+            print(f"[MIDDLEWARE DEBUG] DECISION: verifying auth via /users/me for {path}")
             try:
                 profile_response = await api_call(request, "GET", "users/me")
             except httpx.RequestError:
+                print(f"[MIDDLEWARE DEBUG] DECISION: /users/me threw RequestError (backend unreachable) for {path}")
                 # If auth verification itself cannot reach the backend, show the maintenance page on auth-sensitive routes.
                 if any(path.startswith(prefix) for prefix in PROTECTED_PREFIXES) or path in GUEST_ONLY_PATHS:
                     return render(request, "frontend/503.html", status=503)
                 return await self.get_response(request)
 
+            print(f"[MIDDLEWARE DEBUG] /users/me status={profile_response.status_code} for {path}")
+
             if profile_response.status_code == 200:
                 request.user_profile = profile_response.json()
                 request.session["user_profile"] = request.user_profile
+                print(f"[MIDDLEWARE DEBUG] DECISION: auth valid, profile role={request.user_profile.get('role')} for {path}")
             elif profile_response.status_code in {401, 403}:
+                print(f"[MIDDLEWARE DEBUG] DECISION: /users/me returned {profile_response.status_code} -> your token is expired, revoked, or the backend rejected it. This is THE logout trigger. Reason is logged out by middleware. path={path}")
                 # Expired or invalid auth should kick protected users back to login and clean guest cookies too.
                 request.session.pop("user_profile", None)
                 if any(path.startswith(prefix) for prefix in PROTECTED_PREFIXES):
+                    print(f"[MIDDLEWARE DEBUG] DECISION: cleared all cookies + redirected to login for {path} -> you are now logged out. Fix: refresh token also expired or blacklisted, so the frontend's automatic refresh failed earlier.")
                     response = redirect("login")
                     for c in AUTH_COOKIE_NAMES:
                         response.delete_cookie(c, path="/")
                     return response
+                print(f"[MIDDLEWARE DEBUG] DECISION: cleared stale cookies but still rendered the page for {path} (guest-only or public path)")
                 response = await self.get_response(request)
                 for c in AUTH_COOKIE_NAMES:
                     response.delete_cookie(c, path="/")
                 return response
             else:
+                print(f"[MIDDLEWARE DEBUG] DECISION: /users/me returned {profile_response.status_code} (not 200/401/403) -> backend is in an unexpected state. Showing 503 for {path}")
                 # Unexpected auth backend responses are treated as temporary auth-service outages.
                 if any(path.startswith(prefix) for prefix in PROTECTED_PREFIXES) or path in GUEST_ONLY_PATHS:
                     return render(request, "frontend/503.html", status=503)

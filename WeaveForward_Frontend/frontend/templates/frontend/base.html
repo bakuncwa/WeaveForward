@@ -420,8 +420,8 @@
         </a>
 
 
-        <a class="wf-nav-item {% if '/dashboard' in request.path and not '/tuab' in request.path %}active{% endif %}"
-          id="nav-dashboard" href="/dashboard">
+        <a class="wf-nav-item {% if 'donation-impact-dashboard' in request.path %}active{% endif %}"
+          id="nav-dashboard" href="{% url 'donor_impact_dashboard' %}">
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <rect x="3" y="3" width="18" height="18" rx="2" />
             <path d="M3 9h18" />
@@ -621,7 +621,7 @@
           <span>Circular Economy</span>
         </a>
 
-        <a class="wf-nav-item" id="anav-dashboard" href="{% url 'admin_view_donations' %}">
+        <a class="wf-nav-item {% if '/admin/donation-impact-dashboard' in request.path %}active{% endif %}" id="anav-dashboard" href="{% url 'admin_impact_dashboard' %}">
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <rect x="3" y="3" width="18" height="18" rx="2" />
             <path d="M3 9h18" />
