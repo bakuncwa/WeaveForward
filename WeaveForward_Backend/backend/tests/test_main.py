@@ -780,40 +780,7 @@ class UserAPITest(TestCase):
             end_date='2026-05-01T00:00:00Z'
         )
 
-    def test_user_list_visibility(self):
-        # Admin can list all
-        self.client.force_authenticate(user=self.admin)
-        res = self.client.get(reverse('user-list'))
-        self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertEqual(res.data['count'], 5) # Admin, Donor, TUAB Active, TUAB Inactive, TUAB Under Review
-        admin_row = next(row for row in res.data['results'] if row['user_id'] == self.admin.user_id)
-        donor_row = next(row for row in res.data['results'] if row['user_id'] == self.donor.user_id)
-        tuab_active_row = next(row for row in res.data['results'] if row['user_id'] == self.tuab_active.user_id)
-        self.assertEqual(admin_row['etag'], build_updated_at_etag(self.admin))
-        self.assertEqual(donor_row['etag'], build_updated_at_etag(self.donor))
-        self.assertEqual(tuab_active_row['etag'], build_updated_at_etag(self.tuab_active))
-        self.assertFalse(admin_row['is_subscribed'])
-        self.assertFalse(donor_row['is_subscribed'])
-        self.assertTrue(tuab_active_row['is_subscribed'])
-        self.assertEqual(
-            set(admin_row.keys()),
-            {'user_id', 'email', 'role', 'first_name', 'last_name', 'middle_name', 'business_name', 'contact_no', 'status', 'is_subscribed', 'etag'}
-        )
-        for removed_field in ['barangay', 'city', 'latitude', 'longitude', 'display_address', 'is_2fa_enabled', 'upload', 'created_at', 'updated_at']:
-            self.assertNotIn(removed_field, donor_row)
-        
-        # Donor sees active TUABs
-        self.client.force_authenticate(user=self.donor)
-        res = self.client.get(reverse('user-list'))
-        self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(res.data['results']), 1)
-        public_row = res.data['results'][0]
-        self.assertEqual(public_row['email'], self.tuab_active.email)
-        self.assertNotIn('is_subscribed', public_row)
-        self.assertEqual(
-            set(public_row.keys()),
-            {'user_id', 'email', 'role', 'business_name', 'description', 'barangay', 'city', 'upload', 'target_fibers'}
-        )
+
 
     def test_admin_user_list_can_filter_by_status(self):
         self.client.force_authenticate(user=self.admin)

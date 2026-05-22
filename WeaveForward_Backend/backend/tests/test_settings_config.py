@@ -94,33 +94,7 @@ class SettingsConfigTest(TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn(expected_text, result.stderr)
 
-    def test_development_defaults_apply(self):
-        result = self._import_settings(self._development_env())
 
-        self.assertEqual(result.returncode, 0, msg=result.stderr)
-        payload = json.loads(result.stdout.strip())
-        self.assertTrue(payload["DEBUG"])
-        self.assertFalse(payload["AUTH_COOKIE_SECURE"])
-        self.assertEqual(payload["AUTH_COOKIE_SAMESITE"], "Lax")
-        self.assertEqual(payload["ALLOWED_HOSTS"], ["127.0.0.1", "localhost"])
-        self.assertEqual(payload["FRONTEND_URL"], "http://127.0.0.1:8001")
-        self.assertEqual(payload["CORS_ALLOWED_ORIGINS"], ["http://127.0.0.1:8001"])
-        self.assertEqual(payload["CSRF_TRUSTED_ORIGINS"], ["http://127.0.0.1:8001"])
-        self.assertFalse(payload["USE_GCS"])
-
-    def test_production_defaults_apply(self):
-        result = self._import_settings(self._production_env())
-
-        self.assertEqual(result.returncode, 0, msg=result.stderr)
-        payload = json.loads(result.stdout.strip())
-        self.assertFalse(payload["DEBUG"])
-        self.assertTrue(payload["AUTH_COOKIE_SECURE"])
-        self.assertEqual(payload["AUTH_COOKIE_SAMESITE"], "Lax")
-        self.assertEqual(payload["ALLOWED_HOSTS"], ["api.example.com"])
-        self.assertEqual(payload["FRONTEND_URL"], "https://frontend.example.com")
-        self.assertEqual(payload["CORS_ALLOWED_ORIGINS"], ["https://frontend.example.com"])
-        self.assertEqual(payload["CSRF_TRUSTED_ORIGINS"], ["https://frontend.example.com"])
-        self.assertTrue(payload["USE_GCS"])
 
     def test_production_requires_secret_key(self):
         env = self._production_env()

@@ -17,6 +17,7 @@ urlpatterns = [
     path('api/donors/search/', views.donor_search_proxy, name='donor_search_proxy'),
     
     # --- Donor ---
+    path('donor/donation-impact-dashboard/', views.donor_impact_dashboard, name='donor_impact_dashboard'),
     path('donor/browse-businesses/', views.donor_browse_businesses, name='donor_browse_businesses'),
     path('donor/my-donations/', views.donor_my_donations, name='donor_my_donations'),
     path('donor/my-donations/<int:donation_id>/', views.donor_view_donation, name='donor_view_donation'),
@@ -40,6 +41,7 @@ urlpatterns = [
     path('tuab/subscribe/', views.tuab_subscribe, name='tuab_subscribe'),
     
     # --- Admin ---
+    path('admin/donation-impact-dashboard/', views.admin_impact_dashboard, name='admin_impact_dashboard'),
     path('admin/donations/', views.admin_view_donations, name='admin_view_donations'),
     path('admin/donations/add/', views.admin_add_donation, name='admin_add_donation'),
     path('admin/donations/<int:donation_id>/', views.admin_view_donation, name='admin_view_donation'),

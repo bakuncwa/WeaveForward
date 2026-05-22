@@ -1459,3 +1459,161 @@ class DonorCancelDonationViewTest(MiddlewareAuthMixin, TestCase):
         self.assertEqual(response.url, reverse('donor_my_donations'))
         messages = [msg.message for msg in get_messages(response.wsgi_request)]
         self.assertIn("Failed to cancel donation.", messages)
+
+
+class DonorImpactDashboardViewTest(MiddlewareAuthMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.auth_profile = {
+            'user_id': 11,
+            'role': 'Donor',
+            'first_name': 'Dana',
+            'last_name': 'Cruz',
+        }
+
+    @patch('frontend.views.donor.api_call')
+    def test_donor_impact_dashboard_success(self, mocked_api_call):
+        mocked_api_call.side_effect = [
+            make_response(200, {
+                'donations': 12,
+                'donors': 5,
+                'top_donors': [{'full_name': 'John Doe', 'donation_count': 10}],
+                'barangay_breakdown': [{'barangay': 'San Lorenzo', 'latitude': 14.55, 'longitude': 121.02, 'donation_count': 12}],
+            }),
+            make_response(200, ['t-shirt', 'pants']),
+        ]
+
+        response = self.client.get(reverse('donor_impact_dashboard'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Donation Impact Dashboard')
+        self.assertContains(response, '12')
+        self.assertContains(response, '5')
+        self.assertContains(response, 'John Doe')
+        self.assertContains(response, 'San Lorenzo')
+
+        self.assertEqual(mocked_api_call.call_count, 2)
+        call1, call2 = mocked_api_call.call_args_list
+        self.assertEqual(call1.args[1:], ('GET', 'impact-dashboard'))
+        self.assertEqual(call1.kwargs['params'], {})
+        self.assertEqual(call2.args[1:], ('GET', 'brandfiberlookups/clothing_types'))
+
+    @patch('frontend.views.donor.api_call')
+    def test_donor_impact_dashboard_with_filters(self, mocked_api_call):
+        mocked_api_call.side_effect = [
+            make_response(200, {
+                'donations': 3,
+                'donors': 2,
+                'top_donors': [],
+                'barangay_breakdown': [],
+            }),
+            make_response(200, ['t-shirt', 'pants']),
+        ]
+
+        response = self.client.get(
+            reverse('donor_impact_dashboard'),
+            {
+                'date_from': '2026-05-01',
+                'date_to': '2026-05-22',
+                'pickup_city': 'Manila',
+                'clothing_type': 't-shirt'
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(mocked_api_call.call_count, 2)
+        call1, call2 = mocked_api_call.call_args_list
+        self.assertEqual(call1.args[1:], ('GET', 'impact-dashboard'))
+        self.assertEqual(call1.kwargs['params'], {
+            'date_from': '2026-05-01',
+            'date_to': '2026-05-22',
+            'pickup_city': 'Manila',
+            'clothing_type': 't-shirt'
+        })
+
+    @patch('frontend.views.donor.api_call')
+    def test_donor_impact_dashboard_api_outage(self, mocked_api_call):
+        mocked_api_call.side_effect = Exception("Outage")
+
+        response = self.client.get(reverse('donor_impact_dashboard'))
+        self.assertEqual(response.status_code, 200)
+        messages = [msg.message for msg in get_messages(response.wsgi_request)]
+        self.assertIn("Backend service unreachable: Outage", messages)
+
+
+class AdminImpactDashboardViewTest(MiddlewareAuthMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.auth_profile = {
+            'user_id': 1,
+            'role': 'Admin',
+            'first_name': 'System',
+            'last_name': 'Admin',
+        }
+
+    @patch('frontend.views.admin.api_call')
+    def test_admin_impact_dashboard_success(self, mocked_api_call):
+        mocked_api_call.side_effect = [
+            make_response(200, {
+                'donations': 15,
+                'donors': 8,
+                'top_donors': [{'full_name': 'Alice Smith', 'donation_count': 5}],
+                'barangay_breakdown': [{'barangay': 'San Lorenzo', 'latitude': 14.55, 'longitude': 121.02, 'donation_count': 15}],
+            }),
+            make_response(200, ['t-shirt', 'pants']),
+        ]
+
+        response = self.client.get(reverse('admin_impact_dashboard'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Donation Impact Dashboard')
+        self.assertContains(response, '15')
+        self.assertContains(response, '8')
+        self.assertContains(response, 'Alice Smith')
+        self.assertContains(response, 'San Lorenzo')
+
+        self.assertEqual(mocked_api_call.call_count, 2)
+        call1, call2 = mocked_api_call.call_args_list
+        self.assertEqual(call1.args[1:], ('GET', 'impact-dashboard'))
+        self.assertEqual(call1.kwargs['params'], {})
+        self.assertEqual(call2.args[1:], ('GET', 'brandfiberlookups/clothing_types'))
+
+    @patch('frontend.views.admin.api_call')
+    def test_admin_impact_dashboard_with_filters(self, mocked_api_call):
+        mocked_api_call.side_effect = [
+            make_response(200, {
+                'donations': 2,
+                'donors': 1,
+                'top_donors': [],
+                'barangay_breakdown': [],
+            }),
+            make_response(200, ['t-shirt', 'pants']),
+        ]
+
+        response = self.client.get(
+            reverse('admin_impact_dashboard'),
+            {
+                'date_from': '2026-05-01',
+                'date_to': '2026-05-22',
+                'pickup_city': 'Manila',
+                'clothing_type': 't-shirt'
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(mocked_api_call.call_count, 2)
+        call1, call2 = mocked_api_call.call_args_list
+        self.assertEqual(call1.args[1:], ('GET', 'impact-dashboard'))
+        self.assertEqual(call1.kwargs['params'], {
+            'date_from': '2026-05-01',
+            'date_to': '2026-05-22',
+            'pickup_city': 'Manila',
+            'clothing_type': 't-shirt'
+        })
+
+    @patch('frontend.views.admin.api_call')
+    def test_admin_impact_dashboard_api_outage(self, mocked_api_call):
+        mocked_api_call.side_effect = Exception("Outage")
+
+        response = self.client.get(reverse('admin_impact_dashboard'))
+        self.assertEqual(response.status_code, 200)
+        messages = [msg.message for msg in get_messages(response.wsgi_request)]
+        self.assertIn("Backend service unreachable: Outage", messages)
+
+

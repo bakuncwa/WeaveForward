@@ -12,8 +12,8 @@ from ..services import (
 from ..constants import ALLOWED_FIBERS
 
 # Import role-based views for convenience
-from .admin import admin_view_donations, admin_view_donors, admin_view_tuabs, admin_view_tuab, admin_add_donor, admin_add_tuab, admin_view_donor, admin_edit_donor, admin_archive_user_proxy, admin_edit_tuab, admin_add_donation, admin_view_donation, admin_edit_donation, admin_cancel_donation, admin_archive_donation
-from .donor import donor_browse_businesses, donor_my_donations, donor_view_donation, donor_view_tuab, donor_create_donation, donor_profile, donor_edit_profile, donor_edit_donation, donor_cancel_donation
+from .admin import admin_view_donations, admin_view_donors, admin_view_tuabs, admin_view_tuab, admin_add_donor, admin_add_tuab, admin_view_donor, admin_edit_donor, admin_archive_user_proxy, admin_edit_tuab, admin_add_donation, admin_view_donation, admin_edit_donation, admin_cancel_donation, admin_archive_donation, admin_impact_dashboard
+from .donor import donor_browse_businesses, donor_my_donations, donor_view_donation, donor_view_tuab, donor_create_donation, donor_profile, donor_edit_profile, donor_edit_donation, donor_cancel_donation, donor_impact_dashboard
 from .tuab import (
     tuab_dashboard,
     tuab_subscribe,

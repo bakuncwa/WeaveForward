@@ -72,7 +72,7 @@ USE_GCS = True if IS_PRODUCTION else _get_bool_env("USE_GCS", default=False)
 
 ALLOWED_HOSTS = _get_list_env(
     "ALLOWED_HOSTS",
-    default=["127.0.0.1", "localhost"] if not IS_PRODUCTION else None,
+    default=["127.0.0.1", "localhost", "raquel-washiest-heike.ngrok-free.dev"] if not IS_PRODUCTION else None,
     required=IS_PRODUCTION,
 )
 
@@ -82,7 +82,7 @@ FRONTEND_URL = _get_env(
     required=IS_PRODUCTION,
 )
 CORS_ALLOWED_ORIGINS = [FRONTEND_URL]
-CSRF_TRUSTED_ORIGINS = [FRONTEND_URL]
+CSRF_TRUSTED_ORIGINS = [FRONTEND_URL, "https://raquel-washiest-heike.ngrok-free.dev"]
 
 AUTH_COOKIE_SECURE = _get_bool_env("AUTH_COOKIE_SECURE", default=IS_PRODUCTION)
 AUTH_COOKIE_SAMESITE = "Lax"

@@ -1,0 +1,264 @@
+{% extends 'frontend/base.html' %}
+
+{% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<style>
+    /* ── Design tokens (match base.html / navbar) ── */
+    :root {
+      --gold:      #e8a020;
+      --gold-dark: #c8881a;
+      --bg:        #f5f4f0;
+      --card:      #ffffff;
+      --border:    #e0dbd4;
+      --text:      #222222;
+      --muted:     #888888;
+      --green:     #4a7c59;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px; border: none; cursor: pointer;
+      font-family: 'Poppins', sans-serif; font-weight: 500;
+      transition: all .2s; text-decoration: none;
+    }
+    .btn-primary     { background: var(--gold); color: #fff; border-radius: 30px; padding: 13px 28px; font-size: 15px; }
+    .btn-primary:hover { background: var(--gold-dark); }
+    .btn-primary-sq  { border-radius: 8px !important; padding: 10px 20px !important; font-size: 14px !important; }
+
+    /* Form controls */
+    .form-label-upper {
+      font-family: 'Poppins', sans-serif; font-size: 10px; font-weight: 600;
+      color: var(--muted); text-transform: uppercase; letter-spacing: .5px;
+      display: block; margin-bottom: 5px;
+    }
+    .form-input {
+      width: 100%; border: 1.5px solid #d5d5d5; border-radius: 8px;
+      padding: 10px 14px; font-family: 'Poppins', sans-serif; font-size: 13px;
+      color: var(--text); outline: none; transition: border-color .2s;
+    }
+    .form-input:focus { border-color: var(--gold); }
+    .form-select {
+      width: 100%; border: 1.5px solid var(--border); border-radius: 8px;
+      padding: 10px 36px 10px 14px;
+      font-family: 'Poppins', sans-serif; font-size: 13px; color: var(--text);
+      background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23e8a020' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpolyline points='6,9 12,15 18,9'/%3E%3C/svg%3E") no-repeat right 12px center;
+      appearance: none; outline: none; cursor: pointer; transition: border-color .2s;
+    }
+    .form-select:focus { border-color: var(--gold); }
+    .field-group { display: flex; flex-direction: column; gap: 4px; }
+
+    /* Dashboard two-column layout */
+    .dash-layout {
+      display: flex;
+      gap: 20px;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      height: calc(100vh - 120px); /* Adjust to fit inside .wf-content */
+    }
+
+    /* LEFT panel */
+    .dash-left {
+      width: 280px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--gold) #fff1d8;
+    }
+    .dash-panel-title {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 600; font-size: 14px;
+      color: var(--text);
+    }
+    .stats-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .stat-big  { font-family: 'Poppins', sans-serif; font-weight: 500; font-size: 32px; color: var(--gold); }
+    .stat-lbl  { font-family: 'Poppins', sans-serif; font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    /* Leaderboard */
+    .leaderboard-row {
+      display: flex; justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid #f0ede8;
+      font-family: 'Poppins', sans-serif; font-size: 12px;
+    }
+    .leaderboard-row:last-child { border-bottom: none; }
+    .leaderboard-scroll {
+      overflow-y: auto;
+      flex: 1;
+      min-height: 0;
+      scrollbar-width: thin;
+      scrollbar-color: var(--gold) #fff1d8;
+    }
+
+    /* RIGHT panel (map) */
+    .dash-right {
+      flex: 1;
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      border: 1px solid var(--border);
+    }
+    #dash-map {
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* MOBILE (≤ 768px) */
+    @media (max-width: 768px) {
+      .dash-layout {
+        flex-direction: column;
+        height: auto;
+        overflow: visible;
+      }
+
+      .dash-left {
+        width: 100%;
+        overflow: visible;
+      }
+
+      .leaderboard-scroll {
+        max-height: 200px;
+      }
+
+      .dash-right {
+        height: 380px;
+        flex: none;
+      }
+
+      #dash-map {
+        height: 380px;
+        min-height: 380px;
+      }
+
+      .stats-row { grid-template-columns: 1fr 1fr; }
+    }
+</style>
+
+<div class="dash-layout">
+
+    <!-- LEFT: filters + stats + leaderboard -->
+    <div class="dash-left">
+      <form method="get" action="{% url 'admin_impact_dashboard' %}" id="filter-form" style="display:flex; flex-direction:column; gap:12px;">
+        <div class="dash-panel-title">Filters</div>
+
+        <!-- Date range -->
+        <div class="field-group">
+          <label class="form-label-upper">Date Range</label>
+          <input class="form-input" type="date" name="date_from" id="dash-from" value="{{ date_from }}" style="margin-bottom:6px"/>
+          <input class="form-input" type="date" name="date_to" id="dash-to" value="{{ date_to }}"/>
+        </div>
+
+        <!-- City -->
+        <div class="field-group">
+          <label class="form-label-upper">City</label>
+          <select class="form-select" name="pickup_city" id="dash-city">
+            <option value="All Cities" {% if not selected_city or selected_city == 'All Cities' %}selected{% endif %}>All Cities</option>
+            {% for city in cities %}
+              <option value="{{ city }}" {% if selected_city == city %}selected{% endif %}>{{ city }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Clothing type -->
+        <div class="field-group">
+          <label class="form-label-upper">Clothing Type</label>
+          <select class="form-select" name="clothing_type" id="dash-ctype">
+            <option value="All Types" {% if not selected_clothing_type or selected_clothing_type == 'All Types' %}selected{% endif %}>All Types</option>
+            {% for ctype in clothing_types %}
+              <option value="{{ ctype }}" {% if selected_clothing_type == ctype %}selected{% endif %}>{{ ctype|capfirst }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button type="submit" class="btn btn-primary btn-primary-sq">Apply</button>
+          <a href="{% url 'admin_impact_dashboard' %}" class="btn btn-primary btn-primary-sq" style="background:#fff;color:#555;border:1.5px solid #ccc; text-decoration:none;">Reset</a>
+        </div>
+      </form>
+
+      <!-- Stats -->
+      <div class="stats-row">
+        <div>
+          <div class="stat-big" id="dash-stat-don">{{ total_donations }}</div>
+          <div class="stat-lbl">Donations</div>
+        </div>
+        <div>
+          <div class="stat-big" id="dash-stat-donors">{{ claimed_count }}</div>
+          <div class="stat-lbl">Donors</div>
+        </div>
+      </div>
+
+      <!-- Leaderboard -->
+      <div class="dash-panel-title" style="margin-top: 8px;">Top Donors</div>
+      <div class="leaderboard-scroll">
+        {% for entry in leaderboard %}
+          <div class="leaderboard-row">
+            <span>{{ entry.full_name|default:"Anonymous Donor" }}</span>
+            <span style="color:var(--gold);font-weight:500">{{ entry.donation_count }}</span>
+          </div>
+        {% empty %}
+          <div style="font-family:'Poppins',sans-serif;font-size:12px;color:var(--muted);padding:10px 0;">No donations recorded yet.</div>
+        {% endfor %}
+      </div>
+
+    </div><!-- /.dash-left -->
+
+    <!-- RIGHT: Leaflet map -->
+    <div class="dash-right">
+      <div id="dash-map"></div>
+    </div>
+
+</div><!-- /.dash-layout -->
+
+<script>
+  // Dynamic data from context
+  const DASH_DONATIONS = {{ donations_json|safe }};
+
+  let dashMap, dashMarkers = [];
+
+  window.addEventListener('load', () => {
+    // Initial map center on NCR (Metro Manila)
+    dashMap = L.map('dash-map').setView([14.5900, 121.0100], 11);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(dashMap);
+
+    // Plot barangay centroids
+    dashMarkers = DASH_DONATIONS.filter(d => d.latitude !== null && d.longitude !== null).map(d => {
+      const lat = parseFloat(d.latitude);
+      const lng = parseFloat(d.longitude);
+      const mk = L.marker([lat, lng]).addTo(dashMap);
+      mk._data = d;
+      mk.bindPopup(
+        `<b>${d.barangay}</b><br>
+         <span style="color:#888;font-size:11px">Donations Received: ${d.donation_count}</span>`
+      );
+      return mk;
+    });
+
+    // Auto-focus and zoom map bounds dynamically based on plotted coordinates
+    if (dashMarkers.length > 0) {
+      const group = new L.featureGroup(dashMarkers);
+      if (dashMarkers.length === 1) {
+        dashMap.setView(dashMarkers[0].getLatLng(), 13);
+      } else {
+        dashMap.fitBounds(group.getBounds().pad(0.15));
+      }
+    }
+  });
+</script>
+{% endblock %}
