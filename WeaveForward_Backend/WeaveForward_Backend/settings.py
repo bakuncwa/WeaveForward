@@ -108,8 +108,15 @@ MAYA_SANDBOX_BASE_URL = _get_env(
 MAYA_SANDBOX_SECRET_BASIC_AUTH = f"Basic {base64.b64encode((MAYA_API_SECRET_KEY + ':').encode()).decode()}"
 MAYA_SANDBOX_PUBLIC_BASIC_AUTH = f"Basic {base64.b64encode((MAYA_API_PUBLIC_KEY + ':').encode()).decode()}"
 
+SCHEDULER_SECRET = _get_env(
+    "SCHEDULER_SECRET",
+    default="dev-scheduler-secret-key-123" if not IS_PRODUCTION else None,
+    required=IS_PRODUCTION,
+)
+
 GS_BUCKET_NAME = _get_env('GS_BUCKET_NAME', default=None, required=IS_PRODUCTION)
 GS_PROJECT_ID = _get_env('GS_PROJECT_ID')  # Optional, uses default cred project if not set
+
 ##################################################
 
 INSTALLED_APPS = [

@@ -6,6 +6,7 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
+from .audit_service import log_audit
 from ..models import (
     PaymentStatus,
     Subscription,
@@ -295,7 +296,7 @@ def _activate_subscription_from_maya_verification(payload):
     return {"status_code": 200, "detail": "Maya card verification succeeded and the subscription was activated."}
 
 
-def unsubscribe_user(*, target_user_id):
+def unsubscribe_user(*, target_user_id, actor=None, ip_address=None):
     """
     Cancels all active subscriptions for a user and clears their Maya payment information.
     Uses transaction.atomic() and select_for_update() for data consistency and locking.
@@ -354,9 +355,42 @@ def unsubscribe_user(*, target_user_id):
         user.maya_card_id = None
         user.save(update_fields=['maya_card_id', 'updated_at'])
 
+        # Write to the audit trail
+        log_audit(
+            actor=actor or user,
+            entity_type="users",
+            action="STATUS_CHANGE",
+            ip_address=ip_address,
+            fields_modified=["maya_card_id"]
+        )
+
         return {
             "status_code": 200,
             "detail": "Successfully unsubscribed.",
             "user_updated": True,
             "cancelled_subscriptions_count": len(active_subscriptions)
         }
+
+
+
+def process_expired_subscriptions():
+    """
+    Finds all active subscriptions that have expired (end_date <= now)
+    and cancels them.
+    """
+    with transaction.atomic():
+        now = timezone.now()
+        expired_subs = Subscription.objects.select_for_update().filter(
+            status=SubscriptionStatus.ACTIVE,
+            end_date__lte=now
+        )
+        admin_user = User.objects.filter(role=UserRole.ADMIN).first()
+        cancelled_count = 0
+        for sub in expired_subs:
+            unsubscribe_user(target_user_id=sub.user_id, actor=admin_user)
+            cancelled_count += 1
+
+    return cancelled_count
+
+
+

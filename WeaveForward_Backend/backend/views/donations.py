@@ -462,17 +462,16 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
     def resolve(self, request, pk=None):
         """Resolves a donation by marking it as RECEIVED or REJECTED."""
         user = request.user
-        if user.role not in ["Admin", "TUAB"]:
+        if user.role != "TUAB":
             raise PermissionDenied("You are not authorized to resolve this donation.")
 
         donation = self.get_object()
 
         # Authorization checks
-        if user.role == "TUAB":
-            if donation.claimed_by_tuab != user:
-                raise PermissionDenied("You can only resolve donations claimed by your own business.")
-            if user.status != "ACTIVE":
-                raise PermissionDenied("Your business account must be active to resolve donations.")
+        if donation.claimed_by_tuab != user:
+            raise PermissionDenied("You can only resolve donations claimed by your own business.")
+        if user.status != "ACTIVE":
+            raise PermissionDenied("Your business account must be active to resolve donations.")
 
         (serializer := DonationResolveSerializer(data=request.data, context={'donation': donation})).is_valid(raise_exception=True)
         

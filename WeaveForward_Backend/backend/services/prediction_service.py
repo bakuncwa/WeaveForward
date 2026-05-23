@@ -291,3 +291,14 @@ def run_predictions_for_donation(donation_id):
 
     return preds
 
+
+def delete_archived_match_predictions():
+    """
+    Deletes all archived match prediction records (is_archived_version=True).
+    """
+    with transaction.atomic():
+        archived_preds = MatchPrediction.objects.select_for_update().filter(is_archived_version=True)
+        deleted_count, _ = archived_preds.delete()
+    return deleted_count
+
+
