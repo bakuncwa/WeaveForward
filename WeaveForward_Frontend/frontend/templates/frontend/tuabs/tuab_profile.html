@@ -1,0 +1,167 @@
+{% extends 'frontend/base.html' %}
+
+{% block content %}
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --gold:   #e8a020;
+    --bg:     #f5f4f0;
+    --border: #e0dbd4;
+    --text:   #222222;
+    --muted:  #888888;
+  }
+
+  .wf-view-tuab {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 300;
+  }
+
+  /* ————— Cards ————— */
+  .card { background: #fff; border-radius: 14px; padding: 24px; margin-bottom: 16px; border: 1.5px solid #ebe6df; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+  .card-title { font-weight: 500; font-size: 15px; margin-bottom: 16px; }
+
+  /* ————— Business header ————— */
+  .biz-header { display: flex; align-items: flex-start; gap: 20px; margin-bottom: 14px; flex-wrap: wrap; }
+  .biz-header-main { display: flex; align-items: flex-start; gap: 20px; flex: 1; min-width: 0; }
+
+  .biz-avatar { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: #ead9b0; }
+  .biz-avatar-fallback {
+    width: 72px; height: 72px; border-radius: 50%; flex-shrink: 0; background: #ead9b0;
+    color: #8b6914; font-size: 22px; font-weight: 500; display: flex; align-items: center; justify-content: center;
+  }
+
+  .biz-name { font-weight: 500; font-size: 34px; margin-bottom: 4px; }
+  .biz-loc { display: flex; align-items: center; gap: 5px; font-size: 13px; color: #777; }
+  .tag-wrap { display: inline-flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+  .tag { background: #E8A020; color: #000; border-radius: 4px; padding: 2px 9px; font-size: 10px; font-weight: 300; }
+
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0; border: none; cursor: pointer; font-family: 'Poppins', sans-serif; font-weight: 400; text-decoration: none; border-radius: 4px; overflow: hidden; flex-shrink: 0; }
+  .btn-primary { background: #E8A020; color: #FFF1D8; font-size: 14px; white-space: nowrap; }
+  .btn-primary:hover { background: #E8A020; }
+  .btn-icon-box { background: transparent; padding: 10px 12px; display: flex; align-items: center; justify-content: center; margin-right: 12px; }
+  .btn-text { padding-right: 18px; }
+
+  /* ————— Stats ————— */
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+  .stat-card { background: #fff; border-radius: 12px; padding: 20px 24px; border: 1.5px solid #ebe6df; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+  .form-label-upper { font-size: 10px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 5px; }
+  .stat-num { font-size: 38px; font-weight: 500; margin-top: 8px; color: var(--gold); }
+  .stat-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  /* ————— Info cards ————— */
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .info-table { width: 100%; border-collapse: collapse; }
+  .info-table td { font-size: 13px; padding: 8px 0; border-bottom: 1px solid #f0ede8; }
+  .info-table tr:last-child td { border-bottom: none; }
+  .info-table td:first-child { color: var(--muted); width: 45%; }
+  .info-table td:last-child { text-align: right; overflow-wrap: anywhere; font-weight: 500; }
+
+  .empty-text { color: var(--muted); font-style: italic; font-weight: 300; }
+
+  @media (max-width: 768px) {
+    .biz-header { flex-direction: column; }
+    .btn-primary { width: 100%; }
+    .stat-grid  { grid-template-columns: 1fr 1fr; }
+    .info-grid  { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="wf-view-tuab">
+
+<!-- Business header card -->
+<div class="card">
+  <div class="biz-header">
+    <div class="biz-header-main">
+      {% if business.upload %}
+        <img class="biz-avatar" src="{{ business.upload }}" alt="{{ business.business_name|default:'Business' }}"/>
+      {% else %}
+        <div class="biz-avatar-fallback">{{ business.business_name|default:"B"|slice:":1"|upper }}</div>
+      {% endif %}
+      <div>
+        <div class="biz-name">{{ business.business_name|default:"-" }}</div>
+        <div class="biz-loc">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          {% if business.barangay or business.city %}
+            {{ business.barangay|default:"-" }}, {{ business.city|default:"-" }}, Metro Manila
+          {% else %}
+            <span class="empty-text">Location not available</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <a href="/tuab/edit-profile/" class="btn btn-primary">
+      <div class="btn-icon-box">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+        </svg>
+      </div>
+      <span class="btn-text">Update Account Information</span>
+    </a>
+  </div>
+  <p style="font-size:13px;color:#555;line-height:1.75;margin-bottom:10px">
+    {% if business.description %}
+      {{ business.description }}
+    {% else %}
+      <span class="empty-text">No business description provided.</span>
+    {% endif %}
+  </p>
+  {% if business.social_link %}
+  <a href="{{ business.social_link }}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#000;text-decoration:underline">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+    {{ business.social_link }}
+  </a>
+  {% endif %}
+</div>
+
+<!-- Stats -->
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="form-label-upper">Total Donations Received</div>
+    <div class="stat-num">{{ business.total_donations|default:"0" }}</div>
+    <div class="stat-sub">Accepted all-time donations</div>
+  </div>
+  <div class="stat-card">
+    <div class="form-label-upper">Max Distance (KM)</div>
+    <div class="stat-num">{{ business.max_distance_km|default:"-" }}{% if business.max_distance_km %} KM{% endif %}</div>
+    <div class="stat-sub">From business location</div>
+  </div>
+</div>
+
+<!-- Info cards -->
+<div class="info-grid">
+  <div class="card" style="margin-bottom:0">
+    <div class="card-title">Location &amp; Contact</div>
+    <table class="info-table">
+      <tr><td>Barangay</td><td>{{ business.barangay|default:"-" }}</td></tr>
+      <tr><td>City</td><td>{{ business.city|default:"-" }}</td></tr>
+      <tr><td>Display Address</td><td>{{ business.display_address|default:"-" }}</td></tr>
+      <tr><td>Contact Number</td><td>{{ business.contact_no|default:"-" }}</td></tr>
+    </table>
+  </div>
+  <div class="card" style="margin-bottom:0">
+    <div class="card-title">Fiber Preferences &amp; Matching</div>
+    <table class="info-table">
+      <tr>
+        <td>Target Fibers</td>
+        <td>
+          {% if business.fiber_list %}
+            <span class="tag-wrap">
+              {% for tag in business.fiber_list %}
+                <span class="tag">{{ tag }}</span>
+              {% endfor %}
+            </span>
+          {% else %}
+            <span class="empty-text">No target fibers set.</span>
+          {% endif %}
+        </td>
+      </tr>
+      <tr><td>Min. Biodegradability Score</td><td>{% if business.min_biodeg_score %}{{ business.min_biodeg_score|floatformat:0 }}/100{% else %}-{% endif %}</td></tr>
+      <tr><td>Max Pickup Distance</td><td>{{ business.max_distance_km|default:"-" }} km</td></tr>
+    </table>
+  </div>
+</div>
+</div>
+{% endblock %}

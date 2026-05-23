@@ -7,80 +7,16 @@
 -->
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700&family=Lato:wght@600&family=Poppins:wght@300;400&display=swap" rel="stylesheet">
 
+<link rel="stylesheet" href="{% static 'frontend/css/donation-form.css' %}">
 <style>
-  :root { 
-    --gold: #e8a020; 
-    --gold-dark: #c8881a; 
-    --bg: #f5f4f0; 
-    --border: #e0dbd4; 
-    --text: #222; 
-    --muted: #888; 
-    --bad: #ff4444;
-    --dashed-stroke: #FFE495;
-    --btn-text: #FFF1D8;
+  :root {
     --green: #2e7d32;
     --red: #c62828;
   }
-  
-  .hidden { display: none !important; }
-  .restored-layout { display: flex; gap: 24px; align-items: flex-start; width: 100%; }
-  .restored-left { flex: 1; min-width: 0; }
-  .restored-right { width: 330px; flex-shrink: 0; }
-  
-  /* Counter for Clothing Groups */
-  #cards { counter-reset: clothing-counter; }
-  .restored-card { counter-increment: clothing-counter; }
-
-  /* Delete Checkbox logic */
   .delete-chk { display: none; }
   .delete-chk:checked ~ .card-body { opacity: 0.2; pointer-events: none; filter: grayscale(1); }
   .delete-chk:checked ~ .restored-head .trash { color: var(--bad); transform: rotate(45deg); }
-
-  @media (max-width: 768px) { .restored-layout { flex-direction: column; } .restored-left, .restored-right { width: 100%; } }
-
-  .restored-card, .restored-panel { 
-    background: #fff; 
-    border: 1.5px solid var(--border); 
-    border-radius: 14px; 
-    padding: 20px 22px; 
-    margin-bottom: 24px; 
-    box-shadow: 0 4px 15px rgba(0,0,0,0.06);
-  }
-  .restored-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
-  .restored-group { display: flex; flex-direction: column; gap: 4px; }
-  .restored-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-  
-  .card-title-wrap { display: flex; align-items: center; gap: 12px; }
-  .card-num { 
-    width: 32px; height: 32px; border-radius: 50%; 
-    background: var(--gold); color: #fff; 
-    display: flex; align-items: center; justify-content: center; 
-    font-family: 'Lato', sans-serif; font-weight: 600; font-size: 16px; 
-  }
-  .card-num::after { content: counter(clothing-counter); }
-  .card-title { 
-    font-size: 18px; font-weight: 400; color: #333; margin: 0; 
-    font-family: 'Poppins', sans-serif; 
-  }
-  .card-title::after { content: "Clothing " counter(clothing-counter); }
-
-  .up-label { 
-    font-family: 'Poppins', sans-serif; font-size: 14px; font-weight: 400; 
-    color: #666666; letter-spacing: normal; text-transform: none; 
-  }
-
-  .restored-in, .restored-sel { 
-    width: 100%; height: 44px; border: 1.5px solid #d5d5d5; border-radius: 8px; 
-    padding: 10px 14px; font-size: 14px; outline: none; background: #fff; color: #666666; 
-    font-family: 'Poppins', sans-serif;
-  }
-  .restored-sel { 
-    appearance: none; 
-    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23e8a020' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpolyline points='6,9 12,15 18,9'/%3E%3C/svg%3E") no-repeat right 12px center; 
-    padding-right: 34px; 
-  }
-
-  .restored-in:focus, .restored-sel:focus { border-color: var(--gold); }
+  .restored-in:disabled { background: #f4f4f4; color: #aaa; }
   .restored-in:disabled { background: #f4f4f4; color: #aaa; }
 
   .btn-add { 

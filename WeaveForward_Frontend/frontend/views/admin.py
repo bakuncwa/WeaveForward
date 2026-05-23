@@ -698,3 +698,23 @@ async def admin_impact_dashboard(request):
     })
 
 
+
+async def admin_view_payments(request):
+    """View Admin payment history."""
+    profile = request.user_profile
+    reference = request.GET.get('reference', '')
+    
+    page_data = await get_paginated_data(request, 'payments', params={'reference': reference} if reference else None)
+    
+    return render(request, 'frontend/admin/admin_view_payments.html', {
+        'page_title': 'Payments',
+        'sidebar_variant': 'admin',
+        'user': profile,
+        'payments_json': json.dumps(page_data['results']),
+        'count': page_data['count'],
+        'total_pages': page_data['total_pages'],
+        'current_page': page_data['current_page'],
+        'has_next': page_data['has_next'],
+        'has_prev': page_data['has_prev'],
+        'q': page_data['search_query']
+    })

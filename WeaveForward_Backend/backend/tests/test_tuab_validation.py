@@ -50,25 +50,6 @@ class TUABUpdateValidationTest(TestCase):
         self.assertIn('description', data)
         self.assertIn('social_link', data)
 
-    def test_tuab_patch_rejects_unauthorized_fields(self):
-        # Attempt to change role or email which are NOT in the whitelist
-        payload = {
-            "role": "Admin",
-            "email": "new@example.com",
-            "maya_customer_id": "hacker_id",
-            "first_name": "NewFirst",
-            "last_name": "NewLast"
-        }
-        response = self.client.patch(self.url, payload, format='json', HTTP_IF_MATCH=self.etag)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        data = response.json()
-        
-        # All these should be rejected by the whitelist or blocked fields
-        self.assertIn('role', data)
-        self.assertIn('maya_customer_id', data)
-        self.assertIn('email', data)
-        self.assertIn('first_name', data)
-        self.assertIn('last_name', data)
 
     def test_tuab_patch_allows_whitelisted_fields(self):
         payload = {

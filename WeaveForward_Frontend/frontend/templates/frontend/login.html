@@ -9,78 +9,8 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500&family=Poppins:wght@400;500&display=swap"
         rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'frontend/css/auth.css' %}">
     <style>
-        :root {
-            --b: #3C6591;
-            --bd: #2d5478
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: Poppins, sans-serif
-        }
-
-        body {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: url('{% static "frontend/img/role_select_background.jpg" %}') center/cover no-repeat;
-        }
-
-        .card {
-            background: #fff;
-            border-radius: 16px;
-            padding: 40px 40px 44px;
-            width: 420px;
-            max-width: 92vw;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, .18);
-            position: relative
-        }
-
-        .icon {
-            width: 68px;
-            height: 68px;
-            border-radius: 50%;
-            background: var(--b);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 14px
-        }
-
-        .icon svg {
-            fill: #E6DBC7
-        }
-
-        .title {
-            font-family: 'Pixelify Sans', monospace;
-            font-size: 34px;
-            font-weight: 500;
-            color: var(--b);
-            text-align: center;
-            margin-bottom: 28px
-        }
-
-        .group {
-            margin-bottom: 18px
-        }
-
-        .lbl-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 6px
-        }
-
-        .lbl {
-            font-size: 13px;
-            color: #444;
-            font-weight: 400
-        }
-
         .toggle {
             background: none;
             border: none;
@@ -91,25 +21,6 @@
             align-items: center;
             gap: 4px;
             padding: 0
-        }
-
-        .in {
-            width: 100%;
-            border: 0.5px solid #000;
-            border-radius: 8px;
-            padding: 11px 14px;
-            font-size: 14px;
-            outline: none;
-            transition: .15s;
-            color: #3C6591
-        }
-
-        .in:focus {
-            border-color: var(--b)
-        }
-
-        .in::placeholder {
-            color: #bbb
         }
 
         .links {
@@ -129,23 +40,6 @@
 
         .links a:hover {
             text-decoration: underline
-        }
-
-        .btn {
-            width: 100%;
-            background: var(--b);
-            color: #E6DBC7;
-            border-radius: 30px;
-            padding: 14px;
-            border: none;
-            font-size: 15px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: .15s
-        }
-
-        .btn:hover {
-            background: var(--bd)
         }
 
         .btn[disabled] {

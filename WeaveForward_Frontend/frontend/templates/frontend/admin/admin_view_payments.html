@@ -1,0 +1,89 @@
+{% extends 'frontend/base.html' %}
+
+{% block content %}
+<style>
+  /* ── Search bar ── */
+  .search-wrap { position: relative; margin-bottom: 20px; }
+  .search-wrap input { width: 100%; border-radius: 8px; padding: 10px 16px 10px 40px; border: 1.5px solid #e0dbd4; background: #fff; font-family: 'Poppins', sans-serif; font-size: 14px; outline: none; box-sizing: border-box; }
+  .search-wrap input:focus { border-color: #aaa; }
+  .search-wrap svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); stroke: #888; }
+
+  /* ── Table ── */
+  .tbl-wrap { background: #fff; border-radius: 14px; overflow: hidden; }
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .pay-table { width: 100%; border-collapse: collapse; }
+  .pay-table th { font-family: 'Poppins', sans-serif; font-size: 12px; font-weight: 600; color: #888; text-align: left; padding: 13px 14px; border-bottom: 1.5px solid #ece8e2; background: #faf8f5; white-space: nowrap; }
+  .pay-table td { font-family: 'Poppins', sans-serif; font-size: 13px; color: #333; padding: 15px 14px; border-bottom: 1px solid #f0ede8; white-space: nowrap; }
+  .pay-table tr:last-child td { border-bottom: none; }
+  .pay-table td.ref { font-size: 12px; color: #666; }
+  .status-success { color: #4a7c59; font-weight: 500; }
+  .status-failed  { color: #e05050; font-weight: 500; }
+  .status-pending { color: #e8a020; font-weight: 500; }
+  
+  /* ── Pagination ── */
+  .pagination-wrap { display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding: 0 4px; }
+  .pg-info { font-family: Poppins, sans-serif; font-size: 13px; color: #888; }
+  .pg-btns { display: flex; gap: 8px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; border: none; cursor: pointer; font-family: Poppins, sans-serif; font-weight: 500; text-decoration: none; }
+  .btn-outline { background: #f4f4f4; color: #666; border: 1px solid #e2e2e2; border-radius: 6px; padding: 5px 10px; font-size: 11px; width: 100%; text-align: center; }
+  .btn-outline:hover { border-color: #cfcfcf; color: #333; }
+  .pg-btns .btn-outline { width: auto; padding: 8px 16px; border-radius: 8px; font-weight: 500; }
+</style>
+
+<!-- Search -->
+<form method="GET" class="search-wrap">
+  <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+  <input name="q" value="{{ q|default:'' }}" placeholder="Search Payments..."/>
+</form>
+
+<div class="tbl-wrap">
+  <div class="table-scroll">
+    <table class="pay-table">
+      <thead>
+        <tr>
+          <th>TUAB</th>
+          <th>Type</th>
+          <th>Amount</th>
+          <th>Payment Reference</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="pay-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="pagination-wrap">
+  <div class="pg-info">Page {{ current_page }} of {{ total_pages }}</div>
+  <div class="pg-btns">
+    {% if has_prev %}
+    <a href="?page={{ current_page|add:-1 }}{% if q %}&q={{ q }}{% endif %}{% if request.GET.reference %}&reference={{ request.GET.reference }}{% endif %}" class="btn btn-outline">❮ Previous</a>
+    {% endif %}
+    {% if has_next %}
+    <a href="?page={{ current_page|add:1 }}{% if q %}&q={{ q }}{% endif %}{% if request.GET.reference %}&reference={{ request.GET.reference }}{% endif %}" class="btn btn-outline">Next ❯</a>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+  const PAYMENTS = {{ payments_json|safe }};
+
+  function renderRows(list) {
+    document.getElementById('pay-tbody').innerHTML = list.map(p => {
+      let statusClass = 'status-failed';
+      if (p.status === 'Success') statusClass = 'status-success';
+      if (p.status === 'Pending') statusClass = 'status-pending';
+      return `
+      <tr>
+        <td>${p.tuab || ''}</td>
+        <td>${p.type}</td>
+        <td>₱${p.amount}</td>
+        <td class="ref">${p.reference || ''}</td>
+        <td><span class="${statusClass}">${p.status}</span></td>
+      </tr>`;
+    }).join('');
+  }
+
+  window.addEventListener('load', () => renderRows(PAYMENTS));
+</script>
+{% endblock %}

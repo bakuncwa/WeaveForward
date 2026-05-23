@@ -14,15 +14,21 @@ urlpatterns = [
 
     # --- USERS ---
     path('users', views.UserViewSet.as_view({'get': 'list', 'post': 'create'}), name='user-list'),
-    path('users/me', views.UserViewSet.as_view({'get': 'me'}), name='user-me'),
     path('users/me/2fa/setup', views.UserViewSet.as_view({'post': 'two_factor_setup'}), name='user-2fa-setup'),
-    path('users/me/2fa', views.UserViewSet.as_view({'post': 'my_two_factor', 'delete': 'my_two_factor'}), name='user-me-2fa'),
-    path('users/<int:pk>/2fa', views.UserViewSet.as_view({'post': 'two_factor', 'delete': 'two_factor'}), name='user-2fa-detail'),
-    path('users/<int:pk>/approve', views.UserViewSet.as_view({'post': 'approve'}), name='user-approve'),
-    path('users/me/subscription', views.UserViewSet.as_view({'delete': 'cancel_my_subscription'}), name='user-me-subscription'),
-    path('users/<int:pk>/subscription', views.UserViewSet.as_view({'post': 'create_subscription', 'delete': 'cancel_subscription'}), name='user-subscription'),
-    path('users/<int:pk>', views.UserViewSet.as_view({'get': 'retrieve', 'patch': 'partial_update', 'delete': 'destroy'}), name='user-detail'),
     path('webhooks', views.webhooks, name='webhooks'),
+    path('users/<int:pk>/approve', views.UserViewSet.as_view({'post': 'approve'}), name='user-approve'),
+
+    path('users/me', views.UserViewSet.as_view({'get': 'me', 'patch': 'partial_update_me'}), name='user-me'),
+    path('users/me/subscription', views.UserViewSet.as_view({'post': 'create_my_subscription', 'delete': 'cancel_my_subscription'}), name='user-me-subscription'),
+    path('users/me/2fa', views.UserViewSet.as_view({'post': 'my_two_factor', 'delete': 'my_two_factor'}), name='user-me-2fa'),
+    
+    
+    path('users/<int:pk>', views.UserViewSet.as_view({'get': 'retrieve', 'patch': 'partial_update', 'delete': 'destroy'}), name='user-detail'),
+    path('users/<int:pk>/subscription', views.UserViewSet.as_view({'post': 'create_subscription', 'delete': 'cancel_subscription'}), name='user-subscription'),
+    path('users/<int:pk>/2fa', views.UserViewSet.as_view({'post': 'two_factor', 'delete': 'two_factor'}), name='user-2fa-detail'),
+    
+
+    
 
     # --- LOCATIONS ---
     path('location/lookup', views.lookup_location, name='location_lookup'),
@@ -40,6 +46,10 @@ urlpatterns = [
 
     # --- IMPACT DASHBOARD ---
     path('impact-dashboard', views.ImpactDashboardViewSet.as_view({'get': 'list'}), name='impact-dashboard'),
+
+    # --- PAYMENTS ---
+    path('payments', views.PaymentListView.as_view(), name='payment-list'),
+    path('payments/me', views.PaymentMeView.as_view(), name='payment-me'),
 
     # --- MATERIALS ---
     path('brandfiberlookups', views.BrandFiberLookupViewset.as_view({'get': 'list'}), name='material-list'),

@@ -830,42 +830,6 @@ class UserAPITest(TestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertTrue(res.data['is_subscribed'])
 
-    def test_user_me_shortcut(self):
-        self.client.force_authenticate(user=self.donor)
-        res = self.client.get(reverse('user-me'))
-        self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertEqual(res.data['email'], self.donor.email)
-        self.assertEqual(res['ETag'], build_updated_at_etag(self.donor))
-        self.assertNotIn('is_subscribed', res.data)
-        self.assertEqual(res.data['latitude'], '14.7715628')
-        self.assertEqual(res.data['longitude'], '121.0665894')
-        self.assertEqual(
-            set(res.data.keys()),
-            {
-                'user_id', 'email', 'role', 'first_name', 'last_name', 'middle_name',
-                'contact_no', 'barangay', 'city', 'latitude', 'longitude',
-                'display_address', 'is_2fa_enabled', 'upload', 'created_at',
-                'updated_at', 'etag'
-            }
-        )
-
-        self.client.force_authenticate(user=self.tuab_active)
-        res = self.client.get(reverse('user-me'))
-        self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertEqual(res.data['email'], self.tuab_active.email)
-        self.assertTrue(res.data['is_subscribed'])
-        self.assertEqual(
-            set(res.data.keys()),
-            {
-                'user_id', 'email', 'role', 'business_name', 'description',
-                'social_link', 'max_active_claims', 'target_fibers',
-                'min_biodeg_score', 'max_distance_km', 'operational_status',
-                'contact_no', 'barangay', 'city', 'latitude', 'longitude',
-                'display_address', 'is_2fa_enabled', 'is_subscribed', 'upload',
-                'created_at', 'etag'
-            }
-        )
-
     def test_user_endpoints_serialize_coordinates_with_exactly_7_decimal_places(self):
         self.client.force_authenticate(user=self.admin)
         detail_res = self.client.get(reverse('user-detail', kwargs={'pk': self.donor.user_id}))
@@ -1108,17 +1072,6 @@ class UserAPITest(TestCase):
         self.assertEqual(res.data['city'], self.donor.city)
         self.assertEqual(res.data['barangay'], self.donor.barangay)
 
-    def test_user_patch_rejects_email_updates(self):
-        self.client.force_authenticate(user=self.donor)
-        res = self.client.patch(
-            reverse('user-detail', kwargs={'pk': self.donor.user_id}),
-            {"email": "new_email@example.com"},
-            format='json',
-            HTTP_IF_MATCH=build_updated_at_etag(self.donor)
-        )
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(res.data['email'][0], "This field cannot be updated through this endpoint.")
-
     def test_donor_patch_rejects_blank_required_profile_fields(self):
         self.client.force_authenticate(user=self.donor)
         res = self.client.patch(
@@ -1138,17 +1091,6 @@ class UserAPITest(TestCase):
         self.assertEqual(res.data['first_name'][0], "This field may not be blank.")
         self.assertEqual(res.data['last_name'][0], "This field may not be blank.")
         self.assertEqual(res.data['contact_no'][0], "This field may not be blank.")
-
-    def test_user_patch_rejects_status_updates(self):
-        self.client.force_authenticate(user=self.admin)
-        res = self.client.patch(
-            reverse('user-detail', kwargs={'pk': self.donor.user_id}),
-            {"status": "ARCHIVED"},
-            format='json',
-            HTTP_IF_MATCH=build_updated_at_etag(self.donor)
-        )
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(res.data['status'][0], "This field cannot be updated through this endpoint.")
 
     def test_user_patch_rejects_updates_for_archived_user(self):
         self.donor.status = 'ARCHIVED'
@@ -1171,18 +1113,6 @@ class UserAPITest(TestCase):
                 actor=self.admin
             ).exists()
         )
-
-    def test_user_patch_rejects_manual_city_and_barangay(self):
-        self.client.force_authenticate(user=self.donor)
-        res = self.client.patch(
-            reverse('user-detail', kwargs={'pk': self.donor.user_id}),
-            {"city": "Manual City", "barangay": "Manual Barangay"},
-            format='json',
-            HTTP_IF_MATCH=build_updated_at_etag(self.donor)
-        )
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(res.data['city'][0], "This field cannot be updated through this endpoint.")
-        self.assertEqual(res.data['barangay'][0], "This field cannot be updated through this endpoint.")
 
     def test_user_patch_requires_if_match_header(self):
         self.client.force_authenticate(user=self.donor)

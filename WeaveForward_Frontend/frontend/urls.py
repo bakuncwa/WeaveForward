@@ -32,13 +32,17 @@ urlpatterns = [
     path('api/2fa/setup/', views.two_factor_setup_proxy, name='two_factor_setup_proxy'),
     path('api/2fa/verify/', views.two_factor_verify_proxy, name='two_factor_verify_proxy'),
     path('api/2fa/disable/', views.two_factor_disable_proxy, name='two_factor_disable_proxy'),
+    path('api/tuab/unsubscribe/', views.tuab_unsubscribe_proxy, name='tuab_unsubscribe_proxy'),
     
     # --- TUAB ---
     path('tuab/dashboard/', views.tuab_dashboard, name='tuab_dashboard'),
+    path('tuab/profile/', views.tuab_profile, name='tuab_profile'),
+    path('tuab/edit-profile/', views.tuab_edit_profile, name='tuab_edit_profile'),
     path('tuab/donations/<int:donation_id>/', views.tuab_view_donation, name='tuab_view_donation'),
     path('tuab/donations/<int:donation_id>/edit/', views.tuab_update_incoming_donation, name='tuab_update_incoming_donation'),
     path('api/tuab/donations/<int:donation_id>/quotation/', views.tuab_quotation_proxy, name='tuab_quotation_proxy'),
     path('tuab/subscribe/', views.tuab_subscribe, name='tuab_subscribe'),
+    path('tuab/payments/', views.tuab_view_payments, name='tuab_view_payments'),
     
     # --- Admin ---
     path('admin/donation-impact-dashboard/', views.admin_impact_dashboard, name='admin_impact_dashboard'),
@@ -57,4 +61,5 @@ urlpatterns = [
     path('admin/donors/<int:user_id>/', views.admin_view_donor, name='admin_view_donor'),
     path('admin/donors/<int:user_id>/edit/', views.admin_edit_donor, name='admin_edit_donor'),
     path('admin/users/<int:user_id>/archive/', views.admin_archive_user_proxy, name='admin_archive_user_proxy'),
+    path('admin/payments/', views.admin_view_payments, name='admin_view_payments'),
 ]

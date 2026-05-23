@@ -52,7 +52,7 @@ This project adheres to formal proposal specifications, featuring a **physically
 ---
 
 ## Project Completion Status
-**Overall Progress: ~62%**
+**Overall Progress: ~70%**
 
 Core infrastructure (JWT, 3-tier, Admin) and key integrations (**Maya Payments** & **CatBoost ML**) are fully operational. Final development is focused on **Lalamove integration**, TUAB workflows, and impact dashboards.
 
@@ -340,8 +340,8 @@ Features for TUAB (Organization) user role:
 - [x] View Match Donation Recommendations (CatBoostAI ML Model Integration with DB)
 - [ ] View Circular Economy Impact Dashboard
 - [x] Subscribe for Premium Features
-- [ ] View Payment History
-- [ ] Update Account Information
+- [x] View Payment History
+- [x] Update Account Information
 - [ ] TUAB Features Blackbox Selenium Test Script
 
 ### Phase 5: Admin Features
@@ -361,7 +361,7 @@ Features for Admin user role:
 - [x] Archive Donations
 - [x] View Donation Impact Dashboard
 - [ ] View Circular Economy Impact Dashboard
-- [ ] View Payments
+- [x] View Payments
 - [ ] Admin Features Blackbox Selenium Test Script
 
 ### Phase 6: Testing & Validation
