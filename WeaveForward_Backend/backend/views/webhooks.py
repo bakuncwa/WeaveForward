@@ -1,9 +1,15 @@
+from django.conf import settings
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from ..services.audit_service import get_client_ip
-from ..services.subscription_service import _activate_subscription_from_maya_verification
+from ..services.subscription_service import (
+    _activate_subscription_from_maya_verification,
+    process_expired_subscriptions,
+)
+from ..services.donation_service import process_auto_archive_donations
+from ..services.prediction_service import delete_archived_match_predictions
 from ..services.lalamove_service import process_lalamove_webhook
 
 # Webhook uses ngrok: https://raquel-washiest-heike.ngrok-free.dev/api/webhooks/
@@ -21,6 +27,24 @@ def webhooks(request):
     print("[WEBHOOK RECEIVED] HEADERS:", dict(request.headers), flush=True)
     print("[WEBHOOK RECEIVED] PAYLOAD:", payload, flush=True)
 
+    # 1. Authenticate Cloud Scheduler via secret header
+    scheduler_secret = request.headers.get('X-Scheduler-Secret')
+    if scheduler_secret and scheduler_secret == settings.SCHEDULER_SECRET:
+        print("[WEBHOOK RECEIVED] Cloud Scheduler trigger authenticated successfully.", flush=True)
+        cancelled_subs = process_expired_subscriptions()
+        archived_donations = process_auto_archive_donations()
+        deleted_predictions = delete_archived_match_predictions()
+        return Response({
+            "detail": "Successfully processed subscriptions, auto-archived donations, and cleared predictions.",
+            "results": {
+                "cancelled_subscriptions_count": cancelled_subs,
+                "archived_donations_count": archived_donations,
+                "deleted_predictions_count": deleted_predictions
+            }
+        }, status=200)
+
+
+    # 2. Authenticate Maya and Lalamove via IP checks
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR', '')
     x_forwarded_ips = [ip.strip() for ip in x_forwarded_for.split(',')] if x_forwarded_for else []
 
@@ -38,3 +62,5 @@ def webhooks(request):
         }
 
     return Response({"detail": result["detail"]}, status=result["status_code"])
+
+

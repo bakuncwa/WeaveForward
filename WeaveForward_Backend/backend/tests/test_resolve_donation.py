@@ -238,14 +238,14 @@ class ResolveDonationAPITest(TestCase):
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("rejection_reason", res.data)
 
-    def test_admin_can_resolve_any_donation(self):
+    def test_admin_cannot_resolve_donation(self):
         self.client.force_authenticate(user=self.admin)
         url = reverse('donation-resolve', kwargs={'pk': self.pickup_donation.pk})
 
         res = self.client.post(url, {"status": "RECEIVED"}, format='json')
-        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
         self.pickup_donation.refresh_from_db()
-        self.assertEqual(self.pickup_donation.status, DonationStatus.RECEIVED)
+        self.assertNotEqual(self.pickup_donation.status, DonationStatus.RECEIVED)
 
     def test_resolve_donation_creates_single_inventory_and_audit(self):
         self.client.force_authenticate(user=self.tuab)

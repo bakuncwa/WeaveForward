@@ -348,19 +348,10 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
             return Response({"detail": "Only admins can unsubscribe other users."}, status=status.HTTP_403_FORBIDDEN)
         
         ip_address = get_client_ip(request)
-        result = unsubscribe_user(target_user_id=pk)
+        result = unsubscribe_user(target_user_id=pk, actor=request.user, ip_address=ip_address)
 
         if result["status_code"] != 200:
             return Response({"detail": result["detail"]}, status=result["status_code"])
-
-        if result["user_updated"]:
-            log_audit(
-                actor=request.user,
-                entity_type='users',
-                action='CREDENTIAL_UPDATE',
-                ip_address=ip_address,
-                fields_modified=['maya_card_id']
-            )
 
         return Response({"detail": result["detail"]}, status=status.HTTP_200_OK)
 
@@ -449,19 +440,10 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
     def cancel_my_subscription(self, request):
         """Endpoint for users to unsubscribe themselves."""
         ip_address = get_client_ip(request)
-        result = unsubscribe_user(target_user_id=request.user.user_id)
+        result = unsubscribe_user(target_user_id=request.user.user_id, actor=request.user, ip_address=ip_address)
 
         if result["status_code"] != 200:
             return Response({"detail": result["detail"]}, status=result["status_code"])
-
-        if result["user_updated"]:
-            log_audit(
-                actor=request.user,
-                entity_type='users',
-                action='CREDENTIAL_UPDATE',
-                ip_address=ip_address,
-                fields_modified=['maya_card_id']
-            )
 
         return Response({"detail": result["detail"]}, status=status.HTTP_200_OK)
 

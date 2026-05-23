@@ -8,7 +8,7 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.utils import timezone
 
-from ..models import Donation, DonationItem, Upload, User, DonationStatus, DonationItemConditionRating, Order, OrderStatus, PaymentStatus, DonationDeliveryMethod
+from ..models import Donation, DonationItem, Upload, User, DonationStatus, DonationItemConditionRating, Order, OrderStatus, PaymentStatus, DonationDeliveryMethod, UserRole
 from ..serializers.donations import DonationCreateSerializer, DonorDonationUpdateSerializer, AdminDonationUpdateSerializer
 from .lalamove_service import cancel_lalamove_order, reverse_or_refund_payment
 from .location_service import get_city_and_barangay
@@ -498,3 +498,36 @@ def archive_donation(*, user, donation, ip_address=None):
         log_audit(user, "donations", "STATUS_CHANGE", ip_address, ["status"])
 
         return {"detail": "Donation successfully archived by admin."}
+
+
+def process_auto_archive_donations():
+    """
+    Finds all active/pending donations that are past their auto_archive_at date
+    and archives them directly.
+    """
+    with transaction.atomic():
+        now = timezone.now()
+        expired_donations = Donation.objects.select_for_update().filter(
+            auto_archive_at__lte=now
+        ).exclude(status__in=[DonationStatus.ARCHIVED, DonationStatus.CANCELLED])
+
+        archived_count = 0
+        admin_user = User.objects.filter(role=UserRole.ADMIN).first()
+
+        for donation in expired_donations:
+            donation.status = DonationStatus.ARCHIVED
+            donation.updated_at = now
+            donation.save(update_fields=['status', 'updated_at'])
+
+            # Log audit event for the auto-archived donation directly
+            log_audit(
+                actor=admin_user or donation.donor,
+                entity_type="donations",
+                action="STATUS_CHANGE",
+                ip_address=None,
+                fields_modified=["status"]
+            )
+            archived_count += 1
+
+    return archived_count
+
