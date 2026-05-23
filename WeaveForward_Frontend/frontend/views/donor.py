@@ -300,7 +300,7 @@ async def donor_edit_profile(request):
         # 6. Proxy PATCH to backend
         headers = {'If-Match': submitted_etag} if submitted_etag else {}
         try:
-            response = await api_call(request, 'PATCH', f'users/{user_id}', data=payload, files=files, headers=headers)
+            response = await api_call(request, 'PATCH', 'users/me', data=payload, files=files, headers=headers)
             if response.status_code == 200:
                 messages.success(request, "Profile updated successfully.")
                 return JsonResponse({'message': 'Success'}, status=200)

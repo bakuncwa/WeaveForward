@@ -12,14 +12,17 @@ from ..services import (
 from ..constants import ALLOWED_FIBERS
 
 # Import role-based views for convenience
-from .admin import admin_view_donations, admin_view_donors, admin_view_tuabs, admin_view_tuab, admin_add_donor, admin_add_tuab, admin_view_donor, admin_edit_donor, admin_archive_user_proxy, admin_edit_tuab, admin_add_donation, admin_view_donation, admin_edit_donation, admin_cancel_donation, admin_archive_donation, admin_impact_dashboard
+from .admin import admin_view_donations, admin_view_donors, admin_view_tuabs, admin_view_tuab, admin_add_donor, admin_add_tuab, admin_view_donor, admin_edit_donor, admin_archive_user_proxy, admin_edit_tuab, admin_add_donation, admin_view_donation, admin_edit_donation, admin_cancel_donation, admin_archive_donation, admin_impact_dashboard, admin_view_payments
 from .donor import donor_browse_businesses, donor_my_donations, donor_view_donation, donor_view_tuab, donor_create_donation, donor_profile, donor_edit_profile, donor_edit_donation, donor_cancel_donation, donor_impact_dashboard
 from .tuab import (
     tuab_dashboard,
+    tuab_edit_profile,
+    tuab_profile,
     tuab_subscribe,
     tuab_view_donation,
     tuab_quotation_proxy,
     tuab_update_incoming_donation,
+    tuab_view_payments,
 )
 
 async def two_factor_setup_proxy(request):
@@ -40,6 +43,17 @@ async def two_factor_verify_proxy(request):
         return JsonResponse(response.json(), status=response.status_code)
     except Exception as e:
         return JsonResponse({'error': f'Backend service unreachable: {str(e)}'}, status=503)
+
+async def tuab_unsubscribe_proxy(request):
+    """Proxy to unsubscribe the logged-in TUAB from premium."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    try:
+        response = await api_call(request, 'DELETE', 'users/me/subscription')
+        return JsonResponse(response.json(), status=response.status_code)
+    except Exception as e:
+        return JsonResponse({'error': f'Backend service unreachable: {str(e)}'}, status=503)
+
 
 async def two_factor_disable_proxy(request):
     """Proxy to disable 2FA for the logged-in user."""

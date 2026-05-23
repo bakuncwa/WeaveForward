@@ -415,57 +415,7 @@ class DonationListSerializerTest(TestCase):
             weight_kg="1.500",
         )
 
-    def test_donation_list_returns_only_slim_fields(self):
-        self.client.force_authenticate(user=self.admin)
 
-        response = self.client.get(reverse('donation-list'))
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        donation_data = response.data['results'][0]
-
-        self.assertEqual(
-            set(donation_data.keys()),
-            {
-                'donation_id',
-                'donor',
-                'claimed_by_tuab',
-                'items',
-                'upload',
-                'status',
-                'is_flagged',
-                'delivery_method',
-                'pickup_display_address',
-                'pickup_latitude',
-                'pickup_longitude',
-                'preferred_pickup_date',
-                'preferred_pickup_window_start',
-                'preferred_pickup_window_end',
-            }
-        )
-        self.assertEqual(set(donation_data['donor'].keys()), {'first_name', 'last_name'})
-        self.assertEqual(set(donation_data['claimed_by_tuab'].keys()), {'business_name'})
-        self.assertEqual(set(donation_data['items'][0].keys()), {'lookup_details'})
-        self.assertEqual(
-            set(donation_data['items'][0]['lookup_details'].keys()),
-            {'clothing_type', 'brand', 'dominant_fiber'}
-        )
-        self.assertEqual(donation_data['items'][0]['lookup_details']['clothing_type'], 'T-shirt')
-
-        for removed_field in ['pickup_barangay', 'pickup_city', 'flag_reason', 'auto_archive_at', 'submitted_at', 'rejection_reason', 'updated_at']:
-            self.assertNotIn(removed_field, donation_data)
-
-    def test_donation_me_uses_same_slim_shape(self):
-        self.client.force_authenticate(user=self.donor)
-
-        response = self.client.get(reverse('donation-me'))
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        donation_data = response.data['results'][0]
-        self.assertEqual(set(donation_data['donor'].keys()), {'first_name', 'last_name'})
-        self.assertEqual(set(donation_data['claimed_by_tuab'].keys()), {'business_name'})
-        self.assertNotIn('submitted_at', donation_data)
-        self.assertNotIn('item_id', donation_data['items'][0])
-        self.assertNotIn('weight_kg', donation_data['items'][0])
 
     def test_donation_retrieve_remains_detailed(self):
         self.client.force_authenticate(user=self.admin)

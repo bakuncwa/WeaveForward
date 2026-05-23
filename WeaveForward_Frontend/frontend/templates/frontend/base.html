@@ -541,7 +541,7 @@
       <div class="wf-sidebar__bottom">
 
         <a class="wf-nav-item {% if '/tuab/profile' in request.path %}active{% endif %}" id="tnav-profile"
-          href="/tuab/profile">
+          href="{% url 'tuab_profile' %}">
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
             <circle cx="12" cy="7" r="4" />
@@ -688,6 +688,8 @@
               {% url 'donor_my_donations' as back_fallback %}
 
             {# TUAB #}
+            {% elif "/tuab/edit-profile/" in request.path %}
+              {% url 'tuab_profile' as back_fallback %}
             {% elif "/tuab/donations/" in request.path %}
               {% url 'tuab_dashboard' as back_fallback %}
 

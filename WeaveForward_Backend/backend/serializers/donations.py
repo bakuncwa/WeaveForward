@@ -50,13 +50,13 @@ class DonationListItemSerializer(serializers.ModelSerializer):
 class DonationListDonorSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['first_name', 'last_name']
+        fields = ['user_id', 'first_name', 'last_name']
 
 
 class DonationListClaimedBySerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['business_name']
+        fields = ['user_id', 'business_name']
 
 
 class DonationListSerializer(serializers.ModelSerializer):
@@ -111,6 +111,15 @@ class DonationDetailUserSerializer(serializers.ModelSerializer):
 
     def get_upload(self, obj):
         return build_upload_url(obj.upload, self.context)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.role == 'TUAB':
+            data.pop('first_name', None)
+            data.pop('last_name', None)
+        elif instance.role == 'Donor':
+            data.pop('business_name', None)
+        return data
     
 class DonationDetailSerializer(serializers.ModelSerializer):
     donor = DonationDetailUserSerializer(read_only=True)
@@ -138,25 +147,31 @@ class DonationDetailSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if request and request.user and request.user.role == 'Admin':
             order = obj.orders.first()
-        else:
-            order = obj.orders.exclude(status__in=["CANCELLED", "FAILED"]).first()
-        return order.dropoff_display_address if order else None
+            return order.dropoff_display_address if order else None
+        return None
 
     def get_dropoff_latitude(self, obj):
         request = self.context.get('request')
         if request and request.user and request.user.role == 'Admin':
             order = obj.orders.first()
-        else:
-            order = obj.orders.exclude(status__in=["CANCELLED", "FAILED"]).first()
-        return order.dropoff_latitude if order else None
+            return order.dropoff_latitude if order else None
+        return None
 
     def get_dropoff_longitude(self, obj):
         request = self.context.get('request')
         if request and request.user and request.user.role == 'Admin':
             order = obj.orders.first()
-        else:
-            order = obj.orders.exclude(status__in=["CANCELLED", "FAILED"]).first()
-        return order.dropoff_longitude if order else None
+            return order.dropoff_longitude if order else None
+        return None
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        if not request or not request.user or request.user.role != 'Admin':
+            data.pop('dropoff_display_address', None)
+            data.pop('dropoff_latitude', None)
+            data.pop('dropoff_longitude', None)
+        return data
 
 
 # ------------------------------------------------------------------------------

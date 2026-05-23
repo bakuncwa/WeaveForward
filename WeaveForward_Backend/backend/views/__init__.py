@@ -12,3 +12,4 @@ from .donations import DonationViewSet
 from .brandfiberlookups import BrandFiberLookupViewset
 from .webhooks import webhooks
 from .impact_dashboard import ImpactDashboardViewSet
+from .payments import PaymentListView, PaymentMeView

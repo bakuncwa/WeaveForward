@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 
 from ..models import User, UserRole
 from ..serializers import (
@@ -64,8 +65,13 @@ class CookieTokenRefreshView(APIView):
             return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = TokenRefreshSerializer(data={"refresh": refresh_cookie})
-        if not serializer.is_valid():
-            response = Response(serializer.errors, status=status.HTTP_401_UNAUTHORIZED)
+        try:
+            if not serializer.is_valid():
+                response = Response(serializer.errors, status=status.HTTP_401_UNAUTHORIZED)
+                clear_auth_cookies(response)
+                return response
+        except (TokenError, InvalidToken) as e:
+            response = Response({"detail": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
             clear_auth_cookies(response)
             return response
 

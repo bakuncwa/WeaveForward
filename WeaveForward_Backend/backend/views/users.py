@@ -1,5 +1,5 @@
 import pyotp
-from django.db.models import Exists, OuterRef, F, Func, ExpressionWrapper, FloatField
+from django.db.models import F, Func, ExpressionWrapper, FloatField
 from django.db import transaction
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
@@ -10,14 +10,18 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from ..utils.view_mixins import PaginatedResponseMixin
 
-from ..models import Subscription, SubscriptionStatus, User, UserRole, UserAccountStatus, UserOperationalStatus
+from ..models import User, UserRole, UserAccountStatus, UserOperationalStatus
 from ..serializers import (
     AdminUserListSerializer,
+    AdminUserDetailSerializer,
     DonorSelfSerializer,
+    DonorUpdateSerializer,
+    DonorUpdateSelfSerializer,
     TuabDetailSerializer,
     TuabSelfSerializer,
     TuabListSerializer,
-    UserSerializer, 
+    TuabUpdateSerializer,
+    TuabUpdateSelfSerializer,
     TwoFactorSerializer,
     SubscribeSetupSerializer,
     DonorRegisterSerializer, 
@@ -41,6 +45,31 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
 
     def get_serializer_class(self):
         if hasattr(self, 'request') and hasattr(self.request, 'user'):
+            # 1. Action-based routing (Target-dependent)
+            if self.action in ['update', 'partial_update', 'partial_update_me']:
+                try:
+                    pk = self.kwargs.get('pk')
+                    if pk == 'me':
+                        target_role = self.request.user.role
+                    elif pk:
+                        target_role = User.objects.values_list('role', flat=True).get(pk=pk)
+                    else:
+                        target_role = self.request.user.role
+                except User.DoesNotExist:
+                    target_role = self.request.user.role
+                except Exception:
+                    target_role = self.request.user.role
+
+                if target_role == UserRole.DONOR:
+                    if self.request.user.role != 'Admin':
+                        return DonorUpdateSelfSerializer
+                    return DonorUpdateSerializer
+                elif target_role == UserRole.TUAB:
+                    if self.request.user.role != 'Admin':
+                        return TuabUpdateSelfSerializer
+                    return TuabUpdateSerializer
+
+            # 2. Requester-based routing
             if self.request.user.role != 'Admin':
                 if self.action == 'list':
                     return TuabListSerializer
@@ -52,17 +81,11 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
                     return TuabSelfSerializer
             if self.request.user.role == 'Admin' and self.action == 'list':
                 return AdminUserListSerializer
-        return UserSerializer
+        return AdminUserDetailSerializer
 
     def get_queryset(self):
-        # We define a broad queryset here; the list/retrieve methods handle the role-based blocking
-        active_subscriptions = Subscription.objects.filter(
-            user=OuterRef('pk'),
-            status=SubscriptionStatus.ACTIVE,
-        )
         return (
             User.objects.select_related('upload', 'documentation')
-            .annotate(is_subscribed=Exists(active_subscriptions))
             .order_by('-created_at', '-user_id')
         )
 
@@ -117,6 +140,9 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
         instance = self.get_object()
         if request.user.role != UserRole.ADMIN and instance.user_id != request.user.user_id:
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+            
+        if instance.role == UserRole.ADMIN:
+            return Response({"detail": "Admin profiles cannot be updated via this endpoint."}, status=status.HTTP_403_FORBIDDEN)
         if instance.status != UserAccountStatus.ACTIVE:
             return Response(
                 {"detail": "Only active users can be edited."},
@@ -160,6 +186,11 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
         response = Response(serializer.data)
         response['ETag'] = build_updated_at_etag(request.user)
         return response
+
+    @action(detail=False, methods=['patch'], url_path='me')
+    def partial_update_me(self, request, *args, **kwargs):
+        self.kwargs['pk'] = request.user.user_id
+        return self.partial_update(request, *args, **kwargs)
 
     @action(detail=True, methods=['post'], url_path='approve')
     def approve(self, request, pk=None):
@@ -347,6 +378,45 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
         ip_address = get_client_ip(request)
         result = subscribe_user(
             target_user_id=pk,
+            first_name=serializer.validated_data['firstName'],
+            last_name=serializer.validated_data['lastName'],
+            card=serializer.validated_data['card'],
+        )
+
+        if result["status_code"] != 200:
+            return Response({"detail": result["detail"]}, status=result["status_code"])
+
+        log_audit(
+            actor=request.user,
+            entity_type='users',
+            action='CREDENTIAL_UPDATE',
+            ip_address=ip_address,
+            fields_modified=result['fields_modified']
+        )
+
+        return Response(
+            {
+                "detail": result["detail"],
+                "maya_customer_id": result["maya_customer_id"],
+                "maya_card_id": result["maya_card_id"],
+                "cardTokenId": result["cardTokenId"],
+                "state": result["state"],
+                "verificationUrl": result["verificationUrl"],
+            },
+            status=status.HTTP_200_OK
+        )
+
+    @action(detail=False, methods=['post'], url_path='me/subscription')
+    def create_my_subscription(self, request):
+        if request.user.role != UserRole.TUAB:
+            return Response({"detail": "Only TUAB users can subscribe themselves."}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = SubscribeSetupSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        ip_address = get_client_ip(request)
+        result = subscribe_user(
+            target_user_id=request.user.user_id,
             first_name=serializer.validated_data['firstName'],
             last_name=serializer.validated_data['lastName'],
             card=serializer.validated_data['card'],

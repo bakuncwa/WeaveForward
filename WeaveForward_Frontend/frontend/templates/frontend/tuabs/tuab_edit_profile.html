@@ -8,20 +8,34 @@
 
 <link rel="stylesheet" href="{% static 'frontend/css/edit-profile.css' %}">
 <style>
-    .donor-edit-wrap, .donor-edit-wrap * { box-sizing: border-box; font-family: 'Poppins', sans-serif !important; }
-    .sec-lbl, label { font-size: 10px; font-weight: 600; color: var(--mu); text-transform: uppercase; letter-spacing: .5px; display: block; }
-    .sec-lbl { letter-spacing: .8px; margin-bottom: 18px; }
-    .av-img { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; }
-    .av-ph { width: 60px; height: 60px; border-radius: 50%; background: #f0e8d8; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; color: var(--gold); }
+    .tuab-edit-wrap, .tuab-edit-wrap * { box-sizing: border-box; font-family: 'Poppins', sans-serif !important; }
+    .sec-lbl { font-size: 14px; font-weight: 400; color: #666666; letter-spacing: .8px; display: block; margin-bottom: 18px; font-family: 'Poppins', sans-serif; }
+    label { font-size: 12px; font-weight: 400; color: #C4C4C4; text-transform: uppercase; letter-spacing: .5px; display: block; font-family: 'Poppins', sans-serif; }
+    select.wf-in { appearance: none; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23e8a020' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpolyline points='6,9 12,15 18,9'/%3E%3C/svg%3E") no-repeat right 14px center; padding-right: 34px; }
+    .av-img { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; }
+    .av-ph { width: 80px; height: 80px; border-radius: 50%; background: #f0e8d8; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 700; color: var(--gold); }
+
+    .t-box { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; border: 1.5px solid var(--bd); border-radius: 8px; padding: 8px 10px; min-height: 44px; position: relative; cursor: text; }
+    .t-box:focus-within { border-color: var(--gold); }
+    #tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .t-chip { background: #FFF1D8; color: #E8A020; border-radius: 5.12px; padding: 2px 10px; font-size: 10px; font-weight: 400; display: flex; align-items: center; gap: 4px; font-family: 'Poppins', sans-serif; }
+    .t-chip span { cursor: pointer; font-size: 11px; line-height: 1; margin-left: auto; color: #E8A020; }
+    #ti { border: none !important; outline: none !important; font-size: 13px; background: transparent; min-width: 80px; flex: 1; padding: 0 !important; height: auto !important; }
+
+    .btn-remove-pay { width: 100%; padding: 10px 14px; border-radius: 8px; border: 1.5px solid #e2e2e2; background: #f4f4f4; color: #c0392b; font-weight: 600; font-size: 13px; cursor: pointer; }
+    .btn-remove-pay:disabled { cursor: default; opacity: .7; background: #fce8e0; border-color: #f5c0a0; color: #c0410e; }
+
+    @media(max-width:768px) { .g2 { grid-template-columns: 1fr; } .sec { padding: 18px 16px; } }
 </style>
 
-<div class="donor-edit-wrap">
-  <form id="ep-form" method="post" action="{% url 'edit_profile' %}" enctype="multipart/form-data">
+<div class="tuab-edit-wrap">
+  <form id="ep-form" method="post" action="{% url 'tuab_edit_profile' %}" enctype="multipart/form-data">
     {% csrf_token %}
     <input type="hidden" name="user_id" value="{{ user.user_id }}">
     <input type="hidden" name="current_etag" value="{{ current_etag }}">
     <input type="hidden" id="lat" name="latitude" value="{{ user.latitude }}">
     <input type="hidden" id="lng" name="longitude" value="{{ user.longitude }}">
+    <input type="hidden" id="fibs" name="target_fibers" value="{{ user.target_fibers }}">
 
     <div class="card">
       <!-- Profile Photo -->
@@ -31,37 +45,62 @@
         <div class="f-row">
           <div id="photo-pvw">
             {% if user.upload %}<img src="{{ user.upload }}" class="av-img" />
-            {% else %}<div class="av-ph">{{ user.first_name|slice:":1" }}{{ user.last_name|slice:":1" }}</div>{% endif %}
+            {% else %}<div class="av-ph">{{ user.business_name|slice:":2" }}</div>{% endif %}
           </div>
           <input type="file" name="upload" accept="image/*" id="photo-input" class="hidden" onchange="previewPhoto(this)" />
-          <button type="button" class="btn btn-ol" onclick="$('photo-input').click()">Change Photo</button>
+          <button type="button" class="btn btn-ol" style="border-radius:999px;padding:3px 28px;font-size:12px" onclick="$('photo-input').click()">Choose File</button>
         </div>
       </div>
       <div class="sep"></div>
 
-      <!-- Personal Information -->
+      <!-- Business Information -->
       <div class="sec">
         <div class="sec-lbl">Personal Information</div>
-        <div class="g2">
-          <div class="field"><label>First Name</label><input name="first_name" class="wf-in" value="{{ user.first_name }}" required/></div>
-          <div class="field"><label>Middle Name</label><input name="middle_name" class="wf-in" value="{{ user.middle_name|default:'' }}" /></div>
+        <div class="g2" style="margin-bottom:14px">
+          <div class="field">
+            <label>Business Name</label>
+            <input name="business_name" class="wf-in" value="{{ user.business_name }}" required />
+          </div>
+          <div class="field">
+            <label>Description</label>
+            <input name="description" class="wf-in" value="{{ user.description }}" />
+          </div>
         </div>
-        <div class="g2" style="margin-bottom:0">
-          <div class="field"><label>Last Name</label><input name="last_name" class="wf-in" value="{{ user.last_name }}" required/></div>
-          <div class="field"><label>Contact Number</label>
-            <div style="display:grid;grid-template-columns:60px 1fr;gap:8px">
-              <input value="+63" class="wf-in" style="pointer-events:none; background:#f9f9f9" tabindex="-1" /><input name="contact_no" class="wf-in" value="{{ user.contact_no|default:'' }}" />
+        <div class="g2" style="margin-bottom:14px">
+          <div class="field"><label>Social / Website Link</label><input name="social_link" class="wf-in" value="{{ user.social_link }}" /></div>
+          <div class="field" style="position:relative">
+            <label>Target Fiber Types</label>
+            <div class="t-box" onclick="$('ti').focus()">
+              <div id="tags"></div>
+              <input id="ti" placeholder="Add fiber…" autocomplete="off" autocapitalize="off" spellcheck="false" oninput="handleFiberInput(this.value)" onblur="setTimeout(()=>$('f-ac').classList.add('hidden'),200)">
+              <div id="f-ac" class="dropdown hidden"></div>
             </div>
           </div>
         </div>
+        <div class="g2" style="margin-bottom:14px">
+          <div class="field"><label>Max Distance (km)</label><input name="max_distance_km" type="number" step="0.01" min="0" max="100" class="wf-in" value="{{ user.max_distance_km }}" /></div>
+          <div class="field"><label style="text-transform:none">Min. Biodegradability Score</label><input name="min_biodeg_score" type="number" step="0.01" min="0" max="100" class="wf-in" value="{{ user.min_biodeg_score }}" /></div>
+        </div>
+        <div class="g2" style="margin-bottom:0">
+          <div class="field">
+            <label>Operational Status</label>
+            <select class="wf-in" name="operational_status">
+              <option value="ACTIVE" {% if user.operational_status == 'ACTIVE' %}selected{% endif %}>Active</option>
+              <option value="HIBERNATING" {% if user.operational_status == 'HIBERNATING' %}selected{% endif %}>Hibernating</option>
+            </select>
+          </div>
+          <div></div>
+        </div>
       </div>
       <div class="sep"></div>
 
-      <!-- Location -->
-      <div class="sec">
-        <div class="sec-lbl">Location</div>
-        <div class="field" style="margin-bottom:18px">
-          <label>Display Address</label>
+      <div class="sec" style="border:none">
+        <div class="g2" style="margin-bottom:14px">
+          <div class="field"><label>Barangay</label><input id="brgy" class="wf-in" value="{{ user.barangay|default:'' }}" readonly style="background:#f9f9f9" /></div>
+          <div class="field"><label style="text-transform:none">CITY</label><input id="city" class="wf-in" value="{{ user.city|default:'' }}" readonly style="background:#f9f9f9" /></div>
+        </div>
+        <div class="field" style="margin-bottom:14px">
+          <label>Address</label>
           <div class="addr-wrap">
             <input id="addr" name="display_address" class="wf-in" value="{{ user.display_address|default:'' }}" oninput="searchAddress(this.value)" placeholder="Search address..." />
             <button type="button" class="pin-btn" onclick="openMap()">
@@ -70,19 +109,33 @@
             <div id="addr-ac" class="dropdown hidden"></div>
           </div>
         </div>
-        <div class="g2" style="margin-bottom:0">
-          <div class="field"><label>Barangay</label><input id="brgy" class="wf-in" value="{{ user.barangay|default:'' }}" readonly style="background:#f9f9f9" /></div>
-          <div class="field"><label>City</label><input id="city" class="wf-in" value="{{ user.city|default:'' }}" readonly style="background:#f9f9f9" /></div>
+        <div class="field" style="margin-bottom:0">
+          <label>Contact Number</label>
+          <div style="display:grid;grid-template-columns:60px 1fr;gap:8px">
+            <input value="+63" class="wf-in" style="pointer-events:none; background:#f9f9f9" tabindex="-1" /><input name="contact_no" class="wf-in" value="{{ user.contact_no|default:'' }}" />
+          </div>
         </div>
       </div>
       <div class="sep"></div>
-
-      <!-- Security & Actions -->
       <div class="sec">
-        <div class="sec-lbl">Security</div>
-        <div class="g2" style="margin-bottom:16px">
+        <div class="g2" style="margin-bottom:14px">
           <div class="field"><label>New Password</label><input type="password" class="wf-in" name="new_password" placeholder="Leave blank to keep current" /></div>
           <div class="field"><label>Confirm Password</label><input type="password" class="wf-in" name="confirm_password" /></div>
+        </div>
+        <div class="g2" style="margin-bottom:18px">
+          <div class="field">
+            {% if user.is_subscribed %}
+            <button type="button" class="btn-remove-pay" id="btn-remove-pay" onclick="stageRemovePayment(this)">
+              Unsubscribe from Premium Features
+            </button>
+            {% else %}
+            <button type="button" class="btn-remove-pay" disabled
+              style="opacity:0.5;cursor:default;background:#f9f9f9;color:#999;border-color:#eee;">
+              No Active Subscription
+            </button>
+            {% endif %}
+          </div>
+          <div></div>
         </div>
         <input type="hidden" id="init-2fa" value="{{ user.is_2fa_enabled|yesno:'true,false' }}" />
         <div class="f-row" style="margin-bottom:24px">
@@ -90,8 +143,8 @@
           <span style="font-size:14px;color:#333;font-weight:500">Enable Two-Factor Authentication</span>
         </div>
         <div class="f-row" style="flex-wrap:wrap;gap:12px">
-          <button type="button" id="save-btn" class="btn btn-gold" style="padding: 12px 32px" onclick="onSave()">Save Changes</button>
-          <a href="{% url 'donor_profile' %}" class="btn btn-ol" style="padding: 12px 32px">Cancel</a>
+          <button type="button" id="save-btn" class="btn btn-gold" style="padding:6px 32px;font-weight:500;font-size:12px;color:#FFF1D8" onclick="onSave()">Save Changes</button>
+          <a href="{% url 'tuab_profile' %}" class="btn btn-ol" style="padding:6px 32px;font-weight:500;font-size:12px">Cancel</a>
         </div>
       </div>
 
@@ -137,6 +190,7 @@
     const INIT_2FA = document.getElementById('init-2fa').value === 'true';
     let staged2FA = INIT_2FA;
     let stagedSecret = null;
+    let stagedUnsubscribe = false;
     let initialData = {};
 
     window.onload = () => {
@@ -223,7 +277,10 @@
                 if (!staged2FA && INIT_2FA) {
                     await fetch("{% url 'two_factor_disable_proxy' %}", { method:'POST', headers:{'X-CSRFToken':'{{ csrf_token }}'} });
                 }
-                if (!skipRedirect) window.location.href = "{% url 'donor_profile' %}";
+                if (stagedUnsubscribe) {
+                    await fetch("{% url 'tuab_unsubscribe_proxy' %}", { method:'POST', headers:{'X-CSRFToken':'{{ csrf_token }}'} });
+                }
+                if (!skipRedirect) window.location.href = "{% url 'tuab_profile' %}";
                 return true;
             } else {
                 btn.disabled = false; btn.textContent = 'Save Changes';
@@ -270,7 +327,7 @@
             // Step 2: 2FA verified and enabled! Now save the profile edits.
             const ok = await submitProfile(true);
             if (ok) {
-                window.location.href = "{% url 'donor_profile' %}";
+                window.location.href = "{% url 'tuab_profile' %}";
             } else {
                 btn.disabled = false; btn.textContent = 'Save Changes';
                 cancel2FA(); // Hide modal so they can see other validation errors (e.g. Name, Phone)
@@ -350,5 +407,36 @@
         setTimeout(() => d.remove(), 5000);
     }
     document.addEventListener('click', e => { if (!e.target.closest('.addr-wrap')) $('addr-ac').classList.add('hidden'); });
+
+    // ############################################################
+    // #  TUAB-specific: Target Fiber Tag Chips                  #
+    // ############################################################
+    let tags = (document.getElementById('fibs').value || '').split(',').map(s => s.trim()).filter(Boolean);
+    function renderTags() {
+        $('tags').innerHTML = tags.map(t => `<div class="t-chip">${t}<span onclick="toggleTag('${t}')">×</span></div>`).join('');
+        $('fibs').value = tags.join(',');
+    }
+    function handleFiberInput(val) {
+        const FIBERS = {{ fibers|safe }};
+        const m = FIBERS.filter(f => f.toLowerCase().includes(val.toLowerCase()) && !tags.includes(f));
+        $('f-ac').innerHTML = m.map(f => `<div onmousedown="toggleTag('${f}')">${f}</div>`).join('');
+        $('f-ac').classList.toggle('hidden', !val || !m.length);
+    }
+    function toggleTag(f) {
+        tags = tags.includes(f) ? tags.filter(t => t !== f) : [...tags, f];
+        renderTags();
+        $('ti').value = '';
+        $('f-ac').classList.add('hidden');
+    }
+    renderTags();
+
+    // ############################################################
+    // #  TUAB-specific: Unsubscribe from Premium                #
+    // ############################################################
+    function stageRemovePayment(btn) {
+        stagedUnsubscribe = true;
+        btn.textContent = 'Will unsubscribe on save';
+        btn.disabled = true;
+    }
 </script>
 {% endblock %}
