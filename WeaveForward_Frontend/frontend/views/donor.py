@@ -101,8 +101,8 @@ async def donor_my_donations(request):
     """View to list the logged-in donor's donations."""
     profile = request.user_profile
 
-    # Fetch from /api/donations/me/
-    response = await api_call(request, 'GET', 'donations/me')
+    # Fetch from /api/users/me/donations/
+    response = await api_call(request, 'GET', 'users/me/donations')
     donations_data = {}
     donations_list = []
     if response.status_code == 200:
@@ -225,8 +225,8 @@ async def donor_create_donation(request):
 
     # Fetch choices for the dropdowns (matching edit logic) in parallel
     types_res, brands_res = await asyncio.gather(
-        api_call(request, 'GET', 'brandfiberlookups/clothing_types'),
-        api_call(request, 'GET', 'brandfiberlookups/brands')
+        api_call(request, 'GET', 'clothing-types'),
+        api_call(request, 'GET', 'brands')
     )
     clothing_types = types_res.json() if types_res.status_code == 200 else []
     all_brands = brands_res.json() if brands_res.status_code == 200 else []
@@ -400,8 +400,8 @@ async def donor_edit_donation(request, donation_id):
     # GET Request: Fetch donation, clothing types, and all brands in parallel
     donation_res, types_res, brands_res = await asyncio.gather(
         api_call(request, 'GET', f'donations/{donation_id}'),
-        api_call(request, 'GET', 'brandfiberlookups/clothing_types'),
-        api_call(request, 'GET', 'brandfiberlookups/brands')
+        api_call(request, 'GET', 'clothing-types'),
+        api_call(request, 'GET', 'brands')
     )
     
     if donation_res.status_code == 200:
@@ -481,7 +481,7 @@ async def donor_impact_dashboard(request):
     try:
         response, types_res = await asyncio.gather(
             api_call(request, 'GET', 'impact-dashboard', params=api_params),
-            api_call(request, 'GET', 'brandfiberlookups/clothing_types')
+            api_call(request, 'GET', 'clothing-types')
         )
         if response.status_code == 200:
             dashboard_data = response.json()

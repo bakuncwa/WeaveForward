@@ -39,7 +39,7 @@ class MiddlewareAuthMixin:
     def mock_middleware_request(self, method, url, **kwargs):
         if url.endswith('/users/me'):
             return make_response(200, self.auth_profile)
-        if url.endswith('/token/refresh'):
+        if url.endswith('/auth/token/refresh'):
             response = make_response(200)
             response.cookies.set('access_token', make_access_token())
             return response
@@ -126,7 +126,7 @@ class AuthViewsTest(TestCase):
         self.assertEqual(response.url, reverse('login'))
         # Use more robust way to check call arguments
         args, kwargs = mocked_api_call.call_args
-        self.assertEqual(args[1:], ('POST', 'logout'))
+        self.assertEqual(args[1:], ('DELETE', 'auth/token'))
         self.assertNotIn('json', mocked_api_call.call_args.kwargs)
         self.assertEqual(response.cookies['access_token'].value, '')
         self.assertEqual(response.cookies['refresh_token'].value, '')
@@ -254,7 +254,7 @@ class AuthViewsTest(TestCase):
         self.assertEqual(response.cookies['refresh_token'].value, 'rotated-refresh')
         self.assertEqual(mocked_requests.call_count, 5)
         refresh_call = mocked_requests.call_args_list[1]
-        self.assertEqual(refresh_call.args[:2], ('POST', 'http://127.0.0.1:8000/api/token/refresh'))
+        self.assertEqual(refresh_call.args[:2], ('POST', 'http://127.0.0.1:8000/api/auth/token/refresh'))
         self.assertEqual(refresh_call.kwargs['cookies']['refresh_token'], 'refresh-cookie')
         self.assertEqual(refresh_call.kwargs['cookies']['csrftoken'], 'csrf-cookie')
         self.assertEqual(refresh_call.kwargs['headers']['X-CSRFToken'], 'csrf-cookie')
@@ -1495,7 +1495,7 @@ class DonorImpactDashboardViewTest(MiddlewareAuthMixin, TestCase):
         call1, call2 = mocked_api_call.call_args_list
         self.assertEqual(call1.args[1:], ('GET', 'impact-dashboard'))
         self.assertEqual(call1.kwargs['params'], {})
-        self.assertEqual(call2.args[1:], ('GET', 'brandfiberlookups/clothing_types'))
+        self.assertEqual(call2.args[1:], ('GET', 'clothing-types'))
 
     @patch('frontend.views.donor.api_call')
     def test_donor_impact_dashboard_with_filters(self, mocked_api_call):
@@ -1573,7 +1573,7 @@ class AdminImpactDashboardViewTest(MiddlewareAuthMixin, TestCase):
         call1, call2 = mocked_api_call.call_args_list
         self.assertEqual(call1.args[1:], ('GET', 'impact-dashboard'))
         self.assertEqual(call1.kwargs['params'], {})
-        self.assertEqual(call2.args[1:], ('GET', 'brandfiberlookups/clothing_types'))
+        self.assertEqual(call2.args[1:], ('GET', 'clothing-types'))
 
     @patch('frontend.views.admin.api_call')
     def test_admin_impact_dashboard_with_filters(self, mocked_api_call):

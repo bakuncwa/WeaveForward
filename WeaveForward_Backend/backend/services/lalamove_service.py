@@ -8,7 +8,7 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 from .audit_service import log_audit
-from ..models import Order, OrderStatus, DonationStatus, OrderPayment, PaymentStatus, DonationDeliveryMethod
+from ..models import User, UserRole, Donation, Order, OrderStatus, DonationStatus, OrderPayment, PaymentStatus, DonationDeliveryMethod
 
 def get_lalamove_quotation(pickup_lat, pickup_lng, pickup_address, dropoff_lat, dropoff_lng, dropoff_address, schedule_at):
     """
@@ -240,9 +240,10 @@ def process_lalamove_webhook(payload, client_ip):
                 order_record.save(update_fields=["status", "no_reassigned", "updated_at"])
 
                 donation_record = order_record.donation
-                if donation_record.claimed_by_tuab:
+                admin_user = User.objects.filter(role=UserRole.ADMIN).first()
+                if admin_user:
                     log_audit(
-                        actor=donation_record.claimed_by_tuab,
+                        actor=admin_user,
                         entity_type="donations",
                         action="STATUS_CHANGE",
                         ip_address=client_ip,
@@ -278,9 +279,10 @@ def process_lalamove_webhook(payload, client_ip):
             order_record.save(update_fields=["status", "updated_at"])
 
             donation_record = order_record.donation
-            if donation_record.claimed_by_tuab:
+            admin_user = User.objects.filter(role=UserRole.ADMIN).first()
+            if admin_user:
                 log_audit(
-                    actor=donation_record.claimed_by_tuab,
+                    actor=admin_user,
                     entity_type="donations",
                     action="STATUS_CHANGE",
                     ip_address=client_ip,
@@ -407,6 +409,56 @@ def update_lalamove_order(
     if response.status_code not in [200, 201, 204]:
         return {"error": response.text, "status_code": response.status_code}
     return response.json() if response.status_code in [200, 201] else {"status_code": response.status_code}
+
+
+def process_expired_orders():
+    """
+    Finds all active/pending orders that are past their expires_at date
+    and transitions them to FAILED, reverts the associated donation to PICKUP,
+    and refunds the payment.
+    """
+    with transaction.atomic():
+        now = timezone.now()
+        expired_orders = Order.objects.select_for_update().filter(
+            expires_at__lte=now
+        ).exclude(
+            status__in=[OrderStatus.COMPLETED, OrderStatus.CANCELLED, OrderStatus.FAILED]
+        )
+
+        expired_count = 0
+        for order in expired_orders:
+            # 1. Fail the order locally
+            order.status = OrderStatus.FAILED
+            order.updated_at = now
+            order.save(update_fields=["status", "updated_at"])
+
+            # 2. Revert the donation to CLAIMED with PICKUP delivery method
+            donation = Donation.objects.select_for_update().get(pk=order.donation_id)
+            donation.status = DonationStatus.CLAIMED
+            donation.delivery_method = DonationDeliveryMethod.PICKUP
+            donation.updated_at = now
+            donation.save(update_fields=["status", "delivery_method", "updated_at"])
+
+            # Log audit trail
+            actor = User.objects.filter(role=UserRole.ADMIN).first()
+            if actor:
+                log_audit(
+                    actor=actor,
+                    entity_type="donations",
+                    action="STATUS_CHANGE",
+                    ip_address=None,
+                    fields_modified=["status", "delivery_method"]
+                )
+
+            # 3. Refund the payment if it was successful
+            payment = order.payments.filter(status=PaymentStatus.SUCCESS).first()
+            if payment and payment.payment_reference:
+                reverse_or_refund_payment(payment, payment.amount)
+
+            expired_count += 1
+
+    return expired_count
+
 
 
 

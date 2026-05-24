@@ -1,10 +1,8 @@
 from .auth import (
     CookieTokenRefreshView,
-    CustomTokenObtainPairView,
-    LogoutView,
     PasswordResetRequestView,
     PasswordResetConfirmView,
-    RegisterView,
+    TokenViewSet,
 )
 from .users import UserViewSet
 from .locations import lookup_location

@@ -10,7 +10,7 @@ from ..services.subscription_service import (
 )
 from ..services.donation_service import process_auto_archive_donations
 from ..services.prediction_service import delete_archived_match_predictions
-from ..services.lalamove_service import process_lalamove_webhook
+from ..services.lalamove_service import process_lalamove_webhook, process_expired_orders
 
 # Webhook uses ngrok: https://raquel-washiest-heike.ngrok-free.dev/api/webhooks/
 MAYA_WEBHOOK_IPS = {'3.1.199.75', '13.229.160.234'}
@@ -34,12 +34,14 @@ def webhooks(request):
         cancelled_subs = process_expired_subscriptions()
         archived_donations = process_auto_archive_donations()
         deleted_predictions = delete_archived_match_predictions()
+        expired_orders = process_expired_orders()
         return Response({
-            "detail": "Successfully processed subscriptions, auto-archived donations, and cleared predictions.",
+            "detail": "Successfully processed subscriptions, auto-archived donations, cleared predictions, and expired orders.",
             "results": {
                 "cancelled_subscriptions_count": cancelled_subs,
                 "archived_donations_count": archived_donations,
-                "deleted_predictions_count": deleted_predictions
+                "deleted_predictions_count": deleted_predictions,
+                "expired_orders_count": expired_orders
             }
         }, status=200)
 

@@ -7,7 +7,7 @@ from django.shortcuts import render, redirect
 from django.utils.dateparse import parse_datetime, parse_time
 import httpx
 
-from ..services import api_call, format_errors, get_fiber_choices
+from ..services import api_call, format_errors, get_paginated_data, get_fiber_choices
 
 
 async def tuab_dashboard(request):
@@ -45,7 +45,7 @@ async def tuab_dashboard(request):
     try:
         avail_res, claimed_res = await asyncio.gather(
             api_call(request, 'GET', 'donations', params=avail_params),
-            api_call(request, 'GET', 'donations/me', params=claimed_params),
+            api_call(request, 'GET', 'users/me/donations', params=claimed_params),
             return_exceptions=True
         )
     except Exception:
@@ -309,8 +309,8 @@ async def tuab_update_incoming_donation(request, donation_id):
     # =========================
     donation_res, types_res, brands_res = await asyncio.gather(
         api_call(request, 'GET', f'donations/{donation_id}'),
-        api_call(request, 'GET', 'brandfiberlookups/clothing_types'),
-        api_call(request, 'GET', 'brandfiberlookups/brands')
+        api_call(request, 'GET', 'clothing-types'),
+        api_call(request, 'GET', 'brands')
     )
 
     if donation_res.status_code != 200:
@@ -567,7 +567,7 @@ async def tuab_view_payments(request):
     profile = request.user_profile
     reference = request.GET.get('reference', '')
     
-    page_data = await get_paginated_data(request, 'payments/me', params={'reference': reference} if reference else None)
+    page_data = await get_paginated_data(request, 'users/me/payments', params={'reference': reference} if reference else None)
     
     return render(request, 'frontend/tuabs/tuab_view_payments.html', {
         'page_title': 'Payments',

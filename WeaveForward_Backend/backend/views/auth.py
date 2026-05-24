@@ -1,13 +1,12 @@
 from django.conf import settings
 from django.db import transaction
 
-from rest_framework import status
+from rest_framework import status, viewsets
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 
 from ..models import User, UserRole
@@ -29,26 +28,6 @@ from ..services.auth_service import (
 )
 from ..services.email_service import send_password_reset_email
 
-
-class CustomTokenObtainPairView(TokenObtainPairView):
-    serializer_class = CustomTokenObtainPairSerializer
-
-    def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        validated_data = serializer.validated_data.copy()
-        access_token = validated_data.pop("access", None)
-        refresh_token = validated_data.pop("refresh", None)
-
-        response = Response(validated_data, status=status.HTTP_200_OK)
-        set_auth_cookies(response, access_token, refresh_token)
-        
-        # Force CSRF cookie to be set on login
-        from django.middleware.csrf import get_token
-        get_token(request)
-        
-        return response
 
 
 class CookieTokenRefreshView(APIView):
@@ -83,29 +62,6 @@ class CookieTokenRefreshView(APIView):
         )
         return response
 
-
-class LogoutView(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request):
-        refresh_cookie = request.COOKIES.get(REFRESH_COOKIE_NAME)
-        if refresh_cookie:
-            try:
-                enforce_csrf(request)
-            except Exception as exc:
-                response = Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
-                clear_auth_cookies(response)
-                return response
-
-            try:
-                token = RefreshToken(refresh_cookie)
-                token.blacklist()
-            except Exception:
-                pass
-
-        response = Response({"message": "Successfully logged out"}, status=status.HTTP_205_RESET_CONTENT)
-        clear_auth_cookies(response)
-        return response
 
 
 class PasswordResetRequestView(APIView):
@@ -151,19 +107,48 @@ class PasswordResetConfirmView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class RegisterView(APIView):
+
+
+class TokenViewSet(viewsets.ViewSet):
     permission_classes = [AllowAny]
 
-    def post(self, request):
-        role = request.data.get('role')
-        if role == UserRole.DONOR:
-            serializer = DonorRegisterSerializer(data=request.data)
-        elif role == UserRole.TUAB:
-            serializer = TUABRegisterSerializer(data=request.data)
-        else:
-            return Response({"error": "Invalid role specified."}, status=status.HTTP_400_BAD_REQUEST)
+    def create(self, request, *args, **kwargs):
+        serializer = CustomTokenObtainPairSerializer(
+            data=request.data,
+            context={'request': request, 'view': self}
+        )
+        serializer.is_valid(raise_exception=True)
 
-        if serializer.is_valid():
-            serializer.save()
-            return Response({"message": "Registration successful."}, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        validated_data = serializer.validated_data.copy()
+        access_token = validated_data.pop("access", None)
+        refresh_token = validated_data.pop("refresh", None)
+
+        response = Response(validated_data, status=status.HTTP_200_OK)
+        set_auth_cookies(response, access_token, refresh_token)
+        
+        # Force CSRF cookie to be set on login
+        from django.middleware.csrf import get_token
+        get_token(request)
+        
+        return response
+
+    def destroy(self, request, *args, **kwargs):
+        refresh_cookie = request.COOKIES.get(REFRESH_COOKIE_NAME)
+        if refresh_cookie:
+            try:
+                enforce_csrf(request)
+            except Exception as exc:
+                response = Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+                clear_auth_cookies(response)
+                return response
+
+            try:
+                token = RefreshToken(refresh_cookie)
+                token.blacklist()
+            except Exception:
+                pass
+
+        response = Response({"message": "Successfully logged out"}, status=status.HTTP_205_RESET_CONTENT)
+        clear_auth_cookies(response)
+        return response
+

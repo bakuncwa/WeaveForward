@@ -21,7 +21,7 @@ class TokenExpirationTest(TestCase):
             role='Donor',
             status='ACTIVE'
         )
-        self.login_url = reverse('token_obtain_pair')
+        self.login_url = reverse('token_obtain')
         self.protected_url = reverse('user-me')
 
     def test_access_token_expires(self):

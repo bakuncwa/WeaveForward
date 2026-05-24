@@ -5,37 +5,34 @@ from . import views
 
 urlpatterns = [
     # --- AUTH ---
-    path('login', views.CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('logout', views.LogoutView.as_view(), name='token_blacklist'),
-    path('token/refresh', views.CookieTokenRefreshView.as_view(), name='token_refresh'),
-    path('password-reset', views.PasswordResetRequestView.as_view(), name='password_reset_request'),
-    path('password-reset/confirm', views.PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
-    path('register', views.RegisterView.as_view(), name='register'),
+    path('auth/token', views.TokenViewSet.as_view({'post': 'create', 'delete': 'destroy'}), name='token_obtain'),
+    path('auth/token/refresh', views.CookieTokenRefreshView.as_view(), name='token_refresh'),
+    path('auth/password-reset', views.PasswordResetRequestView.as_view(), name='password_reset_request'),
+    path('auth/password-reset/confirmation', views.PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
 
     # --- USERS ---
     path('users', views.UserViewSet.as_view({'get': 'list', 'post': 'create'}), name='user-list'),
-    path('users/me/2fa/setup', views.UserViewSet.as_view({'post': 'two_factor_setup'}), name='user-2fa-setup'),
     path('webhooks', views.webhooks, name='webhooks'),
-    path('users/<int:pk>/approve', views.UserViewSet.as_view({'post': 'approve'}), name='user-approve'),
 
+    # --- ME ROUTES ---
     path('users/me', views.UserViewSet.as_view({'get': 'me', 'patch': 'partial_update_me'}), name='user-me'),
     path('users/me/subscription', views.UserViewSet.as_view({'post': 'create_my_subscription', 'delete': 'cancel_my_subscription'}), name='user-me-subscription'),
     path('users/me/2fa', views.UserViewSet.as_view({'post': 'my_two_factor', 'delete': 'my_two_factor'}), name='user-me-2fa'),
+    path('users/me/2fa/setup', views.UserViewSet.as_view({'post': 'two_factor_setup'}), name='user-2fa-setup'),
+    path('users/me/donations', views.DonationViewSet.as_view({'get': 'me'}), name='donation-me'),
+    path('users/me/payments', views.PaymentMeView.as_view(), name='payment-me'),
     
-    
+    # --- PK ROUTES ---
     path('users/<int:pk>', views.UserViewSet.as_view({'get': 'retrieve', 'patch': 'partial_update', 'delete': 'destroy'}), name='user-detail'),
+    path('users/<int:pk>/approve', views.UserViewSet.as_view({'post': 'approve'}), name='user-approve'),
     path('users/<int:pk>/subscription', views.UserViewSet.as_view({'post': 'create_subscription', 'delete': 'cancel_subscription'}), name='user-subscription'),
     path('users/<int:pk>/2fa', views.UserViewSet.as_view({'post': 'two_factor', 'delete': 'two_factor'}), name='user-2fa-detail'),
-    
-
-    
 
     # --- LOCATIONS ---
     path('location/lookup', views.lookup_location, name='location_lookup'),
 
     # --- DONATIONS ---
     path('donations', views.DonationViewSet.as_view({'get': 'list', 'post': 'create'}), name='donation-list'),
-    path('donations/me', views.DonationViewSet.as_view({'get': 'me'}), name='donation-me'),
     path('donations/<int:pk>/quotation', views.DonationViewSet.as_view({'post': 'quotation'}), name='donation-quotation'),
     path('donations/<int:pk>/claim', views.DonationViewSet.as_view({'post': 'claim'}), name='donation-claim'),
     path('donations/<int:pk>/transit', views.DonationViewSet.as_view({'post': 'transit'}), name='donation-transit'),
@@ -49,11 +46,10 @@ urlpatterns = [
 
     # --- PAYMENTS ---
     path('payments', views.PaymentListView.as_view(), name='payment-list'),
-    path('payments/me', views.PaymentMeView.as_view(), name='payment-me'),
 
     # --- MATERIALS ---
     path('brandfiberlookups', views.BrandFiberLookupViewset.as_view({'get': 'list'}), name='material-list'),
-    path('brandfiberlookups/fibers', views.BrandFiberLookupViewset.as_view({'get': 'fibers'}), name='material-fibers'),
-    path('brandfiberlookups/clothing_types', views.BrandFiberLookupViewset.as_view({'get': 'clothing_types'}), name='material-clothing-types'),
-    path('brandfiberlookups/brands', views.BrandFiberLookupViewset.as_view({'get': 'brands'}), name='material-brands'),
+    path('fibers', views.BrandFiberLookupViewset.as_view({'get': 'fibers'}), name='material-fibers'),
+    path('clothing-types', views.BrandFiberLookupViewset.as_view({'get': 'clothing_types'}), name='material-clothing-types'),
+    path('brands', views.BrandFiberLookupViewset.as_view({'get': 'brands'}), name='material-brands'),
 ]

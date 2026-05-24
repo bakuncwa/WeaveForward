@@ -77,7 +77,7 @@ async def login_view(request):
         otp_code = request.POST.get('otp_code')
         
         try:
-            response = await api_call(request, 'POST', 'login', json={
+            response = await api_call(request, 'POST', 'auth/token', json={
                 'email': email,
                 'password': password,
                 'otp_code': otp_code
@@ -135,7 +135,7 @@ async def logout_view(request):
         return HttpResponseNotAllowed(['POST'])
 
     try:
-        response = await api_call(request, 'POST', 'logout')
+        response = await api_call(request, 'DELETE', 'auth/token')
     except Exception:
         messages.error(request, "Logout failed because the backend is unreachable. Please try again.")
         return redirect(request.META.get('HTTP_REFERER') or reverse('login'))
@@ -173,7 +173,7 @@ async def location_lookup_proxy(request):
 async def material_clothing_types_proxy(request):
     """SSR Proxy for fetching unique clothing types."""
     try:
-        response = await api_call(request, 'GET', 'brandfiberlookups/clothing_types')
+        response = await api_call(request, 'GET', 'clothing-types')
         return JsonResponse(response.json(), status=response.status_code, safe=False)
     except Exception:
         return JsonResponse({'error': 'Backend service unreachable'}, status=503)
@@ -182,7 +182,7 @@ async def material_brands_proxy(request):
     """SSR Proxy for fetching brands by clothing type."""
     clothing_type = request.GET.get('clothing_type')
     try:
-        response = await api_call(request, 'GET', 'brandfiberlookups/brands', params={'clothing_type': clothing_type})
+        response = await api_call(request, 'GET', 'brands', params={'clothing_type': clothing_type})
         return JsonResponse(response.json(), status=response.status_code, safe=False)
     except Exception:
         return JsonResponse({'error': 'Backend service unreachable'}, status=503)
@@ -209,7 +209,7 @@ async def forgot_password(request):
     if request.method == 'POST':
         email = request.POST.get('email')
         try:
-            response = await api_call(request, 'POST', 'password-reset', json={'email': email})
+            response = await api_call(request, 'POST', 'auth/password-reset', json={'email': email})
             if response.status_code == 200:
                 return render(request, 'frontend/forgot_password.html', {'success': "If that email exists in our system, we've sent a password reset link to it."})
             else:
@@ -242,7 +242,7 @@ async def reset_password_confirm(request):
         }
 
         try:
-            response = await api_call(request, 'POST', 'password-reset/confirm', json=payload)
+            response = await api_call(request, 'POST', 'auth/password-reset/confirmation', json=payload)
             if response.status_code == 200:
                 messages.success(request, "Password reset successful! 2FA has been disabled. You can now log in.")
                 return redirect('login')
@@ -296,7 +296,7 @@ async def donor_registration(request):
         elif not payload['contact_no'].startswith('+'):
             payload['contact_no'] = '+63' + payload['contact_no']
         try:
-            response = await api_call(request, 'POST', 'register', json=payload)
+            response = await api_call(request, 'POST', 'users', json=payload)
             if response.status_code == 201:
                 messages.success(request, "Registration successful!")
                 return redirect('login')
@@ -360,7 +360,7 @@ async def tuab_registration(request):
         files = {'documentation': request.FILES.get('documentation')} if request.FILES.get('documentation') else None
 
         try:
-            response = await api_call(request, 'POST', 'register', data=payload, files=files)
+            response = await api_call(request, 'POST', 'users', data=payload, files=files)
             if response.status_code == 201:
                 messages.success(request, "TUAB Application Submitted!")
                 return redirect('login')

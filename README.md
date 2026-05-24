@@ -325,7 +325,7 @@ Features for Donor user role:
 - [x] Cancel Donation
 - [x] View Donation Impact Dashboard
 - [x] Update Account Information
-- [ ] Donor Features Blackbox Selenium Test Script
+- [x] Donor Features Blackbox Selenium Test Script
 
 ### Phase 4: TUAB Features
 
