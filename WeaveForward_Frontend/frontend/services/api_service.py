@@ -24,7 +24,19 @@ requests = _RequestsShim()
 async_client = httpx.AsyncClient(
     timeout=httpx.Timeout(connect=5.0, read=30.0, write=30.0, pool=5.0),
     limits=httpx.Limits(max_connections=50, max_keepalive_connections=20),
+    cookies=None,
 )
+# Disable cookie merging in the shared client jar.
+# httpx._send_single_request calls set_cookie_header (overwrites the Cookie
+# header with jar contents) and extract_cookies (writes response Set-Cookie
+# into the jar).  Under concurrent requests users would pick up each other's
+# auth cookies, so both are made no-ops.  We pass all needed cookies explicitly
+# via the cookies= kwarg and read response cookies directly from response.cookies.
+async_client._cookies.set_cookie_header = lambda _request: None
+async_client._cookies.extract_cookies = lambda _response: None
+
+
+
 
 
 
