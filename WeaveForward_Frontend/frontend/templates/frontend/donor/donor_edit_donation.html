@@ -529,4 +529,5 @@
   // Track changes on items: mark card container with data-changed when any input or select changes inside it.
   document.getElementById('cards').addEventListener('input', e => e.target.closest('.restored-card')?.setAttribute('data-changed', 'true'));
 </script>
+<script src="{% static 'frontend/js/custom-select.js' %}"></script>
 {% endblock %}

@@ -50,8 +50,8 @@ async def api_call(request, method, endpoint, **kwargs):
 
             refresh_res = await _dispatch_request(
                 "POST",
-                f"{BACKEND_BASE_URL.rstrip('/')}/token/refresh",
-                endpoint="token/refresh",
+                f"{BACKEND_BASE_URL.rstrip('/')}/auth/token/refresh",
+                endpoint="auth/token/refresh",
                 cookies=refresh_cookies,
                 headers=refresh_headers,
             )

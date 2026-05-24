@@ -116,27 +116,27 @@ class DonorRegistrationTest(TestCase):
         }
 
     def test_valid_donor_registration(self):
-        response = self.client.post(reverse('register'), self.valid_payload, format='json')
+        response = self.client.post(reverse('user-list'), self.valid_payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(User.objects.filter(email='juan@example.com').exists())
 
     def test_invalid_phone_format(self):
         payload = self.valid_payload.copy()
         payload['contact_no'] = '09171234567'
-        response = self.client.post(reverse('register'), payload, format='json')
+        response = self.client.post(reverse('user-list'), payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_outside_ncr_geofence(self):
         payload = self.valid_payload.copy()
         payload['latitude'] = '14.0000000'
         payload['longitude'] = '121.0000000'
-        response = self.client.post(reverse('register'), payload, format='json')
+        response = self.client.post(reverse('user-list'), payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('location', response.json())
 
     def test_missing_required_fields(self):
         payload = {'role': 'Donor'}
-        response = self.client.post(reverse('register'), payload, format='json')
+        response = self.client.post(reverse('user-list'), payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         data = response.json()
         self.assertIn('email', data)
@@ -172,7 +172,7 @@ class TUABRegistrationTest(TestCase):
     def test_valid_tuab_registration(self):
         payload = self.valid_payload.copy()
         payload['documentation'] = SimpleUploadedFile("test.pdf", b"file_content", content_type="application/pdf")
-        response = self.client.post(reverse('register'), payload, format='multipart')
+        response = self.client.post(reverse('user-list'), payload, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         user = User.objects.get(email='tuab@example.com')
         self.assertEqual(user.role, 'TUAB')
@@ -183,7 +183,7 @@ class TUABRegistrationTest(TestCase):
         payload = self.valid_payload.copy()
         payload.pop('target_fibers')
         # documentation is already missing from valid_payload in setUp
-        response = self.client.post(reverse('register'), payload, format='multipart')
+        response = self.client.post(reverse('user-list'), payload, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         data = response.json()
         self.assertIn('target_fibers', data)
@@ -193,7 +193,7 @@ class TUABRegistrationTest(TestCase):
         payload = self.valid_payload.copy()
         payload['target_fibers'] = 'cotton,adamantium'
         payload['documentation'] = SimpleUploadedFile("test.pdf", b"file_content", content_type="application/pdf")
-        response = self.client.post(reverse('register'), payload, format='multipart')
+        response = self.client.post(reverse('user-list'), payload, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('target_fibers', response.json())
 
@@ -201,19 +201,19 @@ class TUABRegistrationTest(TestCase):
         payload = self.valid_payload.copy()
         payload['target_fibers'] = 'Cotton, wool'
         payload['documentation'] = SimpleUploadedFile("test.pdf", b"file_content", content_type="application/pdf")
-        response = self.client.post(reverse('register'), payload, format='multipart')
+        response = self.client.post(reverse('user-list'), payload, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('target_fibers', response.json())
 
     def test_duplicate_email(self):
         payload = self.valid_payload.copy()
         payload['documentation'] = SimpleUploadedFile("test.pdf", b"file_content", content_type="application/pdf")
-        self.client.post(reverse('register'), payload, format='multipart')
+        self.client.post(reverse('user-list'), payload, format='multipart')
         
         payload2 = self.valid_payload.copy()
         payload2['contact_no'] = '+639189999999'
         payload2['documentation'] = SimpleUploadedFile("test.pdf", b"file_content", content_type="application/pdf")
-        response = self.client.post(reverse('register'), payload2, format='multipart')
+        response = self.client.post(reverse('user-list'), payload2, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('email', response.json())
 
@@ -238,12 +238,10 @@ class RoutingStyleTest(TestCase):
         self.client = APIClient()
 
     def test_named_routes_resolve_without_trailing_slashes(self):
-        self.assertEqual(reverse('token_obtain_pair'), '/api/login')
-        self.assertEqual(reverse('token_blacklist'), '/api/logout')
-        self.assertEqual(reverse('token_refresh'), '/api/token/refresh')
-        self.assertEqual(reverse('password_reset_request'), '/api/password-reset')
-        self.assertEqual(reverse('password_reset_confirm'), '/api/password-reset/confirm')
-        self.assertEqual(reverse('register'), '/api/register')
+        self.assertEqual(reverse('token_obtain'), '/api/auth/token')
+        self.assertEqual(reverse('token_refresh'), '/api/auth/token/refresh')
+        self.assertEqual(reverse('password_reset_request'), '/api/auth/password-reset')
+        self.assertEqual(reverse('password_reset_confirm'), '/api/auth/password-reset/confirmation')
         self.assertEqual(reverse('user-list'), '/api/users')
         self.assertEqual(reverse('user-me'), '/api/users/me')
         self.assertEqual(reverse('user-2fa-setup'), '/api/users/me/2fa/setup')
@@ -255,19 +253,18 @@ class RoutingStyleTest(TestCase):
         self.assertEqual(reverse('webhooks'), '/api/webhooks')
         self.assertEqual(reverse('location_lookup'), '/api/location/lookup')
         self.assertEqual(reverse('donation-list'), '/api/donations')
-        self.assertEqual(reverse('donation-me'), '/api/donations/me')
+        self.assertEqual(reverse('donation-me'), '/api/users/me/donations')
         self.assertEqual(reverse('donation-detail', kwargs={'pk': 9}), '/api/donations/9')
+        self.assertEqual(reverse('payment-me'), '/api/users/me/payments')
         self.assertEqual(reverse('material-list'), '/api/brandfiberlookups')
-        self.assertEqual(reverse('material-fibers'), '/api/brandfiberlookups/fibers')
+        self.assertEqual(reverse('material-fibers'), '/api/fibers')
 
     def test_trailing_slash_variants_return_404(self):
         for path in (
-            '/api/login/',
-            '/api/logout/',
-            '/api/token/refresh/',
-            '/api/password-reset/',
-            '/api/password-reset/confirm/',
-            '/api/register/',
+            '/api/auth/token/',
+            '/api/auth/token/refresh/',
+            '/api/auth/password-reset/',
+            '/api/auth/password-reset/confirmation/',
             '/api/users/',
             '/api/users/me/',
             '/api/users/me/2fa/setup/',
@@ -279,10 +276,13 @@ class RoutingStyleTest(TestCase):
             '/api/webhooks/',
             '/api/location/lookup/',
             '/api/donations/',
-            '/api/donations/me/',
+            '/api/users/me/donations/',
             '/api/donations/9/',
+            '/api/users/me/payments/',
             '/api/brandfiberlookups/',
-            '/api/brandfiberlookups/fibers/',
+            '/api/fibers/',
+            '/api/clothing-types/',
+            '/api/brands/',
         ):
             response = self.client.get(path)
             self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND, path)
@@ -305,8 +305,8 @@ class AuthenticationTest(TestCase):
             contact_no="+639123456789",
             status="ACTIVE"
         )
-        self.login_url = reverse('token_obtain_pair')
-        self.logout_url = reverse('token_blacklist')
+        self.login_url = reverse('token_obtain')
+        self.logout_url = reverse('token_obtain')
 
     def test_login_success(self):
         response = self.client.post(self.login_url, {
@@ -340,7 +340,7 @@ class AuthenticationTest(TestCase):
         cookie_client = APIClient(enforce_csrf_checks=True)
         cookie_client.cookies['refresh_token'] = login_res.cookies['refresh_token'].value
         cookie_client.cookies['csrftoken'] = 'a' * 32
-        response = cookie_client.post(
+        response = cookie_client.delete(
             self.logout_url,
             {},
             format='json',
@@ -461,7 +461,7 @@ class PasswordResetTest(TestCase):
         self.assertIsNone(self.user.totp_secret)
         
         # 5. Verify login works with new password
-        login_res = self.client.post(reverse('token_obtain_pair'), {
+        login_res = self.client.post(reverse('token_obtain'), {
             "email": self.email,
             "password": new_pw
         }, format='json')
@@ -497,7 +497,7 @@ class TwoFactorEndpointTest(TestCase):
         self.me_2fa_url = reverse('user-me-2fa')
         self.owner_2fa_url = reverse('user-2fa-detail', kwargs={'pk': self.owner.user_id})
         self.other_2fa_url = reverse('user-2fa-detail', kwargs={'pk': self.other_user.user_id})
-        self.login_url = reverse('token_obtain_pair')
+        self.login_url = reverse('token_obtain')
 
     def test_owner_can_get_2fa_setup_data_without_audit_log(self):
         self.client.force_authenticate(user=self.owner)

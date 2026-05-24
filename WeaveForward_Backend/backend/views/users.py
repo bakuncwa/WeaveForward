@@ -4,7 +4,7 @@ from django.db import transaction
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from django_filters.rest_framework import DjangoFilterBackend
@@ -42,6 +42,11 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
     filterset_fields = ['role', 'status']
     search_fields = ['email', 'first_name', 'last_name']
     parser_classes = [JSONParser, FormParser, MultiPartParser]
+
+    def get_permissions(self):
+        if self.action == 'create':
+            return [AllowAny()]
+        return super().get_permissions()
 
     def get_serializer_class(self):
         if hasattr(self, 'request') and hasattr(self.request, 'user'):
@@ -448,15 +453,25 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
         return Response({"detail": result["detail"]}, status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
-        # Only allow Admins to use this POST endpoint
-        if request.user.role != UserRole.ADMIN:
-            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        # If user is authenticated, they must be an Admin
+        if request.user and request.user.is_authenticated:
+            if request.user.role != UserRole.ADMIN:
+                return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
 
-        role = request.data.get('role')
-        if role == UserRole.DONOR:
-            serializer = DonorRegisterSerializer(data=request.data)
+            role = request.data.get('role')
+            if role == UserRole.DONOR:
+                serializer = DonorRegisterSerializer(data=request.data)
+            else:
+                return Response({"error": "Only Donor creation is supported via this endpoint."}, status=status.HTTP_400_BAD_REQUEST)
         else:
-            return Response({"error": "Only Donor creation is supported via this endpoint."}, status=status.HTTP_400_BAD_REQUEST)
+            # Public registration flow
+            role = request.data.get('role')
+            if role == UserRole.DONOR:
+                serializer = DonorRegisterSerializer(data=request.data)
+            elif role == UserRole.TUAB:
+                serializer = TUABRegisterSerializer(data=request.data)
+            else:
+                return Response({"error": "Invalid role specified."}, status=status.HTTP_400_BAD_REQUEST)
 
         if serializer.is_valid():
             serializer.save()

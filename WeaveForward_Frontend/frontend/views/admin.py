@@ -454,8 +454,8 @@ async def admin_add_donation(request):
             return JsonResponse({'error': f"System Error: {str(e)}"}, status=500)
 
     types_res, brands_res = await asyncio.gather(
-        api_call(request, 'GET', 'brandfiberlookups/clothing_types'),
-        api_call(request, 'GET', 'brandfiberlookups/brands')
+        api_call(request, 'GET', 'clothing-types'),
+        api_call(request, 'GET', 'brands')
     )
     clothing_types = types_res.json() if types_res.status_code == 200 else []
     all_brands = brands_res.json() if brands_res.status_code == 200 else []
@@ -562,8 +562,8 @@ async def admin_edit_donation(request, donation_id):
     current_etag = response.headers.get('ETag', '')
 
     types_res, brands_res = await asyncio.gather(
-        api_call(request, 'GET', 'brandfiberlookups/clothing_types'),
-        api_call(request, 'GET', 'brandfiberlookups/brands')
+        api_call(request, 'GET', 'clothing-types'),
+        api_call(request, 'GET', 'brands')
     )
     clothing_types = types_res.json() if types_res.status_code == 200 else []
     all_brands = brands_res.json() if brands_res.status_code == 200 else []
@@ -616,6 +616,7 @@ async def admin_archive_donation(request, donation_id):
     try:
         response = await api_call(request, 'POST', f'donations/{donation_id}/archive')
         if response.status_code == 200:
+            messages.success(request, "Donation archived successfully.")
             return JsonResponse({'redirect': reverse('admin_view_donations')})
 
         try:
@@ -658,7 +659,7 @@ async def admin_impact_dashboard(request):
     try:
         response, types_res = await asyncio.gather(
             api_call(request, 'GET', 'impact-dashboard', params=api_params),
-            api_call(request, 'GET', 'brandfiberlookups/clothing_types')
+            api_call(request, 'GET', 'clothing-types')
         )
         if response.status_code == 200:
             dashboard_data = response.json()

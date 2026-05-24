@@ -19,6 +19,11 @@ from ..models import (
     BrandFiberLookup,
     DonationItem,
     AuditTrail,
+    Order,
+    OrderStatus,
+    OrderPayment,
+    PaymentStatus,
+    DonationDeliveryMethod,
 )
 
 @override_settings(
@@ -121,7 +126,7 @@ class SchedulerWebhookTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(
             response.data['detail'],
-            "Successfully processed subscriptions, auto-archived donations, and cleared predictions."
+            "Successfully processed subscriptions, auto-archived donations, cleared predictions, and expired orders."
         )
         self.assertEqual(response.data['results']['cancelled_subscriptions_count'], 1)
         self.assertEqual(response.data['results']['archived_donations_count'], 1)
@@ -146,5 +151,72 @@ class SchedulerWebhookTest(TestCase):
         # Verify donation archive audit log has admin as actor
         don_audit = AuditTrail.objects.filter(entity_type="donations", action="STATUS_CHANGE").latest("occurred_at")
         self.assertEqual(don_audit.actor, self.admin)
+
+    @patch('backend.services.lalamove_service.reverse_or_refund_payment')
+    def test_webhook_processes_expired_orders(self, mock_refund):
+        mock_refund.return_value = True
+
+        # Create a donation claimed for delivery
+        donation = Donation.objects.create(
+            donor=self.donor,
+            claimed_by_tuab=self.tuab,
+            status=DonationStatus.CLAIMED,
+            delivery_method=DonationDeliveryMethod.DELIVERY,
+            pickup_barangay="San Lorenzo",
+            pickup_city="Makati",
+            pickup_display_address="123 Main St",
+            pickup_latitude=Decimal("14.5547"),
+            pickup_longitude=Decimal("121.0244"),
+            preferred_pickup_date=timezone.now() - timezone.timedelta(days=1),
+            preferred_pickup_window_start="09:00:00",
+            preferred_pickup_window_end="12:00:00",
+            auto_archive_at=timezone.now() + timezone.timedelta(days=29),
+        )
+
+        # Create an expired order (expires_at in the past)
+        order = Order.objects.create(
+            donation=donation,
+            status=OrderStatus.ASSIGNING_DRIVER,
+            dropoff_display_address="456 Other St",
+            dropoff_latitude=Decimal("14.5548"),
+            dropoff_longitude=Decimal("121.0245"),
+            scheduled_at=timezone.now() - timezone.timedelta(hours=3),
+            expires_at=timezone.now() - timezone.timedelta(hours=1),
+        )
+
+        # Create a successful payment for it
+        payment = OrderPayment.objects.create(
+            order=order,
+            amount=Decimal("150.00"),
+            status=PaymentStatus.SUCCESS,
+            payment_reference="pay-ref-123",
+        )
+
+        # Hit the webhook with the correct scheduler secret header
+        response = self.client.post(
+            reverse('webhooks'),
+            {},
+            format='json',
+            HTTP_X_SCHEDULER_SECRET="test-scheduler-secret-key-xyz"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['results']['expired_orders_count'], 1)
+
+        # Verify DB updates
+        order.refresh_from_db()
+        donation.refresh_from_db()
+
+        self.assertEqual(order.status, OrderStatus.FAILED)
+        self.assertEqual(donation.status, DonationStatus.CLAIMED)
+        self.assertEqual(donation.delivery_method, DonationDeliveryMethod.PICKUP)
+
+        # Verify refund was called with correct parameters
+        mock_refund.assert_called_once_with(payment, Decimal("150.00"))
+
+        # Verify audit trail logs the change
+        audit = AuditTrail.objects.filter(entity_type="donations", action="STATUS_CHANGE").latest("occurred_at")
+        self.assertEqual(audit.actor, self.admin)
+
 
 

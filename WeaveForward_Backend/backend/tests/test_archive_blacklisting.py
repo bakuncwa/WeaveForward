@@ -21,7 +21,7 @@ class ArchiveBlacklistingTest(TestCase):
             role='Donor',
             status='ACTIVE'
         )
-        self.login_url = reverse('token_obtain_pair')
+        self.login_url = reverse('token_obtain')
 
     def test_archive_blacklists_tokens(self):
         """
