@@ -36,6 +36,7 @@ urlpatterns = [
     
     # --- TUAB ---
     path('tuab/dashboard/', views.tuab_dashboard, name='tuab_dashboard'),
+    path('tuab/inventory/', views.tuab_inventory, name='tuab_inventory'),
     path('tuab/profile/', views.tuab_profile, name='tuab_profile'),
     path('tuab/edit-profile/', views.tuab_edit_profile, name='tuab_edit_profile'),
     path('tuab/donations/<int:donation_id>/', views.tuab_view_donation, name='tuab_view_donation'),

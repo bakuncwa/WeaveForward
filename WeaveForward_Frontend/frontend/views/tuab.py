@@ -106,6 +106,30 @@ async def tuab_dashboard(request):
     })
 
 
+async def tuab_inventory(request):
+    """TUAB Inventory Snapshot page."""
+    profile = request.user_profile
+
+    try:
+        response = await api_call(request, 'GET', 'inventory')
+    except Exception:
+        response = None
+
+    if not response or response.status_code != 200:
+        inventories = {'ledgers': [], 'category_summary': [], 'total_weight_kg': 0}
+        messages.error(request, 'Unable to load inventory snapshot.')
+    else:
+        inventories = response.json()
+
+    return render(request, 'frontend/tuabs/tuab_inventory_snapshot.html', {
+        'page_title': 'Inventory Snapshots',
+        'sidebar_variant': 'tuab',
+        'user': profile,
+        'inventories': inventories,
+        'inventories_json': json.dumps(inventories, default=str),
+    })
+
+
 async def tuab_view_donation(request, donation_id):
     """TUAB detail page for viewing and claiming a single donation."""
     profile = request.user_profile

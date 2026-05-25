@@ -1,0 +1,105 @@
+{% extends 'frontend/base.html' %}
+
+{% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<style>
+  /* Reuse dashboard tokens */
+  :root { --card: #fff; --bg: #f5f4f0; --gold: #e8a020; --muted:#888; }
+  .inv-shell { display:flex; gap:20px; align-items:flex-start; }
+  .inv-left { flex: 1 1 60%; }
+  .inv-right { width: 360px; }
+  .card { background: var(--card); border-radius: 12px; padding: 18px; box-shadow: 0 8px 20px rgba(0,0,0,.06); }
+  #inv-map { height: 220px; border-radius: 10px; margin-bottom: 14px; }
+  .summary-cards { display:flex; gap:12px; margin-bottom:14px; }
+  .summary-card { flex:1; padding:12px; border-radius:10px; background:#fff7ea; text-align:center; }
+  .inv-table { width:100%; border-collapse:collapse; }
+  .inv-table th { text-align:left; padding:10px; font-size:12px; color:#666; }
+  .inv-table td { padding:12px; border-top:1px solid #f0ede8; font-weight:600; }
+</style>
+
+<div class="preview-shell">
+  <div class="inv-shell">
+    <div class="inv-left">
+      <div id="inv-map" class="card"></div>
+
+      <div class="card">
+        <div class="summary-cards" id="category-cards"></div>
+        <div class="table-scroll">
+          <table class="inv-table" id="ledger-table">
+            <thead>
+              <tr><th>Inventory ID</th><th>Location</th><th>Weight (kg)</th><th>Audit</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="inv-right">
+      <div class="card" style="text-align:center;">
+        <h3 style="margin:0">Inventory Summary</h3>
+        <div style="font-size:28px;font-weight:700;margin-top:8px">{{ inventories.total_weight_kg|default:0 }}</div>
+        <div style="color:var(--muted);margin-top:6px">Total Kilograms</div>
+      </div>
+
+      <div class="card" style="margin-top:12px;">
+        <h4 style="margin:0 0 12px 0">Actions</h4>
+        <a href="#" class="btn btn-tuab" style="display:block;text-align:center">Export CSV</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const INVENTORIES = {{ inventories_json|safe }};
+
+  function renderCategoryCards() {
+    const wrap = document.getElementById('category-cards');
+    wrap.innerHTML = '';
+    const cats = INVENTORIES.category_summary || [];
+    if (!cats.length) {
+      wrap.innerHTML = '<div style="color:#aaa">No category data</div>';
+      return;
+    }
+    cats.forEach(c => {
+      const el = document.createElement('div'); el.className = 'summary-card';
+      el.innerHTML = `<div style="font-size:13px;color:#666">${c.category}</div><div style="font-size:16px;font-weight:700;margin-top:6px">${c.total_weight_kg}</div>`;
+      wrap.appendChild(el);
+    });
+  }
+
+  function renderLedgerTable() {
+    const tbody = document.querySelector('#ledger-table tbody');
+    tbody.innerHTML = '';
+    const ledgers = INVENTORIES.ledgers || [];
+    if (!ledgers.length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="color:#aaa;padding:18px">No inventory records found</td></tr>';
+      return;
+    }
+    ledgers.forEach(l => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${l.inventory_id}</td><td style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l.pickup_address||'-'}</td><td>${l.current_weight_kg}</td><td>${l.audit_required ? '<span style="color:#c0392b;font-weight:700">Audit Required</span>' : '<span style="color:#4a7c59">OK</span>'}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function initMap() {
+    let map;
+    try {
+      map = L.map('inv-map', { zoomControl: true, scrollWheelZoom: false }).setView([14.5820, 121.0100], 11);
+    } catch (e) {
+      const d = document.getElementById('inv-map'); d.innerText = 'Map not available'; return;
+    }
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors' }).addTo(map);
+  }
+
+  window.addEventListener('load', () => {
+    renderCategoryCards();
+    renderLedgerTable();
+    initMap();
+  });
+</script>
+
+{% endblock %}

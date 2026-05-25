@@ -42,6 +42,7 @@ urlpatterns = [
     path('donations/<int:pk>', views.DonationViewSet.as_view({'get': 'retrieve', 'patch': 'partial_update'}), name='donation-detail'),
 
     # --- IMPACT DASHBOARD ---
+    path('inventory', views.InventoryViewSet.as_view({'get': 'list'}), name='inventory-list'),
     path('impact-dashboard', views.ImpactDashboardViewSet.as_view({'get': 'list'}), name='impact-dashboard'),
 
     # --- PAYMENTS ---
