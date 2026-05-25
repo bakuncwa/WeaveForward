@@ -120,15 +120,17 @@
   </div>
 </div>
 
+{{ donations_json|json_script:"donations-data" }}
 <script>
-  const DONATIONS = {{ donations_json|safe }};
+  const escapeHTML = str => !str ? '' : str.replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c] || c));
+  const DONATIONS = JSON.parse(document.getElementById('donations-data').textContent);
   const META = {
-      available: { current: {{ avail_meta.current }}, has_next: {% if avail_meta.has_next %}true{% else %}false{% endif %}, has_prev: {% if avail_meta.has_prev %}true{% else %}false{% endif %}, total: {{ avail_meta.count|default:0 }} },
-      claimed: { current: {{ claimed_meta.current }}, has_next: {% if claimed_meta.has_next %}true{% else %}false{% endif %}, has_prev: {% if claimed_meta.has_prev %}true{% else %}false{% endif %}, total: {{ claimed_meta.count|default:0 }} }
+      available: { current: {{ avail_meta.current|escapejs }}, has_next: {% if avail_meta.has_next %}true{% else %}false{% endif %}, has_prev: {% if avail_meta.has_prev %}true{% else %}false{% endif %}, total: {{ avail_meta.count|default:0|escapejs }} },
+      claimed: { current: {{ claimed_meta.current|escapejs }}, has_next: {% if claimed_meta.has_next %}true{% else %}false{% endif %}, has_prev: {% if claimed_meta.has_prev %}true{% else %}false{% endif %}, total: {{ claimed_meta.count|default:0|escapejs }} }
   };
 
-  let activeTab = "{{ active_tab }}";
-  let searchQuery = "{{ search_query }}";
+  let activeTab = "{{ active_tab|escapejs }}";
+  let searchQuery = "{{ search_query|escapejs }}";
   let flagTarget = null;
 
   function getStatusClass(status) {
@@ -166,16 +168,16 @@
       <th>Donation id</th><th>Donor</th><th>Address</th><th>Preferred pick-up date</th><th>Status</th><th>Delivery Method</th><th>Items</th><th>ACTIONS</th>
     </tr></thead><tbody>
     ${list.map(d => `<tr>
-      <td>${d.id}</td>
-      <td>${d.donor}</td>
-      <td style="max-width:160px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.address}</td>
-      <td style="white-space:nowrap">${d.pickupDate}</td>
-      <td><span class="badge ${getStatusClass(d.status)}">${getStatusLabel(d.status)}</span></td>
-      <td>${getDeliveryMethodLabel(d.delivery_method)}</td>
-      <td>${d.items}</td>
+      <td>${escapeHTML(String(d.id))}</td>
+      <td>${escapeHTML(d.donor)}</td>
+      <td style="max-width:160px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHTML(d.address)}</td>
+      <td style="white-space:nowrap">${escapeHTML(d.pickupDate)}</td>
+      <td><span class="badge ${getStatusClass(d.status)}">${escapeHTML(getStatusLabel(d.status))}</span></td>
+      <td>${escapeHTML(getDeliveryMethodLabel(d.delivery_method))}</td>
+      <td>${escapeHTML(String(d.items))}</td>
       <td><div style="display:flex;gap:6px">
-        <a href="${d.status === 'IN_TRANSIT' ? `/tuab/donations/${d.id}/edit/` : `/tuab/donations/${d.id}/`}" class="btn btn-tuab">Manage</a>
-        <button class="btn-flag" onclick="openFlagModal('${d.id}','${tab}')">Flag</button>
+        <a href="${d.status === 'IN_TRANSIT' ? `/tuab/donations/${escapeHTML(String(d.id))}/edit/` : `/tuab/donations/${escapeHTML(String(d.id))}/`}" class="btn btn-tuab">Manage</a>
+        <button class="btn-flag" onclick="openFlagModal('${escapeHTML(String(d.id))}','${escapeHTML(tab)}')">Flag</button>
       </div></td>
     </tr>`).join('')}
     </tbody></table>`;
@@ -296,7 +298,13 @@
     
     [...DONATIONS.available, ...DONATIONS.claimed].forEach(d => {
       if (map && d.lat && d.lng) {
-        L.marker([d.lat, d.lng]).addTo(map).bindPopup(`<b>${d.donor}</b><br>${d.address}`);
+        const popupEl = document.createElement('div');
+        const b = document.createElement('b');
+        b.textContent = d.donor;
+        popupEl.appendChild(b);
+        popupEl.appendChild(document.createElement('br'));
+        popupEl.appendChild(document.createTextNode(d.address));
+        L.marker([d.lat, d.lng]).addTo(map).bindPopup(popupEl);
       }
     });
     setTab(activeTab);

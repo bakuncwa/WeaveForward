@@ -801,7 +801,7 @@ class TuabDashboardViewTest(MiddlewareAuthMixin, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'May-10-2026')
         self.assertNotContains(response, 'May-01-2026')
-        self.assertContains(response, 'const DONATIONS = {"available": [{"id": 88')
+        self.assertContains(response, '<script id="donations-data" type="application/json">{"available": [{"id": 88')
 
 
 class AdminEditTuabViewTest(MiddlewareAuthMixin, TestCase):
@@ -1538,6 +1538,22 @@ class DonorImpactDashboardViewTest(MiddlewareAuthMixin, TestCase):
         messages = [msg.message for msg in get_messages(response.wsgi_request)]
         self.assertIn("Backend service unreachable: Outage", messages)
 
+    @patch('frontend.views.donor.api_call')
+    def test_donor_impact_dashboard_validation_error(self, mocked_api_call):
+        mocked_api_call.side_effect = [
+            make_response(400, {
+                'date_range': ['Please choose a start date that is on or before the end date.'],
+                'pickup_city': ['Invalid pickup_city.'],
+            }),
+            make_response(200, ['t-shirt', 'pants']),
+        ]
+
+        response = self.client.get(reverse('donor_impact_dashboard'))
+        self.assertEqual(response.status_code, 200)
+        messages = [msg.message for msg in get_messages(response.wsgi_request)]
+        self.assertIn("Date Range: date_from must be earlier than or equal to date_to.", messages)
+        self.assertIn("Pickup City: Invalid pickup_city.", messages)
+
 
 class AdminImpactDashboardViewTest(MiddlewareAuthMixin, TestCase):
     def setUp(self):
@@ -1615,5 +1631,21 @@ class AdminImpactDashboardViewTest(MiddlewareAuthMixin, TestCase):
         self.assertEqual(response.status_code, 200)
         messages = [msg.message for msg in get_messages(response.wsgi_request)]
         self.assertIn("Backend service unreachable: Outage", messages)
+
+    @patch('frontend.views.admin.api_call')
+    def test_admin_impact_dashboard_validation_error(self, mocked_api_call):
+        mocked_api_call.side_effect = [
+            make_response(400, {
+                'date_range': ['Please choose a start date that is on or before the end date.'],
+                'clothing_type': ['Invalid clothing_type.'],
+            }),
+            make_response(200, ['t-shirt', 'pants']),
+        ]
+
+        response = self.client.get(reverse('admin_impact_dashboard'))
+        self.assertEqual(response.status_code, 200)
+        messages = [msg.message for msg in get_messages(response.wsgi_request)]
+        self.assertIn("Date Range: date_from must be earlier than or equal to date_to.", messages)
+        self.assertIn("Clothing Type: Invalid clothing_type.", messages)
 
 

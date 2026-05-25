@@ -20,6 +20,11 @@ LALAMOVE_WEBHOOK_IP = '52.76.164.226'
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def webhooks(request):
+    # Complexity notes:
+    # - Single webhook event routing is O(1) before handing off to the provider-specific handler.
+    # - Maya/Lalamove single-event handlers are O(1) for the local database work.
+    # - Cloud Scheduler batch trigger is O(r), where r is the number of expired rows processed
+    #   by the batch jobs it invokes.
     client_ip = get_client_ip(request)
     payload = request.data if isinstance(request.data, dict) else {}
     

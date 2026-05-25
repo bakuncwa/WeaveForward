@@ -306,12 +306,16 @@
       </p>
 
       {% if tuab.social_link %}
+        {% if tuab.social_link|slice:":7" == "http://" or tuab.social_link|slice:":8" == "https://" %}
         <div class="link-row">
           <a href="{{ tuab.social_link }}" target="_blank" rel="noopener noreferrer">
             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
             {{ tuab.social_link }}
           </a>
         </div>
+        {% else %}
+        <div class="link-row">{{ tuab.social_link }}</div>
+        {% endif %}
       {% else %}
         <p class="empty-text" style="font-family:'Poppins',sans-serif;font-size:13px;margin-top:10px;">No social link provided.</p>
       {% endif %}

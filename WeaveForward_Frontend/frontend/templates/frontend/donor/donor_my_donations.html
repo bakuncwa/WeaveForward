@@ -13,8 +13,9 @@
       --blue:      #0b77dc;
     }
 
-    .search-bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-    .search-wrap { position: relative; flex: 1; }
+    .count { font-family:'Poppins',sans-serif; font-weight:300; font-size:13px; color:#666; margin-bottom:10px; }
+    .search-bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+    .search-wrap { position: relative; flex: 1; min-width: 220px; }
     .search-wrap input {
       width: 100%; border-radius: 8px; padding: 10px 16px 10px 40px;
       border: 1.5px solid var(--border); background: #fff;
@@ -50,21 +51,27 @@
 
     .action-btns { display: flex; gap: 6px; flex-wrap: wrap; }
     .thumb { width: 58px; height: 58px; object-fit: cover; border-radius: 8px; display: block; background: #f2efe9; }
+    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .pagination-wrap { display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding: 0 4px; }
+    .pg-info { font-family:'Poppins',sans-serif; font-size:13px; color:#888; }
+    .pg-btns { display: flex; gap: 8px; }
+    .pg-btns .btn-outline { width: auto; padding: 8px 16px; border-radius: 8px; font-weight: 500; }
 </style>
 
-<p style="font-family:'Poppins',sans-serif;font-weight:300;font-size:13px;color:#666;margin-bottom:10px" id="don-count">{{ count }} Donation Request{{ count|pluralize }}</p>
+<p class="count" id="don-count">{{ count }} Donation Request{{ count|pluralize }}</p>
 
 <div class="search-bar-row">
-  <div class="search-wrap">
+  <form method="GET" class="search-wrap">
     <div class="search-icon">
       <svg width="17" height="17" fill="none" stroke="#aaa" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
     </div>
-    <input id="don-search" placeholder="Search Donations" oninput="filterDonations()"/>
-  </div>
+    <input name="q" value="{{ q|default:'' }}" placeholder="Search Donations" />
+  </form>
   <a href="{% url 'donor_create_donation' %}" class="btn btn-primary">Create Donation</a>
 </div>
 
 <div class="table-wrap">
+  <div class="table-scroll">
   <table class="dt" id="don-table">
     <thead>
       <tr>
@@ -129,6 +136,19 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
+</div>
+
+<div class="pagination-wrap">
+  <div class="pg-info">Page {{ current_page }} of {{ total_pages }}</div>
+  <div class="pg-btns">
+    {% if has_prev %}
+    <a href="?page={{ current_page|add:-1 }}{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline">❮ Previous</a>
+    {% endif %}
+    {% if has_next %}
+    <a href="?page={{ current_page|add:1 }}{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline">Next ❯</a>
+    {% endif %}
+  </div>
 </div>
 
 <script>
@@ -164,18 +184,6 @@
     
     btn.dataset.intervalId = interval.toString();
     return false;
-  }
-
-  function filterDonations() {
-    const q = document.getElementById('don-search').value.toLowerCase().trim();
-    const rows = document.querySelectorAll('#don-tbody tr');
-    let visible = 0;
-    rows.forEach(row => {
-      const match = !q || row.textContent.toLowerCase().includes(q);
-      row.style.display = match ? '' : 'none';
-      if (match) visible++;
-    });
-    document.getElementById('don-count').textContent = `${visible} Donation Request${visible !== 1 ? 's' : ''}`;
   }
 
   document.addEventListener('DOMContentLoaded', function () {

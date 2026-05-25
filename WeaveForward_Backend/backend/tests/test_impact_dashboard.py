@@ -324,7 +324,10 @@ class ImpactDashboardTest(TestCase):
 
     @patch("backend.views.impact_dashboard.load_ncr_features")
     def test_dashboard_filters(self, mock_load_ncr):
-        mock_load_ncr.return_value = []
+        mock_load_ncr.return_value = [
+            ({"type": "Polygon", "coordinates": [[[0, 0], [0, 1], [1, 1], [1, 0], [0, 0]]]}, "Brgy A", "Manila"),
+            ({"type": "Polygon", "coordinates": [[[1, 1], [1, 2], [2, 2], [2, 1], [1, 1]]]}, "Brgy B", "Quezon City"),
+        ]
         now = timezone.now()
         
         # d1: donor1, city Manila, clothing type t-shirt, updated 5 days ago
@@ -393,10 +396,38 @@ class ImpactDashboardTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["donations"], 1)
 
-        # Invalid date filters (ignored)
+        # Invalid date filters are rejected
         response = self.client.get(self.url, {"date_from": "invalid-date", "date_to": "2026-99-99"})
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["donations"], 2)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("date_from", response.data)
+        self.assertIn("date_to", response.data)
+
+    @patch("backend.views.impact_dashboard.load_ncr_features")
+    def test_dashboard_rejects_invalid_city_and_clothing_type(self, mock_load_ncr):
+        mock_load_ncr.return_value = [
+            ({"type": "Polygon", "coordinates": [[[0, 0], [0, 1], [1, 1], [1, 0], [0, 0]]]}, "Brgy A", "Manila"),
+            ({"type": "Polygon", "coordinates": [[[1, 1], [1, 2], [2, 2], [2, 1], [1, 1]]]}, "Brgy B", "Quezon City"),
+        ]
+
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.get(self.url, {"pickup_city": "Invalid City"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("pickup_city", response.data)
+
+        response = self.client.get(self.url, {"clothing_type": "invalid-type"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("clothing_type", response.data)
+
+    @patch("backend.views.impact_dashboard.load_ncr_features")
+    def test_dashboard_rejects_reversed_date_range(self, mock_load_ncr):
+        mock_load_ncr.return_value = []
+
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.get(self.url, {"date_from": "2026-05-22", "date_to": "2026-05-01"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("date_range", response.data)
 
     @patch("backend.views.impact_dashboard.load_ncr_features")
     def test_dashboard_excludes_admin_donors_from_donor_list(self, mock_load_ncr):

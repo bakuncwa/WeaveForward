@@ -369,8 +369,7 @@
     <div class="group">
       <label class="up">Profile Picture</label>
       <div class="pfp-area">
-        <img id="pfp-preview" class="pfp-img" src="{{ tuab.upload }}" alt="Profile"
-          onerror="this.src='https://ui-avatars.com/api/?name={{ tuab.business_name }}&background=e8d5a8&color=8b6914&size=64'">
+        <img id="pfp-preview" class="pfp-img" src="{{ tuab.upload }}" alt="Profile">
         <button type="button" class="pfp-change" onclick="getEl('pfp-in').click()">Change Photo</button>
         <input id="pfp-in" name="upload" type="file" accept="image/*" class="hidden"
           onchange="previewPfp(this.files[0])">
@@ -517,13 +516,15 @@
   </div>
 </div>
 
+{{ fibers|json_script:"fibers-data" }}
 <script>
+  const escapeHTML = str => !str ? '' : str.replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c] || c));
   // --- 1. Config ---
-  const UID = '{{ tuab.user_id }}';
+  const UID = '{{ tuab.user_id|escapejs }}';
   const ENDPOINT = window.location.pathname;
   const API_LOCATION_DETAILS = '/api/get-location-details/';
   const API_FIBER_OPTIONS = '';
-  const FALLBACK_FIBERS = {{ fibers| safe }};
+  const FALLBACK_FIBERS = JSON.parse(document.getElementById('fibers-data').textContent);
   let FIBERS = FALLBACK_FIBERS;
 
   // --- 2. Helpers & Baselines ---
@@ -552,8 +553,8 @@
 
   // --- 4. Fiber Tags ---
   let tags = (getEl('fibs').value || '').split(',').map(s => s.trim()).filter(Boolean);
-  const renderTags = () => { getEl('tags').innerHTML = tags.map(t => `<div class="t-chip">${t}<span onclick="toggleTag('${t}')">×</span></div>`).join(''); getEl('fibs').value = tags.join(','); };
-  const handleFiberInput = val => { const m = FIBERS.filter(f => f.toLowerCase().includes(val.toLowerCase()) && !tags.includes(f)); getEl('f-ac').innerHTML = m.map(f => `<div onmousedown="toggleTag('${f}')">${f}</div>`).join(''); getEl('f-ac').classList.toggle('hidden', !val || !m.length); };
+  const renderTags = () => { getEl('tags').innerHTML = tags.map(t => `<div class="t-chip">${escapeHTML(t)}<span onclick="toggleTag('${escapeHTML(t)}')">×</span></div>`).join(''); getEl('fibs').value = tags.join(','); };
+  const handleFiberInput = val => { const m = FIBERS.filter(f => f.toLowerCase().includes(val.toLowerCase()) && !tags.includes(f)); getEl('f-ac').innerHTML = m.map(f => `<div onmousedown="toggleTag('${escapeHTML(f)}')">${escapeHTML(f)}</div>`).join(''); getEl('f-ac').classList.toggle('hidden', !val || !m.length); };
   const toggleTag = f => { tags = tags.includes(f) ? tags.filter(t => t !== f) : [...tags, f]; renderTags(); getEl('ti').value = ''; getEl('f-ac').classList.add('hidden'); };
 
   // --- 5. Location ---
@@ -576,7 +577,7 @@
     if (v.length < 3) return ac.classList.add('hidden');
     clearTimeout(acTmr);
     acTmr = setTimeout(async () => {
-      try { acRes = await (await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(v + ', Philippines')}&limit=5&countrycodes=ph`, { headers: { 'Accept-Language': 'en-US' } })).json(); ac.innerHTML = acRes.map((r, i) => `<div class="ac-item" onmousedown="selAddr(${i})">${r.display_name}</div>`).join(''); ac.classList.remove('hidden'); } catch { }
+      try { acRes = await (await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(v + ', Philippines')}&limit=5&countrycodes=ph`, { headers: { 'Accept-Language': 'en-US' } })).json(); ac.innerHTML = acRes.map((r, i) => `<div class="ac-item" onmousedown="selAddr(${i})">${escapeHTML(r.display_name)}</div>`).join(''); ac.classList.remove('hidden'); } catch { }
     }, 350);
   }
 

@@ -98,32 +98,30 @@ async def donor_browse_businesses(request):
     })
 
 async def donor_my_donations(request):
-    """View to list the logged-in donor's donations."""
+    """View to list the logged-in donor's donations with search and pagination."""
     profile = request.user_profile
-
-    # Fetch from /api/users/me/donations/
-    response = await api_call(request, 'GET', 'users/me/donations')
-    donations_data = {}
-    donations_list = []
-    if response.status_code == 200:
-        donations_data = response.json()
-        donations_list = donations_data.get('results', [])
-        
-        # Parse strings to objects for template formatting
-        for d in donations_list:
-            if d.get('preferred_pickup_date'):
-                d['preferred_pickup_date'] = parse_datetime(d['preferred_pickup_date'])
-            if d.get('preferred_pickup_window_start'):
-                d['preferred_pickup_window_start'] = parse_time(d['preferred_pickup_window_start'])
-            if d.get('preferred_pickup_window_end'):
-                d['preferred_pickup_window_end'] = parse_time(d['preferred_pickup_window_end'])
+    page_data = await get_paginated_data(request, 'users/me/donations')
+    
+    donations_list = page_data['results']
+    for d in donations_list:
+        if d.get('preferred_pickup_date'):
+            d['preferred_pickup_date'] = parse_datetime(d['preferred_pickup_date'])
+        if d.get('preferred_pickup_window_start'):
+            d['preferred_pickup_window_start'] = parse_time(d['preferred_pickup_window_start'])
+        if d.get('preferred_pickup_window_end'):
+            d['preferred_pickup_window_end'] = parse_time(d['preferred_pickup_window_end'])
 
     return render(request, 'frontend/donor/donor_my_donations.html', {
         'page_title': 'My Donations',
         'user': profile,
         'sidebar_variant': 'donor',
         'donations': donations_list,
-        'count': donations_data.get('count', 0),
+        'count': page_data['count'],
+        'total_pages': page_data['total_pages'],
+        'current_page': page_data['current_page'],
+        'has_next': page_data['has_next'],
+        'has_prev': page_data['has_prev'],
+        'q': page_data['search_query'],
     })
 
 async def donor_view_donation(request, donation_id):
@@ -486,7 +484,29 @@ async def donor_impact_dashboard(request):
         if response.status_code == 200:
             dashboard_data = response.json()
         else:
-            messages.error(request, "Failed to load donation metrics from the backend.")
+            try:
+                response_data = response.json()
+            except Exception:
+                response_data = {}
+
+            detail_message = response_data.get('detail') if isinstance(response_data, dict) else None
+            error_messages = None
+            if isinstance(response_data, dict):
+                formatted = format_errors(response_data)
+                error_messages = [
+                    f"{field}: {', '.join(map(str, value if isinstance(value, list) else [value]))}"
+                    if isinstance(value, (list, tuple))
+                    else f"{field}: {value}"
+                    for field, value in formatted.items()
+                ]
+
+            if detail_message:
+                messages.error(request, detail_message)
+            elif error_messages:
+                for message in error_messages:
+                    messages.error(request, message)
+            else:
+                messages.error(request, "Failed to load donation metrics from the backend.")
         
         if types_res.status_code == 200:
             clothing_types = types_res.json()
@@ -503,7 +523,7 @@ async def donor_impact_dashboard(request):
     total_donations = dashboard_data.get('donations', 0)
     claimed_count = dashboard_data.get('donors', 0)  # Map unique donors to the second stat slot
     leaderboard = dashboard_data.get('top_donors', [])
-    donations_json = json.dumps(dashboard_data.get('barangay_breakdown', []))
+    donations_json = dashboard_data.get('barangay_breakdown', [])
 
     return render(request, 'frontend/donor/donor_impact_dashboard.html', {
         'page_title': 'Donation Impact Dashboard',

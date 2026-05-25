@@ -134,6 +134,7 @@
 
 <script>
     const $ = id => document.getElementById(id);
+    const escapeHTML = str => !str ? '' : str.replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c] || c));
     const INIT_2FA = document.getElementById('init-2fa').value === 'true';
     let staged2FA = INIT_2FA;
     let stagedSecret = null;
@@ -324,9 +325,22 @@
         if (q.length < 3) return $('addr-ac').classList.add('hidden');
         clearTimeout(acTimer);
         acTimer = setTimeout(async () => {
+            const ac = $('addr-ac');
+            ac.innerHTML = '';
             const items = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=ph&limit=5`).then(r => r.json());
-            $('addr-ac').innerHTML = items.map(i => `<div onclick="selectAddress(${i.lat},${i.lon},'${i.display_name.replace(/'/g, "\\'")}')">${i.display_name}</div>`).join('');
-            $('addr-ac').classList.remove('hidden');
+            for (const i of items) {
+                const div = document.createElement('div');
+                div.textContent = i.display_name;
+                div.addEventListener('click', () => {
+                    $('lat').value = i.lat;
+                    $('lng').value = i.lon;
+                    $('addr').value = i.display_name;
+                    ac.classList.add('hidden');
+                    updateLocationDetails(i.lat, i.lon);
+                });
+                ac.appendChild(div);
+            }
+            ac.classList.remove('hidden');
         }, 400);
     }
     function selectAddress(lat, lng, name) {
@@ -345,7 +359,13 @@
         }
         const d = document.createElement('div');
         d.className = `wf-alert ${type}`;
-        d.innerHTML = `<span>${msg}</span><button onclick="this.parentElement.remove()">×</button>`;
+        const s = document.createElement('span');
+        s.textContent = msg;
+        const b = document.createElement('button');
+        b.textContent = '×';
+        b.style.cssText = 'background:none;border:none;color:inherit;font-size:18px;cursor:pointer;line-height:1;margin-left:10px;';
+        b.addEventListener('click', () => d.remove());
+        d.append(s, b);
         c.prepend(d);
         setTimeout(() => d.remove(), 5000);
     }

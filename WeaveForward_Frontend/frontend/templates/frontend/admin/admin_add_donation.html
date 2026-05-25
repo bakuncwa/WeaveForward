@@ -225,7 +225,13 @@
     alert.style.display = 'flex';
     alert.style.justifyContent = 'space-between';
     alert.style.alignItems = 'center';
-    alert.innerHTML = `<span>${msg}</span><button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;font-size:18px;cursor:pointer;line-height:1;margin-left:10px;">×</button>`;
+    const span = document.createElement('span');
+    span.textContent = msg;
+    const btn = document.createElement('button');
+    btn.textContent = '×';
+    btn.style.cssText = 'background:none;border:none;color:inherit;font-size:18px;cursor:pointer;line-height:1;margin-left:10px;';
+    btn.addEventListener('click', () => alert.remove());
+    alert.append(span, btn);
     container.prepend(alert);
     setTimeout(() => {
       if (alert.parentElement) {
@@ -264,14 +270,20 @@
       
       mIn.disabled = !materials.length;
       mIn.placeholder = materials.length ? 'Search...' : 'No combinations found';
-      list.innerHTML = materials.map(m => {
-        const display = `${m.fiber_json} - ${m.category}`.replace(/'/g, "\\'").replace(/\n/g, ' ');
-        return `
-          <div class="ss-item" onclick="selectMat(this, '${m.lookup_id}', '${display}')">
-            <b>${m.category}</b>${m.fiber_json}
-          </div>
-        `;
-      }).join('');
+      list.innerHTML = '';
+      for (const m of materials) {
+        const div = document.createElement('div');
+        div.className = 'ss-item';
+        const b = document.createElement('b');
+        b.textContent = m.category;
+        div.append(b, document.createTextNode(m.fiber_json));
+        div.dataset.lookupId = m.lookup_id;
+        div.dataset.display = `${m.fiber_json} - ${m.category}`;
+        div.addEventListener('click', function () {
+          selectMat(this, this.dataset.lookupId, this.dataset.display);
+        });
+        list.appendChild(div);
+      }
     } catch (e) {
       console.error(e);
       showFlash("Donation records could not be retrieved.", "error");
@@ -306,16 +318,50 @@
         const data = await res.json();
         const users = data.results || data; 
         
-        let html = users.map(u => `
-          <div class="ss-item" onmousedown="slDnr('${u.user_id}', '${u.first_name} ${u.last_name} (${u.email})')">
-            <b>${u.email}</b>${u.first_name} ${u.last_name}
-          </div>
-        `).join('');
-
-        if (data.previous) html = `<div class="ss-item" style="text-align:center" onmousedown="fetchDonors('${q}', ${p-1})"><b>❮ PREV</b></div>` + html;
-        if (data.next) html += `<div class="ss-item" style="text-align:center" onmousedown="fetchDonors('${q}', ${p+1})"><b>NEXT ❯</b></div>`;
+        list.innerHTML = '';
         
-        list.innerHTML = html || '<div class="ss-item">No donors found</div>';
+        if (!users.length && !data.previous && !data.next) {
+          const d = document.createElement('div');
+          d.className = 'ss-item';
+          d.textContent = 'No donors found';
+          list.appendChild(d);
+          list.classList.remove('hidden');
+          return;
+        }
+        
+        if (data.previous) {
+          const prev = document.createElement('div');
+          prev.className = 'ss-item';
+          prev.style.textAlign = 'center';
+          const pb = document.createElement('b');
+          pb.textContent = '❮ PREV';
+          prev.appendChild(pb);
+          prev.addEventListener('mousedown', () => fetchDonors(q, p - 1));
+          list.appendChild(prev);
+        }
+        
+        for (const u of users) {
+          const div = document.createElement('div');
+          div.className = 'ss-item';
+          const b = document.createElement('b');
+          b.textContent = u.email;
+          div.appendChild(b);
+          div.appendChild(document.createTextNode(`${u.first_name} ${u.last_name}`));
+          div.addEventListener('mousedown', () => slDnr(u.user_id, `${u.first_name} ${u.last_name} (${u.email})`));
+          list.appendChild(div);
+        }
+        
+        if (data.next) {
+          const next = document.createElement('div');
+          next.className = 'ss-item';
+          next.style.textAlign = 'center';
+          const nb = document.createElement('b');
+          nb.textContent = 'NEXT ❯';
+          next.appendChild(nb);
+          next.addEventListener('mousedown', () => fetchDonors(q, p + 1));
+          list.appendChild(next);
+        }
+        
         list.classList.remove('hidden');
       } catch (err) {
         console.error(err);

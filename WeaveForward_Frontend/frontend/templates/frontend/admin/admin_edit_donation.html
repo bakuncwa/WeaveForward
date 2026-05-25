@@ -352,7 +352,13 @@
     alert.style.display = 'flex';
     alert.style.justifyContent = 'space-between';
     alert.style.alignItems = 'center';
-    alert.innerHTML = `<span>${msg}</span><button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;font-size:18px;cursor:pointer;line-height:1;margin-left:10px;">×</button>`;
+    const span = document.createElement('span');
+    span.textContent = msg;
+    const btn = document.createElement('button');
+    btn.textContent = '×';
+    btn.style.cssText = 'background:none;border:none;color:inherit;font-size:18px;cursor:pointer;line-height:1;margin-left:10px;';
+    btn.addEventListener('click', () => alert.remove());
+    alert.append(span, btn);
     container.prepend(alert);
     setTimeout(() => {
       if (alert.parentElement) {
@@ -418,14 +424,20 @@
       
       mIn.disabled = !materials.length;
       mIn.placeholder = materials.length ? 'Search...' : 'No combinations found';
-      list.innerHTML = materials.map(m => {
-        const display = `${m.fiber_json} - ${m.category}`.replace(/'/g, "\\'").replace(/\n/g, ' ');
-        return `
-          <div class="ss-item" onclick="selectMat(this, '${m.lookup_id}', '${display}')">
-            <b>${m.category}</b>${m.fiber_json}
-          </div>
-        `;
-      }).join('');
+      list.innerHTML = '';
+      for (const m of materials) {
+        const div = document.createElement('div');
+        div.className = 'ss-item';
+        const b = document.createElement('b');
+        b.textContent = m.category;
+        div.append(b, document.createTextNode(m.fiber_json));
+        div.dataset.lookupId = m.lookup_id;
+        div.dataset.display = `${m.fiber_json} - ${m.category}`;
+        div.addEventListener('click', function () {
+          selectMat(this, this.dataset.lookupId, this.dataset.display);
+        });
+        list.appendChild(div);
+      }
     } catch (e) {
       console.error(e);
       showFlash("Donation records could not be retrieved.", "error");
@@ -589,7 +601,7 @@
     try {
       const res = await fetch("{% url 'admin_cancel_donation' donation.donation_id %}", {
         method: 'POST',
-        headers: { 'X-CSRFToken': '{{ csrf_token }}', 'X-Requested-With': 'XMLHttpRequest' }
+        headers: { 'X-CSRFToken': '{{ csrf_token|escapejs }}', 'X-Requested-With': 'XMLHttpRequest' }
       });
       const data = await res.json();
       if (data.redirect) window.location.href = data.redirect;

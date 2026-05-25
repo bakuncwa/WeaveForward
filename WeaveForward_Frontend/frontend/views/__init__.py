@@ -1,4 +1,5 @@
 import json
+import logging
 from django.shortcuts import render, redirect
 from django.http import JsonResponse, HttpResponseNotAllowed
 from django.contrib import messages
@@ -365,6 +366,11 @@ async def tuab_registration(request):
                 messages.success(request, "TUAB Application Submitted!")
                 return redirect('login')
             else:
+                try:
+                    resp_json = response.json()
+                    logging.warning(f"TUAB_REG_DEBUG status={response.status_code} body={json.dumps(resp_json)}")
+                except Exception as e:
+                    logging.warning(f"TUAB_REG_DEBUG status={response.status_code} body_unparseable={e} text={response.text[:500]}")
                 return render(request, 'frontend/tuab_registration.html', {
                     'errors': format_errors(response.json()),
                     'form_data': raw_data,

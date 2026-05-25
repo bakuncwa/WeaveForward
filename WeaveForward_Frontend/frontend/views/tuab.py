@@ -75,7 +75,7 @@ async def tuab_dashboard(request):
         'claimed_meta': claimed_meta,
         'active_tab': request.GET.get('tab', 'available'),
         'search_query': search_query,
-        'donations_json': json.dumps({
+        'donations_json': {
             'available': [
                 {
                     'id': d['donation_id'],
@@ -102,7 +102,7 @@ async def tuab_dashboard(request):
                     'lng': float(d['pickup_longitude']),
                 } for d in my_claimed_donations
             ]
-        })
+        }
     })
 
 
@@ -573,7 +573,7 @@ async def tuab_view_payments(request):
         'page_title': 'Payments',
         'sidebar_variant': 'tuab',
         'user': profile,
-        'payments_json': json.dumps(page_data['results']),
+        'payments_json': page_data['results'],
         'count': page_data['count'],
         'total_pages': page_data['total_pages'],
         'current_page': page_data['current_page'],

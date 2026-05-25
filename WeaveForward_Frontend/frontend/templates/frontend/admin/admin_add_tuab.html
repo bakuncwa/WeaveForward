@@ -231,7 +231,11 @@
         <div class="field-label">Social Link</div>
         <div class="field-value">
           {% if tuab.social_link %}
-          <a href="{{ tuab.social_link }}" target="_blank" rel="noopener noreferrer">{{ tuab.social_link }}</a>
+            {% if tuab.social_link|slice:":7" == "http://" or tuab.social_link|slice:":8" == "https://" %}
+            <a href="{{ tuab.social_link }}" target="_blank" rel="noopener noreferrer">{{ tuab.social_link }}</a>
+            {% else %}
+            {{ tuab.social_link }}
+            {% endif %}
           {% else %}
           -
           {% endif %}
@@ -259,7 +263,7 @@
         <button type="submit" class="btn btn-primary">Approve TUAB</button>
       </form>
       <button type="button" class="btn btn-outline" style="border-radius:14px; border-color:#ffcccc; color:#cc0000;"
-        onclick="toggleReject('{{ tuab.user_id }}')">Reject</button>
+        data-user-id="{{ tuab.user_id }}" onclick="toggleReject(this)">Reject</button>
     </div>
 
     <div id="reject-box-{{ tuab.user_id }}"
@@ -273,7 +277,7 @@
           style="width:100%; height:80px; border-radius:10px; border:1.5px solid #ffcccc; padding:12px; margin-bottom:12px; font-family:Poppins, sans-serif; font-size:14px; outline:none;"
           placeholder="Enter the reason why this application is being rejected..." required></textarea>
         <div style="display:flex; gap:10px; justify-content:flex-end;">
-          <button type="button" class="btn btn-outline" onclick="toggleReject('{{ tuab.user_id }}')">Cancel</button>
+          <button type="button" class="btn btn-outline" data-user-id="{{ tuab.user_id }}" onclick="toggleReject(this)">Cancel</button>
           <button type="submit" class="btn"
             style="background:#cc0000; color:#fff; border-radius:14px; padding:10px 20px; font-size:14px;">Confirm
             Rejection</button>
@@ -285,8 +289,8 @@
 </div>
 
 <script>
-  function toggleReject(userId) {
-    const box = document.getElementById('reject-box-' + userId);
+  function toggleReject(el) {
+    const box = document.getElementById('reject-box-' + el.dataset.userId);
     if (box.style.display === 'none') {
       box.style.display = 'block';
     } else {

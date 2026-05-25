@@ -24,6 +24,13 @@ def create_donation(*, request):
     2. Calls serializer.save() to create the Donation header (handled in Serializer.create).
     3. Manually creates DonationItem records in this service layer.
     4. Handles side effects (Audit, Predictions).
+
+    Complexity notes:
+    - Let n = number of submitted donation items.
+    - Let i = number of active items used by prediction inference.
+    - Let t = number of eligible TUAB users.
+    - Overall dominant cost is O(i * t) because prediction generation builds
+      every active-item / TUAB pair.
     """
     serializer = DonationCreateSerializer(data=request.data, context={'request': request})
     serializer.is_valid(raise_exception=True)

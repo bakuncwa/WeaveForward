@@ -224,9 +224,10 @@
 
 </div><!-- /.dash-layout -->
 
+{{ donations_json|json_script:"donations-data" }}
 <script>
   // Dynamic data from context
-  const DASH_DONATIONS = {{ donations_json|safe }};
+  const DASH_DONATIONS = JSON.parse(document.getElementById('donations-data').textContent);
 
   let dashMap, dashMarkers = [];
 
@@ -243,10 +244,16 @@
       const lng = parseFloat(d.longitude);
       const mk = L.marker([lat, lng]).addTo(dashMap);
       mk._data = d;
-      mk.bindPopup(
-        `<b>${d.barangay}</b><br>
-         <span style="color:#888;font-size:11px">Donations Received: ${d.donation_count}</span>`
-      );
+      const popupEl = document.createElement('div');
+      const b = document.createElement('b');
+      b.textContent = d.barangay;
+      popupEl.appendChild(b);
+      popupEl.appendChild(document.createElement('br'));
+      const s = document.createElement('span');
+      s.style.cssText = 'color:#888;font-size:11px';
+      s.textContent = `Donations Received: ${d.donation_count}`;
+      popupEl.appendChild(s);
+      mk.bindPopup(popupEl);
       return mk;
     });
 

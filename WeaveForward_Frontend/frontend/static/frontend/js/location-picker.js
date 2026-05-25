@@ -4,6 +4,7 @@
  */
 
 const getEl = id => document.getElementById(id);
+const escapeHTML = str => !str ? '' : str.replace(/[&<>'"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[c] || c));
 let map, mrk, tmpLat, tmpLng, acTmr, acRes = [];
 let activePrefix = '';
 
@@ -26,7 +27,7 @@ function srchAddr(v, prefix = '') {
     try {
       const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(v + ', Philippines')}&limit=5&countrycodes=ph`);
       acRes = await res.json();
-      getEl(acId).innerHTML = acRes.map((r, i) => `<div class="ac-item" onmousedown="selAddr(${i})">${r.display_name}</div>`).join('');
+      getEl(acId).innerHTML = acRes.map((r, i) => `<div class="ac-item" onmousedown="selAddr(${i})">${escapeHTML(r.display_name)}</div>`).join('');
       getEl(acId).classList.remove('hidden');
     } catch (e) { 
       console.error("Search failed", e); 

@@ -185,7 +185,9 @@
   </div>
 </div>
 
+{{ fibers|json_script:"fibers-data" }}
 <script>
+    const escapeHTML = str => !str ? '' : str.replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c] || c));
     const $ = id => document.getElementById(id);
     const INIT_2FA = document.getElementById('init-2fa').value === 'true';
     let staged2FA = INIT_2FA;
@@ -382,7 +384,7 @@
         clearTimeout(acTimer);
         acTimer = setTimeout(async () => {
             const items = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=ph&limit=5`).then(r => r.json());
-            $('addr-ac').innerHTML = items.map(i => `<div onclick="selectAddress(${i.lat},${i.lon},'${i.display_name.replace(/'/g, "\\'")}')">${i.display_name}</div>`).join('');
+            $('addr-ac').innerHTML = items.map(i => `<div onclick="selectAddress(${i.lat},${i.lon},'${escapeHTML(i.display_name.replace(/'/g, "\\'"))}')">${escapeHTML(i.display_name)}</div>`).join('');
             $('addr-ac').classList.remove('hidden');
         }, 400);
     }
@@ -402,7 +404,13 @@
         }
         const d = document.createElement('div');
         d.className = `wf-alert ${type}`;
-        d.innerHTML = `<span>${msg}</span><button onclick="this.parentElement.remove()">×</button>`;
+        const span = document.createElement('span');
+        span.textContent = msg;
+        const btn = document.createElement('button');
+        btn.textContent = '×';
+        btn.style.cssText = 'background:none;border:none;color:inherit;font-size:18px;cursor:pointer;line-height:1;margin-left:10px;';
+        btn.addEventListener('click', () => d.remove());
+        d.append(span, btn);
         c.prepend(d);
         setTimeout(() => d.remove(), 5000);
     }
@@ -413,13 +421,23 @@
     // ############################################################
     let tags = (document.getElementById('fibs').value || '').split(',').map(s => s.trim()).filter(Boolean);
     function renderTags() {
-        $('tags').innerHTML = tags.map(t => `<div class="t-chip">${t}<span onclick="toggleTag('${t}')">×</span></div>`).join('');
+        $('tags').innerHTML = '';
+        for (const t of tags) {
+            const div = document.createElement('div');
+            div.className = 't-chip';
+            div.append(document.createTextNode(t));
+            const span = document.createElement('span');
+            span.textContent = '×';
+            span.addEventListener('click', () => toggleTag(t));
+            div.appendChild(span);
+            $('tags').appendChild(div);
+        }
         $('fibs').value = tags.join(',');
     }
     function handleFiberInput(val) {
-        const FIBERS = {{ fibers|safe }};
+        const FIBERS = JSON.parse(document.getElementById('fibers-data').textContent);
         const m = FIBERS.filter(f => f.toLowerCase().includes(val.toLowerCase()) && !tags.includes(f));
-        $('f-ac').innerHTML = m.map(f => `<div onmousedown="toggleTag('${f}')">${f}</div>`).join('');
+        $('f-ac').innerHTML = m.map(f => `<div onmousedown="toggleTag('${escapeHTML(f)}')">${escapeHTML(f)}</div>`).join('');
         $('f-ac').classList.toggle('hidden', !val || !m.length);
     }
     function toggleTag(f) {

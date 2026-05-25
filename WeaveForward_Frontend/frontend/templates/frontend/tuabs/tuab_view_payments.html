@@ -64,8 +64,10 @@
   </div>
 </div>
 
+{{ payments_json|json_script:"payments-data" }}
 <script>
-  const PAYMENTS = {{ payments_json|safe }};
+  const escapeHTML = str => !str ? '' : str.replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c] || c));
+  const PAYMENTS = JSON.parse(document.getElementById('payments-data').textContent);
 
   function renderRows(list) {
     document.getElementById('pay-tbody').innerHTML = list.map(p => {
@@ -74,10 +76,10 @@
       if (p.status === 'Pending') statusClass = 'status-pending';
       return `
       <tr>
-        <td>${p.type}</td>
-        <td>₱${p.amount}</td>
-        <td class="ref">${p.reference || ''}</td>
-        <td><span class="${statusClass}">${p.status}</span></td>
+        <td>${escapeHTML(p.type)}</td>
+        <td>₱${escapeHTML(String(p.amount))}</td>
+        <td class="ref">${escapeHTML(p.reference || '')}</td>
+        <td><span class="${statusClass}">${escapeHTML(p.status)}</span></td>
       </tr>`;
     }).join('');
   }

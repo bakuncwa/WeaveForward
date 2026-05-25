@@ -485,6 +485,7 @@
     }
   })();
 
+  const esc = str => !str ? '' : str.replace(/[&<>'"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]||c));
   const nominatimTimers = {};
   let _acResults = [];
 
@@ -506,7 +507,7 @@
         if (!data.length) { ac.classList.add('hidden'); return; }
         _acResults = data;
         ac.innerHTML = data.map((r, i) =>
-          `<div class="ac-item" onclick="selectAC(${i},'${acId}','${latId}','${lngId}','${inputId}')">${r.display_name}</div>`
+          `<div class="ac-item" onclick="selectAC(${i},'${acId}','${latId}','${lngId}','${inputId}')">${esc(r.display_name)}</div>`
         ).join('');
         ac.classList.remove('hidden');
       } catch (err) {
