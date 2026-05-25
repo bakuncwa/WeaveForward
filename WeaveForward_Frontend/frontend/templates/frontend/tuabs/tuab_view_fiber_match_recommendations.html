@@ -1,0 +1,876 @@
+{% extends 'frontend/base.html' %}
+
+{% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.1/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.1/dist/MarkerCluster.Default.css"/>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.1/dist/leaflet.markercluster.js"></script>
+
+<style>
+    :root {
+        --gold: #e8a020;
+        --gold-dark: #c8881a;
+        --tuab: #c0410e;
+        --tuab-dark: #a0360c;
+        --bg: #f5f4f0;
+        --card: #ffffff;
+        --border: #e0dbd4;
+        --text: #222222;
+        --muted: #888888;
+        --blue: #0b77dc;
+        --green: #4a7c59;
+        --red: #c0392b;
+    }
+
+    body {
+        font-family: 'Poppins', sans-serif;
+        background: var(--bg);
+        color: var(--text);
+    }
+
+    /* Split Panel Layout */
+    .fiber-match-container {
+        display: flex;
+        height: calc(100vh - 100px);
+        gap: 0;
+        background: var(--bg);
+    }
+
+    /* Left Panel - Map */
+    .map-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: var(--card);
+        border-right: 1px solid var(--border);
+        transition: all 0.3s ease;
+    }
+
+    .map-panel.collapsed {
+        flex: 0;
+        border-right: none;
+        overflow: hidden;
+    }
+
+    .map-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .map-header h3 {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text);
+    }
+
+    .toggle-panel-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 18px;
+        padding: 4px 8px;
+        color: var(--muted);
+        transition: color 0.2s;
+    }
+
+    .toggle-panel-btn:hover {
+        color: var(--text);
+    }
+
+    #recommendations-map {
+        flex: 1;
+        z-index: 1;
+    }
+
+    /* Right Panel - List */
+    .list-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .list-panel.expanded {
+        flex: 2;
+    }
+
+    .list-header {
+        padding: 20px;
+        border-bottom: 1px solid var(--border);
+        background: var(--card);
+    }
+
+    .list-header-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--text);
+        margin: 0 0 16px 0;
+    }
+
+    .list-count {
+        font-size: 12px;
+        color: var(--muted);
+        margin: 0;
+    }
+
+    .list-count strong {
+        color: var(--gold);
+    }
+
+    /* Filters */
+    .filters-section {
+        padding: 16px 20px;
+        background: var(--card);
+        border-bottom: 1px solid var(--border);
+    }
+
+    .filter-group {
+        margin-bottom: 12px;
+    }
+
+    .filter-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text);
+        margin-bottom: 6px;
+        display: block;
+    }
+
+    .filter-input,
+    .filter-select {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1.5px solid var(--border);
+        border-radius: 6px;
+        font-family: 'Poppins', sans-serif;
+        font-size: 12px;
+        outline: none;
+        transition: border-color 0.2s;
+    }
+
+    .filter-input:focus,
+    .filter-select:focus {
+        border-color: var(--gold);
+    }
+
+    .filter-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 12px;
+    }
+
+    .btn-filter {
+        flex: 1;
+        padding: 8px 12px;
+        border: 1.5px solid var(--border);
+        background: var(--card);
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        color: var(--text);
+    }
+
+    .btn-filter:hover {
+        border-color: var(--gold);
+        background: #fff1d8;
+    }
+
+    .btn-filter-reset {
+        background: var(--card);
+        color: var(--text);
+    }
+
+    /* Recommendations List */
+    .recommendations-scroll {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0;
+    }
+
+    .rec-card {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border);
+        background: var(--card);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .rec-card:hover {
+        background: #faf8f5;
+    }
+
+    .rec-card.active {
+        background: #fff1d8;
+        border-left: 4px solid var(--gold);
+        padding-left: 16px;
+    }
+
+    .rec-donor {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text);
+        margin: 0 0 4px 0;
+    }
+
+    .rec-location {
+        font-size: 11px;
+        color: var(--muted);
+        margin: 0 0 8px 0;
+    }
+
+    .rec-meta {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .meta-item {
+        font-size: 11px;
+        color: var(--muted);
+    }
+
+    .meta-label {
+        font-weight: 600;
+        color: var(--text);
+    }
+
+    .rec-fiber {
+        display: inline-block;
+        background: #e8f1f7;
+        color: var(--blue);
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 500;
+        margin-right: 6px;
+        margin-bottom: 8px;
+    }
+
+    .rec-badges {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+    }
+
+    .badge {
+        display: inline-block;
+        border-radius: 4px;
+        padding: 4px 10px;
+        font-size: 10px;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .badge-biodeg-high {
+        background: #d4edda;
+        color: var(--green);
+    }
+
+    .badge-biodeg-medium {
+        background: #fff3cd;
+        color: #856404;
+    }
+
+    .badge-biodeg-low {
+        background: #f8d7da;
+        color: #721c24;
+    }
+
+    .badge-match {
+        background: #d1ecf1;
+        color: #0c5460;
+    }
+
+    .rec-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .btn-action {
+        flex: 1;
+        padding: 8px 12px;
+        border: none;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        text-align: center;
+    }
+
+    .btn-accept {
+        background: var(--green);
+        color: white;
+    }
+
+    .btn-accept:hover {
+        opacity: 0.9;
+    }
+
+    .btn-reject {
+        background: #e9ecef;
+        color: var(--text);
+    }
+
+    .btn-reject:hover {
+        background: var(--border);
+    }
+
+    /* Empty State */
+    .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 20px;
+        color: var(--muted);
+        text-align: center;
+    }
+
+    .empty-state-icon {
+        font-size: 48px;
+        margin-bottom: 12px;
+    }
+
+    .empty-state-title {
+        font-size: 14px;
+        font-weight: 600;
+        margin: 0 0 8px 0;
+        color: var(--text);
+    }
+
+    .empty-state-desc {
+        font-size: 12px;
+        margin: 0;
+    }
+
+    /* Error Banner */
+    .error-banner {
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin-bottom: 16px;
+        color: #721c24;
+        font-size: 12px;
+    }
+
+    /* Modal */
+    .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+    }
+
+    .modal-box {
+        background: var(--card);
+        border-radius: 12px;
+        padding: 24px;
+        max-width: 400px;
+        width: 90%;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    .modal-title {
+        font-size: 16px;
+        font-weight: 600;
+        margin: 0 0 16px 0;
+        color: var(--text);
+    }
+
+    .modal-textarea {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1.5px solid var(--border);
+        border-radius: 6px;
+        font-family: 'Poppins', sans-serif;
+        font-size: 13px;
+        resize: vertical;
+        min-height: 80px;
+        margin-bottom: 16px;
+        outline: none;
+    }
+
+    .modal-textarea:focus {
+        border-color: var(--gold);
+    }
+
+    .modal-buttons {
+        display: flex;
+        gap: 12px;
+    }
+
+    .modal-btn {
+        flex: 1;
+        padding: 10px 16px;
+        border: none;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .modal-btn-confirm {
+        background: var(--green);
+        color: white;
+    }
+
+    .modal-btn-confirm:hover {
+        opacity: 0.9;
+    }
+
+    .modal-btn-cancel {
+        background: var(--border);
+        color: var(--text);
+    }
+
+    .modal-btn-cancel:hover {
+        background: #d0cac2;
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+        .fiber-match-container {
+            flex-direction: column;
+        }
+
+        .map-panel {
+            height: 40%;
+            border-right: none;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .map-panel.collapsed {
+            height: 0;
+            border-bottom: none;
+        }
+
+        .list-panel {
+            height: 60%;
+        }
+
+        .list-panel.expanded {
+            flex: 1;
+        }
+    }
+
+    @media (max-width: 640px) {
+        .fiber-match-container {
+            height: auto;
+        }
+
+        .map-panel {
+            height: 300px;
+        }
+
+        .list-panel {
+            height: auto;
+        }
+
+        .rec-card {
+            padding: 12px 16px;
+        }
+
+        .rec-meta {
+            grid-template-columns: 1fr;
+        }
+
+        .filters-section {
+            display: none;
+        }
+
+        .toggle-filters-btn {
+            display: inline-block;
+        }
+    }
+
+    .hidden {
+        display: none !important;
+    }
+</style>
+
+<div class="fiber-match-container">
+    <!-- Left Panel: Map -->
+    <div class="map-panel" id="mapPanel">
+        <div class="map-header">
+            <h3>Donation Locations</h3>
+            <button class="toggle-panel-btn" onclick="toggleMapPanel()">
+                <span id="toggleIcon">−</span>
+            </button>
+        </div>
+        <div id="recommendations-map"></div>
+    </div>
+
+    <!-- Right Panel: List -->
+    <div class="list-panel" id="listPanel">
+        <div class="list-header">
+            <h2 class="list-header-title">Match Recommendations</h2>
+            <p class="list-count">
+                <strong id="recommendationCount">{{ pagination_meta.count }}</strong> pending
+                <span id="sortNote">sorted by match score</span>
+            </p>
+        </div>
+
+        {% if error_message %}
+        <div class="filters-section">
+            <div class="error-banner">{{ error_message }}</div>
+        </div>
+        {% endif %}
+
+        <!-- Filters Section -->
+        <div class="filters-section" id="filtersSection">
+            <form method="GET" id="filtersForm">
+                <div class="filter-group">
+                    <label class="filter-label">Fiber Type</label>
+                    <input 
+                        type="text" 
+                        name="fiber_type" 
+                        class="filter-input" 
+                        placeholder="e.g., Cotton, Denim"
+                        value="{{ active_filters.fiber_type }}"
+                    />
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">Biodegradability</label>
+                    <select name="biodeg_tier" class="filter-select">
+                        <option value="">All Tiers</option>
+                        <option value="HIGH" {% if active_filters.biodeg_tier == 'HIGH' %}selected{% endif %}>High</option>
+                        <option value="MEDIUM" {% if active_filters.biodeg_tier == 'MEDIUM' %}selected{% endif %}>Medium</option>
+                        <option value="LOW" {% if active_filters.biodeg_tier == 'LOW' %}selected{% endif %}>Low</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">City</label>
+                    <select name="city" class="filter-select">
+                        <option value="">All Cities</option>
+                        {% for city in available_cities %}
+                        <option value="{{ city }}" {% if active_filters.city == city %}selected{% endif %}>{{ city }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">Match Confidence (%)</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <input 
+                            type="number" 
+                            name="confidence_min" 
+                            class="filter-input" 
+                            placeholder="Min"
+                            min="0"
+                            max="100"
+                            value="{{ active_filters.confidence_min }}"
+                        />
+                        <input 
+                            type="number" 
+                            name="confidence_max" 
+                            class="filter-input" 
+                            placeholder="Max"
+                            min="0"
+                            max="100"
+                            value="{{ active_filters.confidence_max }}"
+                        />
+                    </div>
+                </div>
+
+                <div class="filter-actions">
+                    <button type="submit" class="btn-filter" style="background: var(--gold); color: white;">Apply Filters</button>
+                    <a href="{% url 'tuab_fiber_match_recommendations' %}" class="btn-filter btn-filter-reset">Reset</a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Recommendations Scroll -->
+        <div class="recommendations-scroll" id="recommendationsScroll">
+            {% if recommendations %}
+                {% for rec in recommendations %}
+                <div 
+                    class="rec-card" 
+                    onclick="selectRecommendation({{ rec.pair_id }}, {{ rec.donation.location.latitude }}, {{ rec.donation.location.longitude }})"
+                    data-pair-id="{{ rec.pair_id }}"
+                >
+                    <p class="rec-donor">{{ rec.donor.name }}</p>
+                    <p class="rec-location">📍 {{ rec.donation.pickup_city }}, {{ rec.donation.pickup_barangay }}</p>
+                    
+                    <div class="rec-meta">
+                        <div class="meta-item">
+                            <span class="meta-label">Weight:</span> {{ rec.item.weight_kg }} kg
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Confidence:</span> {{ rec.match_confidence }}%
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 8px;">
+                        {% if rec.item.dominant_fiber %}
+                        <span class="rec-fiber">{{ rec.item.dominant_fiber|upper }}</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="rec-badges">
+                        <span class="badge badge-biodeg-{{ rec.biodeg_tier|lower }}">
+                            {{ rec.biodeg_tier }} Biodeg
+                        </span>
+                        <span class="badge badge-match">{{ rec.match_confidence }}% match</span>
+                    </div>
+
+                    <div class="rec-actions">
+                        <button type="button" class="btn-action btn-accept" onclick="acceptRecommendation(event, {{ rec.pair_id }})">
+                            ✓ Accept
+                        </button>
+                        <button type="button" class="btn-action btn-reject" onclick="showRejectModal(event, {{ rec.pair_id }})">
+                            ✕ Reject
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-state-icon">📭</div>
+                    <p class="empty-state-title">No Recommendations</p>
+                    <p class="empty-state-desc">
+                        {% if error_message %}
+                            Unable to load recommendations at this time.
+                        {% else %}
+                            You don't have any pending recommendations yet.
+                        {% endif %}
+                    </p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Reject Reason Modal -->
+<div id="rejectModal" class="modal-overlay hidden" onclick="if(event.target === this) closeRejectModal()">
+    <div class="modal-box">
+        <h3 class="modal-title">Why are you rejecting this recommendation?</h3>
+        <textarea 
+            id="rejectReason" 
+            class="modal-textarea" 
+            placeholder="Please tell us why you're not interested in this donation..."
+        ></textarea>
+        <div class="modal-buttons">
+            <button type="button" class="modal-btn modal-btn-confirm" onclick="confirmReject()">
+                Reject
+            </button>
+            <button type="button" class="modal-btn modal-btn-cancel" onclick="closeRejectModal()">
+                Cancel
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // State
+    let map = null;
+    let markers = null;
+    let selectedMarker = null;
+    let rejectingPairId = null;
+    const recommendations = {{ recommendations_json|safe }};
+    
+    // Map Initialization
+    function initializeMap() {
+        if (!map && document.getElementById('recommendations-map')) {
+            map = L.map('recommendations-map').setView([14.5995, 121.0437], 11);
+            
+            // Add tile layer (OpenStreetMap)
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19,
+            }).addTo(map);
+            
+            // Initialize marker cluster group
+            markers = L.markerClusterGroup();
+            map.addLayer(markers);
+            
+            // Add markers for all recommendations
+            recommendations.forEach(rec => {
+                const lat = rec.donation.location.latitude;
+                const lng = rec.donation.location.longitude;
+                const marker = L.circleMarker([lat, lng], {
+                    radius: 8,
+                    fillColor: '#0b77dc',
+                    color: '#fff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8,
+                }).bindPopup(`
+                    <strong>${rec.donor.name}</strong><br/>
+                    ${rec.match_confidence}% match<br/>
+                    ${rec.item.weight_kg} kg
+                `);
+                
+                marker.on('click', function() {
+                    selectRecommendation(rec.pair_id, lat, lng);
+                });
+                
+                markers.addLayer(marker);
+            });
+            
+            // Fit bounds to all markers
+            if (recommendations.length > 0) {
+                map.fitBounds(markers.getBounds());
+            }
+        }
+    }
+    
+    // Toggle Map Panel
+    function toggleMapPanel() {
+        const mapPanel = document.getElementById('mapPanel');
+        const listPanel = document.getElementById('listPanel');
+        const toggleIcon = document.getElementById('toggleIcon');
+        
+        mapPanel.classList.toggle('collapsed');
+        listPanel.classList.toggle('expanded');
+        
+        if (mapPanel.classList.contains('collapsed')) {
+            toggleIcon.textContent = '+';
+        } else {
+            toggleIcon.textContent = '−';
+            setTimeout(() => map && map.invalidateSize(), 300);
+        }
+    }
+    
+    // Select Recommendation
+    function selectRecommendation(pairId, lat, lng) {
+        // Update active card
+        document.querySelectorAll('.rec-card').forEach(card => {
+            card.classList.remove('active');
+        });
+        document.querySelector(`[data-pair-id="${pairId}"]`)?.classList.add('active');
+        
+        // Center map on marker
+        if (map) {
+            map.setView([lat, lng], 15);
+        }
+    }
+    
+    // Accept Recommendation
+    async function acceptRecommendation(e, pairId) {
+        e.stopPropagation();
+        
+        try {
+            const response = await fetch(`/api/match-recommendations/${pairId}/accept/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || '',
+                },
+                body: JSON.stringify({}),
+            });
+            
+            if (response.ok) {
+                // Remove from list
+                const card = document.querySelector(`[data-pair-id="${pairId}"]`);
+                card?.remove();
+                
+                // Update count
+                updateCount();
+                
+                // Show success message
+                alert('Recommendation accepted! You will receive the donation details shortly.');
+            } else {
+                const data = await response.json();
+                alert(`Error: ${data.detail || 'Unable to accept recommendation'}`);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An error occurred. Please try again.');
+        }
+    }
+    
+    // Show Reject Modal
+    function showRejectModal(e, pairId) {
+        e.stopPropagation();
+        rejectingPairId = pairId;
+        document.getElementById('rejectModal').classList.remove('hidden');
+    }
+    
+    // Close Reject Modal
+    function closeRejectModal() {
+        document.getElementById('rejectModal').classList.add('hidden');
+        document.getElementById('rejectReason').value = '';
+        rejectingPairId = null;
+    }
+    
+    // Confirm Reject
+    async function confirmReject() {
+        const reason = document.getElementById('rejectReason').value.trim();
+        
+        if (!rejectingPairId) return;
+        
+        try {
+            const response = await fetch(`/api/match-recommendations/${rejectingPairId}/reject/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || '',
+                },
+                body: JSON.stringify({ reason }),
+            });
+            
+            if (response.ok) {
+                // Remove from list
+                const card = document.querySelector(`[data-pair-id="${rejectingPairId}"]`);
+                card?.remove();
+                
+                // Update count
+                updateCount();
+                
+                // Close modal
+                closeRejectModal();
+                
+                // Show success message
+                alert('Recommendation rejected. Thank you for your feedback.');
+            } else {
+                const data = await response.json();
+                alert(`Error: ${data.detail || 'Unable to reject recommendation'}`);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An error occurred. Please try again.');
+        }
+    }
+    
+    // Update Count
+    function updateCount() {
+        const cards = document.querySelectorAll('.rec-card').length;
+        document.getElementById('recommendationCount').textContent = cards;
+        
+        if (cards === 0) {
+            const scroll = document.getElementById('recommendationsScroll');
+            scroll.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">✓</div>
+                    <p class="empty-state-title">All Set!</p>
+                    <p class="empty-state-desc">You've reviewed all recommendations.</p>
+                </div>
+            `;
+        }
+    }
+    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeMap();
+    });
+</script>
+
+{% endblock %}

@@ -14,5 +14,10 @@ from .donations import (
     DonationResolveSerializer, AdminDonationUpdateSerializer
 )
 from .payments import SubscriptionPaymentSerializer, OrderPaymentSerializer
+from .recommendations import (
+    MatchRecommendationListSerializer,
+    MatchRecommendationDetailSerializer,
+    MatchRecommendationActionSerializer,
+)
 
 

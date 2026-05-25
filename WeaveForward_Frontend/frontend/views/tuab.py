@@ -694,3 +694,99 @@ async def tuab_view_inventory_item(request, inventory_id):
         'pickup_latitude': source_donation.get('pickup_latitude', ''),
         'pickup_longitude': source_donation.get('pickup_longitude', ''),
     })
+
+
+async def tuab_view_fiber_match_recommendations(request):
+    """TUAB Fiber-Match Recommendations - View and act on donation recommendations."""
+    profile = request.user_profile
+    page = request.GET.get('page', 1)
+    
+    # Get filter parameters from query string
+    filters_param = {
+        'fiber_type': request.GET.get('fiber_type', ''),
+        'biodeg_tier': request.GET.get('biodeg_tier', ''),
+        'city': request.GET.get('city', ''),
+        'confidence_min': request.GET.get('confidence_min', ''),
+        'confidence_max': request.GET.get('confidence_max', ''),
+        'date_after': request.GET.get('date_after', ''),
+        'date_before': request.GET.get('date_before', ''),
+    }
+    
+    recommendations = []
+    pagination_meta = {'current': int(page), 'has_next': False, 'has_prev': int(page) > 1, 'count': 0}
+    error_message = None
+    
+    # Fetch match recommendations
+    try:
+        params = {'page': page}
+        
+        # Add filters to params if provided
+        for key, value in filters_param.items():
+            if value:
+                # Convert biodeg_tier to proper format for API
+                if key == 'biodeg_tier' and value:
+                    # Note: API currently doesn't filter by biodeg_tier directly
+                    # This would need to be added to the backend
+                    pass
+                # Convert confidence percentage to 0-1 range for API
+                elif key == 'confidence_min' and value:
+                    try:
+                        params['confidence_min'] = float(value)
+                    except (ValueError, TypeError):
+                        pass
+                elif key == 'confidence_max' and value:
+                    try:
+                        params['confidence_max'] = float(value)
+                    except (ValueError, TypeError):
+                        pass
+                else:
+                    params[key] = value
+        
+        res = await api_call(request, 'GET', 'match-recommendations', params=params)
+        
+        if res and not isinstance(res, Exception) and res.status_code == 200:
+            data = res.json()
+            recommendations = data.get('results', [])
+            pagination_meta['has_next'] = data.get('next') is not None
+            pagination_meta['count'] = data.get('count', 0)
+        elif res and not isinstance(res, Exception) and res.status_code == 403:
+            error_message = "You don't have an active subscription to access Donation Recommendations. Please upgrade."
+        else:
+            error_message = "Unable to load recommendations. Please try again later."
+    except Exception as e:
+        error_message = "An error occurred while loading recommendations."
+        print(f"Error fetching recommendations: {str(e)}")
+    
+    # Get available fibers and cities for filters
+    available_fibers = []
+    available_cities = set()
+    
+    try:
+        fibers_res = await api_call(request, 'GET', 'fibers')
+        if fibers_res and not isinstance(fibers_res, Exception) and fibers_res.status_code == 200:
+            data = fibers_res.json()
+            available_fibers = data.get('results', []) if isinstance(data, dict) else data
+    except Exception:
+        pass
+    
+    # Extract unique cities from recommendations
+    for rec in recommendations:
+        city = rec.get('donation', {}).get('pickup_city', '')
+        if city:
+            available_cities.add(city)
+    
+    available_cities = sorted(list(available_cities))
+    
+    return render(request, 'frontend/tuabs/tuab_view_fiber_match_recommendations.html', {
+        'page_title': 'Fiber-Match Recommendations',
+        'sidebar_variant': 'tuab',
+        'user': profile,
+        'recommendations': recommendations,
+        'pagination_meta': pagination_meta,
+        'error_message': error_message,
+        'active_filters': filters_param,
+        'available_fibers': available_fibers,
+        'available_cities': available_cities,
+        'recommendations_json': json.dumps(recommendations),
+    })
+

@@ -45,6 +45,7 @@ urlpatterns = [
     path('tuab/payments/', views.tuab_view_payments, name='tuab_view_payments'),
     path('tuab/inventory/', views.tuab_inventory_snapshot, name='tuab_inventory_snapshot'),
     path('tuab/inventory/<int:inventory_id>/', views.tuab_view_inventory_item, name='tuab_view_inventory_item'),
+    path('tuab/fiber-match-recommendations/', views.tuab_view_fiber_match_recommendations, name='tuab_fiber_match_recommendations'),
     
     # --- Admin ---
     path('admin/donation-impact-dashboard/', views.admin_impact_dashboard, name='admin_impact_dashboard'),

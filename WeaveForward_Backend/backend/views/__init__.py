@@ -12,3 +12,4 @@ from .webhooks import webhooks
 from .impact_dashboard import ImpactDashboardViewSet
 from .payments import PaymentListView, PaymentMeView
 from .inventory import InventoryViewSet
+from .recommendations import MatchRecommendationViewSet
