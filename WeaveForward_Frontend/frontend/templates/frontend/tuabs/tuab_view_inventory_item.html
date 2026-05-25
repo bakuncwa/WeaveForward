@@ -1,0 +1,570 @@
+{% extends 'frontend/base.html' %}
+
+{% block content %}
+<!--
+  WeaveForward - TUAB View Inventory Item
+  ============================================================
+  Detailed view of a single inventory ledger entry with:
+  - Source donation and items information
+  - Current stock level and audit history
+  - Donor information and contact details
+  - Timestamp and status tracking
+-->
+<style>
+  :root {
+    --gold: #e8a020;
+    --orange: #e8682c;
+    --green: #4caf50;
+    --red: #f44336;
+    --bg: #f5f4f0;
+    --border: #e0dbd4;
+    --text: #222;
+    --muted: #888;
+  }
+
+  * {
+    font-family: 'Poppins', sans-serif;
+  }
+
+  .inventory-view-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  .view-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .back-link {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: color 0.2s;
+  }
+
+  .back-link:hover {
+    color: var(--text);
+  }
+
+  .page-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .content-layout {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+  }
+
+  .content-left {
+    flex: 1;
+  }
+
+  .content-right {
+    width: 330px;
+    flex-shrink: 0;
+  }
+
+  /* Item Cards */
+  .item-card {
+    background: white;
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 22px;
+    margin-bottom: 14px;
+  }
+
+  .item-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .item-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: var(--gold);
+    color: white;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  .item-type {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .item-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .form-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+
+  .form-value {
+    font-size: 13px;
+    color: var(--text);
+    padding: 8px 12px;
+    background: var(--bg);
+    border-radius: 6px;
+    border: 1px solid transparent;
+  }
+
+  .form-group.full {
+    grid-column: 1 / -1;
+  }
+
+  /* Info Panel */
+  .info-panel {
+    background: white;
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 22px;
+    margin-bottom: 14px;
+  }
+
+  .panel-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 14px;
+  }
+
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0ebe5;
+    font-size: 12px;
+  }
+
+  .info-row:last-child {
+    border-bottom: none;
+  }
+
+  .info-label {
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  .info-value {
+    color: var(--text);
+    font-weight: 600;
+    text-align: right;
+    max-width: 140px;
+    word-break: break-word;
+  }
+
+  /* Stock Status */
+  .stock-status {
+    background: #f8f5f0;
+    border-left: 4px solid var(--gold);
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 14px;
+    font-size: 12px;
+  }
+
+  .stock-status-title {
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .stock-status-detail {
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* Donor Card */
+  .donor-card {
+    background: white;
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 22px;
+  }
+
+  .donor-header {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 14px;
+    align-items: flex-start;
+  }
+
+  .donor-avatar {
+    width: 48px;
+    height: 48px;
+    background: var(--gold);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .donor-info {
+    flex: 1;
+  }
+
+  .donor-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+
+  .donor-status {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* Action Buttons */
+  .action-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .btn {
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: none;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    text-align: center;
+    font-family: 'Poppins', sans-serif;
+  }
+
+  .btn-primary {
+    background: var(--gold);
+    color: white;
+    grid-column: 1 / -1;
+  }
+
+  .btn-primary:hover {
+    background: #d18f1c;
+  }
+
+  .btn-secondary {
+    background: var(--bg);
+    color: var(--text);
+    border: 1.5px solid var(--border);
+  }
+
+  .btn-secondary:hover {
+    background: #f0ebe5;
+  }
+
+  /* Audit Timeline */
+  .audit-timeline {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .audit-timeline-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+  }
+
+  .audit-entry {
+    padding: 12px;
+    background: #f8f5f0;
+    border-left: 3px solid var(--gold);
+    border-radius: 4px;
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+
+  .audit-entry-time {
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .audit-entry-action {
+    color: var(--muted);
+  }
+
+  /* No Image State */
+  .no-image {
+    width: 100%;
+    height: 180px;
+    background: var(--bg);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  @media (max-width: 768px) {
+    .inventory-view-container {
+      padding: 16px;
+    }
+
+    .content-layout {
+      flex-direction: column;
+    }
+
+    .content-right {
+      width: 100%;
+    }
+
+    .item-form {
+      grid-template-columns: 1fr;
+    }
+
+    .action-buttons {
+      grid-template-columns: 1fr;
+    }
+
+    .view-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+</style>
+
+<div class="inventory-view-container">
+  <!-- Header -->
+  <div class="view-header">
+    <a href="{% url 'tuab_inventory_snapshot' %}" class="back-link">← Back</a>
+    <h1 class="page-title">View Inventory</h1>
+  </div>
+
+  <!-- Main Content -->
+  <div class="content-layout">
+    <!-- Left: Items -->
+    <div class="content-left">
+      {% for item in items %}
+      <div class="item-card">
+        <div class="item-card-header">
+          <div class="item-number">{{ forloop.counter }}</div>
+          <div class="item-type">{{ item.clothing_type|default:"Item" }}</div>
+        </div>
+        <div class="item-form">
+          <div class="form-group">
+            <label class="form-label">Clothing Type</label>
+            <div class="form-value">{{ item.clothing_type|default:"-" }}</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Estimated Weight (kg)</label>
+            <div class="form-value">{{ item.estimated_weight_kg|default:"-" }}</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Condition</label>
+            <div class="form-value">{{ item.condition_rating|default:"-" }}</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Brand</label>
+            <div class="form-value">{{ item.lookup_details.brand|default:"-" }}</div>
+          </div>
+          <div class="form-group full">
+            <label class="form-label">Material</label>
+            <div class="form-value">{{ item.lookup_details.fiber_json|default:"-" }} - {{ item.lookup_details.category|default:"-" }}</div>
+          </div>
+        </div>
+      </div>
+      {% empty %}
+      <div class="item-card">
+        <p style="text-align: center; color: var(--muted); padding: 20px;">No items in this inventory entry</p>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Right: Info Panel -->
+    <div class="content-right">
+      <!-- Stock Status -->
+      {% if inventory_item.audit_required %}
+      <div class="stock-status" style="border-left-color: var(--red); background: #ffebee;">
+        <div class="stock-status-title" style="color: var(--red);">⚠️ Audit Required</div>
+        <div class="stock-status-detail">
+          This item hasn't been audited for {{ inventory_item.days_since_audit }} days. Please schedule an audit.
+        </div>
+      </div>
+      {% else %}
+      <div class="stock-status">
+        <div class="stock-status-title">✓ Active Stock</div>
+        <div class="stock-status-detail">
+          Last updated {{ inventory_item.days_since_audit }} days ago.
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Inventory Info -->
+      <div class="info-panel">
+        <div class="panel-title">Inventory Details</div>
+        <div class="info-row">
+          <span class="info-label">Inventory ID</span>
+          <span class="info-value">#{{ inventory_item.inventory_id }}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Current Weight</span>
+          <span class="info-value">{{ inventory_item.current_weight_kg|floatformat:2 }} kg</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Weight Before</span>
+          <span class="info-value">{{ inventory_item.weight_before_kg|floatformat:2 }} kg</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Usage Amount</span>
+          <span class="info-value">{{ inventory_item.usage_amount_kg|floatformat:2 }} kg</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Lifecycle Status</span>
+          <span class="info-value">{{ inventory_item.lifecycle_status }}</span>
+        </div>
+      </div>
+
+      <!-- Donation Source -->
+      <div class="info-panel">
+        <div class="panel-title">Source Donation</div>
+        <div class="info-row">
+          <span class="info-label">Donation ID</span>
+          <span class="info-value">#{{ source_donation.donation_id }}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Status</span>
+          <span class="info-value">{{ source_donation.status }}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Items Count</span>
+          <span class="info-value">{{ items|length }}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Pickup Date</span>
+          <span class="info-value">
+            {% if source_donation.preferred_pickup_date %}
+              {{ source_donation.preferred_pickup_date|date:"m-d-Y" }}
+            {% else %}
+              -
+            {% endif %}
+          </span>
+        </div>
+      </div>
+
+      <!-- Donor Information -->
+      <div class="donor-card">
+        <div class="donor-header">
+          <div class="donor-avatar">
+            {{ donor.first_name|first|upper }}{{ donor.last_name|first|upper }}
+          </div>
+          <div class="donor-info">
+            <div class="donor-name">
+              {{ donor.first_name|default:"" }} {{ donor.last_name|default:"" }}
+            </div>
+            <div class="donor-status">Donor</div>
+          </div>
+        </div>
+        <hr style="border: none; border-top: 1px solid var(--border); margin: 12px 0;">
+        <div style="font-size: 12px; color: var(--text); line-height: 1.6;">
+          <div style="margin-bottom: 8px;">
+            <strong>Pickup Address</strong><br>
+            {{ pickup_address|default:"-" }}
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+          <a href="{% url 'tuab_inventory_snapshot' %}" class="btn btn-secondary">Back to List</a>
+          <button class="btn btn-primary" onclick="downloadAuditHistory()">
+            Download Audit
+          </button>
+        </div>
+      </div>
+
+      <!-- Audit Timeline -->
+      {% if audit_history %}
+      <div class="info-panel">
+        <div class="audit-timeline">
+          <div class="audit-timeline-title">Audit Timeline</div>
+          {% for entry in audit_history.audit_entries %}
+          <div class="audit-entry">
+            <div class="audit-entry-time">
+              {% if entry.timestamp %}
+                {{ entry.timestamp|date:"M d, Y · g:i A" }}
+              {% endif %}
+            </div>
+            <div class="audit-entry-action">
+              <strong>{{ entry.action }}</strong> - {{ entry.notes|default:"-" }}
+              {% if entry.weight_kg %}
+                ({{ entry.weight_kg|floatformat:2 }} kg)
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+  function downloadAuditHistory() {
+    const data = {
+      inventory_id: {{ inventory_item.inventory_id }},
+      generated_at: new Date().toISOString(),
+      source_donation_id: {{ source_donation.donation_id }},
+      current_weight_kg: {{ inventory_item.current_weight_kg }},
+      audit_history: {{ audit_history|safe|default:"{}" }}
+    };
+
+    const dataStr = JSON.stringify(data, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `inventory-${data.inventory_id}-audit.json`;
+    link.click();
+  }
+</script>
+{% endblock %}

@@ -36,7 +36,6 @@ urlpatterns = [
     
     # --- TUAB ---
     path('tuab/dashboard/', views.tuab_dashboard, name='tuab_dashboard'),
-    path('tuab/inventory/', views.tuab_inventory, name='tuab_inventory'),
     path('tuab/profile/', views.tuab_profile, name='tuab_profile'),
     path('tuab/edit-profile/', views.tuab_edit_profile, name='tuab_edit_profile'),
     path('tuab/donations/<int:donation_id>/', views.tuab_view_donation, name='tuab_view_donation'),
@@ -44,6 +43,8 @@ urlpatterns = [
     path('api/tuab/donations/<int:donation_id>/quotation/', views.tuab_quotation_proxy, name='tuab_quotation_proxy'),
     path('tuab/subscribe/', views.tuab_subscribe, name='tuab_subscribe'),
     path('tuab/payments/', views.tuab_view_payments, name='tuab_view_payments'),
+    path('tuab/inventory/', views.tuab_inventory_snapshot, name='tuab_inventory_snapshot'),
+    path('tuab/inventory/<int:inventory_id>/', views.tuab_view_inventory_item, name='tuab_view_inventory_item'),
     
     # --- Admin ---
     path('admin/donation-impact-dashboard/', views.admin_impact_dashboard, name='admin_impact_dashboard'),

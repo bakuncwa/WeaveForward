@@ -1,105 +1,529 @@
 {% extends 'frontend/base.html' %}
 
 {% block content %}
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
+<!--
+  WeaveForward - TUAB Inventory Snapshot
+  ============================================================
+  Real-time raw material stock monitoring dashboard with:
+  - Interactive map showing storage locations
+  - Aggregated inventory grid with category summary
+  - Items requiring audit flagged for attention
+  - Export and filtering capabilities
+-->
 <style>
-  /* Reuse dashboard tokens */
-  :root { --card: #fff; --bg: #f5f4f0; --gold: #e8a020; --muted:#888; }
-  .inv-shell { display:flex; gap:20px; align-items:flex-start; }
-  .inv-left { flex: 1 1 60%; }
-  .inv-right { width: 360px; }
-  .card { background: var(--card); border-radius: 12px; padding: 18px; box-shadow: 0 8px 20px rgba(0,0,0,.06); }
-  #inv-map { height: 220px; border-radius: 10px; margin-bottom: 14px; }
-  .summary-cards { display:flex; gap:12px; margin-bottom:14px; }
-  .summary-card { flex:1; padding:12px; border-radius:10px; background:#fff7ea; text-align:center; }
-  .inv-table { width:100%; border-collapse:collapse; }
-  .inv-table th { text-align:left; padding:10px; font-size:12px; color:#666; }
-  .inv-table td { padding:12px; border-top:1px solid #f0ede8; font-weight:600; }
+  :root {
+    --gold: #e8a020;
+    --orange: #e8682c;
+    --green: #4caf50;
+    --red: #f44336;
+    --bg: #f5f4f0;
+    --border: #e0dbd4;
+    --text: #222;
+    --muted: #888;
+    --light-bg: #fafaf8;
+  }
+
+  * {
+    font-family: 'Poppins', sans-serif;
+  }
+
+  .inv-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  .inv-header {
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .inv-title {
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .inv-actions {
+    display: flex;
+    gap: 12px;
+  }
+
+  .btn-export {
+    padding: 10px 20px;
+    background: var(--gold);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background 0.2s;
+  }
+
+  .btn-export:hover {
+    background: #d18f1c;
+  }
+
+  /* Summary Cards */
+  .inv-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .summary-card {
+    background: white;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .summary-card-title {
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+
+  .summary-card-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--orange);
+    margin-bottom: 8px;
+  }
+
+  .summary-card-meta {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .audit-badge {
+    display: inline-block;
+    background: #fff3cd;
+    color: #856404;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-top: 8px;
+  }
+
+  /* Map Section */
+  .inv-map-section {
+    background: white;
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+
+  .inv-map-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 12px;
+  }
+
+  #inventory-map {
+    width: 100%;
+    height: 350px;
+    border-radius: 10px;
+  }
+
+  /* Table Section */
+  .inv-table-section {
+    background: white;
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  .table-header {
+    padding: 16px;
+    border-bottom: 1.5px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .table-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .table-controls {
+    display: flex;
+    gap: 12px;
+  }
+
+  .search-input {
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    width: 200px;
+  }
+
+  .filter-btn {
+    padding: 8px 14px;
+    background: var(--light-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .filter-btn:hover {
+    background: var(--bg);
+  }
+
+  .table-scroll {
+    overflow-x: auto;
+  }
+
+  table.inventory-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  table.inventory-table thead {
+    background: var(--light-bg);
+  }
+
+  table.inventory-table th {
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    border-bottom: 1.5px solid var(--border);
+  }
+
+  table.inventory-table td {
+    padding: 14px 16px;
+    font-size: 13px;
+    color: var(--text);
+    border-bottom: 1px solid #ece8e2;
+  }
+
+  table.inventory-table tr:hover {
+    background: var(--light-bg);
+  }
+
+  .item-status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .badge-audit-required {
+    background: #fff3cd;
+    color: #856404;
+  }
+
+  .badge-active {
+    background: #d4edda;
+    color: #155724;
+  }
+
+  .action-links {
+    display: flex;
+    gap: 8px;
+  }
+
+  .action-link {
+    padding: 6px 12px;
+    background: var(--gold);
+    color: white;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 500;
+    transition: background 0.2s;
+  }
+
+  .action-link:hover {
+    background: #d18f1c;
+  }
+
+  .no-data {
+    text-align: center;
+    padding: 40px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  @media (max-width: 768px) {
+    .inv-container {
+      padding: 16px;
+    }
+
+    .inv-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    .inv-summary {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    #inventory-map {
+      height: 250px;
+    }
+
+    .table-controls {
+      flex-direction: column;
+      width: 100%;
+    }
+
+    .search-input {
+      width: 100%;
+    }
+
+    table.inventory-table {
+      font-size: 12px;
+    }
+
+    table.inventory-table th,
+    table.inventory-table td {
+      padding: 10px 12px;
+    }
+  }
 </style>
 
-<div class="preview-shell">
-  <div class="inv-shell">
-    <div class="inv-left">
-      <div id="inv-map" class="card"></div>
+<div class="inv-container">
+  <!-- Header -->
+  <div class="inv-header">
+    <h1 class="inv-title">Inventory Snapshot</h1>
+    <div class="inv-actions">
+      <button class="btn-export" onclick="exportInventoryData()">Download File</button>
+    </div>
+  </div>
 
-      <div class="card">
-        <div class="summary-cards" id="category-cards"></div>
-        <div class="table-scroll">
-          <table class="inv-table" id="ledger-table">
-            <thead>
-              <tr><th>Inventory ID</th><th>Location</th><th>Weight (kg)</th><th>Audit</th></tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
+  <!-- Summary Cards -->
+  <div class="inv-summary">
+    <div class="summary-card">
+      <div class="summary-card-title">Total Items</div>
+      <div class="summary-card-value">{{ total_items }}</div>
+      <div class="summary-card-meta">in stock</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-card-title">Total Weight</div>
+      <div class="summary-card-value">{{ total_weight_kg|floatformat:1 }}</div>
+      <div class="summary-card-meta">kilograms</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-card-title">Audit Required</div>
+      <div class="summary-card-value" style="color: var(--red);">{{ audit_required_count }}</div>
+      <div class="summary-card-meta">&gt; 30 days old</div>
+      {% if audit_required_count > 0 %}
+      <div class="audit-badge">⚠️ Action Needed</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Map Section -->
+  <div class="inv-map-section">
+    <div class="inv-map-title">Storage Locations</div>
+    <div id="inventory-map"></div>
+  </div>
+
+  <!-- Inventory Table -->
+  <div class="inv-table-section">
+    <div class="table-header">
+      <div class="table-title">Inventory Items</div>
+      <div class="table-controls">
+        <input type="text" class="search-input" id="search-inv" placeholder="Search by donor or address...">
+        <button class="filter-btn" onclick="filterByAuditStatus()">Filter: All Items</button>
       </div>
     </div>
-
-    <div class="inv-right">
-      <div class="card" style="text-align:center;">
-        <h3 style="margin:0">Inventory Summary</h3>
-        <div style="font-size:28px;font-weight:700;margin-top:8px">{{ inventories.total_weight_kg|default:0 }}</div>
-        <div style="color:var(--muted);margin-top:6px">Total Kilograms</div>
+    <div class="table-scroll">
+      {% if inventory_items %}
+      <table class="inventory-table" id="inventory-table">
+        <thead>
+          <tr>
+            <th>Donation ID</th>
+            <th>Donor</th>
+            <th>Address</th>
+            <th>Items</th>
+            <th>Weight (kg)</th>
+            <th>Category</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in inventory_items %}
+          <tr data-audit="{{ item.audit_required|lower }}">
+            <td>#{{ item.donation_id }}</td>
+            <td>{{ item.donor_name }}</td>
+            <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              {{ item.address }}
+            </td>
+            <td>{{ item.items_count }}</td>
+            <td>{{ item.current_weight_kg|floatformat:2 }}</td>
+            <td>{{ item.material_category }}</td>
+            <td>
+              {% if item.audit_required %}
+              <span class="item-status-badge badge-audit-required">⚠️ Audit Required</span>
+              {% else %}
+              <span class="item-status-badge badge-active">Active</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="action-links">
+                <a href="{% url 'tuab_view_inventory_item' item.inventory_id %}" class="action-link">View</a>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="no-data">
+        <p>No inventory records found. Start by receiving donations.</p>
       </div>
-
-      <div class="card" style="margin-top:12px;">
-        <h4 style="margin:0 0 12px 0">Actions</h4>
-        <a href="#" class="btn btn-tuab" style="display:block;text-align:center">Export CSV</a>
-      </div>
+      {% endif %}
     </div>
   </div>
 </div>
 
+<!-- Leaflet Map Libraries -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
 <script>
-  const INVENTORIES = {{ inventories_json|safe }};
+  // Initialize map
+  let map;
+  const locationsData = {{ locations_json|safe }};
 
-  function renderCategoryCards() {
-    const wrap = document.getElementById('category-cards');
-    wrap.innerHTML = '';
-    const cats = INVENTORIES.category_summary || [];
-    if (!cats.length) {
-      wrap.innerHTML = '<div style="color:#aaa">No category data</div>';
+  function initInventoryMap() {
+    if (locationsData.length === 0) {
+      document.getElementById('inventory-map').innerHTML = '<div class="no-data">No location data available</div>';
       return;
     }
-    cats.forEach(c => {
-      const el = document.createElement('div'); el.className = 'summary-card';
-      el.innerHTML = `<div style="font-size:13px;color:#666">${c.category}</div><div style="font-size:16px;font-weight:700;margin-top:6px">${c.total_weight_kg}</div>`;
-      wrap.appendChild(el);
+
+    // Initialize map centered on first location
+    map = L.map('inventory-map').setView(
+      [locationsData[0].lat, locationsData[0].lng],
+      12
+    );
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 19
+    }).addTo(map);
+
+    // Add markers for each location
+    locationsData.forEach((loc, idx) => {
+      const marker = L.marker([loc.lat, loc.lng])
+        .bindPopup(`
+          <div style="font-family: Poppins; font-size: 12px;">
+            <strong>${loc.donor}</strong><br>
+            ${loc.address}<br>
+            <a href="/tuab/inventory/${loc.inventory_id}/" style="color: #e8a020; text-decoration: none;">View Details →</a>
+          </div>
+        `)
+        .addTo(map);
+
+      if (idx === 0) marker.openPopup();
     });
+
+    // Fit all markers in view if multiple
+    if (locationsData.length > 1) {
+      const group = new L.featureGroup(
+        locationsData.map((loc, idx) => L.marker([loc.lat, loc.lng]))
+      );
+      map.fitBounds(group.getBounds().pad(0.1));
+    }
   }
 
-  function renderLedgerTable() {
-    const tbody = document.querySelector('#ledger-table tbody');
-    tbody.innerHTML = '';
-    const ledgers = INVENTORIES.ledgers || [];
-    if (!ledgers.length) {
-      tbody.innerHTML = '<tr><td colspan="4" style="color:#aaa;padding:18px">No inventory records found</td></tr>';
-      return;
-    }
-    ledgers.forEach(l => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${l.inventory_id}</td><td style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l.pickup_address||'-'}</td><td>${l.current_weight_kg}</td><td>${l.audit_required ? '<span style="color:#c0392b;font-weight:700">Audit Required</span>' : '<span style="color:#4a7c59">OK</span>'}</td>`;
-      tbody.appendChild(tr);
+  // Search functionality
+  document.getElementById('search-inv').addEventListener('keyup', function(e) {
+    const query = e.target.value.toLowerCase();
+    const rows = document.querySelectorAll('#inventory-table tbody tr');
+    
+    rows.forEach(row => {
+      const text = row.textContent.toLowerCase();
+      row.style.display = text.includes(query) ? '' : 'none';
     });
-  }
-
-  function initMap() {
-    let map;
-    try {
-      map = L.map('inv-map', { zoomControl: true, scrollWheelZoom: false }).setView([14.5820, 121.0100], 11);
-    } catch (e) {
-      const d = document.getElementById('inv-map'); d.innerText = 'Map not available'; return;
-    }
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors' }).addTo(map);
-  }
-
-  window.addEventListener('load', () => {
-    renderCategoryCards();
-    renderLedgerTable();
-    initMap();
   });
-</script>
 
+  // Filter by audit status
+  let filterMode = 'all';
+  function filterByAuditStatus() {
+    const btn = event.target;
+    
+    if (filterMode === 'all') {
+      filterMode = 'audit';
+      btn.textContent = 'Filter: Audit Required';
+    } else if (filterMode === 'audit') {
+      filterMode = 'active';
+      btn.textContent = 'Filter: Active Only';
+    } else {
+      filterMode = 'all';
+      btn.textContent = 'Filter: All Items';
+    }
+
+    const rows = document.querySelectorAll('#inventory-table tbody tr');
+    rows.forEach(row => {
+      if (filterMode === 'all') {
+        row.style.display = '';
+      } else if (filterMode === 'audit') {
+        row.style.display = row.dataset.audit === 'true' ? '' : 'none';
+      } else if (filterMode === 'active') {
+        row.style.display = row.dataset.audit === 'false' ? '' : 'none';
+      }
+    });
+  }
+
+  // Export data
+  function exportInventoryData() {
+    const data = {
+      generated_at: new Date().toISOString(),
+      total_items: {{ total_items }},
+      total_weight_kg: {{ total_weight_kg }},
+      items: [
+        {% for item in inventory_items %}
+        {
+          donation_id: {{ item.donation_id }},
+          donor: '{{ item.donor_name }}',
+          address: '{{ item.address }}',
+          items_count: {{ item.items_count }},
+          weight_kg: {{ item.current_weight_kg }},
+          category: '{{ item.material_category }}',
+          audit_required: {{ item.audit_required|lower }}
+        }{{ forloop.last|yesno:'',','  }}
+        {% endfor %}
+      ]
+    };
+
+    const dataStr = JSON.stringify(data, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `inventory-snapshot-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+  }
+
+  // Initialize on page load
+  document.addEventListener('DOMContentLoaded', initInventoryMap);
+</script>
 {% endblock %}

@@ -106,30 +106,6 @@ async def tuab_dashboard(request):
     })
 
 
-async def tuab_inventory(request):
-    """TUAB Inventory Snapshot page."""
-    profile = request.user_profile
-
-    try:
-        response = await api_call(request, 'GET', 'inventory')
-    except Exception:
-        response = None
-
-    if not response or response.status_code != 200:
-        inventories = {'ledgers': [], 'category_summary': [], 'total_weight_kg': 0}
-        messages.error(request, 'Unable to load inventory snapshot.')
-    else:
-        inventories = response.json()
-
-    return render(request, 'frontend/tuabs/tuab_inventory_snapshot.html', {
-        'page_title': 'Inventory Snapshots',
-        'sidebar_variant': 'tuab',
-        'user': profile,
-        'inventories': inventories,
-        'inventories_json': json.dumps(inventories, default=str),
-    })
-
-
 async def tuab_view_donation(request, donation_id):
     """TUAB detail page for viewing and claiming a single donation."""
     profile = request.user_profile
@@ -604,4 +580,117 @@ async def tuab_view_payments(request):
         'has_next': page_data['has_next'],
         'has_prev': page_data['has_prev'],
         'q': page_data['search_query']
+    })
+
+
+async def tuab_inventory_snapshot(request):
+    """View for TUAB inventory snapshot dashboard showing real-time raw material stock levels."""
+    profile = request.user_profile
+    
+    # Fetch inventory snapshot summary and list
+    snapshot_res, inventory_list_res = await asyncio.gather(
+        api_call(request, 'GET', 'inventory/snapshot'),
+        api_call(request, 'GET', 'inventory'),
+        return_exceptions=True
+    )
+    
+    snapshot_data = {}
+    inventory_items = []
+    
+    if snapshot_res and not isinstance(snapshot_res, Exception) and snapshot_res.status_code == 200:
+        snapshot_data = snapshot_res.json()
+    
+    if inventory_list_res and not isinstance(inventory_list_res, Exception) and inventory_list_res.status_code == 200:
+        data = inventory_list_res.json()
+        if isinstance(data, dict) and 'results' in data:
+            inventory_items = data.get('results', [])
+        else:
+            inventory_items = data if isinstance(data, list) else []
+    
+    # Parse and format inventory items for display
+    formatted_items = []
+    for item in inventory_items:
+        source_donation = item.get('source_donation', {})
+        formatted_item = {
+            'inventory_id': item.get('inventory_id'),
+            'donation_id': source_donation.get('donation_id'),
+            'donor_name': f"{source_donation.get('donor', {}).get('first_name', '')} {source_donation.get('donor', {}).get('last_name', '')}".strip(),
+            'address': source_donation.get('pickup_display_address', ''),
+            'items_count': len(source_donation.get('items', [])),
+            'current_weight_kg': float(item.get('current_weight_kg', 0)),
+            'audit_required': item.get('audit_required', False),
+            'days_since_audit': item.get('days_since_audit', 0),
+            'material_category': item.get('material_category', 'Mixed'),
+        }
+        formatted_items.append(formatted_item)
+    
+    # Prepare map data for Leaflet
+    locations_data = []
+    for item in inventory_items:
+        source_donation = item.get('source_donation', {})
+        if source_donation.get('pickup_latitude') and source_donation.get('pickup_longitude'):
+            locations_data.append({
+                'lat': float(source_donation.get('pickup_latitude')),
+                'lng': float(source_donation.get('pickup_longitude')),
+                'donor': f"{source_donation.get('donor', {}).get('first_name', '')} {source_donation.get('donor', {}).get('last_name', '')}".strip(),
+                'address': source_donation.get('pickup_display_address', ''),
+                'inventory_id': item.get('inventory_id'),
+            })
+    
+    return render(request, 'frontend/tuabs/tuab_inventory_snapshot.html', {
+        'page_title': 'Inventory Snapshot',
+        'sidebar_variant': 'tuab',
+        'user': profile,
+        'snapshot_data': snapshot_data,
+        'inventory_items': formatted_items,
+        'locations_json': json.dumps(locations_data),
+        'total_items': snapshot_data.get('total_items', 0),
+        'total_weight_kg': float(snapshot_data.get('total_weight_kg', 0)),
+        'audit_required_count': snapshot_data.get('audit_required_count', 0),
+        'category_summary': snapshot_data.get('category_summary', [])
+    })
+
+
+async def tuab_view_inventory_item(request, inventory_id):
+    """View for TUAB to see detailed inventory item information including audit history."""
+    profile = request.user_profile
+    
+    # Fetch inventory detail and audit history
+    detail_res, audit_res = await asyncio.gather(
+        api_call(request, 'GET', f'inventory/{inventory_id}'),
+        api_call(request, 'GET', f'inventory/{inventory_id}/audit-history'),
+        return_exceptions=True
+    )
+    
+    if not detail_res or isinstance(detail_res, Exception) or detail_res.status_code != 200:
+        messages.error(request, "Inventory item not found.")
+        return redirect('tuab_inventory_snapshot')
+    
+    inventory_item = detail_res.json()
+    audit_history = {}
+    
+    if audit_res and not isinstance(audit_res, Exception) and audit_res.status_code == 200:
+        audit_history = audit_res.json()
+    
+    # Extract source donation and items information
+    source_donation = inventory_item.get('source_donation', {})
+    donor = source_donation.get('donor', {})
+    items = source_donation.get('items', [])
+    
+    # Parse dates if needed
+    if source_donation.get('preferred_pickup_date'):
+        source_donation['preferred_pickup_date'] = parse_datetime(source_donation['preferred_pickup_date'])
+    
+    return render(request, 'frontend/tuabs/tuab_view_inventory_item.html', {
+        'page_title': 'View Inventory',
+        'sidebar_variant': 'tuab',
+        'user': profile,
+        'inventory_item': inventory_item,
+        'source_donation': source_donation,
+        'donor': donor,
+        'items': items,
+        'audit_history': audit_history,
+        'pickup_address': source_donation.get('pickup_display_address', ''),
+        'pickup_latitude': source_donation.get('pickup_latitude', ''),
+        'pickup_longitude': source_donation.get('pickup_longitude', ''),
     })

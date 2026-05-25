@@ -40,9 +40,15 @@ urlpatterns = [
     path('donations/<int:pk>/cancel', views.DonationViewSet.as_view({'post': 'cancel'}), name='donation-cancel'),
     path('donations/<int:pk>/archive', views.DonationViewSet.as_view({'post': 'archive'}), name='donation-archive'),
     path('donations/<int:pk>', views.DonationViewSet.as_view({'get': 'retrieve', 'patch': 'partial_update'}), name='donation-detail'),
+    
+    # --- INVENTORY ---
+    path('inventory', views.InventoryViewSet.as_view({'get': 'list'}), name='inventory-list'),
+    path('inventory/snapshot', views.InventoryViewSet.as_view({'get': 'snapshot'}), name='inventory-snapshot'),
+    path('inventory/<int:pk>', views.InventoryViewSet.as_view({'get': 'retrieve'}), name='inventory-detail'),
+    path('inventory/<int:pk>/audit-history', views.InventoryViewSet.as_view({'get': 'audit_history'}), name='inventory-audit-history'),
+    path('inventory/export', views.InventoryViewSet.as_view({'get': 'export'}), name='inventory-export'),
 
     # --- IMPACT DASHBOARD ---
-    path('inventory', views.InventoryViewSet.as_view({'get': 'list'}), name='inventory-list'),
     path('impact-dashboard', views.ImpactDashboardViewSet.as_view({'get': 'list'}), name='impact-dashboard'),
 
     # --- PAYMENTS ---
