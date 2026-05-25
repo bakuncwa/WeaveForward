@@ -14,7 +14,7 @@ from .donations import (
     DonationResolveSerializer, AdminDonationUpdateSerializer
 )
 from .payments import SubscriptionPaymentSerializer, OrderPaymentSerializer
-from .recommendations import (
+from .fiberrecommendations import (
     MatchRecommendationListSerializer,
     MatchRecommendationDetailSerializer,
     MatchRecommendationActionSerializer,
