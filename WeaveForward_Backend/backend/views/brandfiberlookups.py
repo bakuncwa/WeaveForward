@@ -1,7 +1,7 @@
-from django.db import models
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django_filters.rest_framework import DjangoFilterBackend
 import json
 
 from ..models import BrandFiberLookup
@@ -12,7 +12,9 @@ class BrandFiberLookupViewset(viewsets.ReadOnlyModelViewSet):
     Authenticated access to lookup for clothing material data.
     """
     serializer_class = BrandFiberLookupSerializer
-    pagination_class = None  # Disable pagination as requested
+    pagination_class = None
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['lookup_id', 'category', 'brand', 'clothing_type']
 
     def get_permissions(self):
         if self.action in ['fibers']:
@@ -22,6 +24,12 @@ class BrandFiberLookupViewset(viewsets.ReadOnlyModelViewSet):
     @action(detail=False, methods=['get'])
     def fibers(self, request):
         """Returns a unique list of fiber types found in the fiber_json column."""
+        # Complexity notes:
+        # - Let n = number of active BrandFiberLookup rows scanned.
+        # - Let f = number of unique fiber names found.
+        # - Scanning and collecting unique fibers is O(n).
+        # - Sorting the unique fiber list is O(f log f).
+        # - Overall: O(n + f log f).
         fibers_set = set()
         # Fetching only the fiber_json column for efficiency
         raw_jsons = BrandFiberLookup.objects.filter(is_active=True).values_list('fiber_json', flat=True)
@@ -39,12 +47,22 @@ class BrandFiberLookupViewset(viewsets.ReadOnlyModelViewSet):
     @action(detail=False, methods=['get'])
     def clothing_types(self, request):
         """Returns a unique list of clothing_type values."""
+        # Complexity notes:
+        # - Let n = number of active rows considered by the queryset.
+        # - Filtering/distinct work is linear in the rows considered.
+        # - Database ordering is handled by the DB engine.
+        # - Simplified: O(n)
         types = BrandFiberLookup.objects.filter(is_active=True).values_list('clothing_type', flat=True).distinct().order_by('clothing_type')
         return Response(list(types))
 
     @action(detail=False, methods=['get'])
     def brands(self, request):
         """Returns a unique list of brands, optionally filtered by clothing_type."""
+        # Complexity notes:
+        # - Let n = number of active rows considered by the queryset.
+        # - Filtering/distinct work is linear in the rows considered.
+        # - Database ordering is handled by the DB engine.
+        # - Simplified: O(n)
         clothing_type = request.query_params.get('clothing_type')
         queryset = BrandFiberLookup.objects.filter(is_active=True)
         if clothing_type:
@@ -54,27 +72,4 @@ class BrandFiberLookupViewset(viewsets.ReadOnlyModelViewSet):
         return Response(list(brands))
 
     def get_queryset(self):
-        queryset = BrandFiberLookup.objects.filter(is_active=True).order_by('brand', 'clothing_type')
-        
-        params = self.request.query_params
-        
-        # General search across multiple fields
-        search_query = params.get('q')
-        if search_query:
-            queryset = queryset.filter(
-                models.Q(brand__icontains=search_query) |
-                models.Q(clothing_type__icontains=search_query) |
-                models.Q(category__icontains=search_query) |
-                models.Q(fiber_json__icontains=search_query)
-            )
-
-        # Explicit filters
-        for field in ['lookup_id', 'category', 'brand', 'clothing_type']:
-            val = params.get(field)
-            if val:
-                if field == 'lookup_id':
-                    queryset = queryset.filter(lookup_id=val)
-                else:
-                    queryset = queryset.filter(**{f"{field}__iexact": val})
-        
-        return queryset
+        return BrandFiberLookup.objects.filter(is_active=True).order_by('brand', 'clothing_type')

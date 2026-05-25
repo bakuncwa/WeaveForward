@@ -62,7 +62,7 @@ class DonationListClaimedBySerializer(serializers.ModelSerializer):
 class DonationListSerializer(serializers.ModelSerializer):
     donor = DonationListDonorSerializer(read_only=True)
     claimed_by_tuab = DonationListClaimedBySerializer(read_only=True)
-    items = serializers.SerializerMethodField()
+    items = DonationListItemSerializer(source='active_items', many=True, read_only=True)
     upload = serializers.SerializerMethodField()
     pickup_latitude = serializers.DecimalField(max_digits=9, decimal_places=7, read_only=True)
     pickup_longitude = serializers.DecimalField(max_digits=10, decimal_places=7, read_only=True)
@@ -88,10 +88,6 @@ class DonationListSerializer(serializers.ModelSerializer):
 
     def get_upload(self, obj):
         return build_upload_url(obj.upload, self.context)
-
-    def get_items(self, obj):
-        active_items = obj.items.filter(is_archived=False)
-        return DonationListItemSerializer(active_items, many=True, context=self.context).data
 
 class DonationDetailItemSerializer(serializers.ModelSerializer):
     lookup_details = BrandFiberLookupSerializer(source='lookup', read_only=True)
@@ -124,7 +120,7 @@ class DonationDetailUserSerializer(serializers.ModelSerializer):
 class DonationDetailSerializer(serializers.ModelSerializer):
     donor = DonationDetailUserSerializer(read_only=True)
     claimed_by_tuab = DonationDetailUserSerializer(read_only=True)
-    items = serializers.SerializerMethodField()
+    items = DonationDetailItemSerializer(source='active_items', many=True, read_only=True)
     upload = serializers.SerializerMethodField()
     pickup_latitude = serializers.DecimalField(max_digits=9, decimal_places=7, read_only=True)
     pickup_longitude = serializers.DecimalField(max_digits=10, decimal_places=7, read_only=True)
@@ -138,10 +134,6 @@ class DonationDetailSerializer(serializers.ModelSerializer):
 
     def get_upload(self, obj):
         return build_upload_url(obj.upload, self.context)
-
-    def get_items(self, obj):
-        active_items = obj.items.filter(is_archived=False)
-        return DonationDetailItemSerializer(active_items, many=True, context=self.context).data
 
     def get_dropoff_display_address(self, obj):
         request = self.context.get('request')

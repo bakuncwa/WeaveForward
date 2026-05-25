@@ -104,6 +104,7 @@
 
 <script>
   const getEl = id => document.getElementById(id);
+  const esc = str => !str ? '' : str.replace(/[&<>'"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]||c));
   const hideAc = () => setTimeout(() => getEl('ac').classList.add('hidden'), 200);
   let acTmr, acRes = [], map, mrk, tmpLat, tmpLng;
 
@@ -114,7 +115,7 @@
     acTmr = setTimeout(async () => {
       try {
         acRes = await (await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${v}, Philippines&limit=5&countrycodes=ph`)).json();
-        ac.innerHTML = acRes.map((r, i) => `<div class="ac-item" onmousedown="selAddr(${i})">${r.display_name}</div>`).join('');
+        ac.innerHTML = acRes.map((r, i) => `<div class="ac-item" onmousedown="selAddr(${i})">${esc(r.display_name)}</div>`).join('');
         ac.classList.remove('hidden');
       } catch { }
     }, 350);

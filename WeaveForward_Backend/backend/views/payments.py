@@ -16,6 +16,12 @@ class PaymentListView(views.APIView):
     def get(self, request):
         user = request.user
         
+        # Complexity notes:
+        # - Let m = number of subscription payments.
+        # - Let n = number of order payments.
+        # - Fetching and merging the two payment lists is O(m + n).
+        # - Sorting the combined list by created_at is O((m + n) log(m + n)).
+        # - Overall: O((m + n) log(m + n)).
         if user.status != UserAccountStatus.ACTIVE or user.role not in [UserRole.ADMIN, UserRole.TUAB]:
             return Response({'detail': 'You do not have permission to view this resource.'}, status=status.HTTP_403_FORBIDDEN)
             

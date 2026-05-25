@@ -636,13 +636,15 @@
     </div>
   </div>
 
+  {{ fibers|json_script:"fibers-data" }}
   <script>
     const gE = i => document.getElementById(i);
+    const escapeHTML = str => !str ? '' : str.replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c] || c));
     const hAc = id => setTimeout(() => gE(id)?.classList.add('hidden'), 200);
     let cS = {% if errors %}3{% else %} 1{% endif %}, aT, aR = [], m, mk, tLt, tLg, tgs = gE('fibs')?.value ? gE('fibs').value.split(',').filter(x => x) : [];
 
 
-    const fiberLookup = {{ fibers| safe }};
+    const fiberLookup = JSON.parse(document.getElementById('fibers-data').textContent);
 
     const steps = [
       { t: 'TUAB', s: 'Account Credentials', sz: '30px' },
@@ -696,7 +698,7 @@
         try {
           const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${v}, Philippines&limit=5&countrycodes=ph`);
           aR = await r.json();
-          ac.innerHTML = aR.map((r, i) => `<div class="ac-item" onmousedown="slAddr(${i})">${r.display_name}</div>`).join('');
+          ac.innerHTML = aR.map((r, i) => `<div class="ac-item" onmousedown="slAddr(${i})">${escapeHTML(r.display_name)}</div>`).join('');
           ac.classList.remove('hidden');
         } catch { }
       }, 350);
@@ -749,7 +751,7 @@
       if (!v) return ac.classList.add('hidden');
       const matches = fiberLookup.filter(f => f.toLowerCase().includes(v.toLowerCase()) && !tgs.includes(f));
       if (!matches.length) return ac.classList.add('hidden');
-      ac.innerHTML = matches.map(f => `<div class="ac-item" onmousedown="toggleTag('${f}')">${f}</div>`).join('');
+      ac.innerHTML = matches.map(f => `<div class="ac-item" onmousedown="toggleTag('${escapeHTML(f)}')">${escapeHTML(f)}</div>`).join('');
       ac.classList.remove('hidden');
     }
 
@@ -759,7 +761,7 @@
     }
 
     function renderTags() {
-      gE('tags').innerHTML = tgs.map(t => `<div class="t-chip">${t}<span onclick="toggleTag('${t}')">×</span></div>`).join('');
+      gE('tags').innerHTML = tgs.map(t => `<div class="t-chip">${escapeHTML(t)}<span onclick="toggleTag('${escapeHTML(t)}')">×</span></div>`).join('');
       gE('fibs').value = tgs.join(',');
       gE('ti').value = ''; gE('f-ac').classList.add('hidden');
     }
@@ -779,7 +781,7 @@
         <div class="f-row">
           <div class="f-icon ${cls}"></div>
           <div style="flex:1">
-            <div style="color:#E8A020;font-weight:500;font-size:15px;margin-bottom:4px">${f.name}</div>
+            <div style="color:#E8A020;font-weight:500;font-size:15px;margin-bottom:4px">${escapeHTML(f.name)}</div>
             <div style="font-size:13px;color:#E8A020;opacity:0.7">${sz} • <span style="font-size:12px">●</span> Completed</div>
           </div>
           <div style="color:#E8A020;cursor:pointer;font-size:18px" onclick="gE('fi').value='';gE('flist').innerHTML=''">🗑</div>

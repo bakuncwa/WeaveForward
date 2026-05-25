@@ -40,7 +40,7 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, DjangoFilterBackend]
     filterset_fields = ['role', 'status']
-    search_fields = ['email', 'first_name', 'last_name']
+    search_fields = ['email', 'first_name', 'last_name', 'business_name']
     parser_classes = [JSONParser, FormParser, MultiPartParser]
 
     def get_permissions(self):
@@ -96,6 +96,11 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
 
     def list(self, request, *args, **kwargs):
         # 1. Start with the base plan
+        # Complexity notes:
+        # - Let n = number of matching users.
+        # - Filtering/scan work is O(n).
+        # - Ordering/sorting work is O(n log n).
+        # - Overall list complexity is O(n log n).
         queryset = self.get_queryset()
         
         # 2. Hard Security Rules (Cannot be bypassed by URL params)
@@ -482,6 +487,11 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
         if request.user.role != UserRole.ADMIN:
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
 
+        # Complexity notes:
+        # - The archive route is linear in the number of affected donations,
+        #   inventory ledgers, subscriptions, and tokens processed.
+        # - Real form: O(d + l + s + t)
+        # - Simplified: O(n)
         try:
             target_user = User.objects.get(pk=kwargs['pk'])
         except User.DoesNotExist:

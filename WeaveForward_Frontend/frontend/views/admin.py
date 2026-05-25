@@ -664,7 +664,29 @@ async def admin_impact_dashboard(request):
         if response.status_code == 200:
             dashboard_data = response.json()
         else:
-            messages.error(request, "Failed to load donation metrics from the backend.")
+            try:
+                response_data = response.json()
+            except Exception:
+                response_data = {}
+
+            detail_message = response_data.get('detail') if isinstance(response_data, dict) else None
+            error_messages = None
+            if isinstance(response_data, dict):
+                formatted = format_errors(response_data)
+                error_messages = [
+                    f"{field}: {', '.join(map(str, value if isinstance(value, list) else [value]))}"
+                    if isinstance(value, (list, tuple))
+                    else f"{field}: {value}"
+                    for field, value in formatted.items()
+                ]
+
+            if detail_message:
+                messages.error(request, detail_message)
+            elif error_messages:
+                for message in error_messages:
+                    messages.error(request, message)
+            else:
+                messages.error(request, "Failed to load donation metrics from the backend.")
         
         if types_res.status_code == 200:
             clothing_types = types_res.json()
@@ -681,7 +703,7 @@ async def admin_impact_dashboard(request):
     total_donations = dashboard_data.get('donations', 0)
     claimed_count = dashboard_data.get('donors', 0)  # Map unique donors to the second stat slot
     leaderboard = dashboard_data.get('top_donors', [])
-    donations_json = json.dumps(dashboard_data.get('barangay_breakdown', []))
+    donations_json = dashboard_data.get('barangay_breakdown', [])
 
     return render(request, 'frontend/admin/admin_impact_dashboard.html', {
         'page_title': 'Donation Impact Dashboard',
@@ -711,7 +733,7 @@ async def admin_view_payments(request):
         'page_title': 'Payments',
         'sidebar_variant': 'admin',
         'user': profile,
-        'payments_json': json.dumps(page_data['results']),
+        'payments_json': page_data['results'],
         'count': page_data['count'],
         'total_pages': page_data['total_pages'],
         'current_page': page_data['current_page'],

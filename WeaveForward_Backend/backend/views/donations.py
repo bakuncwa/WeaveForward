@@ -1,5 +1,5 @@
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Prefetch
 from rest_framework import filters, mixins, viewsets, serializers, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -10,9 +10,8 @@ from rest_framework.exceptions import PermissionDenied, APIException, NotFound
 from datetime import timezone as dt_timezone
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-from django_filters.rest_framework import DjangoFilterBackend
 from ..utils.view_mixins import PaginatedResponseMixin
-from ..models import Donation, Subscription
+from ..models import Donation, DonationItem, Subscription
 from ..serializers import DonationDetailSerializer, DonationListSerializer, QuotationRequestSerializer, DonorDonationUpdateSerializer, DonationResolveSerializer
 from ..services.donation_service import create_donation, mark_donation_in_transit, donor_update_donation, admin_update_donation, cancel_donation, archive_donation
 from ..services.resolve_donation_service import resolve_donation
@@ -26,9 +25,8 @@ from ..services.location_service import get_city_and_barangay
 class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin, PaginatedResponseMixin):
     permission_classes = [IsAuthenticated]
     serializer_class = DonationDetailSerializer
-    filter_backends = [filters.SearchFilter, DjangoFilterBackend]
-    filterset_fields = ['status']
-    search_fields = ['=donation_id']
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['=donation_id', 'donor__email', 'donor__first_name', 'donor__last_name', 'claimed_by_tuab__business_name', 'claimed_by_tuab__email']
 
     def get_serializer_class(self):
         if getattr(self, 'action', None) in ['list', 'me']:
@@ -37,6 +35,34 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
 
     def get_queryset(self):
         """Base queryset for all donation actions."""
+        # ORM loading strategy:
+        # - select_related(...) tells Django to use JOINs for single-valued relations
+        #   like donor, claimed_by_tuab, and upload so those objects come back with
+        #   the donation row in one main query.
+        # - prefetch_related(Prefetch(...)) tells Django to run separate bulk queries
+        #   for the active DonationItem rows and their BrandFiberLookup rows, then
+        #   stitch them onto each donation in Python.
+        #
+        # SQL shape (simplified):
+        #   1)
+        #   SELECT donations.*, donor.*, donor_upload.*, claimed.*, claimed_upload.*, upload.*
+        #   FROM donations
+        #   LEFT JOIN users AS donor ON donations.donor_id = donor.user_id
+        #   LEFT JOIN uploads AS donor_upload ON donor.upload_id = donor_upload.upload_id
+        #   LEFT JOIN users AS claimed ON donations.claimed_by_tuab_id = claimed.user_id
+        #   LEFT JOIN uploads AS claimed_upload ON claimed.upload_id = claimed_upload.upload_id
+        #   LEFT JOIN uploads AS upload ON donations.upload_id = upload.upload_id
+        #   ORDER BY donations.submitted_at DESC, donations.donation_id DESC;
+        #
+        #   2)
+        #   SELECT donation_items.*, brand_fiber_lookups.*
+        #   FROM donation_items
+        #   LEFT JOIN brand_fiber_lookups
+        #     ON donation_items.lookup_id = brand_fiber_lookups.lookup_id
+        #   WHERE donation_items.is_archived = FALSE
+        #     AND donation_items.donation_id IN (...returned donation ids...);
+        #
+        # The serializer reads the prefetched active_items list directly.
         return Donation.objects.select_related(
             'donor',
             'donor__upload',
@@ -44,11 +70,32 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
             'claimed_by_tuab__upload',
             'upload',
         ).prefetch_related(
-            'items__lookup',
+            Prefetch(
+                'items',
+                queryset=DonationItem.objects.filter(is_archived=False).select_related('lookup'),
+                to_attr='active_items',
+            ),
         ).order_by('-submitted_at', '-donation_id')
 
     def list(self, request, *args, **kwargs):
         """Main 'Hall of Fame' list - Non-admins only see PENDING."""
+        # Query plan notes:
+        # - get_queryset() builds a lazy Django queryset; no SQL is sent yet.
+        # - filter(status='PENDING') and filter_queryset(...) only add conditions to
+        #   that queryset object.
+        # - The first real SQL round-trip happens when pagination evaluates the queryset.
+        # - Because get_queryset() includes select_related(...) and a filtered Prefetch(...)
+        #   Django will fetch donation rows plus the single-valued relations in the main query,
+        #   then fetch only active donation_items and their lookup rows in a separate prefetch query.
+        # - The serializer reads the prefetched active_items list directly.
+        # - So the endpoint is not just "one list query"; it is a main donation query plus
+        #   nested item hydration work driven by the serializer.
+        #
+        # Complexity notes:
+        # - Let n = number of matching donations.
+        # - Let k = average number of active items per donation.
+        # - The list endpoint is O(n * k) because each returned donation still needs
+        #   its active items serialized.
         queryset = self.get_queryset()
 
         # 1. Security Rule (Hard-coded)
@@ -95,11 +142,18 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
         if user.role != 'Admin':
             queryset = queryset.exclude(status='ARCHIVED')
 
+        queryset = self.filter_queryset(queryset)
         return self.get_paginated_response_data(queryset)
 
     def create(self, request, *args, **kwargs):
         """Creates a new donation via the orchestrated service."""
         # Note: Only ACTIVE admins and ACTIVE donors are allowed to create.
+        # Complexity notes:
+        # - Let n = number of submitted donation items.
+        # - Let i = number of active items used by prediction inference.
+        # - Let t = number of eligible TUAB users.
+        # - Dominant cost is O(i * t) because prediction generation builds
+        #   every active-item / TUAB pair.
         if request.user.status != 'ACTIVE' or request.user.role not in ['Admin', 'Donor']:
             raise PermissionDenied("Only active admins and donors can create donations.")
 
@@ -119,6 +173,13 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
 
     def partial_update(self, request, *args, **kwargs):
         """Update a donation - Restricted to Donor (PENDING only)."""
+        # Complexity notes:
+        # - Let m = number of submitted item patches.
+        # - Let i = number of active items used by prediction inference.
+        # - Let t = number of eligible TUAB users.
+        # - Item patch processing is O(m).
+        # - If predictions are rerun, the dominant cost is O(i * t).
+        # - Overall worst case: O(m + i * t).
         user = request.user
         with transaction.atomic():
             # 0. Fetch with Pessimistic Locking

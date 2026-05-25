@@ -453,7 +453,13 @@
     alert.style.display = 'flex';
     alert.style.justifyContent = 'space-between';
     alert.style.alignItems = 'center';
-    alert.innerHTML = `<span>${msg}</span><button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;font-size:18px;cursor:pointer;line-height:1;margin-left:10px;">Ã—</button>`;
+    const span = document.createElement('span');
+    span.textContent = msg;
+    const btn = document.createElement('button');
+    btn.textContent = '×';
+    btn.style.cssText = 'background:none;border:none;color:inherit;font-size:18px;cursor:pointer;line-height:1;margin-left:10px;';
+    btn.addEventListener('click', () => alert.remove());
+    alert.append(span, btn);
     container.prepend(alert);
     setTimeout(() => {
       if (alert.parentElement) {

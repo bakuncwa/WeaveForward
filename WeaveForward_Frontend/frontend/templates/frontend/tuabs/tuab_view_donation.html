@@ -542,10 +542,11 @@
   <script>
     // --- 1. Data & Utils ---
     const getEl = id => document.getElementById(id);
+    const escapeHTML = str => !str ? '' : str.replace(/[&<>'"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[c]||c));
     const quotationUrl = '{% url "tuab_quotation_proxy" donation.donation_id %}';
     const csrfToken = document.querySelector('#claim-form [name=csrfmiddlewaretoken]').value;
-    const userLatRaw = '{{ users.latitude|default:"" }}';
-    const userLngRaw = '{{ users.longitude|default:"" }}';
+    const userLatRaw = '{{ users.latitude|default:""|escapejs }}';
+    const userLngRaw = '{{ users.longitude|default:""|escapejs }}';
     const defaultLat = Number.isFinite(parseFloat(userLatRaw)) ? parseFloat(userLatRaw) : 14.589;
     const defaultLng = Number.isFinite(parseFloat(userLngRaw)) ? parseFloat(userLngRaw) : 120.9822;
     if (getEl('dropoff-latitude').value) getEl('dropoff-latitude').value = (+getEl('dropoff-latitude').value).toFixed(7);
@@ -632,7 +633,7 @@
           const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(v + ', Philippines')}&limit=5&countrycodes=ph`);
           acRes = await res.json();
           list.innerHTML = acRes.length
-            ? acRes.map((r, i) => `<div class="ac-item" onmousedown="selectAutocomplete(${i})">${r.display_name}</div>`).join('')
+            ? acRes.map((r, i) => `<div class="ac-item" onmousedown="selectAutocomplete(${i})">${escapeHTML(r.display_name)}</div>`).join('')
             : '<div class="ac-item">No results</div>';
           list.classList.remove('hidden');
         } catch {
@@ -683,11 +684,20 @@
 
     function openDeliveryConfirm(totalPrice, scheduleAt, quotationToken) {
       pendingDeliveryClaim = quotationToken;
-      getEl('delivery-confirm-copy').innerHTML = `
-        <div class="confirm-row">Total Price: ₱ ${totalPrice}</div>
-        <div class="confirm-row">Scheduled at: ${(() => { try { const d = new Date(scheduleAt); return isNaN(d.getTime()) ? scheduleAt : d.toLocaleString('en-US', {timeZone: 'Asia/Manila', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true}); } catch(e) { return scheduleAt; } })()}</div>
-        <div class="confirm-row">Drop off: ${getEl('dropoff-display-address').value.trim()}</div>
-      `;
+      const copy = getEl('delivery-confirm-copy');
+      copy.innerHTML = '';
+      const row1 = document.createElement('div');
+      row1.className = 'confirm-row';
+      row1.textContent = `Total Price: ₱ ${totalPrice}`;
+      copy.appendChild(row1);
+      const row2 = document.createElement('div');
+      row2.className = 'confirm-row';
+      row2.textContent = `Scheduled at: ${(() => { try { const d = new Date(scheduleAt); return isNaN(d.getTime()) ? scheduleAt : d.toLocaleString('en-US', {timeZone: 'Asia/Manila', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true}); } catch(e) { return scheduleAt; } })()}`;
+      copy.appendChild(row2);
+      const row3 = document.createElement('div');
+      row3.className = 'confirm-row';
+      row3.textContent = `Drop off: ${getEl('dropoff-display-address').value.trim()}`;
+      copy.appendChild(row3);
       getEl('delivery-confirm-modal').classList.remove('hidden');
     }
 

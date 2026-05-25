@@ -275,9 +275,8 @@
         <label class="up">Profile Picture</label>
         <div class="pfp-area">
           <img id="pfp-preview" class="pfp-img"
-            src="{% if donor.upload %}{{ donor.upload }}{% else %}https://ui-avatars.com/api/?name={{ donor.first_name }}+{{ donor.last_name }}&background=e8d5a8&color=8b6914&size=64{% endif %}"
-            alt="Profile"
-            onerror="this.src='https://ui-avatars.com/api/?name={{ donor.first_name }}+{{ donor.last_name }}&background=e8d5a8&color=8b6914&size=64'">
+            src="{% if donor.upload %}{{ donor.upload }}{% endif %}"
+            alt="Profile">
           <button type="button" class="pfp-change" onclick="getEl('pfp-in').click()">Change Photo</button>
           <input id="pfp-in" name="upload" type="file" accept=".png,.jpeg,.jpg" class="hidden"
             onchange="previewPfp(this.files[0])">
@@ -439,6 +438,7 @@
     reader.readAsDataURL(file);
   }
 
+  const esc = str => !str ? '' : str.replace(/[&<>'"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]||c));
   function srchAddr(v) {
     const ac = getEl('ac');
     getEl('lat').value = '';
@@ -448,7 +448,7 @@
     acTmr = setTimeout(async () => {
       try {
         acRes = await (await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${v}, Philippines&limit=5&countrycodes=ph`)).json();
-        ac.innerHTML = acRes.map((r, i) => `<div class="ac-item" onmousedown="selAddr(${i})">${r.display_name}</div>`).join('');
+        ac.innerHTML = acRes.map((r, i) => `<div class="ac-item" onmousedown="selAddr(${i})">${esc(r.display_name)}</div>`).join('');
         ac.classList.remove('hidden');
       } catch { }
     }, 350);
