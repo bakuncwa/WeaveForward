@@ -1,0 +1,177 @@
+{
+  "trained_at": "2026-02-25T08:19:28.576053",
+  "notebook": "fiber_recommendation_model.ipynb",
+  "task": "binary is_match classification (1=match, 0=no_match)",
+  "target": "is_match",
+  "fiber_match_threshold": 0.3,
+  "feature_cols": [
+    "pct_alpaca",
+    "pct_cotton",
+    "pct_elastane",
+    "pct_nylon",
+    "pct_polyester",
+    "pct_tencel",
+    "pct_viscose",
+    "pct_bio_lookup",
+    "fs_bio_share",
+    "biodeg_score",
+    "biodeg_target_fiber",
+    "artisan_min_biodeg",
+    "demand_index",
+    "weight_kg",
+    "latitude",
+    "longitude",
+    "distance_km",
+    "pct_target_fiber",
+    "artisan_max_dist_km",
+    "brand",
+    "clothing_type",
+    "source",
+    "most_dominant_fiber",
+    "dominant_fiber_lookup",
+    "matched_fiber",
+    "biodeg_tier",
+    "ncr_city",
+    "barangay",
+    "artisan_id",
+    "artisan_target_fibers_str"
+  ],
+  "cat_features": [
+    "brand",
+    "clothing_type",
+    "source",
+    "most_dominant_fiber",
+    "dominant_fiber_lookup",
+    "matched_fiber",
+    "biodeg_tier",
+    "ncr_city",
+    "barangay",
+    "artisan_id",
+    "artisan_target_fibers_str"
+  ],
+  "fiber_vocab": [
+    "alpaca",
+    "cotton",
+    "elastane",
+    "nylon",
+    "polyester",
+    "tencel",
+    "viscose"
+  ],
+  "fibers_of_interest": [
+    "alpaca",
+    "cotton",
+    "elastane",
+    "nylon",
+    "polyester",
+    "tencel",
+    "viscose"
+  ],
+  "biodeg_scores": {
+    "cotton": 92,
+    "linen": 95,
+    "hemp": 96,
+    "denim": 78,
+    "tencel": 91,
+    "lyocell": 91,
+    "modal": 76,
+    "bamboo": 73,
+    "rayon": 72,
+    "viscose": 72,
+    "silk": 83,
+    "wool": 74,
+    "cashmere": 74,
+    "alpaca": 73,
+    "nylon": 12,
+    "polyester": 8,
+    "acrylic": 5,
+    "elastane": 4,
+    "spandex": 4,
+    "lycra": 4,
+    "unknown": 30
+  },
+  "artisan_registry": [
+    {
+      "artisan_id": "art-001",
+      "artisan_name": "Habi Weaves Ermita",
+      "target_fibers": [
+        "cotton",
+        "tencel"
+      ],
+      "min_biodeg_score": 60,
+      "max_distance_km": 12.0,
+      "latitude": 14.5904492,
+      "longitude": 120.9803621
+    },
+    {
+      "artisan_id": "art-002",
+      "artisan_name": "Diliman Fiber Collective",
+      "target_fibers": [
+        "tencel",
+        "viscose"
+      ],
+      "min_biodeg_score": 70,
+      "max_distance_km": 18.0,
+      "latitude": 14.6510546,
+      "longitude": 121.0486254
+    },
+    {
+      "artisan_id": "art-003",
+      "artisan_name": "Makati Upcycle Studio",
+      "target_fibers": [
+        "cotton",
+        "viscose",
+        "tencel"
+      ],
+      "min_biodeg_score": 55,
+      "max_distance_km": 10.0,
+      "latitude": 14.5567949,
+      "longitude": 121.0211226
+    },
+    {
+      "artisan_id": "art-004",
+      "artisan_name": "Pasig Natural Threads",
+      "target_fibers": [
+        "viscose",
+        "cotton"
+      ],
+      "min_biodeg_score": 50,
+      "max_distance_km": 15.0,
+      "latitude": 14.5605166,
+      "longitude": 121.0764343
+    },
+    {
+      "artisan_id": "art-005",
+      "artisan_name": "Marikina Heritage Weavers",
+      "target_fibers": [
+        "alpaca",
+        "cotton"
+      ],
+      "min_biodeg_score": 65,
+      "max_distance_km": 20.0,
+      "latitude": 14.6331084,
+      "longitude": 121.0993541
+    },
+    {
+      "artisan_id": "art-006",
+      "artisan_name": "Taguig EcoFabric Lab",
+      "target_fibers": [
+        "nylon",
+        "polyester"
+      ],
+      "min_biodeg_score": 30,
+      "max_distance_km": 14.0,
+      "latitude": 14.5270538,
+      "longitude": 121.0744942
+    }
+  ],
+  "best_params": {
+    "iterations": 611,
+    "depth": 9,
+    "learning_rate": 0.225583594514379,
+    "l2_leaf_reg": 8.815991603050504,
+    "bagging_temperature": 0.4460860852219194,
+    "border_count": 159
+  },
+  "best_cv_f1": 0.9203203512201815
+}
