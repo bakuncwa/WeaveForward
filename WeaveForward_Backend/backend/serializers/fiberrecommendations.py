@@ -1,22 +1,36 @@
 import json
 from rest_framework import serializers
 from ..models import MatchPrediction, Donation, DonationItem, User, BrandFiberLookup
+from ..services.prediction_service import BIO_FIBERS, MatchPredictionService
 
 
-class DonorPreviewSerializer(serializers.ModelSerializer):
-    """Minimal donor info for list view"""
-    class Meta:
-        model = User
-        fields = ['user_id', 'name', 'pickup_barangay']
+def _biodeg_tier_from_fibers(fiber_json):
+    """
+    Compute biodeg tier using prediction_service weighted scoring when metadata
+    is loaded, falling back to dominant-fiber approximation otherwise.
+    """
+    if not fiber_json:
+        return 'MEDIUM'
+    if MatchPredictionService._metadata:
+        score = MatchPredictionService._compute_biodeg_score(fiber_json)
+        return MatchPredictionService._compute_biodeg_tier(score).upper()
+    dominant = max(fiber_json, key=fiber_json.get)
+    if dominant.lower() in BIO_FIBERS:
+        pct = fiber_json.get(dominant, 0)
+        if pct >= 80:
+            return 'HIGH'
+        if pct >= 50:
+            return 'MEDIUM'
+        return 'LOW'
+    return 'LOW'
 
 
 class DonationPreviewSerializer(serializers.ModelSerializer):
-    """Minimal donation info with location"""
     pickup_barangay = serializers.SerializerMethodField()
     pickup_city = serializers.SerializerMethodField()
     location = serializers.SerializerMethodField()
     pickup_window = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Donation
         fields = [
@@ -27,19 +41,19 @@ class DonationPreviewSerializer(serializers.ModelSerializer):
             'pickup_window',
             'preferred_pickup_date',
         ]
-    
+
     def get_pickup_barangay(self, obj):
         return obj.pickup_barangay
-    
+
     def get_pickup_city(self, obj):
         return obj.pickup_city
-    
+
     def get_location(self, obj):
         return {
             'latitude': float(obj.pickup_latitude),
             'longitude': float(obj.pickup_longitude),
         }
-    
+
     def get_pickup_window(self, obj):
         if obj.preferred_pickup_window_start and obj.preferred_pickup_window_end:
             return {
@@ -50,10 +64,11 @@ class DonationPreviewSerializer(serializers.ModelSerializer):
 
 
 class DonationItemPreviewSerializer(serializers.ModelSerializer):
-    """Item details including fiber composition"""
     fiber_breakdown = serializers.SerializerMethodField()
     dominant_fiber = serializers.SerializerMethodField()
-    
+    biodeg_score = serializers.SerializerMethodField()
+    biodeg_tier = serializers.SerializerMethodField()
+
     class Meta:
         model = DonationItem
         fields = [
@@ -62,41 +77,49 @@ class DonationItemPreviewSerializer(serializers.ModelSerializer):
             'condition_rating',
             'fiber_breakdown',
             'dominant_fiber',
+            'biodeg_score',
+            'biodeg_tier',
         ]
-    
-    def get_fiber_breakdown(self, obj):
+
+    def _parse_fibers(self, obj):
         try:
             if obj.lookup and obj.lookup.fiber_json:
                 return json.loads(obj.lookup.fiber_json)
         except (json.JSONDecodeError, AttributeError):
             pass
         return {}
-    
+
+    def get_fiber_breakdown(self, obj):
+        return self._parse_fibers(obj)
+
     def get_dominant_fiber(self, obj):
-        try:
-            if obj.lookup and obj.lookup.fiber_json:
-                fibers = json.loads(obj.lookup.fiber_json)
-                if fibers:
-                    return max(fibers, key=fibers.get)
-        except (json.JSONDecodeError, AttributeError, ValueError):
-            pass
+        fibers = self._parse_fibers(obj)
+        return max(fibers, key=fibers.get) if fibers else None
+
+    def get_biodeg_score(self, obj):
+        fibers = self._parse_fibers(obj)
+        if fibers and MatchPredictionService._metadata:
+            try:
+                return round(MatchPredictionService._compute_biodeg_score(fibers), 2)
+            except (TypeError, KeyError):
+                pass
         return None
+
+    def get_biodeg_tier(self, obj):
+        try:
+            return _biodeg_tier_from_fibers(self._parse_fibers(obj))
+        except (TypeError, KeyError, ValueError):
+            return 'MEDIUM'
 
 
 class MatchRecommendationListSerializer(serializers.ModelSerializer):
-    """Optimized list view serializer for recommendations"""
     donor = serializers.SerializerMethodField()
     item = DonationItemPreviewSerializer()
-    donation = DonationPreviewSerializer()
+    donation = DonationPreviewSerializer(source='item.donation')
     biodeg_tier = serializers.SerializerMethodField()
-    distance_km = serializers.DecimalField(
-        max_digits=8,
-        decimal_places=3,
-        allow_null=True,
-        required=False
-    )
+    distance_km = serializers.DecimalField(max_digits=8, decimal_places=3, allow_null=True, required=False)
     match_confidence = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = MatchPrediction
         fields = [
@@ -111,7 +134,7 @@ class MatchRecommendationListSerializer(serializers.ModelSerializer):
             'predicted_at',
         ]
         read_only_fields = fields
-    
+
     def get_donor(self, obj):
         donor = obj.item.donation.donor
         return {
@@ -120,49 +143,28 @@ class MatchRecommendationListSerializer(serializers.ModelSerializer):
             'barangay': obj.item.donation.pickup_barangay,
             'city': obj.item.donation.pickup_city,
         }
-    
+
     def get_biodeg_tier(self, obj):
-        # Compute biodegradability tier from fiber composition
         try:
+            fibers = {}
             if obj.item.lookup and obj.item.lookup.fiber_json:
                 fibers = json.loads(obj.item.lookup.fiber_json)
-                # Simple tier calculation: check dominant fiber
-                dominant = max(fibers, key=fibers.get) if fibers else 'unknown'
-                
-                # Biodegradable fibers
-                bio_fibers = {
-                    'cotton', 'linen', 'hemp', 'wool', 'silk',
-                    'bamboo', 'tencel', 'lyocell', 'modal',
-                    'cashmere', 'viscose', 'rayon', 'denim', 'alpaca'
-                }
-                
-                if dominant.lower() in bio_fibers:
-                    pct = fibers.get(dominant, 0)
-                    if pct >= 80:
-                        return 'HIGH'
-                    elif pct >= 50:
-                        return 'MEDIUM'
-                    else:
-                        return 'LOW'
-                return 'LOW'
-        except (json.JSONDecodeError, AttributeError, ValueError):
-            pass
-        return 'MEDIUM'
-    
+            return _biodeg_tier_from_fibers(fibers)
+        except (json.JSONDecodeError, AttributeError, TypeError, KeyError, ValueError):
+            return 'MEDIUM'
+
     def get_match_confidence(self, obj):
-        """Return match probability as percentage"""
         return round(float(obj.match_prob) * 100, 2) if obj.match_prob else 0
 
 
 class MatchRecommendationDetailSerializer(serializers.ModelSerializer):
-    """Full detail view serializer"""
     donor = serializers.SerializerMethodField()
     item = DonationItemPreviewSerializer()
-    donation = DonationPreviewSerializer()
+    donation = DonationPreviewSerializer(source='item.donation')
     tuab = serializers.SerializerMethodField()
     biodeg_tier = serializers.SerializerMethodField()
     match_confidence = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = MatchPrediction
         fields = [
@@ -180,7 +182,7 @@ class MatchRecommendationDetailSerializer(serializers.ModelSerializer):
             'predicted_at',
         ]
         read_only_fields = fields
-    
+
     def get_donor(self, obj):
         donor = obj.item.donation.donor
         return {
@@ -190,52 +192,34 @@ class MatchRecommendationDetailSerializer(serializers.ModelSerializer):
             'barangay': obj.item.donation.pickup_barangay,
             'city': obj.item.donation.pickup_city,
         }
-    
+
     def get_tuab(self, obj):
         return {
             'user_id': obj.tuab.user_id,
             'name': obj.tuab.name,
         }
-    
+
     def get_biodeg_tier(self, obj):
-        # Same logic as in list serializer
         try:
+            fibers = {}
             if obj.item.lookup and obj.item.lookup.fiber_json:
                 fibers = json.loads(obj.item.lookup.fiber_json)
-                dominant = max(fibers, key=fibers.get) if fibers else 'unknown'
-                
-                bio_fibers = {
-                    'cotton', 'linen', 'hemp', 'wool', 'silk',
-                    'bamboo', 'tencel', 'lyocell', 'modal',
-                    'cashmere', 'viscose', 'rayon', 'denim', 'alpaca'
-                }
-                
-                if dominant.lower() in bio_fibers:
-                    pct = fibers.get(dominant, 0)
-                    if pct >= 80:
-                        return 'HIGH'
-                    elif pct >= 50:
-                        return 'MEDIUM'
-                    else:
-                        return 'LOW'
-                return 'LOW'
-        except (json.JSONDecodeError, AttributeError, ValueError):
-            pass
-        return 'MEDIUM'
-    
+            return _biodeg_tier_from_fibers(fibers)
+        except (json.JSONDecodeError, AttributeError, TypeError, KeyError, ValueError):
+            return 'MEDIUM'
+
     def get_match_confidence(self, obj):
         return round(float(obj.match_prob) * 100, 2) if obj.match_prob else 0
 
 
 class MatchRecommendationActionSerializer(serializers.Serializer):
-    """Serializer for accept/reject actions"""
     reason = serializers.CharField(
         max_length=500,
         required=False,
         allow_blank=True,
         help_text="Rejection reason (required for reject action)"
     )
-    
+
     def validate_reason(self, value):
         if not value or not value.strip():
             return None
