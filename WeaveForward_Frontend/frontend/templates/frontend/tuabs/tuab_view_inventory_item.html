@@ -1,6 +1,7 @@
 {% extends 'frontend/base.html' %}
 
 {% block content %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <!--
   WeaveForward - TUAB View Inventory Item
   ============================================================
@@ -550,21 +551,64 @@
 
 <script>
   function downloadAuditHistory() {
-    const data = {
-      inventory_id: {{ inventory_item.inventory_id }},
-      generated_at: new Date().toISOString(),
-      source_donation_id: {{ source_donation.donation_id }},
-      current_weight_kg: {{ inventory_item.current_weight_kg }},
-      audit_history: {{ audit_history|safe|default:"{}" }}
-    };
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const invId = {{ inventory_item.inventory_id }};
+    const donationId = {{ source_donation.donation_id }};
+    const currentWeight = {{ inventory_item.current_weight_kg }};
+    const generatedAt = new Date().toLocaleString();
 
-    const dataStr = JSON.stringify(data, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `inventory-${data.inventory_id}-audit.json`;
-    link.click();
+    let y = 18;
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Inventory Audit Report', 14, y);
+
+    y += 8;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(120);
+    doc.text(`Generated: ${generatedAt}`, 14, y);
+    doc.setTextColor(0);
+
+    y += 10;
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Inventory Details', 14, y);
+    y += 6;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Inventory ID: #${invId}`, 14, y); y += 6;
+    doc.text(`Source Donation ID: #${donationId}`, 14, y); y += 6;
+    doc.text(`Current Weight: ${currentWeight} kg`, 14, y); y += 10;
+
+    {% if audit_history and audit_history.audit_entries %}
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Audit Timeline', 14, y);
+    y += 6;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    {% for entry in audit_history.audit_entries %}
+    if (y > 270) { doc.addPage(); y = 18; }
+    doc.setFont('helvetica', 'bold');
+    doc.text('{{ entry.timestamp|date:"M d, Y · g:i A"|escapejs }}', 14, y); y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.text('Action: {{ entry.action|escapejs }}', 18, y); y += 5;
+    {% if entry.notes %}
+    const notesLines = doc.splitTextToSize('Notes: {{ entry.notes|escapejs }}', 175);
+    doc.text(notesLines, 18, y); y += notesLines.length * 5;
+    {% endif %}
+    {% if entry.weight_kg %}
+    doc.text('Weight: {{ entry.weight_kg|floatformat:2 }} kg', 18, y); y += 5;
+    {% endif %}
+    y += 3;
+    {% endfor %}
+    {% else %}
+    doc.setFontSize(10);
+    doc.text('No audit entries found.', 14, y);
+    {% endif %}
+
+    doc.save(`inventory-${invId}-audit.pdf`);
   }
 </script>
 {% endblock %}
