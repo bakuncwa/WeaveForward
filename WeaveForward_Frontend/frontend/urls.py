@@ -52,6 +52,7 @@ urlpatterns = [
     path('tuab/fiber-match-recommendations/', views.tuab_view_fiber_match_recommendations, name='tuab_fiber_match_recommendations'),
     path('api/match-recommendations/<int:pair_id>/accept/', views.tuab_match_recommendation_accept_proxy, name='tuab_match_recommendation_accept'),
     path('api/match-recommendations/<int:pair_id>/reject/', views.tuab_match_recommendation_reject_proxy, name='tuab_match_recommendation_reject'),
+    path('api/tuab/donations/<int:donation_id>/flag/', views.tuab_donation_flag_proxy, name='tuab_donation_flag'),
     path('tuab/circular-economy/', views.tuab_circular_economy, name='tuab_circular_economy'),
     
     # --- Admin ---

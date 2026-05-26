@@ -5,124 +5,83 @@
 
 <style>
     :root {
-        --gold: #e8a020;
-        --navy: #1e2a3a;
-        --card: #ffffff;
-        --bg: #f5f4f0;
+        --gold:   #e8a020;
+        --navy:   #1e2a3a;
+        --card:   #ffffff;
+        --bg:     #f5f4f0;
         --border: #e0dbd4;
-        --text: #222222;
-        --muted: #888888;
-        --green: #2d7a4f;
-        --red: #c0392b;
+        --text:   #222222;
+        --muted:  #888888;
+        --green:  #2d7a4f;
+        --red:    #c0392b;
+        --tuab:   #c0410e;
     }
 
-    body {
-        font-family: 'Poppins', sans-serif;
-    }
+    body { font-family: 'Poppins', sans-serif; }
 
     .ce-page {
         background: var(--bg);
         min-height: 100%;
         display: flex;
         flex-direction: column;
+        padding: 24px 28px;
+        gap: 20px;
     }
 
-    /* ── Subheader ── */
-    .ce-subheader {
-        background: #f0ede6;
-        border-bottom: 1px solid #d8d3c9;
-        padding: 10px 24px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        flex-shrink: 0;
-    }
+    /* ── Date Range Section ── */
+    .ce-date-section { display: flex; flex-direction: column; gap: 10px; }
 
-    .ce-subheader-left {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .ce-subheader-title {
-        font-family: 'Pixelify Sans', monospace;
-        font-size: 14px;
-        font-weight: 700;
-        color: var(--gold);
-        margin: 0;
-        letter-spacing: 0.03em;
-    }
-
-    .ce-subheader-meta {
-        font-size: 12px;
-        color: var(--muted);
-    }
-
-    .ce-filter-form {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
-    }
-
-    .ce-filter-label {
-        font-size: 11px;
+    .ce-date-label {
+        font-family: 'Poppins', sans-serif;
+        font-size: 13px;
         font-weight: 600;
         color: var(--navy);
-        white-space: nowrap;
     }
 
-    .ce-filter-input {
+    .ce-date-row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+
+    .ce-date-input {
         font-family: 'Poppins', sans-serif;
-        font-size: 11px;
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        padding: 4px 8px;
-        background: white;
+        font-size: 13px;
         color: var(--text);
+        background: var(--card);
+        border: 1.5px solid var(--border);
+        border-radius: 8px;
+        padding: 10px 14px;
         outline: none;
+        min-width: 200px;
+        cursor: pointer;
+        transition: border-color 0.15s;
     }
 
-    .ce-filter-input:focus {
-        border-color: var(--gold);
-        box-shadow: 0 0 0 2px rgba(232,160,32,0.15);
-    }
+    .ce-date-input:focus { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(232,160,32,0.15); }
 
-    .ce-filter-btn {
+    .ce-date-actions { display: flex; gap: 8px; align-items: center; }
+
+    .ce-btn-apply {
         font-family: 'Poppins', sans-serif;
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 600;
         background: var(--gold);
-        color: white;
+        color: #fff;
         border: none;
         border-radius: 6px;
-        padding: 5px 14px;
+        padding: 10px 18px;
         cursor: pointer;
         transition: background 0.15s;
     }
+    .ce-btn-apply:hover { background: #d18c18; }
 
-    .ce-filter-btn:hover { background: #d18c18; }
-
-    .ce-filter-clear {
-        font-size: 11px;
+    .ce-btn-clear {
+        font-family: 'Poppins', sans-serif;
+        font-size: 12px;
         color: var(--muted);
         text-decoration: none;
-        padding: 4px 8px;
+        padding: 10px 12px;
         border-radius: 6px;
         transition: background 0.15s;
     }
-
-    .ce-filter-clear:hover { background: #e8e4dc; }
-
-    /* ── Body ── */
-    .ce-body {
-        flex: 1;
-        padding: 20px 24px;
-        display: flex;
-        flex-direction: column;
-        gap: 20px;
-    }
+    .ce-btn-clear:hover { background: #e8e4dc; }
 
     /* ── Error banner ── */
     .ce-error {
@@ -135,45 +94,7 @@
         text-align: center;
     }
 
-    /* ── Stats row ── */
-    .ce-stats-row {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 14px;
-    }
-
-    .ce-stat-card {
-        background: var(--card);
-        border-radius: 12px;
-        border: 1px solid var(--border);
-        padding: 14px 18px;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    .ce-stat-label {
-        font-size: 11px;
-        font-weight: 600;
-        color: var(--muted);
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-    }
-
-    .ce-stat-value {
-        font-family: 'Pixelify Sans', monospace;
-        font-size: 24px;
-        font-weight: 700;
-        color: var(--navy);
-        line-height: 1;
-    }
-
-    .ce-stat-sub {
-        font-size: 11px;
-        color: var(--muted);
-    }
-
-    /* ── Chart grid ── */
+    /* ── 2×2 Chart Grid ── */
     .ce-chart-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -182,17 +103,13 @@
 
     .ce-chart-card {
         background: var(--card);
-        border-radius: 12px;
+        border-radius: 14px;
         border: 1px solid var(--border);
-        padding: 18px 20px;
+        padding: 20px 22px 18px;
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        gap: 14px;
         box-shadow: 0 1px 6px rgba(0,0,0,0.04);
-    }
-
-    .ce-chart-card.full-width {
-        grid-column: 1 / -1;
     }
 
     .ce-chart-header {
@@ -203,41 +120,38 @@
     }
 
     .ce-chart-title {
-        font-family: 'Pixelify Sans', monospace;
+        font-family: 'Poppins', sans-serif;
         font-size: 13px;
         font-weight: 700;
         color: var(--navy);
         margin: 0;
-        letter-spacing: 0.02em;
+        letter-spacing: 0.01em;
     }
 
     .ce-chart-subtitle {
         font-size: 11px;
         color: var(--muted);
-        margin: 2px 0 0 0;
+        margin: 3px 0 0 0;
     }
 
-    .ce-chart-badge {
+    .ce-badge {
         font-size: 10px;
         font-weight: 700;
-        background: #f0ede6;
-        color: var(--gold);
+        background: #fef3e2;
+        color: var(--tuab);
         border-radius: 20px;
-        padding: 2px 10px;
+        padding: 3px 10px;
         white-space: nowrap;
-        border: 1px solid #ddd4c0;
+        border: 1px solid #f5d8b8;
         flex-shrink: 0;
     }
 
-    .ce-chart-canvas-wrap {
+    .ce-chart-wrap {
         position: relative;
         flex: 1;
     }
 
-    canvas {
-        display: block;
-        width: 100% !important;
-    }
+    canvas { display: block; width: 100% !important; }
 
     /* ── Empty state ── */
     .ce-empty {
@@ -249,161 +163,130 @@
         gap: 8px;
         color: var(--muted);
     }
-
     .ce-empty-icon { font-size: 28px; opacity: 0.4; }
     .ce-empty-text { font-size: 12px; }
 
-    @media (max-width: 900px) {
+    @media (max-width: 860px) {
         .ce-chart-grid { grid-template-columns: 1fr; }
-        .ce-stats-row { grid-template-columns: repeat(2, 1fr); }
-        .ce-subheader { flex-direction: column; align-items: flex-start; }
+        .ce-page { padding: 16px 14px; }
     }
 </style>
 
 <div class="ce-page">
 
-    <!-- Subheader -->
-    <div class="ce-subheader">
-        <div class="ce-subheader-left">
-            <p class="ce-subheader-title">Circular Economy Dashboard</p>
-            <span class="ce-subheader-meta">Fiber-matched donation analytics for your studio</span>
-        </div>
-        <form class="ce-filter-form" method="GET" action="">
-            <span class="ce-filter-label">Date range:</span>
-            <input class="ce-filter-input" type="date" name="date_from" value="{{ date_from }}" placeholder="From">
-            <span class="ce-filter-label" style="margin-left:2px;">—</span>
-            <input class="ce-filter-input" type="date" name="date_to" value="{{ date_to }}" placeholder="To">
-            <button class="ce-filter-btn" type="submit">Apply</button>
-            {% if date_from or date_to %}
-            <a class="ce-filter-clear" href="{% url 'tuab_circular_economy' %}">Clear</a>
-            {% endif %}
+    <!-- Date Range -->
+    <div class="ce-date-section">
+        <span class="ce-date-label">Date Range</span>
+        <form class="ce-date-row" method="GET" action="">
+            <input class="ce-date-input" type="date" name="date_from"
+                   value="{{ date_from }}" max="{{ today_iso }}" placeholder="mm/dd/yyyy">
+            <input class="ce-date-input" type="date" name="date_to"
+                   value="{{ date_to }}" max="{{ today_iso }}" placeholder="mm/dd/yyyy">
+            <div class="ce-date-actions">
+                <button class="ce-btn-apply" type="submit">Apply</button>
+                {% if date_from or date_to %}
+                <a class="ce-btn-clear" href="{% url 'tuab_circular_economy' %}">Clear</a>
+                {% endif %}
+            </div>
         </form>
     </div>
 
-    <div class="ce-body">
+    {% if error_message %}
+    <div class="ce-error">{{ error_message }}</div>
+    {% else %}
 
-        {% if error_message %}
-        <div class="ce-error">{{ error_message }}</div>
-        {% else %}
+    <!-- 2×2 Chart Grid -->
+    <div class="ce-chart-grid">
 
-        <!-- Summary stats (derived from JS) -->
-        <div class="ce-stats-row" id="stats-row" style="display:none;">
-            <div class="ce-stat-card">
-                <span class="ce-stat-label">Total Items Assessed</span>
-                <span class="ce-stat-value" id="stat-items">—</span>
-                <span class="ce-stat-sub">across all fiber types</span>
+        <!-- [0,0] Biodegradability Score Distribution -->
+        <div class="ce-chart-card">
+            <div class="ce-chart-header">
+                <div>
+                    <p class="ce-chart-title">Biodegradability Score Distribution</p>
+                    <p class="ce-chart-subtitle">Frequency histogram &middot; ML-verified scores</p>
+                </div>
+                <span class="ce-badge">ML-Verified</span>
             </div>
-            <div class="ce-stat-card">
-                <span class="ce-stat-label">Total Donation Volume</span>
-                <span class="ce-stat-value" id="stat-weight">—</span>
-                <span class="ce-stat-sub">kilograms of textile</span>
+            <div class="ce-chart-wrap" style="height:220px;">
+                <canvas id="chart-biodeg"></canvas>
             </div>
-            <div class="ce-stat-card">
-                <span class="ce-stat-label">Recommendations Accepted</span>
-                <span class="ce-stat-value" id="stat-accepted" style="color:var(--green);">—</span>
-                <span class="ce-stat-sub">donations claimed</span>
-            </div>
-            <div class="ce-stat-card">
-                <span class="ce-stat-label">Cities Reached</span>
-                <span class="ce-stat-value" id="stat-cities">—</span>
-                <span class="ce-stat-sub">NCR pickup locations</span>
+            <div class="ce-empty" id="empty-biodeg" style="display:none;">
+                <span class="ce-empty-icon">📊</span>
+                <span class="ce-empty-text">No biodeg data yet</span>
             </div>
         </div>
 
-        <!-- 4-panel chart grid -->
-        <div class="ce-chart-grid">
-
-            <!-- Panel 1: Biodeg Score Distribution -->
-            <div class="ce-chart-card">
-                <div class="ce-chart-header">
-                    <div>
-                        <p class="ce-chart-title">Biodegradability Score Distribution</p>
-                        <p class="ce-chart-subtitle">Donation items grouped by eco-score range</p>
-                    </div>
-                    <span class="ce-chart-badge">Score 0–100</span>
+        <!-- [0,1] Donation Volume by NCR City -->
+        <div class="ce-chart-card">
+            <div class="ce-chart-header">
+                <div>
+                    <p class="ce-chart-title">Donation Volume by NCR City</p>
+                    <p class="ce-chart-subtitle">Stacked by fiber category &middot; horizontal</p>
                 </div>
-                <div class="ce-chart-canvas-wrap" style="height:220px;">
-                    <canvas id="chart-biodeg"></canvas>
-                </div>
-                <div class="ce-empty" id="empty-biodeg" style="display:none;">
-                    <span class="ce-empty-icon">📊</span>
-                    <span class="ce-empty-text">No biodeg data yet</span>
-                </div>
+                <span class="ce-badge">Freq. Chart</span>
             </div>
-
-            <!-- Panel 2: Decisions by City -->
-            <div class="ce-chart-card">
-                <div class="ce-chart-header">
-                    <div>
-                        <p class="ce-chart-title">Donation Decisions by City</p>
-                        <p class="ce-chart-subtitle">Accepted / Rejected / Pending recommendations</p>
-                    </div>
-                    <span class="ce-chart-badge">NCR Cities</span>
-                </div>
-                <div class="ce-chart-canvas-wrap" style="height:220px;">
-                    <canvas id="chart-decisions"></canvas>
-                </div>
-                <div class="ce-empty" id="empty-decisions" style="display:none;">
-                    <span class="ce-empty-icon">🏙️</span>
-                    <span class="ce-empty-text">No decision data yet</span>
-                </div>
+            <div class="ce-chart-wrap" style="height:220px;">
+                <canvas id="chart-volume"></canvas>
             </div>
-
-            <!-- Panel 3: Volume by City & Fiber (full-width stacked bar) -->
-            <div class="ce-chart-card full-width">
-                <div class="ce-chart-header">
-                    <div>
-                        <p class="ce-chart-title">Donation Volume by City &amp; Fiber Type</p>
-                        <p class="ce-chart-subtitle">Total weight (kg) stacked by dominant fiber per NCR city</p>
-                    </div>
-                    <span class="ce-chart-badge">Weight (kg)</span>
-                </div>
-                <div class="ce-chart-canvas-wrap" style="height:240px;">
-                    <canvas id="chart-volume"></canvas>
-                </div>
-                <div class="ce-empty" id="empty-volume" style="display:none;">
-                    <span class="ce-empty-icon">🧵</span>
-                    <span class="ce-empty-text">No volume data yet</span>
-                </div>
+            <div class="ce-empty" id="empty-volume" style="display:none;">
+                <span class="ce-empty-icon">🧵</span>
+                <span class="ce-empty-text">No volume data yet</span>
             </div>
-
-            <!-- Panel 4: Top Brands (full-width horizontal bar) -->
-            <div class="ce-chart-card full-width">
-                <div class="ce-chart-header">
-                    <div>
-                        <p class="ce-chart-title">Top Brands by Donation Volume</p>
-                        <p class="ce-chart-subtitle">Leading clothing brands in your fiber-matched donations (kg)</p>
-                    </div>
-                    <span class="ce-chart-badge">Top 20</span>
-                </div>
-                <div class="ce-chart-canvas-wrap" id="wrap-brands" style="height:320px;">
-                    <canvas id="chart-brands"></canvas>
-                </div>
-                <div class="ce-empty" id="empty-brands" style="display:none;">
-                    <span class="ce-empty-icon">🏷️</span>
-                    <span class="ce-empty-text">No brand data yet</span>
-                </div>
-            </div>
-
         </div>
-        {% endif %}
+
+        <!-- [1,0] Top 20 Brands by Donation Volume -->
+        <div class="ce-chart-card">
+            <div class="ce-chart-header">
+                <div>
+                    <p class="ce-chart-title">Top 20 Brands by Donation Volume</p>
+                    <p class="ce-chart-subtitle">Leading brands in fiber-matched donations</p>
+                </div>
+                <span class="ce-badge">ML-Scraped</span>
+            </div>
+            <div class="ce-chart-wrap" id="wrap-brands" style="height:320px;">
+                <canvas id="chart-brands"></canvas>
+            </div>
+            <div class="ce-empty" id="empty-brands" style="display:none;">
+                <span class="ce-empty-icon">🏷️</span>
+                <span class="ce-empty-text">No brand data yet</span>
+            </div>
+        </div>
+
+        <!-- [1,1] Donation Decisions per NCR City -->
+        <div class="ce-chart-card">
+            <div class="ce-chart-header">
+                <div>
+                    <p class="ce-chart-title">Donation Decisions per NCR City</p>
+                    <p class="ce-chart-subtitle">Accepted &middot; Rejected &middot; Flagged &middot; Pending</p>
+                </div>
+                <span class="ce-badge">Decision Flow</span>
+            </div>
+            <div class="ce-chart-wrap" style="height:320px;">
+                <canvas id="chart-decisions"></canvas>
+            </div>
+            <div class="ce-empty" id="empty-decisions" style="display:none;">
+                <span class="ce-empty-icon">🏙️</span>
+                <span class="ce-empty-text">No decision data yet</span>
+            </div>
+        </div>
+
     </div>
+    {% endif %}
 </div>
 
 <script>
 const DATA = JSON.parse('{{ dashboard_json|escapejs }}');
 
-// ── Palette ──────────────────────────────────────────────────────
 const FIBER_COLORS = {
-    cotton:     '#d4a843',
-    denim:      '#4a7bbf',
-    wool:       '#8b6047',
-    linen:      '#88a86a',
-    silk:       '#c084b8',
-    polyester:  '#9e9e9e',
-    bamboo:     '#5aab6e',
-    rayon:      '#e87c5a',
-    other:      '#b0aaa5',
+    cotton:    '#d4a843',
+    denim:     '#4a7bbf',
+    wool:      '#8b6047',
+    linen:     '#88a86a',
+    silk:      '#c084b8',
+    polyester: '#9e9e9e',
+    bamboo:    '#5aab6e',
+    rayon:     '#e87c5a',
+    other:     '#b0aaa5',
 };
 
 const BIODEG_COLORS = [
@@ -414,33 +297,9 @@ const BIODEG_COLORS = [
     'rgba(22,160,133,0.85)',
 ];
 
-const chartDefaults = {
-    font: { family: "'Poppins', sans-serif", size: 11 },
-};
-Chart.defaults.font = chartDefaults.font;
+Chart.defaults.font = { family: "'Poppins', sans-serif", size: 11 };
 Chart.defaults.color = '#888';
 
-// ── Stats row ────────────────────────────────────────────────────
-(function buildStats() {
-    const biodeg  = DATA.biodeg_distribution || [];
-    const volume  = DATA.volume_by_city_fiber || [];
-    const dec     = DATA.decisions_by_city || [];
-
-    const totalItems   = biodeg.reduce((s, r) => s + r.count, 0);
-    const totalWeight  = volume.reduce((s, r) => s + r.weight_kg, 0);
-    const totalAccepted = dec.reduce((s, r) => s + (r.accepted || 0), 0);
-    const cities       = new Set(dec.map(r => r.city)).size;
-
-    if (totalItems + totalWeight + totalAccepted > 0) {
-        document.getElementById('stats-row').style.display = 'grid';
-        document.getElementById('stat-items').textContent    = totalItems;
-        document.getElementById('stat-weight').textContent   = totalWeight.toFixed(1) + ' kg';
-        document.getElementById('stat-accepted').textContent = totalAccepted;
-        document.getElementById('stat-cities').textContent   = cities;
-    }
-})();
-
-// ── Chart helpers ────────────────────────────────────────────────
 function hideCanvas(chartId, emptyId) {
     const c = document.getElementById(chartId);
     const e = document.getElementById(emptyId);
@@ -448,11 +307,10 @@ function hideCanvas(chartId, emptyId) {
     if (e) e.style.display = 'flex';
 }
 
-// ── Panel 1: Biodeg Distribution ─────────────────────────────────
+// ── Panel [0,0]: Biodeg Distribution (vertical bar) ──────────────
 (function buildBiodeg() {
     const rows = DATA.biodeg_distribution || [];
-    const total = rows.reduce((s, r) => s + r.count, 0);
-    if (!total) { hideCanvas('chart-biodeg', 'empty-biodeg'); return; }
+    if (!rows.reduce((s, r) => s + r.count, 0)) { hideCanvas('chart-biodeg', 'empty-biodeg'); return; }
 
     new Chart(document.getElementById('chart-biodeg'), {
         type: 'bar',
@@ -486,67 +344,14 @@ function hideCanvas(chartId, emptyId) {
     });
 })();
 
-// ── Panel 2: Decisions by City ───────────────────────────────────
-(function buildDecisions() {
-    const rows = DATA.decisions_by_city || [];
-    const cities = rows.map(r => r.city);
-    if (!cities.length) { hideCanvas('chart-decisions', 'empty-decisions'); return; }
-
-    new Chart(document.getElementById('chart-decisions'), {
-        type: 'bar',
-        data: {
-            labels: cities,
-            datasets: [
-                {
-                    label: 'Accepted',
-                    data: rows.map(r => r.accepted || 0),
-                    backgroundColor: 'rgba(45,122,79,0.82)',
-                    borderRadius: 4,
-                    stack: 'dec',
-                },
-                {
-                    label: 'Pending',
-                    data: rows.map(r => r.pending || 0),
-                    backgroundColor: 'rgba(232,160,32,0.82)',
-                    borderRadius: 4,
-                    stack: 'dec',
-                },
-                {
-                    label: 'Rejected',
-                    data: rows.map(r => r.rejected || 0),
-                    backgroundColor: 'rgba(192,57,43,0.82)',
-                    borderRadius: 4,
-                    stack: 'dec',
-                },
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: true,
-                    position: 'bottom',
-                    labels: { boxWidth: 12, padding: 10, font: { size: 11 } }
-                },
-            },
-            scales: {
-                x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 } } },
-                y: { stacked: true, beginAtZero: true, ticks: { precision: 0 }, grid: { color: '#f0ede6' } },
-            }
-        }
-    });
-})();
-
-// ── Panel 3: Volume by City & Fiber ──────────────────────────────
+// ── Panel [0,1]: Donation Volume by NCR City (horizontal stacked) ─
 (function buildVolume() {
     const rows = DATA.volume_by_city_fiber || [];
     if (!rows.length) { hideCanvas('chart-volume', 'empty-volume'); return; }
 
-    const citySet = [...new Set(rows.map(r => r.city))].sort();
+    const citySet  = [...new Set(rows.map(r => r.city))].sort();
     const fiberSet = [...new Set(rows.map(r => r.fiber))].sort();
 
-    // Map city → fiber → weight
     const lookup = {};
     rows.forEach(r => {
         if (!lookup[r.city]) lookup[r.city] = {};
@@ -557,7 +362,7 @@ function hideCanvas(chartId, emptyId) {
         label: fiber.charAt(0).toUpperCase() + fiber.slice(1),
         data: citySet.map(city => lookup[city]?.[fiber] || 0),
         backgroundColor: FIBER_COLORS[fiber] || FIBER_COLORS.other,
-        borderRadius: 4,
+        borderRadius: 3,
         stack: 'vol',
     }));
 
@@ -565,39 +370,37 @@ function hideCanvas(chartId, emptyId) {
         type: 'bar',
         data: { labels: citySet, datasets },
         options: {
+            indexAxis: 'y',
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
                 legend: {
                     display: true,
                     position: 'bottom',
-                    labels: { boxWidth: 12, padding: 10, font: { size: 11 } }
+                    labels: { boxWidth: 12, padding: 10, font: { size: 10 } }
                 },
                 tooltip: {
-                    callbacks: {
-                        label: ctx => ` ${ctx.dataset.label}: ${ctx.raw.toFixed(2)} kg`,
-                    }
+                    callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.raw.toFixed(2)} kg` }
                 }
             },
             scales: {
-                x: { stacked: true, grid: { display: false } },
-                y: { stacked: true, beginAtZero: true, grid: { color: '#f0ede6' },
-                     ticks: { callback: v => v + ' kg' } },
+                x: { stacked: true, beginAtZero: true, grid: { color: '#f0ede6' },
+                     ticks: { callback: v => v + ' kg', font: { size: 10 } } },
+                y: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 } } },
             }
         }
     });
 })();
 
-// ── Panel 4: Top Brands ──────────────────────────────────────────
+// ── Panel [1,0]: Top 20 Brands (horizontal bar) ───────────────────
 (function buildBrands() {
     const rows = (DATA.top_brands || []).slice(0, 20);
     if (!rows.length) { hideCanvas('chart-brands', 'empty-brands'); return; }
 
-    // Dynamic height: ~26px per bar
     const wrap = document.getElementById('wrap-brands');
-    wrap.style.height = Math.max(240, rows.length * 26 + 40) + 'px';
+    wrap.style.height = Math.max(260, rows.length * 26 + 40) + 'px';
 
-    const gold = 'rgba(232,160,32,0.82)';
+    const gold     = 'rgba(232,160,32,0.82)';
     const goldDark = 'rgba(200,130,20,0.90)';
 
     new Chart(document.getElementById('chart-brands'), {
@@ -605,8 +408,8 @@ function hideCanvas(chartId, emptyId) {
         data: {
             labels: rows.map(r => r.brand),
             datasets: [{
-                label: 'Weight (kg)',
-                data: rows.map(r => r.weight_kg),
+                label: 'Items',
+                data: rows.map(r => r.item_count),
                 backgroundColor: rows.map((_, i) => i === 0 ? goldDark : gold),
                 borderRadius: 4,
                 borderSkipped: false,
@@ -620,15 +423,61 @@ function hideCanvas(chartId, emptyId) {
                 legend: { display: false },
                 tooltip: {
                     callbacks: {
-                        label: ctx => ` ${ctx.raw.toFixed(2)} kg`,
-                        afterLabel: ctx => `  ${rows[ctx.dataIndex].item_count} item${rows[ctx.dataIndex].item_count !== 1 ? 's' : ''}`,
+                        label: ctx => ` ${ctx.raw} item${ctx.raw !== 1 ? 's' : ''}`,
+                        afterLabel: ctx => `  ${rows[ctx.dataIndex].weight_kg.toFixed(2)} kg`,
                     }
                 }
             },
             scales: {
-                x: { beginAtZero: true, grid: { color: '#f0ede6' },
-                     ticks: { callback: v => v + ' kg' } },
+                x: { beginAtZero: true, grid: { color: '#f0ede6' }, ticks: { precision: 0 } },
                 y: { grid: { display: false }, ticks: { font: { size: 11 } } },
+            }
+        }
+    });
+})();
+
+// ── Panel [1,1]: Donation Decisions per NCR City (horizontal stacked) ─
+(function buildDecisions() {
+    const rows = DATA.decisions_by_city || [];
+    if (!rows.length) { hideCanvas('chart-decisions', 'empty-decisions'); return; }
+
+    const cities = rows.map(r => r.city);
+
+    new Chart(document.getElementById('chart-decisions'), {
+        type: 'bar',
+        data: {
+            labels: cities,
+            datasets: [
+                {
+                    label: 'Accepted',
+                    data: rows.map(r => r.accepted || 0),
+                    backgroundColor: 'rgba(45,122,79,0.82)',
+                    borderRadius: 3,
+                    stack: 'dec',
+                },
+                {
+                    label: 'Rejected',
+                    data: rows.map(r => r.rejected || 0),
+                    backgroundColor: 'rgba(192,57,43,0.82)',
+                    borderRadius: 3,
+                    stack: 'dec',
+                },
+            ]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'bottom',
+                    labels: { boxWidth: 12, padding: 10, font: { size: 10 } }
+                },
+            },
+            scales: {
+                x: { stacked: true, beginAtZero: true, ticks: { precision: 0 }, grid: { color: '#f0ede6' } },
+                y: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 } } },
             }
         }
     });

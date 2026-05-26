@@ -542,5 +542,31 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
             validated_data=serializer.validated_data,
             ip_address=get_client_ip(request)
         )
-        
+
         return Response(result, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'])
+    def flag(self, request, pk=None):
+        """Flags a donation with a reason. Allowed for TUAB (claimed donations) and Admin."""
+        user = request.user
+        donation = self.get_object()
+
+        if user.role not in ('TUAB', 'Admin'):
+            raise PermissionDenied("Only businesses or admins can flag donations.")
+
+        if donation.status == 'ARCHIVED':
+            exc = APIException("Archived donations cannot be flagged.")
+            exc.status_code = 409
+            raise exc
+
+        reason = (request.data.get('flag_reason') or '').strip()
+        if not reason:
+            exc = APIException("A flag reason is required.")
+            exc.status_code = 400
+            raise exc
+
+        donation.is_flagged = True
+        donation.flag_reason = reason
+        donation.save(update_fields=['is_flagged', 'flag_reason'])
+
+        return Response({'detail': f'Donation #{donation.pk} has been flagged.'}, status=status.HTTP_200_OK)
