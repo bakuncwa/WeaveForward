@@ -134,14 +134,7 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
         if user.role == 'Donor':
             queryset = queryset.filter(donor=user)
         elif user.role == 'TUAB':
-            queryset = queryset.filter(
-                Q(claimed_by_tuab=user) |
-                Q(
-                    items__match_predictions__tuab=user,
-                    items__match_predictions__recommendation_status='ACCEPTED',
-                    items__match_predictions__is_archived_version=False,
-                )
-            ).distinct()
+            queryset = queryset.filter(claimed_by_tuab=user)
         elif user.role != 'Admin':
             queryset = queryset.none()
 
