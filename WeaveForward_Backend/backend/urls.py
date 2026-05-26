@@ -46,10 +46,20 @@ urlpatterns = [
     path('inventory/snapshot', views.InventoryViewSet.as_view({'get': 'snapshot'}), name='inventory-snapshot'),
     path('inventory/<int:pk>', views.InventoryViewSet.as_view({'get': 'retrieve'}), name='inventory-detail'),
     path('inventory/<int:pk>/audit-history', views.InventoryViewSet.as_view({'get': 'audit_history'}), name='inventory-audit-history'),
+    path('inventory/<int:pk>/update-usage', views.InventoryViewSet.as_view({'patch': 'update_usage'}), name='inventory-update-usage'),
+    path('inventory/<int:pk>/archive', views.InventoryViewSet.as_view({'patch': 'archive'}), name='inventory-archive'),
+    path('inventory/<int:pk>/restore', views.InventoryViewSet.as_view({'patch': 'restore'}), name='inventory-restore'),
     path('inventory/export', views.InventoryViewSet.as_view({'get': 'export'}), name='inventory-export'),
+
+    # --- MATCH RECOMMENDATIONS ---
+    path('match-recommendations', views.MatchRecommendationViewSet.as_view({'get': 'list'}), name='match-recommendation-list'),
+    path('match-recommendations/<int:pk>', views.MatchRecommendationViewSet.as_view({'get': 'retrieve'}), name='match-recommendation-detail'),
+    path('match-recommendations/<int:pk>/accept', views.MatchRecommendationViewSet.as_view({'post': 'accept'}), name='match-recommendation-accept'),
+    path('match-recommendations/<int:pk>/reject', views.MatchRecommendationViewSet.as_view({'post': 'reject'}), name='match-recommendation-reject'),
 
     # --- IMPACT DASHBOARD ---
     path('impact-dashboard', views.ImpactDashboardViewSet.as_view({'get': 'list'}), name='impact-dashboard'),
+    path('tuab-circular-economy', views.TuabCircularEconomyViewSet.as_view({'get': 'list'}), name='tuab-circular-economy'),
 
     # --- PAYMENTS ---
     path('payments', views.PaymentListView.as_view(), name='payment-list'),

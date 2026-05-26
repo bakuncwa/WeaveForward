@@ -1,499 +1,489 @@
 {% extends 'frontend/base.html' %}
-
 {% block content %}
-<!--
-  WeaveForward - TUAB Inventory Snapshot
-  ============================================================
-  Real-time raw material stock monitoring dashboard with:
-  - Interactive map showing storage locations
-  - Aggregated inventory grid with category summary
-  - Items requiring audit flagged for attention
-  - Export and filtering capabilities
--->
 <style>
   :root {
     --gold: #e8a020;
-    --orange: #e8682c;
-    --green: #4caf50;
-    --red: #f44336;
+    --gold-dark: #c8881a;
+    --green: #2d7a4f;
+    --red: #c0392b;
     --bg: #f5f4f0;
     --border: #e0dbd4;
-    --text: #222;
+    --text: #1a1a1a;
     --muted: #888;
-    --light-bg: #fafaf8;
+    --card: #fff;
   }
 
-  * {
+  .inv-wrap { max-width: 1200px; margin: 0 auto; padding: 28px 24px; }
+
+  /* Header */
+  .inv-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+  .inv-title { font-family: 'Pixelify Sans', monospace; font-size: 32px; font-weight: 700; color: var(--text); }
+  .btn-download {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--green); color: #fff; border: none; border-radius: 8px;
+    padding: 10px 20px; font-family: 'Poppins', sans-serif; font-size: 13px;
+    font-weight: 600; cursor: pointer; text-decoration: none; transition: background .2s;
+  }
+  .btn-download:hover { background: #245f3d; }
+
+  /* Category Summary */
+  .cat-section { background: var(--card); border-radius: 14px; padding: 16px 20px; margin-bottom: 20px; border: 1.5px solid var(--border); }
+  .cat-section-label { font-family: 'Poppins', sans-serif; font-size: 12px; font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: 6px; margin-bottom: 14px; }
+  .cat-cards { display: flex; gap: 12px; flex-wrap: wrap; }
+  .cat-card {
+    border: 1.5px solid var(--border); border-radius: 10px; padding: 14px 18px;
+    min-width: 110px; flex: 1;
+  }
+  .cat-card-name { font-family: 'Poppins', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
+  .cat-card-val { font-family: 'Pixelify Sans', monospace; font-size: 32px; font-weight: 700; color: var(--text); line-height: 1; }
+  .cat-card-unit { font-family: 'Poppins', sans-serif; font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .cat-bar { height: 4px; border-radius: 2px; margin-top: 10px; }
+
+  /* Inventory Grid */
+  .inv-section { background: var(--card); border-radius: 14px; border: 1.5px solid var(--border); overflow: hidden; }
+  .inv-section-head {
+    padding: 16px 20px; border-bottom: 1.5px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  }
+  .inv-section-left { display: flex; align-items: center; gap: 10px; }
+  .inv-section-title { font-family: 'Poppins', sans-serif; font-size: 14px; font-weight: 600; color: var(--text); }
+  .inv-count-badge {
+    background: #fef7ea; color: var(--gold); border: 1px solid #f5d898;
+    border-radius: 20px; padding: 2px 10px; font-size: 11px; font-weight: 600;
     font-family: 'Poppins', sans-serif;
   }
-
-  .inv-container {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 24px;
+  .inv-section-right { display: flex; align-items: center; gap: 10px; }
+  .btn-audit-hist {
+    background: var(--gold); color: #fff; border: none; border-radius: 8px;
+    padding: 8px 16px; font-family: 'Poppins', sans-serif; font-size: 12px;
+    font-weight: 600; cursor: pointer; text-decoration: none; transition: background .2s;
+  }
+  .btn-audit-hist:hover { background: var(--gold-dark); }
+  .search-box {
+    display: flex; align-items: center; gap: 6px;
+    background: #fef7ea; border: 1.5px solid #f5d898; border-radius: 8px;
+    padding: 7px 12px;
+  }
+  .search-box input {
+    border: none; background: transparent; outline: none;
+    font-family: 'Poppins', sans-serif; font-size: 12px; color: var(--text);
+    width: 160px;
   }
 
-  .inv-header {
-    margin-bottom: 24px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  /* Table */
+  .inv-table { width: 100%; border-collapse: collapse; }
+  .inv-table th {
+    padding: 10px 16px; font-family: 'Poppins', sans-serif; font-size: 10px;
+    font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px;
+    text-align: left; border-bottom: 1.5px solid var(--border); background: #fafaf8;
   }
-
-  .inv-title {
-    font-size: 28px;
-    font-weight: 600;
-    color: var(--text);
+  .inv-table td {
+    padding: 14px 16px; font-family: 'Poppins', sans-serif; font-size: 13px;
+    font-weight: 600; color: var(--text); border-bottom: 1px solid #f0ede8;
+    vertical-align: middle;
   }
+  .inv-table tr:last-child td { border-bottom: none; }
+  .inv-table tr:hover td { background: #fafaf8; }
 
-  .inv-actions {
-    display: flex;
-    gap: 12px;
+  /* Weight bar */
+  .weight-cell { display: flex; align-items: center; gap: 10px; }
+  .weight-bar-wrap { width: 80px; height: 6px; background: #f0ede8; border-radius: 3px; overflow: hidden; flex-shrink: 0; }
+  .weight-bar { height: 100%; border-radius: 3px; }
+
+  /* Status badge */
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
+    font-family: 'Poppins', sans-serif; white-space: nowrap;
   }
+  .badge-audit { background: #fff3cd; color: #856404; border: 1px solid #ffd166; }
+  .badge-active { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
 
-  .btn-export {
-    padding: 10px 20px;
-    background: var(--gold);
-    color: white;
-    border: none;
-    border-radius: 8px;
+  /* Action buttons */
+  .act-btn {
+    padding: 5px 12px; border-radius: 6px; font-family: 'Poppins', sans-serif;
+    font-size: 11px; font-weight: 600; cursor: pointer; border: none; transition: .2s;
+  }
+  .act-update { background: #e8f5e9; color: #2d7a4f; margin-right: 4px; }
+  .act-update:hover { background: #c8e6c9; }
+  .act-delete { background: #fde8e6; color: var(--red); }
+  .act-delete:hover { background: #f5c6c2; }
+
+  /* Footer */
+  .inv-footer { padding: 12px 20px; font-family: 'Poppins', sans-serif; font-size: 12px; color: var(--muted); }
+
+  /* ── Modals ── */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 9000; display: flex;
+    align-items: center; justify-content: center; background: rgba(0,0,0,.35);
+  }
+  .modal-card {
+    background: #fff; border-radius: 16px; padding: 28px 28px 24px;
+    width: 380px; max-width: 95vw; box-shadow: 0 20px 60px rgba(0,0,0,.2);
+  }
+  .modal-warn { font-family: 'Poppins', sans-serif; font-size: 13px; color: #856404; background: #fff3cd; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; line-height: 1.5; }
+  .modal-label { font-family: 'Poppins', sans-serif; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+  .modal-meta { font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 16px; }
+  .modal-input {
+    width: 100%; border: 1.5px solid var(--border); border-radius: 8px;
+    padding: 10px 14px; font-family: 'Poppins', sans-serif; font-size: 14px;
+    outline: none; margin-bottom: 20px; box-sizing: border-box;
+  }
+  .modal-input:focus { border-color: var(--gold); }
+  .modal-select {
+    width: 100%; border: 1.5px solid var(--border); border-radius: 8px;
+    padding: 10px 14px; font-family: 'Poppins', sans-serif; font-size: 14px;
+    outline: none; margin-bottom: 20px; box-sizing: border-box; background: #fff;
     cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    transition: background 0.2s;
+  }
+  .modal-error { font-family: 'Poppins', sans-serif; font-size: 12px; color: var(--red); margin-bottom: 10px; display: none; }
+  .modal-btns { display: flex; gap: 10px; justify-content: flex-end; }
+  .btn-cancel {
+    padding: 9px 20px; background: #fef7ea; border: 1.5px solid #f5d898;
+    border-radius: 8px; color: #888; font-family: 'Poppins', sans-serif;
+    font-size: 13px; cursor: pointer;
+  }
+  .btn-confirm-update {
+    padding: 9px 20px; background: var(--green); border: none;
+    border-radius: 8px; color: #fff; font-family: 'Poppins', sans-serif;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .btn-confirm-archive {
+    padding: 9px 20px; background: var(--red); border: none;
+    border-radius: 8px; color: #fff; font-family: 'Poppins', sans-serif;
+    font-size: 13px; font-weight: 600; cursor: pointer;
   }
 
-  .btn-export:hover {
-    background: #d18f1c;
+  /* Undo toast */
+  .undo-toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    z-index: 9500; background: #fff; border-radius: 12px; padding: 14px 20px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.18); display: flex; align-items: center;
+    gap: 12px; min-width: 320px; border: 1.5px solid var(--border);
+    font-family: 'Poppins', sans-serif;
   }
+  .undo-icon { width: 28px; height: 28px; border: 2px solid var(--gold); border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .undo-msg { font-size: 13px; font-weight: 600; color: var(--text); flex: 1; }
+  .undo-btn { font-size: 13px; font-weight: 700; color: var(--gold); cursor: pointer; background: none; border: none; font-family: 'Poppins', sans-serif; padding: 0; }
 
-  /* Summary Cards */
-  .inv-summary {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 16px;
-    margin-bottom: 24px;
-  }
-
-  .summary-card {
-    background: white;
-    border: 1.5px solid var(--border);
-    border-radius: 12px;
-    padding: 20px;
-    text-align: center;
-  }
-
-  .summary-card-title {
-    font-size: 12px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 8px;
-    font-weight: 500;
-  }
-
-  .summary-card-value {
-    font-size: 32px;
-    font-weight: 700;
-    color: var(--orange);
-    margin-bottom: 8px;
-  }
-
-  .summary-card-meta {
-    font-size: 12px;
-    color: var(--muted);
-  }
-
-  .audit-badge {
-    display: inline-block;
-    background: #fff3cd;
-    color: #856404;
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 600;
-    margin-top: 8px;
-  }
-
-  /* Map Section */
-  .inv-map-section {
-    background: white;
-    border: 1.5px solid var(--border);
-    border-radius: 14px;
-    padding: 16px;
-    margin-bottom: 24px;
-    overflow: hidden;
-  }
-
-  .inv-map-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text);
-    margin-bottom: 12px;
-  }
-
-  #inventory-map {
-    width: 100%;
-    height: 350px;
-    border-radius: 10px;
-  }
-
-  /* Table Section */
-  .inv-table-section {
-    background: white;
-    border: 1.5px solid var(--border);
-    border-radius: 14px;
-    overflow: hidden;
-  }
-
-  .table-header {
-    padding: 16px;
-    border-bottom: 1.5px solid var(--border);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .table-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text);
-  }
-
-  .table-controls {
-    display: flex;
-    gap: 12px;
-  }
-
-  .search-input {
-    padding: 8px 14px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    font-size: 13px;
-    width: 200px;
-  }
-
-  .filter-btn {
-    padding: 8px 14px;
-    background: var(--light-bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text);
-  }
-
-  .filter-btn:hover {
-    background: var(--bg);
-  }
-
-  .table-scroll {
-    overflow-x: auto;
-  }
-
-  table.inventory-table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  table.inventory-table thead {
-    background: var(--light-bg);
-  }
-
-  table.inventory-table th {
-    padding: 12px 16px;
-    text-align: left;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    border-bottom: 1.5px solid var(--border);
-  }
-
-  table.inventory-table td {
-    padding: 14px 16px;
-    font-size: 13px;
-    color: var(--text);
-    border-bottom: 1px solid #ece8e2;
-  }
-
-  table.inventory-table tr:hover {
-    background: var(--light-bg);
-  }
-
-  .item-status-badge {
-    display: inline-block;
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-size: 11px;
-    font-weight: 600;
-  }
-
-  .badge-audit-required {
-    background: #fff3cd;
-    color: #856404;
-  }
-
-  .badge-active {
-    background: #d4edda;
-    color: #155724;
-  }
-
-  .action-links {
-    display: flex;
-    gap: 8px;
-  }
-
-  .action-link {
-    padding: 6px 12px;
-    background: var(--gold);
-    color: white;
-    border-radius: 6px;
-    text-decoration: none;
-    font-size: 12px;
-    font-weight: 500;
-    transition: background 0.2s;
-  }
-
-  .action-link:hover {
-    background: #d18f1c;
-  }
-
-  .no-data {
-    text-align: center;
-    padding: 40px;
-    color: var(--muted);
-    font-size: 14px;
-  }
+  .hidden { display: none !important; }
 
   @media (max-width: 768px) {
-    .inv-container {
-      padding: 16px;
-    }
-
-    .inv-header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 16px;
-    }
-
-    .inv-summary {
-      grid-template-columns: 1fr 1fr;
-    }
-
-    #inventory-map {
-      height: 250px;
-    }
-
-    .table-controls {
-      flex-direction: column;
-      width: 100%;
-    }
-
-    .search-input {
-      width: 100%;
-    }
-
-    table.inventory-table {
-      font-size: 12px;
-    }
-
-    table.inventory-table th,
-    table.inventory-table td {
-      padding: 10px 12px;
-    }
+    .inv-wrap { padding: 16px; }
+    .inv-section-head { flex-wrap: wrap; }
+    .cat-cards { grid-template-columns: 1fr 1fr; }
   }
 </style>
 
-<div class="inv-container">
+<div class="inv-wrap">
   <!-- Header -->
-  <div class="inv-header">
+  <div class="inv-head">
     <h1 class="inv-title">Inventory Snapshot</h1>
-    <div class="inv-actions">
-      <button class="btn-export" onclick="exportInventoryData()">Download File</button>
-    </div>
+    <button class="btn-download" onclick="exportInventoryData()">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download
+    </button>
   </div>
 
-  <!-- Summary Cards -->
-  <div class="inv-summary">
-    <div class="summary-card">
-      <div class="summary-card-title">Total Items</div>
-      <div class="summary-card-value">{{ total_items }}</div>
-      <div class="summary-card-meta">in stock</div>
+  <!-- Category Summary -->
+  {% if category_summary %}
+  <div class="cat-section">
+    <div class="cat-section-label">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Category Summary
     </div>
-    <div class="summary-card">
-      <div class="summary-card-title">Total Weight</div>
-      <div class="summary-card-value">{{ total_weight_kg|floatformat:1 }}</div>
-      <div class="summary-card-meta">kilograms</div>
-    </div>
-    <div class="summary-card">
-      <div class="summary-card-title">Audit Required</div>
-      <div class="summary-card-value" style="color: var(--red);">{{ audit_required_count }}</div>
-      <div class="summary-card-meta">&gt; 30 days old</div>
-      {% if audit_required_count > 0 %}
-      <div class="audit-badge">⚠️ Action Needed</div>
-      {% endif %}
+    <div class="cat-cards">
+      {% for cat in category_summary %}
+      {% if forloop.counter == 1 %}<div class="cat-card" style="border-left:4px solid #4299e1">{% elif forloop.counter == 2 %}<div class="cat-card" style="border-left:4px solid #48bb78">{% elif forloop.counter == 3 %}<div class="cat-card" style="border-left:4px solid #9f7aea">{% elif forloop.counter == 4 %}<div class="cat-card" style="border-left:4px solid #ed8936">{% else %}<div class="cat-card" style="border-left:4px solid #f687b3">{% endif %}
+        <div class="cat-card-name">{{ cat.category|upper }}</div>
+        <div class="cat-card-val">{{ cat.total_weight_kg|floatformat:0 }}</div>
+        <div class="cat-card-unit">kg</div>
+      </div>
+      {% endfor %}
     </div>
   </div>
+  {% endif %}
 
-  <!-- Map Section -->
-  <div class="inv-map-section">
-    <div class="inv-map-title">Storage Locations</div>
-    <div id="inventory-map"></div>
-  </div>
-
-  <!-- Inventory Table -->
-  <div class="inv-table-section">
-    <div class="table-header">
-      <div class="table-title">Inventory Items</div>
-      <div class="table-controls">
-        <input type="text" class="search-input" id="search-inv" placeholder="Search by donor or address...">
-        <button class="filter-btn" onclick="filterByAuditStatus()">Filter: All Items</button>
+  <!-- Inventory Grid -->
+  <div class="inv-section">
+    <div class="inv-section-head">
+      <div class="inv-section-left">
+        <svg width="16" height="16" fill="none" stroke="#888" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        <span class="inv-section-title">Inventory Grid</span>
+        <span class="inv-count-badge" id="item-count">{{ inventory_items|length }} items</span>
+      </div>
+      <div class="inv-section-right">
+        <a href="#" class="btn-audit-hist" onclick="viewAuditHistory(event)">View Audit History</a>
+        <div class="search-box">
+          <svg width="13" height="13" fill="none" stroke="#c0952a" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="inv-search" placeholder="Search" oninput="filterRows(this.value)">
+        </div>
       </div>
     </div>
-    <div class="table-scroll">
+
+    <!-- Undo toast (hidden by default) -->
+    <div id="undo-toast" class="undo-toast hidden">
+      <div class="undo-icon"></div>
+      <span class="undo-msg">Your item has been deleted</span>
+      <button class="undo-btn" onclick="undoArchive()">Undo</button>
+    </div>
+
+    <div style="overflow-x:auto">
       {% if inventory_items %}
-      <table class="inventory-table" id="inventory-table">
+      <table class="inv-table" id="inv-table">
         <thead>
           <tr>
+            <th>Inventory ID</th>
             <th>Donation ID</th>
-            <th>Donor</th>
-            <th>Address</th>
-            <th>Items</th>
-            <th>Weight (kg)</th>
-            <th>Category</th>
+            <th>Current Weight</th>
+            <th>Last Audit</th>
             <th>Status</th>
             <th>Actions</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="inv-tbody">
           {% for item in inventory_items %}
-          <tr data-audit="{{ item.audit_required|lower }}">
-            <td>#{{ item.donation_id }}</td>
-            <td>{{ item.donor_name }}</td>
-            <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-              {{ item.address }}
+          {% with pct=item.current_weight_kg|floatformat:0 %}
+          <tr id="row-{{ item.inventory_id }}" data-search="{{ item.donor_name|lower }} {{ item.donation_id }} {{ item.inventory_id }}">
+            <td>{{ item.inventory_id }}</td>
+            <td>{{ item.donation_id }}</td>
+            <td>
+              <div class="weight-cell">
+                <div class="weight-bar-wrap">
+                  <div class="weight-bar" style="width:{% if item.weight_before_kg > 0 %}{% widthratio item.current_weight_kg item.weight_before_kg 100 %}{% else %}0{% endif %}%; background: {% if item.audit_required %}#e8a020{% else %}#48bb78{% endif %};"></div>
+                </div>
+                <span>{{ item.current_weight_kg|floatformat:2 }} kg</span>
+              </div>
             </td>
-            <td>{{ item.items_count }}</td>
-            <td>{{ item.current_weight_kg|floatformat:2 }}</td>
-            <td>{{ item.material_category }}</td>
+            <td>{{ item.last_audit|default:"—" }}</td>
             <td>
               {% if item.audit_required %}
-              <span class="item-status-badge badge-audit-required">⚠️ Audit Required</span>
+              <span class="status-badge badge-audit">⚠ Audit Required</span>
               {% else %}
-              <span class="item-status-badge badge-active">Active</span>
+              <span class="status-badge badge-active">Active</span>
               {% endif %}
             </td>
             <td>
-              <div class="action-links">
-                <a href="{% url 'tuab_view_inventory_item' item.inventory_id %}" class="action-link">View</a>
-              </div>
+              <button class="act-btn act-update"
+                onclick="openUpdateModal({{ item.inventory_id }}, {{ item.current_weight_kg }}, {{ item.low_stock_threshold }})">
+                Update
+              </button>
+              <button class="act-btn act-delete"
+                onclick="openArchiveModal({{ item.inventory_id }}, {{ item.current_weight_kg }})">
+                Delete
+              </button>
             </td>
           </tr>
+          {% endwith %}
           {% endfor %}
         </tbody>
       </table>
       {% else %}
-      <div class="no-data">
-        <p>No inventory records found. Start by receiving donations.</p>
+      <div style="text-align:center;padding:40px;font-family:'Poppins',sans-serif;font-size:14px;color:#aaa;">
+        No inventory records found. Receive donations to start tracking stock.
       </div>
       {% endif %}
+    </div>
+
+    <div class="inv-footer" id="inv-footer">
+      Showing {{ inventory_items|length }} of {{ inventory_items|length }} items
     </div>
   </div>
 </div>
 
-<!-- Leaflet Map Libraries -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<!-- Update Usage Modal -->
+<div id="update-modal" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-label">Current Weight</div>
+    <div class="modal-meta" id="update-current-weight">— kg</div>
+    <div class="modal-label">Usage Amount (kg)</div>
+    <input id="usage-input" class="modal-input" type="number" step="0.001" min="0.001" placeholder="e.g. 0.500">
+    <div id="update-error" class="modal-error"></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeUpdateModal()">Cancel</button>
+      <button class="btn-confirm-update" onclick="submitUpdate()">Update</button>
+    </div>
+  </div>
+</div>
+
+<!-- Archive Modal -->
+<div id="archive-modal" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div id="archive-warn" class="modal-warn hidden">
+      Item still has usable stock. Archiving will force-remove it from active inventory.
+    </div>
+    <div class="modal-label">Exit State</div>
+    <select id="exit-state-select" class="modal-select">
+      <option value="UPCYCLED">Upcycled</option>
+      <option value="SHREDDED">Shredded</option>
+      <option value="LANDFILL">Landfill</option>
+    </select>
+    <div id="archive-error" class="modal-error"></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeArchiveModal()">Cancel</button>
+      <button class="btn-confirm-archive" onclick="submitArchive()">Archive</button>
+    </div>
+  </div>
+</div>
 
 <script>
-  // Initialize map
-  let map;
-  const locationsData = {{ locations_json|safe }};
+  const getCsrf = () => {
+    const m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? m[1] : '';
+  };
 
-  function initInventoryMap() {
-    if (locationsData.length === 0) {
-      document.getElementById('inventory-map').innerHTML = '<div class="no-data">No location data available</div>';
-      return;
-    }
+  const PROXY_URLS = {
+    {% for item in inventory_items %}
+    {{ item.inventory_id }}: {
+      update: "{% url 'tuab_inventory_update_usage' item.inventory_id %}",
+      archive: "{% url 'tuab_inventory_archive' item.inventory_id %}",
+      restore: "{% url 'tuab_inventory_restore' item.inventory_id %}"
+    },
+    {% endfor %}
+  };
 
-    // Initialize map centered on first location
-    map = L.map('inventory-map').setView(
-      [locationsData[0].lat, locationsData[0].lng],
-      12
-    );
+  let activeInventoryId = null;
+  let undoTimer = null;
+  let lastArchivedId = null;
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
-      maxZoom: 19
-    }).addTo(map);
-
-    // Add markers for each location
-    locationsData.forEach((loc, idx) => {
-      const marker = L.marker([loc.lat, loc.lng])
-        .bindPopup(`
-          <div style="font-family: Poppins; font-size: 12px;">
-            <strong>${loc.donor}</strong><br>
-            ${loc.address}<br>
-            <a href="/tuab/inventory/${loc.inventory_id}/" style="color: #e8a020; text-decoration: none;">View Details →</a>
-          </div>
-        `)
-        .addTo(map);
-
-      if (idx === 0) marker.openPopup();
-    });
-
-    // Fit all markers in view if multiple
-    if (locationsData.length > 1) {
-      const group = new L.featureGroup(
-        locationsData.map((loc, idx) => L.marker([loc.lat, loc.lng]))
-      );
-      map.fitBounds(group.getBounds().pad(0.1));
-    }
+  /* ── Update Modal ── */
+  function openUpdateModal(id, currentKg, threshold) {
+    activeInventoryId = id;
+    document.getElementById('update-current-weight').textContent = `Current Weight: ${parseFloat(currentKg).toFixed(2)} kg`;
+    document.getElementById('usage-input').value = '';
+    document.getElementById('update-error').style.display = 'none';
+    document.getElementById('update-modal').classList.remove('hidden');
+    document.getElementById('usage-input').focus();
   }
+  function closeUpdateModal() {
+    document.getElementById('update-modal').classList.add('hidden');
+    activeInventoryId = null;
+  }
+  async function submitUpdate() {
+    const usage = parseFloat(document.getElementById('usage-input').value);
+    const errEl = document.getElementById('update-error');
+    errEl.style.display = 'none';
+    if (!usage || usage <= 0) { errEl.textContent = 'Enter a valid usage amount.'; errEl.style.display = 'block'; return; }
 
-  // Search functionality
-  document.getElementById('search-inv').addEventListener('keyup', function(e) {
-    const query = e.target.value.toLowerCase();
-    const rows = document.querySelectorAll('#inventory-table tbody tr');
-    
-    rows.forEach(row => {
-      const text = row.textContent.toLowerCase();
-      row.style.display = text.includes(query) ? '' : 'none';
-    });
-  });
+    try {
+      const res = await fetch(PROXY_URLS[activeInventoryId].update, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify({ usage_amount_kg: usage })
+      });
+      const data = await res.json();
+      if (!res.ok) { errEl.textContent = data.error || 'Update failed.'; errEl.style.display = 'block'; return; }
 
-  // Filter by audit status
-  let filterMode = 'all';
-  function filterByAuditStatus() {
-    const btn = event.target;
-    
-    if (filterMode === 'all') {
-      filterMode = 'audit';
-      btn.textContent = 'Filter: Audit Required';
-    } else if (filterMode === 'audit') {
-      filterMode = 'active';
-      btn.textContent = 'Filter: Active Only';
-    } else {
-      filterMode = 'all';
-      btn.textContent = 'Filter: All Items';
-    }
-
-    const rows = document.querySelectorAll('#inventory-table tbody tr');
-    rows.forEach(row => {
-      if (filterMode === 'all') {
-        row.style.display = '';
-      } else if (filterMode === 'audit') {
-        row.style.display = row.dataset.audit === 'true' ? '' : 'none';
-      } else if (filterMode === 'active') {
-        row.style.display = row.dataset.audit === 'false' ? '' : 'none';
+      closeUpdateModal();
+      if (data.low_stock_alert) {
+        showToast(`Low stock alert: inventory #${activeInventoryId} is below threshold.`, false);
       }
-    });
+      window.location.reload();
+    } catch { errEl.textContent = 'Network error. Please try again.'; errEl.style.display = 'block'; }
   }
 
-  // Export data
+  /* ── Archive Modal ── */
+  function openArchiveModal(id, currentKg) {
+    activeInventoryId = id;
+    const warn = document.getElementById('archive-warn');
+    warn.classList.toggle('hidden', parseFloat(currentKg) <= 0);
+    document.getElementById('exit-state-select').value = 'UPCYCLED';
+    document.getElementById('archive-error').style.display = 'none';
+    document.getElementById('archive-modal').classList.remove('hidden');
+  }
+  function closeArchiveModal() {
+    document.getElementById('archive-modal').classList.add('hidden');
+    activeInventoryId = null;
+  }
+  async function submitArchive() {
+    const exitState = document.getElementById('exit-state-select').value;
+    const errEl = document.getElementById('archive-error');
+    errEl.style.display = 'none';
+
+    try {
+      const res = await fetch(PROXY_URLS[activeInventoryId].archive, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify({ exit_state: exitState })
+      });
+      const data = await res.json();
+      if (!res.ok) { errEl.textContent = data.error || 'Archive failed.'; errEl.style.display = 'block'; return; }
+
+      lastArchivedId = activeInventoryId;
+      closeArchiveModal();
+      hideRow(lastArchivedId);
+      showUndoToast();
+    } catch { errEl.textContent = 'Network error. Please try again.'; errEl.style.display = 'block'; }
+  }
+
+  /* ── Undo ── */
+  function hideRow(id) {
+    const row = document.getElementById(`row-${id}`);
+    if (row) row.classList.add('hidden');
+    updateFooterCount();
+  }
+  function showRow(id) {
+    const row = document.getElementById(`row-${id}`);
+    if (row) row.classList.remove('hidden');
+    updateFooterCount();
+  }
+  function updateFooterCount() {
+    const visible = document.querySelectorAll('#inv-tbody tr:not(.hidden)').length;
+    const total = document.querySelectorAll('#inv-tbody tr').length;
+    document.getElementById('inv-footer').textContent = `Showing ${visible} of ${total} items`;
+    document.getElementById('item-count').textContent = `${visible} items`;
+  }
+  function showUndoToast() {
+    clearTimeout(undoTimer);
+    document.getElementById('undo-toast').classList.remove('hidden');
+    undoTimer = setTimeout(() => {
+      document.getElementById('undo-toast').classList.add('hidden');
+      lastArchivedId = null;
+    }, 10000);
+  }
+  async function undoArchive() {
+    if (!lastArchivedId) return;
+    clearTimeout(undoTimer);
+    document.getElementById('undo-toast').classList.add('hidden');
+
+    try {
+      const res = await fetch(PROXY_URLS[lastArchivedId].restore, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: '{}'
+      });
+      if (res.ok) {
+        showRow(lastArchivedId);
+      } else {
+        const d = await res.json();
+        alert(d.error || 'Restore failed.');
+        window.location.reload();
+      }
+    } catch { window.location.reload(); }
+    lastArchivedId = null;
+  }
+
+  /* ── Search ── */
+  function filterRows(q) {
+    const rows = document.querySelectorAll('#inv-tbody tr');
+    const lq = q.toLowerCase();
+    rows.forEach(r => {
+      const match = !lq || r.dataset.search.includes(lq);
+      r.style.display = match ? '' : 'none';
+    });
+    updateFooterCount();
+  }
+
+  /* ── Audit History ── */
+  function viewAuditHistory(e) {
+    e.preventDefault();
+    const firstId = document.querySelector('#inv-tbody tr')?.id?.replace('row-', '');
+    if (firstId) window.location.href = `/tuab/inventory/${firstId}/`;
+    else alert('No inventory items to view audit history for.');
+  }
+
+  /* ── Export ── */
   function exportInventoryData() {
     const data = {
       generated_at: new Date().toISOString(),
@@ -502,28 +492,25 @@
       items: [
         {% for item in inventory_items %}
         {
+          inventory_id: {{ item.inventory_id }},
           donation_id: {{ item.donation_id }},
-          donor: '{{ item.donor_name }}',
-          address: '{{ item.address }}',
-          items_count: {{ item.items_count }},
-          weight_kg: {{ item.current_weight_kg }},
-          category: '{{ item.material_category }}',
+          donor: '{{ item.donor_name|escapejs }}',
+          current_weight_kg: {{ item.current_weight_kg }},
           audit_required: {{ item.audit_required|lower }}
-        }{{ forloop.last|yesno:'',','  }}
+        }{% if not forloop.last %},{% endif %}
         {% endfor %}
       ]
     };
-
-    const dataStr = JSON.stringify(data, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `inventory-snapshot-${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `inventory-snapshot-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
   }
 
-  // Initialize on page load
-  document.addEventListener('DOMContentLoaded', initInventoryMap);
+  /* Close modals on backdrop click */
+  document.getElementById('update-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeUpdateModal(); });
+  document.getElementById('archive-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeArchiveModal(); });
 </script>
 {% endblock %}

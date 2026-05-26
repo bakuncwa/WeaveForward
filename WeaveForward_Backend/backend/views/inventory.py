@@ -13,7 +13,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied, NotFound
 
-from ..models import InventoryLedger, InventoryLifecycleStatus
+from decimal import Decimal, InvalidOperation
+from ..models import InventoryLedger, InventoryLifecycleStatus, InventoryExitState
 from ..serializers.inventory import (
     InventoryLedgerSerializer,
     InventoryAuditHistorySerializer,
@@ -191,3 +192,84 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Re
             },
             'inventory_items': serializer.data
         })
+
+    @action(detail=True, methods=['patch'])
+    def update_usage(self, request, pk=None):
+        """
+        Log material consumption: subtracts usage_amount_kg from current_weight_kg.
+        Blocks if usage would result in negative stock.
+        """
+        instance = self.get_object()
+        if instance.source_donation.claimed_by_tuab != request.user:
+            raise PermissionDenied("Access denied.")
+        if instance.lifecycle_status != InventoryLifecycleStatus.ACTIVE:
+            return Response({'error': 'Item is not in active inventory.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            usage = Decimal(str(request.data.get('usage_amount_kg', 0)))
+        except (InvalidOperation, TypeError):
+            return Response({'error': 'Invalid usage amount.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if usage <= 0:
+            return Response({'error': 'Usage amount must be greater than zero.'}, status=status.HTTP_400_BAD_REQUEST)
+        if usage > instance.current_weight_kg:
+            return Response({'error': 'Negative stock not allowed. Usage exceeds current stock.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        instance.usage_amount_kg += usage
+        instance.current_weight_kg -= usage
+        instance.notes = request.data.get('notes') or instance.notes
+        instance.save()
+
+        low_stock = instance.current_weight_kg < instance.low_stock_threshold
+        serializer = self.get_serializer(instance)
+        return Response({**serializer.data, 'low_stock_alert': low_stock}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['patch'])
+    def archive(self, request, pk=None):
+        """
+        Archive an inventory item with an exit state (UPCYCLED, SHREDDED, LANDFILL).
+        If item still has stock, requires force confirmation (was_forced_archived=True).
+        """
+        instance = self.get_object()
+        if instance.source_donation.claimed_by_tuab != request.user:
+            raise PermissionDenied("Access denied.")
+        if instance.lifecycle_status == InventoryLifecycleStatus.ARCHIVED:
+            return Response({'error': 'Item is already archived.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        exit_state_raw = (request.data.get('exit_state') or '').upper()
+        valid_exit_states = [c[0] for c in InventoryExitState.choices]
+        if exit_state_raw not in valid_exit_states:
+            return Response({'error': f'Invalid exit state. Choose from: {", ".join(valid_exit_states)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        instance.lifecycle_status = InventoryLifecycleStatus.ARCHIVED
+        instance.exit_state = exit_state_raw
+        instance.archived_at = timezone.now()
+        instance.was_forced_archived = instance.current_weight_kg > 0
+        instance.save()
+
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['patch'])
+    def restore(self, request, pk=None):
+        """
+        Restore a recently archived inventory item (undo within grace period).
+        """
+        instance = self.get_object()
+        if instance.source_donation.claimed_by_tuab != request.user:
+            raise PermissionDenied("Access denied.")
+        if instance.lifecycle_status != InventoryLifecycleStatus.ARCHIVED:
+            return Response({'error': 'Item is not archived.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Allow restore only within 30 seconds of archiving
+        if instance.archived_at and (timezone.now() - instance.archived_at).total_seconds() > 30:
+            return Response({'error': 'Undo window has expired.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        instance.lifecycle_status = InventoryLifecycleStatus.ACTIVE
+        instance.exit_state = None
+        instance.archived_at = None
+        instance.was_forced_archived = False
+        instance.save()
+
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data, status=status.HTTP_200_OK)

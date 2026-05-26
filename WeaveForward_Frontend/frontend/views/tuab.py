@@ -611,6 +611,15 @@ async def tuab_inventory_snapshot(request):
     formatted_items = []
     for item in inventory_items:
         source_donation = item.get('source_donation', {})
+        updated_raw = item.get('updated_at', '')
+        last_audit = ''
+        if updated_raw:
+            try:
+                from datetime import datetime
+                dt = datetime.fromisoformat(updated_raw.replace('Z', '+00:00'))
+                last_audit = dt.strftime('%-m-%-d-%Y')
+            except Exception:
+                last_audit = updated_raw[:10]
         formatted_item = {
             'inventory_id': item.get('inventory_id'),
             'donation_id': source_donation.get('donation_id'),
@@ -618,9 +627,13 @@ async def tuab_inventory_snapshot(request):
             'address': source_donation.get('pickup_display_address', ''),
             'items_count': len(source_donation.get('items', [])),
             'current_weight_kg': float(item.get('current_weight_kg', 0)),
+            'weight_before_kg': float(item.get('weight_before_kg', 0)),
+            'usage_amount_kg': float(item.get('usage_amount_kg', 0)),
+            'low_stock_threshold': float(item.get('low_stock_threshold', 1.3)),
             'audit_required': item.get('audit_required', False),
             'days_since_audit': item.get('days_since_audit', 0),
             'material_category': item.get('material_category', 'Mixed'),
+            'last_audit': last_audit,
         }
         formatted_items.append(formatted_item)
     
@@ -693,4 +706,162 @@ async def tuab_view_inventory_item(request, inventory_id):
         'pickup_address': source_donation.get('pickup_display_address', ''),
         'pickup_latitude': source_donation.get('pickup_latitude', ''),
         'pickup_longitude': source_donation.get('pickup_longitude', ''),
+    })
+
+
+async def tuab_inventory_update_usage_proxy(request, inventory_id):
+    """Proxy: PATCH usage amount for an inventory item."""
+    if request.method != 'PATCH':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    try:
+        body = json.loads(request.body)
+        res = await api_call(request, 'PATCH', f'inventory/{inventory_id}/update-usage', json=body)
+        return JsonResponse(res.json(), status=res.status_code)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=503)
+
+
+async def tuab_inventory_archive_proxy(request, inventory_id):
+    """Proxy: Archive an inventory item with an exit state."""
+    if request.method != 'PATCH':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    try:
+        body = json.loads(request.body)
+        res = await api_call(request, 'PATCH', f'inventory/{inventory_id}/archive', json=body)
+        return JsonResponse(res.json(), status=res.status_code)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=503)
+
+
+async def tuab_inventory_restore_proxy(request, inventory_id):
+    """Proxy: Restore (undo) a recently archived inventory item."""
+    if request.method != 'PATCH':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    try:
+        res = await api_call(request, 'PATCH', f'inventory/{inventory_id}/restore', json={})
+        return JsonResponse(res.json(), status=res.status_code)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=503)
+
+
+async def tuab_circular_economy(request):
+    """TUAB Circular Economy Impact Dashboard — Chart.js 4-panel view."""
+    profile = request.user_profile
+
+    date_from = request.GET.get('date_from', '')
+    date_to   = request.GET.get('date_to', '')
+
+    params = {}
+    if date_from:
+        params['date_from'] = date_from
+    if date_to:
+        params['date_to'] = date_to
+
+    dashboard_data = {
+        'biodeg_distribution': [],
+        'volume_by_city_fiber': [],
+        'top_brands': [],
+        'decisions_by_city': [],
+    }
+    error_message = None
+
+    try:
+        res = await api_call(request, 'GET', 'tuab-circular-economy', params=params)
+        if res and not isinstance(res, Exception) and res.status_code == 200:
+            dashboard_data = res.json()
+        elif res and not isinstance(res, Exception) and res.status_code == 403:
+            error_message = "Access denied. Only TUABs can view this dashboard."
+        else:
+            error_message = "Unable to load dashboard data. Please try again later."
+    except Exception:
+        error_message = "An error occurred while loading the dashboard."
+
+    return render(request, 'frontend/tuabs/tuab_circular_economy.html', {
+        'page_title': 'Circular Economy',
+        'sidebar_variant': 'tuab',
+        'user': profile,
+        'date_from': date_from,
+        'date_to': date_to,
+        'error_message': error_message,
+        'dashboard_json': json.dumps(dashboard_data),
+    })
+
+
+async def tuab_view_fiber_match_recommendations(request):
+    """TUAB Fiber-Match Recommendations - View and act on donation recommendations."""
+    profile = request.user_profile
+    page = request.GET.get('page', 1)
+
+    filters_param = {
+        'fiber_type': request.GET.get('fiber_type', ''),
+        'biodeg_tier': request.GET.get('biodeg_tier', ''),
+        'city': request.GET.get('city', ''),
+        'confidence_min': request.GET.get('confidence_min', ''),
+        'confidence_max': request.GET.get('confidence_max', ''),
+        'date_after': request.GET.get('date_after', ''),
+        'date_before': request.GET.get('date_before', ''),
+    }
+
+    recommendations = []
+    pagination_meta = {'current': int(page), 'has_next': False, 'has_prev': int(page) > 1, 'count': 0}
+    error_message = None
+
+    try:
+        params = {'page': page}
+        for key, value in filters_param.items():
+            if value:
+                if key == 'confidence_min':
+                    try:
+                        params['confidence_min'] = float(value)
+                    except (ValueError, TypeError):
+                        pass
+                elif key == 'confidence_max':
+                    try:
+                        params['confidence_max'] = float(value)
+                    except (ValueError, TypeError):
+                        pass
+                elif key != 'biodeg_tier':
+                    params[key] = value
+
+        res = await api_call(request, 'GET', 'match-recommendations', params=params)
+
+        if res and not isinstance(res, Exception) and res.status_code == 200:
+            data = res.json()
+            recommendations = data.get('results', [])
+            pagination_meta['has_next'] = data.get('next') is not None
+            pagination_meta['count'] = data.get('count', 0)
+        elif res and not isinstance(res, Exception) and res.status_code == 403:
+            error_message = "You don't have an active subscription to access Donation Recommendations. Please upgrade."
+        else:
+            error_message = "Unable to load recommendations. Please try again later."
+    except Exception as e:
+        error_message = "An error occurred while loading recommendations."
+
+    available_fibers = []
+    available_cities = set()
+
+    try:
+        fibers_res = await api_call(request, 'GET', 'fibers')
+        if fibers_res and not isinstance(fibers_res, Exception) and fibers_res.status_code == 200:
+            data = fibers_res.json()
+            available_fibers = data.get('results', []) if isinstance(data, dict) else data
+    except Exception:
+        pass
+
+    for rec in recommendations:
+        city = rec.get('donation', {}).get('pickup_city', '')
+        if city:
+            available_cities.add(city)
+
+    return render(request, 'frontend/tuabs/tuab_view_fiber_match_recommendations.html', {
+        'page_title': 'Fiber-Match Recommendations',
+        'sidebar_variant': 'tuab',
+        'user': profile,
+        'recommendations': recommendations,
+        'pagination_meta': pagination_meta,
+        'error_message': error_message,
+        'active_filters': filters_param,
+        'available_fibers': available_fibers,
+        'available_cities': sorted(list(available_cities)),
+        'recommendations_json': json.dumps(recommendations),
     })

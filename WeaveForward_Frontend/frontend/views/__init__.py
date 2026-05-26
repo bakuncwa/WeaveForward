@@ -23,6 +23,13 @@ from .tuab import (
     tuab_quotation_proxy,
     tuab_update_incoming_donation,
     tuab_view_payments,
+    tuab_inventory_snapshot,
+    tuab_view_inventory_item,
+    tuab_inventory_update_usage_proxy,
+    tuab_inventory_archive_proxy,
+    tuab_inventory_restore_proxy,
+    tuab_view_fiber_match_recommendations,
+    tuab_circular_economy,
 )
 
 async def two_factor_setup_proxy(request):
