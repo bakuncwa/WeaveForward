@@ -163,15 +163,13 @@
     if (!list.length) return `<p style="font-family:'Poppins',sans-serif;color:#bbb;padding:20px 0">No donations found on this page.</p>`;
     
     return `<table class="dash-table"><thead><tr>
-      <th>Donation id</th><th>Donor</th><th>Address</th><th>Preferred pick-up date</th><th>Status</th><th>Delivery Method</th><th>Items</th><th>ACTIONS</th>
+      <th>Donation ID</th><th>Donor</th><th>Address</th><th>Preffered Pick-Up Date</th><th>Items</th><th>ACTIONS</th>
     </tr></thead><tbody>
     ${list.map(d => `<tr>
       <td>${d.id}</td>
       <td>${d.donor}</td>
       <td style="max-width:160px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.address}</td>
       <td style="white-space:nowrap">${d.pickupDate}</td>
-      <td><span class="badge ${getStatusClass(d.status)}">${getStatusLabel(d.status)}</span></td>
-      <td>${getDeliveryMethodLabel(d.delivery_method)}</td>
       <td>${d.items}</td>
       <td><div style="display:flex;gap:6px">
         <a href="${d.status === 'IN_TRANSIT' ? `/tuab/donations/${d.id}/edit/` : `/tuab/donations/${d.id}/`}" class="btn btn-tuab">Manage</a>
@@ -238,7 +236,7 @@
     const meta = META[tab];
     
     document.getElementById('dash-table-wrap').innerHTML = renderTable(list, tab);
-    document.getElementById('dash-table-count').textContent = `Showing ${list.length} items (Total: ${meta.total})`;
+    document.getElementById('dash-table-count').textContent = `Showing ${list.length} of ${meta.total} items`;
     
     updatePagination();
   }
