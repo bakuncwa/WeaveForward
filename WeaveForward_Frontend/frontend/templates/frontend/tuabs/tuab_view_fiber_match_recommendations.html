@@ -760,12 +760,13 @@
             });
             if (res.ok) {
                 removeCard(pairId);
+                wfToast('Recommendation accepted.', 'success');
             } else {
                 const data = await res.json().catch(() => ({}));
-                alert(data.detail || 'Unable to accept recommendation.');
+                wfToast(data.detail || 'Unable to accept recommendation.', 'error');
             }
         } catch {
-            alert('An error occurred. Please try again.');
+            wfToast('An error occurred. Please try again.', 'error');
         }
     }
 
@@ -794,12 +795,13 @@
             if (res.ok) {
                 closeRejectModal();
                 removeCard(pid);
+                wfToast('Recommendation rejected.', 'info');
             } else {
                 const data = await res.json().catch(() => ({}));
-                alert(data.detail || 'Unable to reject recommendation.');
+                wfToast(data.detail || 'Unable to reject recommendation.', 'error');
             }
         } catch {
-            alert('An error occurred. Please try again.');
+            wfToast('An error occurred. Please try again.', 'error');
         }
     }
 

@@ -803,6 +803,29 @@ async def tuab_inventory_export_proxy(request):
         return JsonResponse({'error': str(e)}, status=503)
 
 
+async def tuab_match_recommendation_accept_proxy(request, pair_id):
+    """Proxy: Accept a fiber-match recommendation."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    try:
+        res = await api_call(request, 'POST', f'match-recommendations/{pair_id}/accept', json={})
+        return JsonResponse(res.json(), status=res.status_code)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=503)
+
+
+async def tuab_match_recommendation_reject_proxy(request, pair_id):
+    """Proxy: Reject a fiber-match recommendation with optional reason."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    try:
+        body = json.loads(request.body)
+        res = await api_call(request, 'POST', f'match-recommendations/{pair_id}/reject', json=body)
+        return JsonResponse(res.json(), status=res.status_code)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=503)
+
+
 async def tuab_circular_economy(request):
     """TUAB Circular Economy Impact Dashboard — Chart.js 4-panel view."""
     profile = request.user_profile

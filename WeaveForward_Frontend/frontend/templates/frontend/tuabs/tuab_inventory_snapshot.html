@@ -1,5 +1,6 @@
 {% extends 'frontend/base.html' %}
 {% block content %}
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
   :root {
     --gold: #e8a020;
@@ -465,9 +466,10 @@
       });
       if (res.ok) {
         showRow(lastArchivedId);
+        wfToast('Item restored successfully.', 'success');
       } else {
         const d = await res.json();
-        alert(d.error || 'Restore failed.');
+        wfToast(d.error || 'Restore failed.', 'error');
         window.location.reload();
       }
     } catch { window.location.reload(); }
@@ -481,7 +483,7 @@
     e.preventDefault();
     const firstId = document.querySelector('#inv-tbody tr')?.id?.replace('row-', '');
     if (firstId) window.location.href = `/tuab/inventory/${firstId}/`;
-    else alert('No inventory items to view audit history for.');
+    else wfToast('No inventory items to view audit history for.', 'warning');
   }
 
   /* ── Export ── */
@@ -535,28 +537,17 @@
   }
 
   function exportInventoryData() {
-    const data = {
-      generated_at: new Date().toISOString(),
-      total_items: {{ total_items }},
-      total_weight_kg: {{ total_weight_kg }},
-      items: [
-        {% for item in inventory_items %}
-        {
-          inventory_id: {{ item.inventory_id }},
-          donation_id: {{ item.donation_id }},
-          donor: '{{ item.donor_name|escapejs }}',
-          current_weight_kg: {{ item.current_weight_kg }},
-          audit_required: {{ item.audit_required|lower }}
-        }{% if not forloop.last %},{% endif %}
-        {% endfor %}
-      ]
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `inventory-snapshot-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
+    const rows = [
+      ['Inventory ID', 'Donation ID', 'Donor', 'Current Weight (kg)', 'Audit Required'],
+      {% for item in inventory_items %}
+      [{{ item.inventory_id }}, {{ item.donation_id }}, '{{ item.donor_name|escapejs }}', {{ item.current_weight_kg }}, {{ item.audit_required|lower }}],
+      {% endfor %}
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{ wch: 14 }, { wch: 13 }, { wch: 28 }, { wch: 22 }, { wch: 16 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Inventory Snapshot');
+    XLSX.writeFile(wb, `inventory-snapshot-${new Date().toISOString().split('T')[0]}.xlsx`);
   }
 
   /* Close modals on backdrop click */

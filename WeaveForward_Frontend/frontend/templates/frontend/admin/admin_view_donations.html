@@ -475,8 +475,7 @@
   const archiveSubmit = archiveForm?.querySelector('button[type="submit"]');
 
   function getCsrfToken() {
-    const match = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
-    return match ? decodeURIComponent(match[1]) : '';
+    return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
   }
 
   document.querySelectorAll('.archive-btn').forEach((button) => {
