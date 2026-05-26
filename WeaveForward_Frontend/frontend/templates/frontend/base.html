@@ -36,6 +36,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="csrf-token" content="{{ csrf_token }}" />
   <title>{{ page_title|default:"WeaveForward" }}</title>
   <link rel="icon" type="image/png" href="https://i.imgur.com/Dg9FmRA.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -782,6 +783,13 @@
         });
       }, 5000);
     })();
+  </script>
+
+  <!-- Global getCsrf — reads CSRF token from meta tag (CSRF_COOKIE_HTTPONLY=True means cookie is unreadable by JS) -->
+  <script>
+    function getCsrf() {
+      return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    }
   </script>
 
   <!-- Global wfToast — styled inline alert matching .wf-alert design system -->

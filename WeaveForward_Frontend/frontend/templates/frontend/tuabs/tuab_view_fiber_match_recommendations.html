@@ -686,10 +686,7 @@
     let markerMap = {};        // pair_id (number) → L.Marker
     let rejectingPairId = null;
 
-    function getCsrf() {
-        const match = document.cookie.split('; ').find(r => r.startsWith('csrftoken='));
-        return match ? match.split('=')[1] : '';
-    }
+    // getCsrf() provided globally by base.html
 
     function initMap() {
         map = L.map('recommendations-map').setView([14.5995, 121.0437], 11);

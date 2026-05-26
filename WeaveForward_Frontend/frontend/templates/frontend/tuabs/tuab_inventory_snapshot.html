@@ -329,10 +329,7 @@
 </div>
 
 <script>
-  const getCsrf = () => {
-    const m = document.cookie.match(/csrftoken=([^;]+)/);
-    return m ? m[1] : '';
-  };
+  // getCsrf() provided globally by base.html
 
   const PROXY_URLS = {
     {% for item in inventory_items %}
