@@ -237,8 +237,10 @@
     flagTarget = null;
   }
   function submitFlag() {
-    alert('Flagging ' + flagTarget.id + ' for: ' + document.getElementById('flag-reason-input').value);
+    const reason = document.getElementById('flag-reason-input').value.trim();
+    if (!reason) { wfToast('Please enter a reason before submitting.', 'warning'); return; }
     closeFlagModal();
+    wfToast(`Donation #${flagTarget.id} flagged successfully.`, 'success');
   }
 
   window.addEventListener('load', () => {

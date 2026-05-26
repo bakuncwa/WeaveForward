@@ -456,9 +456,10 @@
       });
       if (res.ok) {
         showRow(lastArchivedId);
+        wfToast('Item restored successfully.', 'success');
       } else {
         const d = await res.json();
-        alert(d.error || 'Restore failed.');
+        wfToast(d.error || 'Restore failed.', 'error');
         window.location.reload();
       }
     } catch { window.location.reload(); }
@@ -481,7 +482,7 @@
     e.preventDefault();
     const firstId = document.querySelector('#inv-tbody tr')?.id?.replace('row-', '');
     if (firstId) window.location.href = `/tuab/inventory/${firstId}/`;
-    else alert('No inventory items to view audit history for.');
+    else wfToast('No inventory items to view audit history for.', 'warning');
   }
 
   /* ── Export ── */
