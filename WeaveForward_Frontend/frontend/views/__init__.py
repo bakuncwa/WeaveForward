@@ -33,6 +33,7 @@ from .tuab import (
     tuab_view_fiber_match_recommendations,
     tuab_match_recommendation_accept_proxy,
     tuab_match_recommendation_reject_proxy,
+    tuab_donation_flag_proxy,
     tuab_circular_economy,
 )
 

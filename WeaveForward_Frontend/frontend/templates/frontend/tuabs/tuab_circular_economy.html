@@ -153,6 +153,64 @@
 
     canvas { display: block; width: 100% !important; }
 
+    /* ── Brands ranked list ── */
+    .brand-list { display: flex; flex-direction: column; gap: 0; overflow-y: auto; max-height: 340px; }
+
+    .brand-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 7px 2px;
+        border-bottom: 1px solid #f3f0eb;
+    }
+    .brand-row:last-child { border-bottom: none; }
+
+    .brand-rank {
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: 700;
+        flex-shrink: 0;
+        color: #fff;
+    }
+
+    .brand-name {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--text);
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .brand-bar-wrap {
+        flex: 2;
+        height: 3px;
+        background: #ece8e1;
+        border-radius: 2px;
+        overflow: hidden;
+    }
+
+    .brand-bar-fill {
+        height: 100%;
+        border-radius: 2px;
+        background: var(--tuab);
+    }
+
+    .brand-count {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--muted);
+        min-width: 30px;
+        text-align: right;
+        flex-shrink: 0;
+    }
+
     /* ── Empty state ── */
     .ce-empty {
         display: flex;
@@ -243,12 +301,12 @@
                 </div>
                 <span class="ce-badge">ML-Scraped</span>
             </div>
-            <div class="ce-chart-wrap" id="wrap-brands" style="height:320px;">
-                <canvas id="chart-brands"></canvas>
-            </div>
-            <div class="ce-empty" id="empty-brands" style="display:none;">
-                <span class="ce-empty-icon">🏷️</span>
-                <span class="ce-empty-text">No brand data yet</span>
+            <div id="brands-list-wrap">
+                <div class="brand-list" id="brand-list"></div>
+                <div class="ce-empty" id="empty-brands" style="display:none;">
+                    <span class="ce-empty-icon">🏷️</span>
+                    <span class="ce-empty-text">No brand data yet</span>
+                </div>
             </div>
         </div>
 
@@ -392,48 +450,33 @@ function hideCanvas(chartId, emptyId) {
     });
 })();
 
-// ── Panel [1,0]: Top 20 Brands (horizontal bar) ───────────────────
+// ── Panel [1,0]: Top 20 Brands — ranked list ─────────────────────
 (function buildBrands() {
     const rows = (DATA.top_brands || []).slice(0, 20);
-    if (!rows.length) { hideCanvas('chart-brands', 'empty-brands'); return; }
+    const list = document.getElementById('brand-list');
+    if (!rows.length || !list) {
+        document.getElementById('brand-list').style.display = 'none';
+        document.getElementById('empty-brands').style.display = 'flex';
+        return;
+    }
 
-    const wrap = document.getElementById('wrap-brands');
-    wrap.style.height = Math.max(260, rows.length * 26 + 40) + 'px';
+    const RANK_COLORS = ['#c0410e','#c0410e','#2d7a4f','#888','#888','#888','#888','#888','#888','#888'];
+    const maxCount = rows[0].item_count || 1;
 
-    const gold     = 'rgba(232,160,32,0.82)';
-    const goldDark = 'rgba(200,130,20,0.90)';
+    const html = rows.map((r, i) => {
+        const pct = Math.max(4, Math.round((r.item_count / maxCount) * 100));
+        const bg  = RANK_COLORS[i] || '#aaa';
+        return `<div class="brand-row">
+            <span class="brand-rank" style="background:${bg}">${i + 1}</span>
+            <span class="brand-name">${r.brand}</span>
+            <div class="brand-bar-wrap">
+                <div class="brand-bar-fill" style="width:${pct}%;background:${bg}"></div>
+            </div>
+            <span class="brand-count">${r.item_count}</span>
+        </div>`;
+    }).join('');
 
-    new Chart(document.getElementById('chart-brands'), {
-        type: 'bar',
-        data: {
-            labels: rows.map(r => r.brand),
-            datasets: [{
-                label: 'Items',
-                data: rows.map(r => r.item_count),
-                backgroundColor: rows.map((_, i) => i === 0 ? goldDark : gold),
-                borderRadius: 4,
-                borderSkipped: false,
-            }]
-        },
-        options: {
-            indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: ctx => ` ${ctx.raw} item${ctx.raw !== 1 ? 's' : ''}`,
-                        afterLabel: ctx => `  ${rows[ctx.dataIndex].weight_kg.toFixed(2)} kg`,
-                    }
-                }
-            },
-            scales: {
-                x: { beginAtZero: true, grid: { color: '#f0ede6' }, ticks: { precision: 0 } },
-                y: { grid: { display: false }, ticks: { font: { size: 11 } } },
-            }
-        }
-    });
+    list.innerHTML = html;
 })();
 
 // ── Panel [1,1]: Donation Decisions per NCR City (horizontal stacked) ─
