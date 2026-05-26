@@ -586,11 +586,12 @@ async def tuab_view_payments(request):
 async def tuab_inventory_snapshot(request):
     """View for TUAB inventory snapshot dashboard showing real-time raw material stock levels."""
     profile = request.user_profile
+    search_query = request.GET.get('q', '')
     
     # Fetch inventory snapshot summary and list
     snapshot_res, inventory_list_res = await asyncio.gather(
         api_call(request, 'GET', 'inventory/snapshot'),
-        api_call(request, 'GET', 'inventory'),
+        api_call(request, 'GET', 'inventory', params={'search': search_query} if search_query else None),
         return_exceptions=True
     )
     
@@ -637,6 +638,51 @@ async def tuab_inventory_snapshot(request):
         }
         formatted_items.append(formatted_item)
     
+    # Calculate category summary in terms of fibers dynamically by parsing from fiber json
+    fiber_weights = {}
+    for item in inventory_items:
+        current_weight_kg = float(item.get('current_weight_kg', 0))
+        source_donation = item.get('source_donation', {})
+        donation_items = source_donation.get('items', [])
+        
+        total_orig_weight = sum(float(x.get('weight_kg', 0)) for x in donation_items)
+        if total_orig_weight > 0:
+            for donation_item in donation_items:
+                item_orig_weight = float(donation_item.get('weight_kg', 0))
+                item_current_weight = current_weight_kg * (item_orig_weight / total_orig_weight)
+                
+                lookup_details = donation_item.get('lookup_details') or {}
+                fiber_str = lookup_details.get('fiber_json', '')
+                
+                parts = [p.strip() for p in fiber_str.split(',') if p.strip()]
+                parsed_any = False
+                for part in parts:
+                    if '%' in part:
+                        pct_str, fiber_name = part.split('%', 1)
+                        try:
+                            pct = float(pct_str.strip())
+                            fiber_name = fiber_name.strip().capitalize()
+                            fiber_weight = item_current_weight * (pct / 100.0)
+                            fiber_weights[fiber_name] = fiber_weights.get(fiber_name, 0.0) + fiber_weight
+                            parsed_any = True
+                        except ValueError:
+                            pass
+                
+                if not parsed_any:
+                    dominant_fiber = lookup_details.get('dominant_fiber')
+                    if dominant_fiber:
+                        fiber_name = dominant_fiber.strip().capitalize()
+                        fiber_weights[fiber_name] = fiber_weights.get(fiber_name, 0.0) + item_current_weight
+                    else:
+                        category = lookup_details.get('category', 'Other')
+                        fiber_name = category.strip().capitalize()
+                        fiber_weights[fiber_name] = fiber_weights.get(fiber_name, 0.0) + item_current_weight
+
+    category_summary = [
+        {'category': fiber, 'total_weight_kg': weight}
+        for fiber, weight in sorted(fiber_weights.items(), key=lambda x: x[1], reverse=True)
+    ]
+
     # Prepare map data for Leaflet
     locations_data = []
     for item in inventory_items:
@@ -660,7 +706,8 @@ async def tuab_inventory_snapshot(request):
         'total_items': snapshot_data.get('total_items', 0),
         'total_weight_kg': float(snapshot_data.get('total_weight_kg', 0)),
         'audit_required_count': snapshot_data.get('audit_required_count', 0),
-        'category_summary': snapshot_data.get('category_summary', [])
+        'category_summary': category_summary,
+        'q': search_query
     })
 
 
@@ -711,12 +758,12 @@ async def tuab_view_inventory_item(request, inventory_id):
 
 
 async def tuab_inventory_update_usage_proxy(request, inventory_id):
-    """Proxy: PATCH usage amount for an inventory item."""
-    if request.method != 'PATCH':
+    """Proxy: POST usage amount for an inventory item."""
+    if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
     try:
         body = json.loads(request.body)
-        res = await api_call(request, 'PATCH', f'inventory/{inventory_id}/update-usage', json=body)
+        res = await api_call(request, 'POST', f'inventory/{inventory_id}/update-usage', json=body)
         return JsonResponse(res.json(), status=res.status_code)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=503)
@@ -724,11 +771,11 @@ async def tuab_inventory_update_usage_proxy(request, inventory_id):
 
 async def tuab_inventory_archive_proxy(request, inventory_id):
     """Proxy: Archive an inventory item with an exit state."""
-    if request.method != 'PATCH':
+    if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
     try:
         body = json.loads(request.body)
-        res = await api_call(request, 'PATCH', f'inventory/{inventory_id}/archive', json=body)
+        res = await api_call(request, 'POST', f'inventory/{inventory_id}/archive', json=body)
         return JsonResponse(res.json(), status=res.status_code)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=503)
@@ -736,10 +783,21 @@ async def tuab_inventory_archive_proxy(request, inventory_id):
 
 async def tuab_inventory_restore_proxy(request, inventory_id):
     """Proxy: Restore (undo) a recently archived inventory item."""
-    if request.method != 'PATCH':
+    if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
     try:
-        res = await api_call(request, 'PATCH', f'inventory/{inventory_id}/restore', json={})
+        res = await api_call(request, 'POST', f'inventory/{inventory_id}/restore', json={})
+        return JsonResponse(res.json(), status=res.status_code)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=503)
+
+
+async def tuab_inventory_export_proxy(request):
+    """Proxy: GET unpaginated inventory export for CSV/JSON."""
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    try:
+        res = await api_call(request, 'GET', 'inventory/export')
         return JsonResponse(res.json(), status=res.status_code)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=503)

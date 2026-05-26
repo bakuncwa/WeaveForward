@@ -46,9 +46,9 @@ urlpatterns = [
     path('inventory/snapshot', views.InventoryViewSet.as_view({'get': 'snapshot'}), name='inventory-snapshot'),
     path('inventory/<int:pk>', views.InventoryViewSet.as_view({'get': 'retrieve'}), name='inventory-detail'),
     path('inventory/<int:pk>/audit-history', views.InventoryViewSet.as_view({'get': 'audit_history'}), name='inventory-audit-history'),
-    path('inventory/<int:pk>/update-usage', views.InventoryViewSet.as_view({'patch': 'update_usage'}), name='inventory-update-usage'),
-    path('inventory/<int:pk>/archive', views.InventoryViewSet.as_view({'patch': 'archive'}), name='inventory-archive'),
-    path('inventory/<int:pk>/restore', views.InventoryViewSet.as_view({'patch': 'restore'}), name='inventory-restore'),
+    path('inventory/<int:pk>/update-usage', views.InventoryViewSet.as_view({'post': 'update_usage'}), name='inventory-update-usage'),
+    path('inventory/<int:pk>/archive', views.InventoryViewSet.as_view({'post': 'archive'}), name='inventory-archive'),
+    path('inventory/<int:pk>/restore', views.InventoryViewSet.as_view({'post': 'restore'}), name='inventory-restore'),
     path('inventory/export', views.InventoryViewSet.as_view({'get': 'export'}), name='inventory-export'),
 
     # --- MATCH RECOMMENDATIONS ---

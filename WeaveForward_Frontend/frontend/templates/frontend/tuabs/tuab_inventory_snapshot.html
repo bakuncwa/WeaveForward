@@ -14,7 +14,7 @@
     --card: #fff;
   }
 
-  .inv-wrap { max-width: 1200px; margin: 0 auto; padding: 28px 24px; }
+  .inv-wrap { max-width: 100%; margin: 0 auto; }
 
   /* Header */
   .inv-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
@@ -30,10 +30,30 @@
   /* Category Summary */
   .cat-section { background: var(--card); border-radius: 14px; padding: 16px 20px; margin-bottom: 20px; border: 1.5px solid var(--border); }
   .cat-section-label { font-family: 'Poppins', sans-serif; font-size: 12px; font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: 6px; margin-bottom: 14px; }
-  .cat-cards { display: flex; gap: 12px; flex-wrap: wrap; }
+  .cat-cards {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 10px;
+  }
+  .cat-cards::-webkit-scrollbar {
+    height: 6px;
+  }
+  .cat-cards::-webkit-scrollbar-track {
+    background: #f5f4f0;
+    border-radius: 3px;
+  }
+  .cat-cards::-webkit-scrollbar-thumb {
+    background: var(--gold);
+    border-radius: 3px;
+  }
+  .cat-cards::-webkit-scrollbar-thumb:hover {
+    background: var(--gold-dark);
+  }
   .cat-card {
     border: 1.5px solid var(--border); border-radius: 10px; padding: 14px 18px;
-    min-width: 110px; flex: 1;
+    min-width: 180px; flex: 1; flex-shrink: 0;
   }
   .cat-card-name { font-family: 'Poppins', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
   .cat-card-val { font-family: 'Pixelify Sans', monospace; font-size: 32px; font-weight: 700; color: var(--text); line-height: 1; }
@@ -171,21 +191,13 @@
   .hidden { display: none !important; }
 
   @media (max-width: 768px) {
-    .inv-wrap { padding: 16px; }
     .inv-section-head { flex-wrap: wrap; }
     .cat-cards { grid-template-columns: 1fr 1fr; }
   }
 </style>
 
 <div class="inv-wrap">
-  <!-- Header -->
-  <div class="inv-head">
-    <h1 class="inv-title">Inventory Snapshot</h1>
-    <button class="btn-download" onclick="exportInventoryData()">
-      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      Download
-    </button>
-  </div>
+
 
   <!-- Category Summary -->
   {% if category_summary %}
@@ -198,7 +210,7 @@
       {% for cat in category_summary %}
       {% if forloop.counter == 1 %}<div class="cat-card" style="border-left:4px solid #4299e1">{% elif forloop.counter == 2 %}<div class="cat-card" style="border-left:4px solid #48bb78">{% elif forloop.counter == 3 %}<div class="cat-card" style="border-left:4px solid #9f7aea">{% elif forloop.counter == 4 %}<div class="cat-card" style="border-left:4px solid #ed8936">{% else %}<div class="cat-card" style="border-left:4px solid #f687b3">{% endif %}
         <div class="cat-card-name">{{ cat.category|upper }}</div>
-        <div class="cat-card-val">{{ cat.total_weight_kg|floatformat:0 }}</div>
+        <div class="cat-card-val">{{ cat.total_weight_kg|floatformat:1 }}</div>
         <div class="cat-card-unit">kg</div>
       </div>
       {% endfor %}
@@ -216,10 +228,12 @@
       </div>
       <div class="inv-section-right">
         <a href="#" class="btn-audit-hist" onclick="viewAuditHistory(event)">View Audit History</a>
-        <div class="search-box">
-          <svg width="13" height="13" fill="none" stroke="#c0952a" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input type="text" id="inv-search" placeholder="Search" oninput="filterRows(this.value)">
-        </div>
+        <form method="GET" style="display:inline-block; margin:0;">
+          <div class="search-box">
+            <svg width="13" height="13" fill="none" stroke="#c0952a" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" name="q" id="inv-search" placeholder="Search" value="{{ q|default:'' }}">
+          </div>
+        </form>
       </div>
     </div>
 
@@ -329,7 +343,9 @@
 </div>
 
 <script>
-  // getCsrf() provided globally by base.html
+  const getCsrf = () => {
+    return '{{ csrf_token }}';
+  };
 
   const PROXY_URLS = {
     {% for item in inventory_items %}
@@ -366,7 +382,7 @@
 
     try {
       const res = await fetch(PROXY_URLS[activeInventoryId].update, {
-        method: 'PATCH',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
         body: JSON.stringify({ usage_amount_kg: usage })
       });
@@ -374,9 +390,6 @@
       if (!res.ok) { errEl.textContent = data.error || 'Update failed.'; errEl.style.display = 'block'; return; }
 
       closeUpdateModal();
-      if (data.low_stock_alert) {
-        showToast(`Low stock alert: inventory #${activeInventoryId} is below threshold.`, false);
-      }
       window.location.reload();
     } catch { errEl.textContent = 'Network error. Please try again.'; errEl.style.display = 'block'; }
   }
@@ -401,7 +414,7 @@
 
     try {
       const res = await fetch(PROXY_URLS[activeInventoryId].archive, {
-        method: 'PATCH',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
         body: JSON.stringify({ exit_state: exitState })
       });
@@ -447,7 +460,7 @@
 
     try {
       const res = await fetch(PROXY_URLS[lastArchivedId].restore, {
-        method: 'PATCH',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
         body: '{}'
       });
@@ -463,16 +476,7 @@
     lastArchivedId = null;
   }
 
-  /* ── Search ── */
-  function filterRows(q) {
-    const rows = document.querySelectorAll('#inv-tbody tr');
-    const lq = q.toLowerCase();
-    rows.forEach(r => {
-      const match = !lq || r.dataset.search.includes(lq);
-      r.style.display = match ? '' : 'none';
-    });
-    updateFooterCount();
-  }
+
 
   /* ── Audit History ── */
   function viewAuditHistory(e) {
@@ -483,6 +487,55 @@
   }
 
   /* ── Export ── */
+  async function exportInventoryCSV() {
+    try {
+      const response = await fetch('/api/tuab/inventory/export/');
+      if (!response.ok) {
+        alert('Failed to fetch inventory export data.');
+        return;
+      }
+      const data = await response.json();
+      const items = data.inventory_items || [];
+      
+      const headers = ['Inventory ID', 'Donation ID', 'Donor', 'Current Weight (kg)', 'Audit Required'];
+      const rows = items.map(item => {
+        const source_donation = item.source_donation || {};
+        const donor = source_donation.donor || {};
+        const donorName = `${donor.first_name || ''} ${donor.last_name || ''}`.strip || `${donor.first_name || ''} ${donor.last_name || ''}`.trim();
+        return [
+          item.inventory_id,
+          source_donation.donation_id,
+          donorName,
+          item.current_weight_kg,
+          item.audit_required ? 'Yes' : 'No'
+        ];
+      });
+
+      // Convert rows to CSV strings with proper escaping
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(val => {
+          const strVal = String(val === null || val === undefined ? '' : val);
+          if (strVal.includes(',') || strVal.includes('"') || strVal.includes('\n')) {
+            return `"${strVal.replace(/"/g, '""')}"`;
+          }
+          return strVal;
+        }).join(','))
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `inventory-snapshot-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      alert('An error occurred while exporting CSV.');
+    }
+  }
+
   function exportInventoryData() {
     const rows = [
       ['Inventory ID', 'Donation ID', 'Donor', 'Current Weight (kg)', 'Audit Required'],

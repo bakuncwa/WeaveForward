@@ -46,8 +46,6 @@ class IsTUABWithSubscription(IsAuthenticated):
 class MatchRecommendationViewSet(viewsets.GenericViewSet, PaginatedResponseMixin):
     permission_classes = [IsTUABWithSubscription]
     serializer_class = MatchRecommendationDetailSerializer
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = []
 
     def get_serializer_class(self):
         if getattr(self, 'action', None) == 'list':
