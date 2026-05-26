@@ -1,0 +1,107 @@
+{
+  "evaluated_at": "2026-02-25T16:36:02.464886",
+  "task": "binary is_match (1=match, 0=no_match)",
+  "fiber_match_threshold": 85.0,
+  "artisan_count": 6,
+  "pair_count": 426,
+  "test_size": 86,
+  "fiber_vocab": [
+    "alpaca",
+    "cotton",
+    "elastane",
+    "nylon",
+    "polyester",
+    "tencel",
+    "viscose"
+  ],
+  "fibers_of_interest": [
+    "alpaca",
+    "cotton",
+    "elastane",
+    "nylon",
+    "polyester",
+    "tencel",
+    "viscose"
+  ],
+  "feature_cols": [
+    "pct_alpaca",
+    "pct_cotton",
+    "pct_elastane",
+    "pct_nylon",
+    "pct_polyester",
+    "pct_tencel",
+    "pct_viscose",
+    "pct_bio_lookup",
+    "fs_bio_share",
+    "biodeg_score",
+    "biodeg_target_fiber",
+    "artisan_min_biodeg",
+    "demand_index",
+    "weight_kg",
+    "latitude",
+    "longitude",
+    "distance_km",
+    "pct_target_fiber",
+    "artisan_max_dist_km",
+    "brand",
+    "clothing_type",
+    "source",
+    "most_dominant_fiber",
+    "dominant_fiber_lookup",
+    "matched_fiber",
+    "biodeg_tier",
+    "ncr_city",
+    "barangay",
+    "artisan_id",
+    "artisan_target_fibers_str"
+  ],
+  "cat_features": [
+    "brand",
+    "clothing_type",
+    "source",
+    "most_dominant_fiber",
+    "dominant_fiber_lookup",
+    "matched_fiber",
+    "biodeg_tier",
+    "ncr_city",
+    "barangay",
+    "artisan_id",
+    "artisan_target_fibers_str"
+  ],
+  "metrics": {
+    "Accuracy": 0.9767,
+    "F1 (binary)": 0.9524,
+    "F1 (macro)": 0.9685,
+    "Precision": 1.0,
+    "Recall": 0.9091,
+    "ROC-AUC": 1.0
+  },
+  "confusion_matrix": [
+    [
+      57,
+      18
+    ],
+    [
+      9,
+      2
+    ]
+  ],
+  "class_names": [
+    "is_match",
+    "is_not_match"
+  ],
+  "fp_per_class": {
+    "is_match": 9,
+    "is_not_match": 18
+  },
+  "fn_per_class": {
+    "is_match": 18,
+    "is_not_match": 9
+  },
+  "match_distribution": {
+    "match": 110,
+    "no_match": 316
+  },
+  "model_path": "/Users/gyalm/Desktop/WeaveForward_FiberClassificationML/models/catboost_fiber_match.cbm",
+  "meta_path": "/Users/gyalm/Desktop/WeaveForward_FiberClassificationML/models/fiber_match_metadata.json"
+}
