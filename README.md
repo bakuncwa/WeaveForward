@@ -331,14 +331,14 @@ Features for Donor user role:
 
 Features for TUAB (Organization) user role:
 
-- [ ] View Inventory Items
-- [ ] Update Inventory Items
+- [x] View Inventory Items
+- [x] Update Inventory Items
 - [ ] Delete Inventory Items
 - [x] View Incoming Donations
 - [x] Update Incoming Donations
 - [ ] Archive Incoming Donations
 - [x] View Match Donation Recommendations (CatBoostAI ML Model Integration with DB)
-- [ ] View Circular Economy Impact Dashboard
+- [x] View Circular Economy Impact Dashboard
 - [x] Subscribe for Premium Features
 - [x] View Payment History
 - [x] Update Account Information

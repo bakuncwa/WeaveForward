@@ -164,6 +164,7 @@ class MatchRecommendationViewSet(viewsets.GenericViewSet, PaginatedResponseMixin
             tuab=tuab,
             recommendation_status=MatchRecommendationStatus.PENDING,
             is_archived_version=False,
+            item__donation__status='PENDING',
         ).select_related(
             'item', 'item__lookup', 'item__donation', 'item__donation__donor', 'tuab',
         ).order_by('-match_prob')

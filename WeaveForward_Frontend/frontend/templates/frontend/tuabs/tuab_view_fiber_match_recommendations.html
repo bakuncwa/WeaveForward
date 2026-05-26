@@ -534,9 +534,10 @@
                             <path d="M1.5 2h13l-5 6v5l-3-1.5V8L1.5 2z"/>
                         </svg>
                     </button>
-                    <button class="panel-icon-btn" title="Sort by score">
-                        <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M4 2v12M4 14l-2-2m2 2l2-2M12 14V2M12 2l-2 2m2-2l2 2"/>
+                    <button class="panel-icon-btn" id="sortToggleBtn" onclick="toggleSort()" title="Sort by score">
+                        <svg id="sortIcon" width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
+                            <!-- descending (default): high score first -->
+                            <path d="M2 4h8v2H2zm0 4h6v2H2zm0 4h4v2H2zM14 3l-3 3h2v7h2V6h2z"/>
                         </svg>
                     </button>
                 </div>
@@ -601,6 +602,7 @@
                     data-pair-id="{{ rec.pair_id }}"
                     data-lat="{{ rec.donation.location.latitude }}"
                     data-lng="{{ rec.donation.location.longitude }}"
+                    data-confidence="{{ rec.match_confidence|floatformat:4 }}"
                 >
                     <span class="rec-badge">&#9733; {{ rec.match_confidence|floatformat:0 }}%</span>
 
@@ -795,6 +797,26 @@
         } catch {
             alert('An error occurred. Please try again.');
         }
+    }
+
+    let sortAsc = false;
+
+    const ICON_DESC = '<path d="M2 4h8v2H2zm0 4h6v2H2zm0 4h4v2H2zM14 3l-3 3h2v7h2V6h2z"/>';
+    const ICON_ASC  = '<path d="M2 4h8v2H2zm0 4h6v2H2zm0 4h4v2H2zM11 13l3-3h-2V3h-2v7H8z"/>';
+
+    function toggleSort() {
+        sortAsc = !sortAsc;
+        document.getElementById('sortIcon').innerHTML = sortAsc ? ICON_ASC : ICON_DESC;
+        document.getElementById('sortToggleBtn').classList.toggle('active', sortAsc);
+
+        const scroll = document.getElementById('panelScroll');
+        const cards = Array.from(scroll.querySelectorAll('.rec-card'));
+        cards.sort((a, b) => {
+            const ca = parseFloat(a.dataset.confidence || 0);
+            const cb = parseFloat(b.dataset.confidence || 0);
+            return sortAsc ? ca - cb : cb - ca;
+        });
+        cards.forEach(c => scroll.appendChild(c));
     }
 
     function toggleFilterDrawer() {
