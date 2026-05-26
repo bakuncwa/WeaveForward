@@ -5,10 +5,6 @@ from ..services.prediction_service import BIO_FIBERS, MatchPredictionService
 
 
 def _biodeg_tier_from_fibers(fiber_json):
-    """
-    Compute biodeg tier using prediction_service weighted scoring when metadata
-    is loaded, falling back to dominant-fiber approximation otherwise.
-    """
     if not fiber_json:
         return 'MEDIUM'
     if MatchPredictionService._metadata:
@@ -33,33 +29,17 @@ class DonationPreviewSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Donation
-        fields = [
-            'donation_id',
-            'pickup_barangay',
-            'pickup_city',
-            'location',
-            'pickup_window',
-            'preferred_pickup_date',
-        ]
+        fields = ['donation_id', 'pickup_barangay', 'pickup_city', 'location', 'pickup_window', 'preferred_pickup_date']
 
-    def get_pickup_barangay(self, obj):
-        return obj.pickup_barangay
-
-    def get_pickup_city(self, obj):
-        return obj.pickup_city
+    def get_pickup_barangay(self, obj): return obj.pickup_barangay
+    def get_pickup_city(self, obj): return obj.pickup_city
 
     def get_location(self, obj):
-        return {
-            'latitude': float(obj.pickup_latitude),
-            'longitude': float(obj.pickup_longitude),
-        }
+        return {'latitude': float(obj.pickup_latitude), 'longitude': float(obj.pickup_longitude)}
 
     def get_pickup_window(self, obj):
         if obj.preferred_pickup_window_start and obj.preferred_pickup_window_end:
-            return {
-                'start': obj.preferred_pickup_window_start.isoformat(),
-                'end': obj.preferred_pickup_window_end.isoformat(),
-            }
+            return {'start': obj.preferred_pickup_window_start.isoformat(), 'end': obj.preferred_pickup_window_end.isoformat()}
         return None
 
 
@@ -71,15 +51,7 @@ class DonationItemPreviewSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DonationItem
-        fields = [
-            'item_id',
-            'weight_kg',
-            'condition_rating',
-            'fiber_breakdown',
-            'dominant_fiber',
-            'biodeg_score',
-            'biodeg_tier',
-        ]
+        fields = ['item_id', 'weight_kg', 'condition_rating', 'fiber_breakdown', 'dominant_fiber', 'biodeg_score', 'biodeg_tier']
 
     def _parse_fibers(self, obj):
         try:
@@ -89,8 +61,7 @@ class DonationItemPreviewSerializer(serializers.ModelSerializer):
             pass
         return {}
 
-    def get_fiber_breakdown(self, obj):
-        return self._parse_fibers(obj)
+    def get_fiber_breakdown(self, obj): return self._parse_fibers(obj)
 
     def get_dominant_fiber(self, obj):
         fibers = self._parse_fibers(obj)
@@ -122,27 +93,13 @@ class MatchRecommendationListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MatchPrediction
-        fields = [
-            'pair_id',
-            'donor',
-            'item',
-            'donation',
-            'match_confidence',
-            'biodeg_tier',
-            'distance_km',
-            'recommendation_status',
-            'predicted_at',
-        ]
+        fields = ['pair_id', 'donor', 'item', 'donation', 'match_confidence', 'biodeg_tier', 'distance_km', 'recommendation_status', 'predicted_at']
         read_only_fields = fields
 
     def get_donor(self, obj):
         donor = obj.item.donation.donor
-        return {
-            'user_id': donor.user_id,
-            'name': donor.name,
-            'barangay': obj.item.donation.pickup_barangay,
-            'city': obj.item.donation.pickup_city,
-        }
+        name = f"{donor.first_name or ''} {donor.last_name or ''}".strip() or donor.email
+        return {'user_id': donor.user_id, 'name': name, 'barangay': obj.item.donation.pickup_barangay, 'city': obj.item.donation.pickup_city}
 
     def get_biodeg_tier(self, obj):
         try:
@@ -167,37 +124,17 @@ class MatchRecommendationDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MatchPrediction
-        fields = [
-            'pair_id',
-            'donor',
-            'item',
-            'donation',
-            'tuab',
-            'match_confidence',
-            'biodeg_tier',
-            'distance_km',
-            'is_match',
-            'recommendation_status',
-            'tuab_rejection_reason',
-            'predicted_at',
-        ]
+        fields = ['pair_id', 'donor', 'item', 'donation', 'tuab', 'match_confidence', 'biodeg_tier', 'distance_km', 'is_match', 'recommendation_status', 'tuab_rejection_reason', 'predicted_at']
         read_only_fields = fields
 
     def get_donor(self, obj):
         donor = obj.item.donation.donor
-        return {
-            'user_id': donor.user_id,
-            'name': donor.name,
-            'email': donor.email,
-            'barangay': obj.item.donation.pickup_barangay,
-            'city': obj.item.donation.pickup_city,
-        }
+        name = f"{donor.first_name or ''} {donor.last_name or ''}".strip() or donor.email
+        return {'user_id': donor.user_id, 'name': name, 'email': donor.email, 'barangay': obj.item.donation.pickup_barangay, 'city': obj.item.donation.pickup_city}
 
     def get_tuab(self, obj):
-        return {
-            'user_id': obj.tuab.user_id,
-            'name': obj.tuab.name,
-        }
+        name = obj.tuab.business_name or f"{obj.tuab.first_name or ''} {obj.tuab.last_name or ''}".strip()
+        return {'user_id': obj.tuab.user_id, 'name': name}
 
     def get_biodeg_tier(self, obj):
         try:
@@ -213,12 +150,7 @@ class MatchRecommendationDetailSerializer(serializers.ModelSerializer):
 
 
 class MatchRecommendationActionSerializer(serializers.Serializer):
-    reason = serializers.CharField(
-        max_length=500,
-        required=False,
-        allow_blank=True,
-        help_text="Rejection reason (required for reject action)"
-    )
+    reason = serializers.CharField(max_length=500, required=False, allow_blank=True)
 
     def validate_reason(self, value):
         if not value or not value.strip():

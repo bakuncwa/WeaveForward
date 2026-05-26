@@ -45,7 +45,11 @@ urlpatterns = [
     path('tuab/payments/', views.tuab_view_payments, name='tuab_view_payments'),
     path('tuab/inventory/', views.tuab_inventory_snapshot, name='tuab_inventory_snapshot'),
     path('tuab/inventory/<int:inventory_id>/', views.tuab_view_inventory_item, name='tuab_view_inventory_item'),
+    path('api/tuab/inventory/<int:inventory_id>/update-usage/', views.tuab_inventory_update_usage_proxy, name='tuab_inventory_update_usage'),
+    path('api/tuab/inventory/<int:inventory_id>/archive/', views.tuab_inventory_archive_proxy, name='tuab_inventory_archive'),
+    path('api/tuab/inventory/<int:inventory_id>/restore/', views.tuab_inventory_restore_proxy, name='tuab_inventory_restore'),
     path('tuab/fiber-match-recommendations/', views.tuab_view_fiber_match_recommendations, name='tuab_fiber_match_recommendations'),
+    path('tuab/circular-economy/', views.tuab_circular_economy, name='tuab_circular_economy'),
     
     # --- Admin ---
     path('admin/donation-impact-dashboard/', views.admin_impact_dashboard, name='admin_impact_dashboard'),

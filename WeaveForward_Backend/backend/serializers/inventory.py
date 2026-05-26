@@ -11,16 +11,20 @@ from .brandfiberlookups import BrandFiberLookupSerializer
 class InventoryItemDetailsSerializer(serializers.ModelSerializer):
     """Serializer for donation items within an inventory ledger entry."""
     lookup_details = BrandFiberLookupSerializer(source='lookup', read_only=True)
-    
+    clothing_type = serializers.SerializerMethodField()
+
     class Meta:
         model = DonationItem
         fields = [
-            'item_id', 
-            'clothing_type', 
-            'condition_rating', 
-            'estimated_weight_kg',
+            'item_id',
+            'clothing_type',
+            'condition_rating',
+            'weight_kg',
             'lookup_details'
         ]
+
+    def get_clothing_type(self, obj):
+        return obj.lookup.clothing_type if obj.lookup else None
 
 
 class InventoryDonorSerializer(serializers.ModelSerializer):
