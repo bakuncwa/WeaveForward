@@ -5,13 +5,13 @@
 <!--
   WeaveForward TUAB Update Incoming Donation
 -->
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@700&family=Lato:wght@600&family=Poppins:wght@300;400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@700&family=Lato:wght@600&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
 
 <link rel="stylesheet" href="{% static 'frontend/css/donation-form.css' %}">
 <style>
   :root {
-    --green: #2e7d32;
-    --red: #c62828;
+    --green: #3A8C5C;
+    --red: #D94F3D;
   }
   .delete-chk { display: none; }
   .delete-chk:checked ~ .card-body { opacity: 0.2; pointer-events: none; filter: grayscale(1); }
@@ -37,17 +37,17 @@
   
   .btn-received, .btn-rejected { 
     width: 100%; 
-    padding: 12px; 
+    padding: 14px 12px; 
     cursor: pointer; 
     font-family: 'Poppins', sans-serif; 
     border: none; 
-    font-size: 16px; 
+    font-size: 15px; 
     outline: none; 
     color: #fff;
     border-radius: 30px;
-    margin-top: 14px;
-    font-weight: 400;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+    margin-top: 0;
+    font-weight: 600;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
   }
   .btn-received {
     background: var(--green);
@@ -71,16 +71,100 @@
     font-family: 'Poppins', sans-serif;
     font-weight: 400;
     color: #666666;
-    font-size: 14px;
+    font-size: 12px;
     margin-bottom: 2px;
+    line-height: 1.15;
   }
   .info-val {
     font-family: 'Poppins', sans-serif;
-    font-weight: 400;
-    color: #000000;
-    font-size: 15px;
-    margin-bottom: 16px;
+    font-weight: 500;
+    color: #1A1A18;
+    font-size: 12px;
+    margin-bottom: 10px;
+    line-height: 1.25;
     word-break: break-word;
+  }
+
+  .incoming-right-card {
+    background: #fff;
+    border-radius: 22px;
+    box-shadow: 0 3px 12px rgba(0,0,0,.16);
+    overflow: hidden;
+  }
+
+  .incoming-card-section {
+    padding: 18px 22px;
+  }
+
+  .incoming-detail-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    column-gap: 18px;
+    row-gap: 10px;
+    align-items: start;
+  }
+
+  .incoming-detail-label {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 400;
+    color: #666666;
+    font-size: 12px;
+    line-height: 1.15;
+  }
+
+  .incoming-detail-value {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 500;
+    color: #1A1A18;
+    font-size: 12px;
+    line-height: 1.25;
+    word-break: break-word;
+    text-align: right;
+  }
+
+  .incoming-divider {
+    border-top: 1px solid #dedede;
+  }
+
+  .incoming-status {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+  }
+
+  .incoming-status.received {
+    color: var(--green);
+  }
+
+  .incoming-status.rejected {
+    color: var(--red);
+  }
+
+  .incoming-photo-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 138px;
+    padding: 16px 0;
+  }
+
+  .incoming-photo {
+    width: 122px;
+    height: 122px;
+    object-fit: cover;
+    border-radius: 12px;
+    display: block;
+  }
+
+  .incoming-action-wrap {
+    padding: 18px 22px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .incoming-action-wrap .btn-received,
+  .incoming-action-wrap .btn-rejected {
+    margin-top: 0;
   }
 </style>
 
@@ -163,67 +247,70 @@
 
       <!-- Right: Global Info -->
       <div class="restored-right">
-        <!-- Donation Image: View Only -->
-        <div class="restored-panel">
-          <div style="font-size: 14px; font-weight: 700; color: #000; font-family: 'Inter', sans-serif; margin-bottom: 12px;">Donation Image</div>
-          <div class="image-container" style="text-align: center; border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden; background: #fafafa; min-height: 150px; display: flex; align-items: center; justify-content: center;">
+        <div class="incoming-right-card">
+          <div class="incoming-card-section">
+            <div class="incoming-detail-grid">
+              <div class="incoming-detail-label">Donor</div>
+              <div class="incoming-detail-value">
+                {% if donation.donor.business_name %}
+                  {{ donation.donor.business_name }}
+                {% else %}
+                  {{ donation.donor.first_name }} {{ donation.donor.last_name }}
+                {% endif %}
+                ({{ donation.donor.email }})
+              </div>
+
+              <div class="incoming-detail-label">Status</div>
+              <div class="incoming-detail-value incoming-status {% if donation.status == 'RECEIVED' %}received{% elif donation.status == 'REJECTED' %}rejected{% endif %}">{{ donation.status }}</div>
+
+              <div class="incoming-detail-label">Is Flagged</div>
+              <div class="incoming-detail-value">{% if donation.is_flagged %}Yes{% else %}No{% endif %}</div>
+
+              <div class="incoming-detail-label">Flag Reason</div>
+              <div class="incoming-detail-value">{{ donation.flag_reason|default:"N/A" }}</div>
+
+              <div class="incoming-detail-label">Submitted At</div>
+              <div class="incoming-detail-value">{{ donation.submitted_at|date:"m-d-Y g:i A"|default:"N/A" }}</div>
+
+              <div class="incoming-detail-label">Updated At</div>
+              <div class="incoming-detail-value">{{ donation.updated_at|date:"m-d-Y g:i A"|default:"N/A" }}</div>
+
+              <div class="incoming-detail-label">Auto Archive At</div>
+              <div class="incoming-detail-value">{{ donation.auto_archive_at|date:"m-d-Y g:i A"|default:"N/A" }}</div>
+
+              <div class="incoming-detail-label">Pickup Address</div>
+              <div class="incoming-detail-value">{{ donation.pickup_display_address|default:"N/A" }}</div>
+
+              <div class="incoming-detail-label">Pickup Preferred Date</div>
+              <div class="incoming-detail-value">{{ donation.preferred_pickup_date|date:"m-d-Y"|default:"N/A" }}</div>
+
+              <div class="incoming-detail-label">Pickup Preferred Pickup Window</div>
+              <div class="incoming-detail-value">
+                {% if donation.preferred_pickup_window_start and donation.preferred_pickup_window_end %}
+                  {{ donation.preferred_pickup_window_start|time:"g:i A" }} - {{ donation.preferred_pickup_window_end|time:"g:i A" }}
+                {% else %}
+                  N/A
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <div class="incoming-divider"></div>
+
+          <div class="incoming-photo-wrap">
             {% if donation.upload %}
-              <img src="{{ donation.upload }}" style="max-width: 100%; max-height: 250px; display: block; object-fit: contain;">
+              <img src="{{ donation.upload }}" class="incoming-photo" alt="Donation image">
             {% else %}
               <div style="color: var(--muted); font-size: 14px; font-family: 'Poppins', sans-serif;">No image uploaded</div>
             {% endif %}
           </div>
-        </div>
 
-        <!-- Information Panel -->
-        <div class="restored-panel">
-          <h3 style="font-size: 18px; font-weight: 700; color: #000; font-family: 'Inter', sans-serif; margin-bottom: 20px;">Donation Details</h3>
+          <div class="incoming-divider"></div>
 
-          <div class="info-label">Donor</div>
-          <div class="info-val">
-            {% if donation.donor.business_name %}
-              {{ donation.donor.business_name }}
-            {% else %}
-              {{ donation.donor.first_name }} {{ donation.donor.last_name }}
-            {% endif %}
-            ({{ donation.donor.email }})
+          <div class="incoming-action-wrap">
+            <button type="button" class="btn-received" onclick="submitResolution('RECEIVED')">Received</button>
+            <button type="button" class="btn-rejected" onclick="submitResolution('REJECTED')">Rejected</button>
           </div>
-
-          <div class="info-label">Status</div>
-          <div class="info-val">{{ donation.status }}</div>
-
-          <div class="info-label">Is Flagged</div>
-          <div class="info-val">{% if donation.is_flagged %}Yes{% else %}No{% endif %}</div>
-
-          <div class="info-label">Flag Reason</div>
-          <div class="info-val">{{ donation.flag_reason|default:"N/A" }}</div>
-
-          <div class="info-label">Submitted At</div>
-          <div class="info-val">{{ donation.submitted_at|date:"m-d-Y h:i A"|default:"N/A" }}</div>
-
-          <div class="info-label">Updated At</div>
-          <div class="info-val">{{ donation.updated_at|date:"m-d-Y h:i A"|default:"N/A" }}</div>
-
-          <div class="info-label">Auto Archive At</div>
-          <div class="info-val">{{ donation.auto_archive_at|date:"m-d-Y h:i A"|default:"N/A" }}</div>
-
-          <div class="info-label">Pickup Address</div>
-          <div class="info-val">{{ donation.pickup_display_address|default:"N/A" }}</div>
-
-          <div class="info-label">Pickup Preferred Date</div>
-          <div class="info-val">{{ donation.preferred_pickup_date|date:"m-d-Y"|default:"N/A" }}</div>
-
-          <div class="info-label">Pickup Preferred Pickup Window</div>
-          <div class="info-val">
-            {% if donation.preferred_pickup_window_start and donation.preferred_pickup_window_end %}
-              {{ donation.preferred_pickup_window_start|time:"h:i A" }} - {{ donation.preferred_pickup_window_end|time:"h:i A" }}
-            {% else %}
-              N/A
-            {% endif %}
-          </div>
-
-          <button type="button" class="btn-received" onclick="submitResolution('RECEIVED')">Received</button>
-          <button type="button" class="btn-rejected" onclick="submitResolution('REJECTED')">Rejected</button>
         </div>
       </div>
     </div>

@@ -131,10 +131,15 @@ class ImpactDashboardViewSet(viewsets.GenericViewSet):
                 if p := parse_date(df):
                     if settings.USE_TZ:
                         tz = timezone.get_current_timezone()
+                        today = timezone.localdate()
                         dt_from = datetime.combine(p, time.min).replace(tzinfo=tz)
                     else:
+                        today = datetime.now().date()
                         dt_from = datetime.combine(p, time.min)
-                    filters["updated_at__gte"] = dt_from
+                    if p > today:
+                        errors["date_from"] = "Date cannot be in the future."
+                    else:
+                        filters["updated_at__gte"] = dt_from
                 else:
                     errors["date_from"] = "Invalid date_from."
             except ValueError:
@@ -145,10 +150,15 @@ class ImpactDashboardViewSet(viewsets.GenericViewSet):
                 if p := parse_date(dt):
                     if settings.USE_TZ:
                         tz = timezone.get_current_timezone()
+                        today = timezone.localdate()
                         dt_to = datetime.combine(p, time.max).replace(tzinfo=tz)
                     else:
+                        today = datetime.now().date()
                         dt_to = datetime.combine(p, time.max)
-                    filters["updated_at__lte"] = dt_to
+                    if p > today:
+                        errors["date_to"] = "Date cannot be in the future."
+                    else:
+                        filters["updated_at__lte"] = dt_to
                 else:
                     errors["date_to"] = "Invalid date_to."
             except ValueError:
