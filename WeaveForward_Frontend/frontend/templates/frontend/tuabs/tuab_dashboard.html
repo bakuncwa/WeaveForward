@@ -95,10 +95,10 @@
     <div class="table-scroll">
       <div id="dash-table-wrap"></div>
     </div>
-    
+
     <div style="display:flex; justify-content: space-between; align-items: center; margin-top: 12px;">
         <div id="dash-table-count" style="font-family:'Poppins',sans-serif;font-size:12px;color:#aaa;"></div>
-        
+
         <!-- Pagination Controls -->
         <div class="pagination-wrap">
             <a href="#" id="prev-btn" class="btn-page">Previous</a>
@@ -133,47 +133,17 @@
   let searchQuery = "{{ search_query|escapejs }}";
   let flagTarget = null;
 
-  function getStatusClass(status) {
-    if (status === 'IN_TRANSIT') return 'badge-transit';
-    if (status === 'CLAIMED') return 'badge-claimed';
-    if (status === 'PENDING') return 'badge-pending';
-    if (status === 'RECEIVED') return 'badge-received';
-    if (status === 'REJECTED') return 'badge-rejected';
-    if (status === 'CANCELLED') return 'badge-cancelled';
-    if (status === 'ARCHIVED') return 'badge-archived';
-    return '';
-  }
-
-  function getStatusLabel(status) {
-    if (status === 'IN_TRANSIT') return 'In Transit';
-    if (status === 'CLAIMED') return 'Claimed';
-    if (status === 'PENDING') return 'Pending';
-    if (status === 'RECEIVED') return 'Received';
-    if (status === 'REJECTED') return 'Rejected';
-    if (status === 'CANCELLED') return 'Cancelled';
-    if (status === 'ARCHIVED') return 'Archived';
-    return status || '-';
-  }
-
-  function getDeliveryMethodLabel(deliveryMethod) {
-    if (deliveryMethod === 'PICKUP') return 'Pickup';
-    if (deliveryMethod === 'DELIVERY') return 'Delivery';
-    return deliveryMethod || '-';
-  }
-
   function renderTable(list, tab) {
     if (!list.length) return `<p style="font-family:'Poppins',sans-serif;color:#bbb;padding:20px 0">No donations found on this page.</p>`;
-    
+
     return `<table class="dash-table"><thead><tr>
-      <th>Donation id</th><th>Donor</th><th>Address</th><th>Preferred pick-up date</th><th>Status</th><th>Delivery Method</th><th>Items</th><th>ACTIONS</th>
+      <th>Donation ID</th><th>Donor</th><th>Address</th><th>Preffered Pick-Up Date</th><th>Items</th><th>ACTIONS</th>
     </tr></thead><tbody>
     ${list.map(d => `<tr>
       <td>${escapeHTML(String(d.id))}</td>
       <td>${escapeHTML(d.donor)}</td>
       <td style="max-width:160px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHTML(d.address)}</td>
       <td style="white-space:nowrap">${escapeHTML(d.pickupDate)}</td>
-      <td><span class="badge ${getStatusClass(d.status)}">${escapeHTML(getStatusLabel(d.status))}</span></td>
-      <td>${escapeHTML(getDeliveryMethodLabel(d.delivery_method))}</td>
       <td>${escapeHTML(String(d.items))}</td>
       <td><div style="display:flex;gap:6px">
         <a href="${d.status === 'IN_TRANSIT' ? `/tuab/donations/${escapeHTML(String(d.id))}/edit/` : `/tuab/donations/${escapeHTML(String(d.id))}/`}" class="btn btn-tuab">Manage</a>
@@ -188,10 +158,9 @@
       const prevBtn = document.getElementById('prev-btn');
       const nextBtn = document.getElementById('next-btn');
       const indicator = document.getElementById('page-indicator');
-      
+
       indicator.textContent = `Page ${meta.current}`;
-      
-      // Update Previous Button
+
       if (meta.has_prev) {
           prevBtn.classList.remove('disabled');
           prevBtn.href = getPaginationUrl(activeTab, meta.current - 1);
@@ -199,8 +168,7 @@
           prevBtn.classList.add('disabled');
           prevBtn.href = "#";
       }
-      
-      // Update Next Button
+
       if (meta.has_next) {
           nextBtn.classList.remove('disabled');
           nextBtn.href = getPaginationUrl(activeTab, meta.current + 1);
@@ -214,7 +182,7 @@
       const url = new URL(window.location.href);
       url.searchParams.set('tab', tab);
       if (searchQuery) url.searchParams.set('q', searchQuery);
-      
+
       if (tab === 'available') {
           url.searchParams.set('avail_page', newPage);
           url.searchParams.set('claimed_page', META.claimed.current);
@@ -238,10 +206,10 @@
     document.getElementById('tab-claimed').classList.toggle('active', tab === 'claimed');
     const list = DONATIONS[tab];
     const meta = META[tab];
-    
+
     document.getElementById('dash-table-wrap').innerHTML = renderTable(list, tab);
-    document.getElementById('dash-table-count').textContent = `Showing ${list.length} items (Total: ${meta.total})`;
-    
+    document.getElementById('dash-table-count').textContent = `Showing ${list.length} of ${meta.total} items`;
+
     updatePagination();
   }
 
@@ -254,7 +222,6 @@
     } else {
         url.searchParams.delete('q');
     }
-    // Reset pages on search
     url.searchParams.set('avail_page', 1);
     url.searchParams.set('claimed_page', 1);
     window.location.href = url.toString();
@@ -291,11 +258,11 @@
         mDiv.style.fontWeight = '500';
         mDiv.style.padding = '20px';
         mDiv.style.textAlign = 'center';
-        mDiv.innerHTML = '⚠️ Map could not be loaded. Please check your internet connection or disable adblockers.';
+        mDiv.innerHTML = '&#9888;&#65039; Map could not be loaded. Please check your internet connection or disable adblockers.';
       }
     }
-    if (map) L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors' }).addTo(map);
-    
+    if (map) L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+
     [...DONATIONS.available, ...DONATIONS.claimed].forEach(d => {
       if (map && d.lat && d.lng) {
         const popupEl = document.createElement('div');
