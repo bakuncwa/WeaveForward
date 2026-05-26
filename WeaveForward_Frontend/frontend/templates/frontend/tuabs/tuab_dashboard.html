@@ -236,11 +236,27 @@
     document.getElementById('flag-modal').classList.add('hidden');
     flagTarget = null;
   }
-  function submitFlag() {
+  async function submitFlag() {
     const reason = document.getElementById('flag-reason-input').value.trim();
     if (!reason) { wfToast('Please enter a reason before submitting.', 'warning'); return; }
+    const id = flagTarget.id;
     closeFlagModal();
-    wfToast(`Donation #${flagTarget.id} flagged successfully.`, 'success');
+    try {
+      const csrf = document.cookie.split('; ').find(r => r.startsWith('csrftoken='))?.split('=')[1] || '';
+      const res = await fetch(`/api/tuab/donations/${id}/flag/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+        body: JSON.stringify({ flag_reason: reason }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        wfToast(data.detail || `Donation #${id} flagged successfully.`, 'success');
+      } else {
+        wfToast(data.detail || data.error || 'Failed to flag donation.', 'error');
+      }
+    } catch (e) {
+      wfToast('Unable to reach the server. Please try again.', 'error');
+    }
   }
 
   window.addEventListener('load', () => {

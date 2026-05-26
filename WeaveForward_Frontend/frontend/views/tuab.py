@@ -826,6 +826,18 @@ async def tuab_match_recommendation_reject_proxy(request, pair_id):
         return JsonResponse({'error': str(e)}, status=503)
 
 
+async def tuab_donation_flag_proxy(request, donation_id):
+    """Proxy: Flag a donation with a reason (TUAB or Admin)."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    try:
+        body = json.loads(request.body)
+        res = await api_call(request, 'POST', f'donations/{donation_id}/flag', json={'flag_reason': body.get('flag_reason', '')})
+        return JsonResponse(res.json(), status=res.status_code)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=503)
+
+
 async def tuab_circular_economy(request):
     """TUAB Circular Economy Impact Dashboard — Chart.js 4-panel view."""
     profile = request.user_profile
@@ -859,11 +871,12 @@ async def tuab_circular_economy(request):
         error_message = "An error occurred while loading the dashboard."
 
     return render(request, 'frontend/tuabs/tuab_circular_economy.html', {
-        'page_title': 'Circular Economy',
+        'page_title': 'Circular Economy Impact Dashboard',
         'sidebar_variant': 'tuab',
         'user': profile,
         'date_from': date_from,
         'date_to': date_to,
+        'today_iso': datetime.now().strftime('%Y-%m-%d'),
         'error_message': error_message,
         'dashboard_json': json.dumps(dashboard_data),
     })
