@@ -47,16 +47,21 @@ class TuabCircularEconomyViewSet(viewsets.GenericViewSet):
             except ValueError:
                 pass
 
-        # All non-archived predictions for this TUAB
+        # All non-archived predictions for this TUAB (used for decisions panel)
         pred_qs = MatchPrediction.objects.filter(
             tuab=tuab,
             is_archived_version=False,
             **date_filters,
         ).select_related("item__lookup", "item__donation")
 
+        # Analytics panels are scoped to ACCEPTED predictions only so they
+        # align with what is actually entering (or has entered) inventory.
+        accepted_item_ids = pred_qs.filter(
+            recommendation_status=MatchRecommendationStatus.ACCEPTED,
+        ).values_list("item_id", flat=True).distinct()
+
         # 1. Biodegradability score distribution (buckets from DonationItems)
-        item_ids = pred_qs.values_list("item_id", flat=True).distinct()
-        items_qs = DonationItem.objects.filter(item_id__in=item_ids).select_related("lookup")
+        items_qs = DonationItem.objects.filter(item_id__in=accepted_item_ids).select_related("lookup")
 
         biodeg_buckets = {"0-20": 0, "20-40": 0, "40-60": 0, "60-80": 0, "80-100": 0}
         for item in items_qs:

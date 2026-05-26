@@ -1,5 +1,5 @@
 from django.db import transaction
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 from rest_framework import filters, mixins, viewsets, serializers, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -134,7 +134,14 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
         if user.role == 'Donor':
             queryset = queryset.filter(donor=user)
         elif user.role == 'TUAB':
-            queryset = queryset.filter(claimed_by_tuab=user)
+            queryset = queryset.filter(
+                Q(claimed_by_tuab=user) |
+                Q(
+                    items__match_predictions__tuab=user,
+                    items__match_predictions__recommendation_status='ACCEPTED',
+                    items__match_predictions__is_archived_version=False,
+                )
+            ).distinct()
         elif user.role != 'Admin':
             queryset = queryset.none()
 
