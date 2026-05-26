@@ -687,8 +687,7 @@
     let rejectingPairId = null;
 
     function getCsrf() {
-        const match = document.cookie.split('; ').find(r => r.startsWith('csrftoken='));
-        return match ? match.split('=')[1] : '';
+        return '{{ csrf_token }}';
     }
 
     function initMap() {

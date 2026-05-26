@@ -7,7 +7,7 @@ from datetime import timedelta
 from django.utils import timezone
 from django.db.models import Sum, Q, Count, DecimalField
 from django.db.models.functions import TruncDate
-from rest_framework import viewsets, mixins, status
+from rest_framework import viewsets, mixins, status, filters
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -21,6 +21,7 @@ from ..serializers.inventory import (
     InventorySnapshotSummarySerializer
 )
 from ..utils.view_mixins import PaginatedResponseMixin
+from ..services.audit_service import get_client_ip, log_audit
 
 
 class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin, PaginatedResponseMixin):
@@ -35,6 +36,8 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Re
     """
     permission_classes = [IsAuthenticated]
     serializer_class = InventoryLedgerSerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['=inventory_id', '=source_donation__donation_id', 'source_donation__donor__first_name', 'source_donation__donor__last_name']
 
     def get_queryset(self):
         """
@@ -70,6 +73,7 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Re
             raise PermissionDenied("Only TUABs can view inventory.")
         
         queryset = self.get_queryset()
+        queryset = self.filter_queryset(queryset)
         return self.get_paginated_response_data(queryset)
 
     def retrieve(self, request, *args, **kwargs):
@@ -193,7 +197,7 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Re
             'inventory_items': serializer.data
         })
 
-    @action(detail=True, methods=['patch'])
+    @action(detail=True, methods=['post'])
     def update_usage(self, request, pk=None):
         """
         Log material consumption: subtracts usage_amount_kg from current_weight_kg.
@@ -220,11 +224,20 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Re
         instance.notes = request.data.get('notes') or instance.notes
         instance.save()
 
+        # Log audit trail
+        log_audit(
+            actor=request.user,
+            entity_type='inventory_ledger',
+            action='CONSUMPTION_LOG',
+            ip_address=get_client_ip(request),
+            fields_modified=['usage_amount_kg', 'current_weight_kg', 'notes']
+        )
+
         low_stock = instance.current_weight_kg < instance.low_stock_threshold
         serializer = self.get_serializer(instance)
         return Response({**serializer.data, 'low_stock_alert': low_stock}, status=status.HTTP_200_OK)
 
-    @action(detail=True, methods=['patch'])
+    @action(detail=True, methods=['post'])
     def archive(self, request, pk=None):
         """
         Archive an inventory item with an exit state (UPCYCLED, SHREDDED, LANDFILL).
@@ -247,15 +260,28 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Re
         instance.was_forced_archived = instance.current_weight_kg > 0
         instance.save()
 
+        # Log audit trail
+        log_audit(
+            actor=request.user,
+            entity_type='inventory_ledger',
+            action='STATUS_CHANGE',
+            ip_address=get_client_ip(request),
+            fields_modified=['lifecycle_status', 'exit_state', 'archived_at', 'was_forced_archived']
+        )
+
         serializer = self.get_serializer(instance)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @action(detail=True, methods=['patch'])
+    @action(detail=True, methods=['post'])
     def restore(self, request, pk=None):
         """
         Restore a recently archived inventory item (undo within grace period).
         """
-        instance = self.get_object()
+        try:
+            instance = InventoryLedger.objects.select_related('source_donation').get(pk=pk)
+        except InventoryLedger.DoesNotExist:
+            raise NotFound("Inventory item not found.")
+
         if instance.source_donation.claimed_by_tuab != request.user:
             raise PermissionDenied("Access denied.")
         if instance.lifecycle_status != InventoryLifecycleStatus.ARCHIVED:
@@ -270,6 +296,15 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Re
         instance.archived_at = None
         instance.was_forced_archived = False
         instance.save()
+
+        # Log audit trail
+        log_audit(
+            actor=request.user,
+            entity_type='inventory_ledger',
+            action='STATUS_CHANGE',
+            ip_address=get_client_ip(request),
+            fields_modified=['lifecycle_status', 'exit_state', 'archived_at', 'was_forced_archived']
+        )
 
         serializer = self.get_serializer(instance)
         return Response(serializer.data, status=status.HTTP_200_OK)

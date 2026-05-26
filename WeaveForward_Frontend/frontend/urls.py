@@ -48,6 +48,7 @@ urlpatterns = [
     path('api/tuab/inventory/<int:inventory_id>/update-usage/', views.tuab_inventory_update_usage_proxy, name='tuab_inventory_update_usage'),
     path('api/tuab/inventory/<int:inventory_id>/archive/', views.tuab_inventory_archive_proxy, name='tuab_inventory_archive'),
     path('api/tuab/inventory/<int:inventory_id>/restore/', views.tuab_inventory_restore_proxy, name='tuab_inventory_restore'),
+    path('api/tuab/inventory/export/', views.tuab_inventory_export_proxy, name='tuab_inventory_export'),
     path('tuab/fiber-match-recommendations/', views.tuab_view_fiber_match_recommendations, name='tuab_fiber_match_recommendations'),
     path('tuab/circular-economy/', views.tuab_circular_economy, name='tuab_circular_economy'),
     
