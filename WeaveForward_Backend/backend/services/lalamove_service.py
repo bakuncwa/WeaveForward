@@ -176,6 +176,8 @@ def process_lalamove_webhook(payload, client_ip):
             print(f"[LALAMOVE WEBHOOK] [ERROR] Order not found: lalamove_order_id {lalamove_order_id}", flush=True)
             return {"status_code": 404, "detail": f"Order with lalamove_order_id {lalamove_order_id} not found."}
 
+
+
         # =========================================================================
         # LALAMOVE STATUS TRANSITIONS
         # =========================================================================
@@ -185,8 +187,8 @@ def process_lalamove_webhook(payload, client_ip):
             print("[LALAMOVE WEBHOOK] [INFO] No action required: order already at ASSIGNING_DRIVER.", flush=True)
             return {"status_code": 200, "detail": "Order status is already ASSIGNING_DRIVER. No status update required."}
 
-        # "ASSIGNING_DRIVER" -> "ON_GOING"
-        if previous_status == "ASSIGNING_DRIVER" and status == "ON_GOING":
+        # "ASSIGNING_DRIVER" (or "") -> "ON_GOING"
+        if previous_status in ["ASSIGNING_DRIVER", ""] and status == "ON_GOING":
             print("[LALAMOVE WEBHOOK] [TRANSITION] ASSIGNING_DRIVER -> ON_GOING. Updating order status.", flush=True)
             order_record.status = OrderStatus.ON_GOING
             order_record.updated_at = timezone.now()
@@ -198,7 +200,7 @@ def process_lalamove_webhook(payload, client_ip):
             return {"status_code": 200, "detail": "Order status updated to ON_GOING successfully."}
 
         # "ON_GOING" -> "PICKED_UP"
-        if previous_status == "ON_GOING" and status == "PICKED_UP":
+        if previous_status in ["ON_GOING", ""] and status == "PICKED_UP":
             print("[LALAMOVE WEBHOOK] [TRANSITION] ON_GOING -> PICKED_UP. Updating order status to PICKED_UP and donation status to IN_TRANSIT.", flush=True)
             order_record.status = OrderStatus.PICKED_UP
             order_record.updated_at = timezone.now()
@@ -219,7 +221,7 @@ def process_lalamove_webhook(payload, client_ip):
             return {"status_code": 200, "detail": "Order status updated to PICKED_UP and donation updated to IN_TRANSIT successfully."}
 
         # "PICKED_UP" -> "COMPLETED"
-        if previous_status == "PICKED_UP" and status == "COMPLETED":
+        if previous_status in ["PICKED_UP", ""] and status == "COMPLETED":
             print("[LALAMOVE WEBHOOK] [TRANSITION] PICKED_UP -> COMPLETED. Updating order status to COMPLETED.", flush=True)
             order_record.status = OrderStatus.COMPLETED
             order_record.updated_at = timezone.now()
@@ -333,7 +335,7 @@ def cancel_lalamove_order(lalamove_order_id):
     response = requests.delete(f"{base_url}{path}", headers=headers)
     # If API does not return success, return error dictionary
     if response.status_code not in [200, 204]:
-        return {"error": response.text, "status_code": response.status_code}
+        return {"error": "Failed to cancel delivery order. Please contact the Logistics Provider for assistance.", "status_code": response.status_code}
     # Return success status code
     return {"status_code": response.status_code}
 
@@ -407,7 +409,7 @@ def update_lalamove_order(
 
     response = requests.patch(f"{base_url}{path}", headers=headers, data=body)
     if response.status_code not in [200, 201, 204]:
-        return {"error": response.text, "status_code": response.status_code}
+        return {"error": "Failed to update delivery order. Please contact the Logistics Provider for assistance.", "status_code": response.status_code}
     return response.json() if response.status_code in [200, 201] else {"status_code": response.status_code}
 
 

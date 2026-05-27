@@ -6,6 +6,7 @@ from rest_framework import exceptions
 from rest_framework.authentication import CSRFCheck
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.settings import api_settings
+from urllib.parse import urlsplit
 
 from ..models import User
 
@@ -70,6 +71,24 @@ def generate_reset_token(user):
     uid = urlsafe_base64_encode(force_bytes(user.pk))
     token = default_token_generator.make_token(user)
     return uid, token
+
+
+def get_request_base_url(request):
+    frontend_redirect_url = request.headers.get("X-Frontend-Redirect-Url")
+    if frontend_redirect_url:
+        return frontend_redirect_url.rstrip("/")
+
+    origin = request.headers.get("Origin")
+    if origin:
+        return origin.rstrip("/")
+
+    referer = request.headers.get("Referer")
+    if referer:
+        parsed = urlsplit(referer)
+        if parsed.scheme and parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}"
+
+    return request.build_absolute_uri("/").rstrip("/")
 
 def validate_reset_token(uidb64, token):
     try:

@@ -24,6 +24,7 @@ from ..services.auth_service import (
     enforce_csrf,
     REFRESH_COOKIE_NAME,
     generate_reset_token,
+    get_request_base_url,
     set_auth_cookies,
 )
 from ..services.email_service import send_password_reset_email
@@ -75,7 +76,8 @@ class PasswordResetRequestView(APIView):
 
             if user and user.is_active:
                 uidb64, token = generate_reset_token(user)
-                reset_link = f"{settings.FRONTEND_URL}/reset-password-confirm/?uidb64={uidb64}&token={token}"
+                frontend_base_url = get_request_base_url(request)
+                reset_link = f"{frontend_base_url}/reset-password-confirm/?uidb64={uidb64}&token={token}"
                 print(f"DEBUG: Password Reset Link for {email}: {reset_link}")
                 send_password_reset_email(email, reset_link)
 

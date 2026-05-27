@@ -1515,6 +1515,7 @@ class UserSubscriptionAPITest(TestCase):
             reverse('user-subscription', kwargs={'pk': self.tuab.user_id}),
             self.subscribe_payload,
             format='json',
+            HTTP_ORIGIN='https://frontend.example.com',
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -1537,7 +1538,7 @@ class UserSubscriptionAPITest(TestCase):
         self.assertEqual(third_call.kwargs['headers']['Authorization'], 'Basic test-secret')
         self.assertEqual(
             third_call.kwargs['json']['redirectUrl']['success'],
-            f"{settings.FRONTEND_URL.rstrip('/')}/tuab/subscribe/?status=success"
+            "https://frontend.example.com/tuab/subscribe/?status=success"
         )
 
     @override_settings(

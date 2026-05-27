@@ -64,7 +64,7 @@ def _maya_delete(*, url, authorization_value):
     )
 
 
-def subscribe_user(*, target_user_id, first_name, last_name, card):
+def subscribe_user(*, target_user_id, first_name, last_name, card, frontend_base_url):
     with transaction.atomic():
         try:
             user = User.objects.select_for_update().get(pk=target_user_id)
@@ -146,9 +146,9 @@ def subscribe_user(*, target_user_id, first_name, last_name, card):
                     'paymentTokenId': payment_token_id,
                     'isDefault': True,
                     'redirectUrl': {
-                        'success': f"{settings.FRONTEND_URL.rstrip('/')}/tuab/subscribe/?status=success",
-                        'failure': f"{settings.FRONTEND_URL.rstrip('/')}/tuab/subscribe/?status=failed",
-                        'cancel': f"{settings.FRONTEND_URL.rstrip('/')}/tuab/subscribe/?status=failed",
+                        'success': f"{frontend_base_url.rstrip('/')}/tuab/subscribe/?status=success",
+                        'failure': f"{frontend_base_url.rstrip('/')}/tuab/subscribe/?status=failed",
+                        'cancel': f"{frontend_base_url.rstrip('/')}/tuab/subscribe/?status=failed",
                     }
                 },
                 authorization_value=settings.MAYA_SANDBOX_SECRET_BASIC_AUTH,
@@ -329,17 +329,17 @@ def unsubscribe_user(*, target_user_id, actor=None, ip_address=None):
                     url=f"{base_url}/customers/{user.maya_customer_id}/cards/{user.maya_card_id}",
                     authorization_value=settings.MAYA_SANDBOX_SECRET_BASIC_AUTH,
                 )
-            except requests.RequestException as exc:
+            except requests.RequestException:
                 return {
                     "status_code": 502,
-                    "detail": f"Maya card deletion failed: {exc}",
+                    "detail": "Unable to process unsubscription at this time. Please contact Maya Payment Gateway support for assistance.",
                     "user_updated": False,
                     "cancelled_subscriptions_count": 0,
                 }
             if delete_response.status_code != 200:
                 return {
                     "status_code": 502,
-                    "detail": f"Maya card deletion failed: {_extract_error_detail(delete_response)}",
+                    "detail": "Unable to process unsubscription at this time. Please contact Maya Payment Gateway support for assistance.",
                     "user_updated": False,
                     "cancelled_subscriptions_count": 0,
                 }

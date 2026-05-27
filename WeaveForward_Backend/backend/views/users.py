@@ -28,6 +28,7 @@ from ..serializers import (
     TUABRegisterSerializer
 )
 from ..services.audit_service import get_client_ip, log_audit
+from ..services.auth_service import get_request_base_url
 from ..services.etag_service import build_updated_at_etag, matches_if_match
 from ..services.two_factor_service import disable_two_factor, enable_two_factor
 from ..services.user_archive_service import archive_user
@@ -382,6 +383,7 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
             first_name=serializer.validated_data['firstName'],
             last_name=serializer.validated_data['lastName'],
             card=serializer.validated_data['card'],
+            frontend_base_url=get_request_base_url(request),
         )
 
         if result["status_code"] != 200:
@@ -421,6 +423,7 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
             first_name=serializer.validated_data['firstName'],
             last_name=serializer.validated_data['lastName'],
             card=serializer.validated_data['card'],
+            frontend_base_url=get_request_base_url(request),
         )
 
         if result["status_code"] != 200:

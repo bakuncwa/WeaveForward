@@ -408,7 +408,7 @@ def cancel_donation(*, user, donation, ip_address=None):
 
             # Donors are forbidden from cancelling any other status
             else:
-                exc = APIException("This donation cannot be cancelled because it has already been claimed by a business.")
+                exc = APIException("This donation cannot be cancelled. Please contact the WeaveForward administrators for assistance.")
                 exc.status_code = 409
                 raise exc
 

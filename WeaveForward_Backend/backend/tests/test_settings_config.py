@@ -12,7 +12,6 @@ SETTINGS_IMPORT += "'DEBUG': s.DEBUG, "
 SETTINGS_IMPORT += "'AUTH_COOKIE_SECURE': s.AUTH_COOKIE_SECURE, "
 SETTINGS_IMPORT += "'AUTH_COOKIE_SAMESITE': s.AUTH_COOKIE_SAMESITE, "
 SETTINGS_IMPORT += "'ALLOWED_HOSTS': s.ALLOWED_HOSTS, "
-SETTINGS_IMPORT += "'FRONTEND_URL': s.FRONTEND_URL, "
 SETTINGS_IMPORT += "'CORS_ALLOWED_ORIGINS': s.CORS_ALLOWED_ORIGINS, "
 SETTINGS_IMPORT += "'CSRF_TRUSTED_ORIGINS': s.CSRF_TRUSTED_ORIGINS, "
 SETTINGS_IMPORT += "'USE_GCS': s.USE_GCS"
@@ -35,7 +34,6 @@ class SettingsConfigTest(TestCase):
                 "ENVIRONMENT": "production",
                 "SECRET_KEY": "prod-secret",
                 "ALLOWED_HOSTS": "api.example.com",
-                "FRONTEND_URL": "https://frontend.example.com",
                 "DB_NAME": "prod_db",
                 "DB_USER": "prod_user",
                 "DB_PASSWORD": "prod_password",
@@ -60,7 +58,6 @@ class SettingsConfigTest(TestCase):
             "SECRET_KEY",
             "DEBUG",
             "ALLOWED_HOSTS",
-            "FRONTEND_URL",
             "AUTH_COOKIE_SECURE",
             "DB_NAME",
             "DB_USER",
@@ -106,10 +103,14 @@ class SettingsConfigTest(TestCase):
         env["ALLOWED_HOSTS"] = ""
         self._assert_import_error(env, "ALLOWED_HOSTS is required in production.")
 
-    def test_production_requires_frontend_url(self):
+    def test_frontend_url_is_not_required(self):
         env = self._production_env()
-        env["FRONTEND_URL"] = ""
-        self._assert_import_error(env, "FRONTEND_URL is required in production.")
+        result = self._import_settings(env)
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["CORS_ALLOWED_ORIGINS"], [])
+        self.assertEqual(payload["CSRF_TRUSTED_ORIGINS"], [])
 
     def test_production_requires_db_name(self):
         env = self._production_env()

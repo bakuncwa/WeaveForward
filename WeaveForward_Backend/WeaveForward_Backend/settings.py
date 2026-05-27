@@ -47,7 +47,6 @@ IS_PRODUCTION = ENVIRONMENT == "production"
 # - ENVIRONMENT=production
 # - SECRET_KEY
 # - ALLOWED_HOSTS
-# - FRONTEND_URL
 # - DB_NAME
 # - DB_USER
 # - DB_PASSWORD
@@ -76,13 +75,9 @@ ALLOWED_HOSTS = _get_list_env(
     required=IS_PRODUCTION,
 )
 
-FRONTEND_URL = _get_env(
-    "FRONTEND_URL",
-    default="http://127.0.0.1:8001" if not IS_PRODUCTION else None,
-    required=IS_PRODUCTION,
-)
-CORS_ALLOWED_ORIGINS = [FRONTEND_URL]
-CSRF_TRUSTED_ORIGINS = [FRONTEND_URL, "https://raquel-washiest-heike.ngrok-free.dev"]
+CORS_ALLOWED_ORIGINS = []
+CORS_ALLOW_ALL_ORIGINS = True
+CSRF_TRUSTED_ORIGINS = []
 
 AUTH_COOKIE_SECURE = _get_bool_env("AUTH_COOKIE_SECURE", default=IS_PRODUCTION)
 AUTH_COOKIE_SAMESITE = "Lax"

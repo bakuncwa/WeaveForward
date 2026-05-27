@@ -242,7 +242,7 @@
     const id = flagTarget.id;
     closeFlagModal();
     try {
-      const csrf = document.cookie.split('; ').find(r => r.startsWith('csrftoken='))?.split('=')[1] || '';
+      const csrf = getCsrf();
       const res = await fetch(`/api/tuab/donations/${id}/flag/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },

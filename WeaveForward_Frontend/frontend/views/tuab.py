@@ -444,7 +444,15 @@ async def tuab_subscribe(request):
         }
 
         try:
-            response = await api_call(request, 'POST', 'users/me/subscription', json=payload)
+            response = await api_call(
+                request,
+                'POST',
+                'users/me/subscription',
+                json=payload,
+                headers={
+                    'X-Frontend-Redirect-Url': request.build_absolute_uri('/').rstrip('/'),
+                },
+            )
             
             if response.status_code == 200:
                 data = response.json()

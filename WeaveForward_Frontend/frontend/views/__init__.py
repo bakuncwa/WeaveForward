@@ -221,7 +221,15 @@ async def forgot_password(request):
     if request.method == 'POST':
         email = request.POST.get('email')
         try:
-            response = await api_call(request, 'POST', 'auth/password-reset', json={'email': email})
+            response = await api_call(
+                request,
+                'POST',
+                'auth/password-reset',
+                json={'email': email},
+                headers={
+                    'X-Frontend-Redirect-Url': request.build_absolute_uri('/').rstrip('/'),
+                },
+            )
             if response.status_code == 200:
                 return render(request, 'frontend/forgot_password.html', {'success': "If that email exists in our system, we've sent a password reset link to it."})
             else:
