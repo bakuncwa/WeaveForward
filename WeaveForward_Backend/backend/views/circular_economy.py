@@ -5,43 +5,75 @@ from django.db.models import Count, Q, Sum
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from rest_framework import viewsets
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from ..models import Donation, DonationItem, DonationStatus, UserRole
+from ..models import Donation, DonationItem, DonationStatus, UserRole, UserAccountStatus, Subscription, SubscriptionStatus
 
 
 class TuabCircularEconomyViewSet(viewsets.GenericViewSet):
     permission_classes = [IsAuthenticated]
 
     def list(self, request, *args, **kwargs):
-        if request.user.role != UserRole.TUAB:
-            raise PermissionDenied("Only TUABs can access this dashboard.")
+        user = request.user
+        if user.role == UserRole.ADMIN:
+            if user.status != UserAccountStatus.ACTIVE:
+                raise PermissionDenied("Active admin account required.")
+        elif user.role == UserRole.TUAB:
+            if user.status != UserAccountStatus.ACTIVE:
+                raise PermissionDenied("Active TUAB account required.")
+            if not Subscription.objects.filter(user=user, status=SubscriptionStatus.ACTIVE).exists():
+                raise PermissionDenied("Active subscription required.")
+        else:
+            raise PermissionDenied("Only active admins or active TUABs with an active subscription can access this dashboard.")
 
         donation_filters = {"status__in": [DonationStatus.RECEIVED, DonationStatus.REJECTED, DonationStatus.PENDING]}
+        errors = {}
+
+        if settings.USE_TZ:
+            today = timezone.localdate()
+            tz = timezone.get_current_timezone()
+        else:
+            today = datetime.now().date()
+            tz = None
 
         if df := request.query_params.get("date_from"):
             try:
                 if p := parse_date(df):
-                    tz = timezone.get_current_timezone() if settings.USE_TZ else None
                     dt_from = datetime.combine(p, time.min)
                     if tz:
                         dt_from = dt_from.replace(tzinfo=tz)
-                    donation_filters["updated_at__gte"] = dt_from
+                    if p > today:
+                        errors["date_from"] = "Date cannot be in the future."
+                    else:
+                        donation_filters["updated_at__gte"] = dt_from
+                else:
+                    errors["date_from"] = "Invalid date_from."
             except ValueError:
-                pass
+                errors["date_from"] = "Invalid date_from."
 
         if dt := request.query_params.get("date_to"):
             try:
                 if p := parse_date(dt):
-                    tz = timezone.get_current_timezone() if settings.USE_TZ else None
                     dt_to = datetime.combine(p, time.max)
                     if tz:
                         dt_to = dt_to.replace(tzinfo=tz)
-                    donation_filters["updated_at__lte"] = dt_to
+                    if p > today:
+                        errors["date_to"] = "Date cannot be in the future."
+                    else:
+                        donation_filters["updated_at__lte"] = dt_to
+                else:
+                    errors["date_to"] = "Invalid date_to."
             except ValueError:
-                pass
+                errors["date_to"] = "Invalid date_to."
+
+        if "updated_at__gte" in donation_filters and "updated_at__lte" in donation_filters:
+            if donation_filters["updated_at__gte"] > donation_filters["updated_at__lte"]:
+                errors["date_range"] = "Please choose a start date that is on or before the end date."
+
+        if errors:
+            raise ValidationError(errors)
 
         donations_qs = Donation.objects.filter(**donation_filters)
 

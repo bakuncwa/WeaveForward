@@ -510,11 +510,10 @@
     }
 </style>
 
-<!-- Subheader bar -->
 <div class="fm-subheader">
     <span class="fm-subheader-title">Match Recommendation</span>
     <span class="fm-subheader-meta">
-        <span id="subheaderCount">{{ pagination_meta.count }}</span> pending &middot; sorted by match score
+        <span id="subheaderCount">{{ recommendations|length }}</span> pending &middot; sorted by match score
     </span>
 </div>
 

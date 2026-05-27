@@ -55,8 +55,10 @@
     border: 1.5px solid var(--border); border-radius: 10px; padding: 14px 18px;
     min-width: 180px; flex: 1; flex-shrink: 0;
   }
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+
   .cat-card-name { font-family: 'Poppins', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
-  .cat-card-val { font-family: 'Pixelify Sans', monospace; font-size: 32px; font-weight: 700; color: var(--text); line-height: 1; }
+  .cat-card-val { font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 700; color: var(--text); line-height: 1; }
   .cat-card-unit { font-family: 'Poppins', sans-serif; font-size: 11px; color: var(--muted); margin-top: 2px; }
   .cat-bar { height: 4px; border-radius: 2px; margin-top: 10px; }
 
@@ -301,8 +303,20 @@
       {% endif %}
     </div>
 
-    <div class="inv-footer" id="inv-footer">
-      Showing {{ inventory_items|length }} of {{ inventory_items|length }} items
+    <div class="inv-footer" id="inv-footer" style="border-bottom: 1px solid var(--border);">
+      Showing {{ inventory_items|length }} of {{ count }} items
+    </div>
+
+    <div class="pagination-wrap" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 20px;">
+      <div class="pg-info" style="font-family: 'Poppins', sans-serif; font-size: 13px; color: var(--muted);">Page {{ current_page }} of {{ total_pages }}</div>
+      <div class="pg-btns" style="display: flex; gap: 8px;">
+        {% if has_prev %}
+        <a href="?page={{ current_page|add:-1 }}{% if q %}&q={{ q }}{% endif %}" class="btn-download" style="background: var(--gold); padding: 6px 12px; font-size: 11px;">❮ Previous</a>
+        {% endif %}
+        {% if has_next %}
+        <a href="?page={{ current_page|add:1 }}{% if q %}&q={{ q }}{% endif %}" class="btn-download" style="background: var(--gold); padding: 6px 12px; font-size: 11px;">Next ❯</a>
+        {% endif %}
+      </div>
     </div>
   </div>
 </div>
@@ -481,9 +495,7 @@
   /* ── Audit History ── */
   function viewAuditHistory(e) {
     e.preventDefault();
-    const firstId = document.querySelector('#inv-tbody tr')?.id?.replace('row-', '');
-    if (firstId) window.location.href = `/tuab/inventory/${firstId}/`;
-    else wfToast('No inventory items to view audit history for.', 'warning');
+    window.location.href = "{% url 'tuab_inventory_audit_history' %}";
   }
 
   /* ── Export ── */

@@ -116,7 +116,7 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
         
         # 4. Apply Category Filter if present
         if request.query_params.get('category'):
-            queryset = queryset.filter(target_fibers__icontains=request.query_params.get('category'))
+            queryset = queryset.filter(target_fibers=request.query_params.get('category'))
 
         # 5. Distance Calculation & Sorting (Database Level)
         if request.query_params.get('lat') and request.query_params.get('lng'):

@@ -25,7 +25,7 @@ from .tuab import (
     tuab_update_incoming_donation,
     tuab_view_payments,
     tuab_inventory_snapshot,
-    tuab_view_inventory_item,
+    tuab_view_audit_history,
     tuab_inventory_update_usage_proxy,
     tuab_inventory_archive_proxy,
     tuab_inventory_restore_proxy,

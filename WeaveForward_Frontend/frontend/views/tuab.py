@@ -588,27 +588,18 @@ async def tuab_inventory_snapshot(request):
     profile = request.user_profile
     search_query = request.GET.get('q', '')
     
-    # Fetch inventory snapshot summary and list
-    snapshot_res, inventory_list_res = await asyncio.gather(
-        api_call(request, 'GET', 'inventory/snapshot'),
-        api_call(request, 'GET', 'inventory', params={'search': search_query} if search_query else None),
-        return_exceptions=True
-    )
+    # 1. Fetch paginated data for the grid table
+    page_data = await get_paginated_data(request, 'inventory', params={'search': search_query} if search_query else None)
+    inventory_items = page_data['results']
     
-    snapshot_data = {}
-    inventory_items = []
+    # 2. Fetch unpaginated export data for snapshot summary
+    export_res = await api_call(request, 'GET', 'inventory/export')
+    all_inventory_items = []
     
-    if snapshot_res and not isinstance(snapshot_res, Exception) and snapshot_res.status_code == 200:
-        snapshot_data = snapshot_res.json()
+    if export_res and export_res.status_code == 200:
+        all_inventory_items = export_res.json().get('inventory_items', [])
     
-    if inventory_list_res and not isinstance(inventory_list_res, Exception) and inventory_list_res.status_code == 200:
-        data = inventory_list_res.json()
-        if isinstance(data, dict) and 'results' in data:
-            inventory_items = data.get('results', [])
-        else:
-            inventory_items = data if isinstance(data, list) else []
-    
-    # Parse and format inventory items for display
+    # Parse and format inventory items for display (current page only)
     formatted_items = []
     for item in inventory_items:
         source_donation = item.get('source_donation', {})
@@ -638,9 +629,9 @@ async def tuab_inventory_snapshot(request):
         }
         formatted_items.append(formatted_item)
     
-    # Calculate category summary in terms of fibers dynamically by parsing from fiber json
+    # Calculate category summary in terms of fibers dynamically by parsing from fiber json (all items)
     fiber_weights = {}
-    for item in inventory_items:
+    for item in all_inventory_items:
         current_weight_kg = float(item.get('current_weight_kg', 0))
         source_donation = item.get('source_donation', {})
         donation_items = source_donation.get('items', [])
@@ -682,79 +673,61 @@ async def tuab_inventory_snapshot(request):
         {'category': fiber, 'total_weight_kg': weight}
         for fiber, weight in sorted(fiber_weights.items(), key=lambda x: x[1], reverse=True)
     ]
-
-    # Prepare map data for Leaflet
-    locations_data = []
-    for item in inventory_items:
-        source_donation = item.get('source_donation', {})
-        if source_donation.get('pickup_latitude') and source_donation.get('pickup_longitude'):
-            locations_data.append({
-                'lat': float(source_donation.get('pickup_latitude')),
-                'lng': float(source_donation.get('pickup_longitude')),
-                'donor': f"{source_donation.get('donor', {}).get('first_name', '')} {source_donation.get('donor', {}).get('last_name', '')}".strip(),
-                'address': source_donation.get('pickup_display_address', ''),
-                'inventory_id': item.get('inventory_id'),
-            })
-    
     return render(request, 'frontend/tuabs/tuab_inventory_snapshot.html', {
         'page_title': 'Inventory Snapshot',
         'sidebar_variant': 'tuab',
         'user': profile,
-        'snapshot_data': snapshot_data,
         'inventory_items': formatted_items,
-        'locations_json': json.dumps(locations_data),
-        'total_items': snapshot_data.get('total_items', 0),
-        'total_weight_kg': float(snapshot_data.get('total_weight_kg', 0)),
-        'audit_required_count': snapshot_data.get('audit_required_count', 0),
         'category_summary': category_summary,
+        'count': page_data['count'],
+        'total_pages': page_data['total_pages'],
+        'current_page': page_data['current_page'],
+        'has_next': page_data['has_next'],
+        'has_prev': page_data['has_prev'],
         'q': search_query
     })
 
 
-async def tuab_view_inventory_item(request, inventory_id):
-    """View for TUAB to see detailed inventory item information including audit history."""
+async def tuab_view_audit_history(request):
+    """View all TUAB inventory audit history in a table, similar to admin view donors."""
     profile = request.user_profile
-    
-    # Fetch inventory detail and audit history
-    detail_res, audit_res = await asyncio.gather(
-        api_call(request, 'GET', f'inventory/{inventory_id}'),
-        api_call(request, 'GET', f'inventory/{inventory_id}/audit-history'),
-        return_exceptions=True
-    )
-    
-    if not detail_res or isinstance(detail_res, Exception) or detail_res.status_code != 200:
-        messages.error(request, "Inventory item not found.")
-        return redirect('tuab_inventory_snapshot')
-    
-    inventory_item = detail_res.json()
-    audit_history = {}
-    
-    if audit_res and not isinstance(audit_res, Exception) and audit_res.status_code == 200:
-        audit_history = audit_res.json()
-    
-    # Extract source donation and items information
-    source_donation = inventory_item.get('source_donation', {})
-    donor = source_donation.get('donor', {})
-    items = source_donation.get('items', [])
-    
-    # Parse dates if needed
-    if source_donation.get('preferred_pickup_date'):
-        source_donation['preferred_pickup_date'] = parse_datetime(source_donation['preferred_pickup_date'])
-    
-    return render(request, 'frontend/tuabs/tuab_view_inventory_item.html', {
-        'page_title': 'View Inventory',
+    search_query = request.GET.get('q', '')
+
+    from ..services import get_paginated_data
+    page_data = await get_paginated_data(request, 'inventory', params={'search': search_query} if search_query else None)
+    inventory_items = page_data['results']
+
+    formatted_items = []
+    for item in inventory_items:
+        updated_raw = item.get('updated_at', '')
+        last_audit = ''
+        if updated_raw:
+            try:
+                from datetime import datetime
+                dt = datetime.fromisoformat(updated_raw.replace('Z', '+00:00'))
+                last_audit = dt.strftime('%-m-%-d-%Y')
+            except Exception:
+                last_audit = updated_raw[:10]
+        formatted_items.append({
+            'inventory_id': item.get('inventory_id'),
+            'weight_before_kg': float(item.get('weight_before_kg', 0)),
+            'usage_amount_kg': float(item.get('usage_amount_kg', 0)),
+            'current_weight_kg': float(item.get('current_weight_kg', 0)),
+            'last_audit': last_audit,
+        })
+
+    return render(request, 'frontend/tuabs/tuab_inventory_audit_history.html', {
+        'page_title': 'Inventory Snapshot',
         'sidebar_variant': 'tuab',
         'user': profile,
-        'inventory_item': inventory_item,
-        'source_donation': source_donation,
-        'donor': donor,
-        'items': items,
-        'audit_history': audit_history,
-        'pickup_address': source_donation.get('pickup_display_address', ''),
-        'pickup_latitude': source_donation.get('pickup_latitude', ''),
-        'pickup_longitude': source_donation.get('pickup_longitude', ''),
+        'inventory_items': formatted_items,
+        'count': page_data['count'],
+        'total_pages': page_data['total_pages'],
+        'current_page': page_data['current_page'],
+        'has_next': page_data['has_next'],
+        'has_prev': page_data['has_prev'],
+        'q': search_query
     })
-
 
 
 async def tuab_inventory_update_usage_proxy(request, inventory_id):
@@ -885,7 +858,6 @@ async def tuab_circular_economy(request):
 async def tuab_view_fiber_match_recommendations(request):
     """TUAB Fiber-Match Recommendations - View and act on donation recommendations."""
     profile = request.user_profile
-    page = request.GET.get('page', 1)
 
     filters_param = {
         'fiber_type': request.GET.get('fiber_type', ''),
@@ -898,11 +870,10 @@ async def tuab_view_fiber_match_recommendations(request):
     }
 
     recommendations = []
-    pagination_meta = {'current': int(page), 'has_next': False, 'has_prev': int(page) > 1, 'count': 0}
     error_message = None
 
     try:
-        params = {'page': page}
+        params = {'unpaginated': 'true'}
         for key, value in filters_param.items():
             if value:
                 if key == 'confidence_min':
@@ -923,9 +894,10 @@ async def tuab_view_fiber_match_recommendations(request):
 
         if res and not isinstance(res, Exception) and res.status_code == 200:
             data = res.json()
-            recommendations = data.get('results', [])
-            pagination_meta['has_next'] = data.get('next') is not None
-            pagination_meta['count'] = data.get('count', 0)
+            if isinstance(data, list):
+                recommendations = data
+            else:
+                recommendations = data.get('results', [])
         elif res and not isinstance(res, Exception) and res.status_code == 403:
             error_message = "You don't have an active subscription to access Donation Recommendations. Please upgrade."
         else:
@@ -955,7 +927,6 @@ async def tuab_view_fiber_match_recommendations(request):
         'sidebar_variant': 'tuab',
         'user': profile,
         'recommendations': recommendations,
-        'pagination_meta': pagination_meta,
         'error_message': error_message,
         'active_filters': filters_param,
         'available_fibers': available_fibers,

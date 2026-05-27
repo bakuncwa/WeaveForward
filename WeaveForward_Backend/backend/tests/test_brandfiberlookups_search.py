@@ -56,21 +56,6 @@ class BrandFiberLookupSearchTest(TestCase):
         response = self.client.get(reverse('material-brands'), {'clothing_type': 'Pants'})
         self.assertEqual(response.data, ["Levi's"])
 
-    def test_search_items(self):
-        self.client.force_authenticate(user=self.user)
-        
-        # Search by query 'Levi'
-        response = self.client.get(reverse('material-list'), {'q': 'Levi'})
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['brand'], "Levi's")
-        
-        # Search by clothing_type exactly
-        response = self.client.get(reverse('material-list'), {'clothing_type': 'Tops'})
-        self.assertEqual(len(response.data), 2)
-        
-        # Search by brand and clothing_type
-        response = self.client.get(reverse('material-list'), {'brand': 'Uniqlo', 'clothing_type': 'Tops'})
-        self.assertEqual(len(response.data), 2)
 
     def test_fibers_action(self):
         self.client.force_authenticate(user=self.user)

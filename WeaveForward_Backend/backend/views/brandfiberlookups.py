@@ -73,3 +73,4 @@ class BrandFiberLookupViewset(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         return BrandFiberLookup.objects.filter(is_active=True).order_by('brand', 'clothing_type')
+

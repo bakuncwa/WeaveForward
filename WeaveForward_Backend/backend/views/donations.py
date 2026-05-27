@@ -75,7 +75,7 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
                 queryset=DonationItem.objects.filter(is_archived=False).select_related('lookup'),
                 to_attr='active_items',
             ),
-        ).order_by('-submitted_at', '-donation_id')
+        ).order_by('-updated_at')
 
     def list(self, request, *args, **kwargs):
         """Main 'Hall of Fame' list - Non-admins only see PENDING."""

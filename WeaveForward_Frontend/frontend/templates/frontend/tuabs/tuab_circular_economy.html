@@ -499,6 +499,13 @@ function hideCanvas(chartId, emptyId) {
                     stack: 'dec',
                 },
                 {
+                    label: 'Pending',
+                    data: rows.map(r => r.pending || 0),
+                    backgroundColor: 'rgba(232,160,32,0.82)',
+                    borderRadius: 3,
+                    stack: 'dec',
+                },
+                {
                     label: 'Rejected',
                     data: rows.map(r => r.rejected || 0),
                     backgroundColor: 'rgba(192,57,43,0.82)',

@@ -99,6 +99,9 @@ class MatchRecommendationViewSet(viewsets.GenericViewSet, PaginatedResponseMixin
                 return Response({'detail': 'date_before must be ISO 8601'}, status=status.HTTP_400_BAD_REQUEST)
 
         queryset = self._get_filtered_recommendations(request.user, filters)
+        if request.query_params.get('unpaginated') == 'true':
+            serializer = self.get_serializer(queryset, many=True)
+            return Response(serializer.data)
         return self.get_paginated_response_data(queryset)
 
     def _get_filtered_recommendations(self, tuab, filters):
