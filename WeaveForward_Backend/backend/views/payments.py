@@ -26,11 +26,19 @@ class PaymentListView(views.APIView):
             return Response({'detail': 'You do not have permission to view this resource.'}, status=status.HTTP_403_FORBIDDEN)
             
         if user.role == UserRole.ADMIN:
-            subs_qs = SubscriptionPayment.objects.all().order_by('-created_at')
-            orders_qs = OrderPayment.objects.all().order_by('-created_at')
+            subs_qs = SubscriptionPayment.objects.select_related(
+                'subscription', 'subscription__user'
+            ).order_by('-created_at')
+            orders_qs = OrderPayment.objects.select_related(
+                'order', 'order__donation', 'order__donation__claimed_by_tuab'
+            ).order_by('-created_at')
         else:
-            subs_qs = SubscriptionPayment.objects.filter(subscription__user=user).order_by('-created_at')
-            orders_qs = OrderPayment.objects.filter(order__donation__claimed_by_tuab=user).order_by('-created_at')
+            subs_qs = SubscriptionPayment.objects.select_related(
+                'subscription', 'subscription__user'
+            ).filter(subscription__user=user).order_by('-created_at')
+            orders_qs = OrderPayment.objects.select_related(
+                'order', 'order__donation', 'order__donation__claimed_by_tuab'
+            ).filter(order__donation__claimed_by_tuab=user).order_by('-created_at')
             
         subs_data = SubscriptionPaymentSerializer(subs_qs, many=True).data
         orders_data = OrderPaymentSerializer(orders_qs, many=True).data

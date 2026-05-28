@@ -384,7 +384,7 @@
         clearTimeout(acTimer);
         acTimer = setTimeout(async () => {
             const items = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=ph&limit=5`).then(r => r.json());
-            $('addr-ac').innerHTML = items.map(i => `<div onclick="selectAddress(${i.lat},${i.lon},'${escapeHTML(i.display_name.replace(/'/g, "\\'"))}')">${escapeHTML(i.display_name)}</div>`).join('');
+            $('addr-ac').innerHTML = items.map(i => `<div data-lat="${i.lat}" data-lon="${i.lon}" data-name="${escapeHTML(i.display_name)}" onclick="selectAddress(this.getAttribute('data-lat'), this.getAttribute('data-lon'), this.getAttribute('data-name'))">${escapeHTML(i.display_name)}</div>`).join('');
             $('addr-ac').classList.remove('hidden');
         }, 400);
     }
@@ -437,7 +437,7 @@
     function handleFiberInput(val) {
         const FIBERS = JSON.parse(document.getElementById('fibers-data').textContent);
         const m = FIBERS.filter(f => f.toLowerCase().includes(val.toLowerCase()) && !tags.includes(f));
-        $('f-ac').innerHTML = m.map(f => `<div onmousedown="toggleTag('${escapeHTML(f)}')">${escapeHTML(f)}</div>`).join('');
+        $('f-ac').innerHTML = m.map(f => `<div data-tag="${escapeHTML(f)}" onmousedown="toggleTag(this.getAttribute('data-tag'))">${escapeHTML(f)}</div>`).join('');
         $('f-ac').classList.toggle('hidden', !val || !m.length);
     }
     function toggleTag(f) {
