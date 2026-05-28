@@ -156,6 +156,10 @@
     background: var(--red);
   }
 
+  .badge-under-review {
+    background: var(--gold);
+  }
+
   .action-btns {
     display: flex;
     flex-direction: row;
@@ -329,6 +333,8 @@
           <td>
             {% if tuab.status == 'ACTIVE' %}
             <span class="badge badge-active">Active</span>
+            {% elif tuab.status == 'UNDER_REVIEW' %}
+            <span class="badge badge-under-review">Under Review</span>
             {% elif tuab.status == 'ARCHIVED' %}
             <span class="badge badge-archived">Archived</span>
             {% else %}

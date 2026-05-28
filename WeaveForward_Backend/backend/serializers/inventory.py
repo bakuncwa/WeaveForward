@@ -27,14 +27,6 @@ class InventoryItemDetailsSerializer(serializers.ModelSerializer):
         return obj.lookup.clothing_type if obj.lookup else None
 
 
-class InventoryDonorSerializer(serializers.ModelSerializer):
-    """Serializer for donor information in inventory context."""
-    
-    class Meta:
-        model = DonationItem.objects.model.__class__.__bases__[0]
-        fields = ['user_id', 'first_name', 'last_name']
-
-
 class InventorySourceDonationSerializer(serializers.ModelSerializer):
     """Serializer for source donation information in inventory ledger."""
     donor = serializers.SerializerMethodField()
@@ -115,42 +107,7 @@ class InventoryLedgerSerializer(serializers.ModelSerializer):
     
     def get_material_category(self, obj):
         """Get the primary material category from source donation items."""
-        items = obj.source_donation.items.all()
-        if items.exists():
-            first_item = items.first()
-            if first_item.lookup:
-                return first_item.lookup.category
+        for item in obj.source_donation.items.all():
+            if item.lookup:
+                return item.lookup.category
         return None
-
-
-class InventoryAuditHistorySerializer(serializers.ModelSerializer):
-    """Serializer for inventory audit timeline."""
-    
-    class Meta:
-        model = InventoryLedger
-        fields = [
-            'inventory_id',
-            'ingested_at',
-            'updated_at',
-            'archived_at',
-            'current_weight_kg',
-            'usage_amount_kg',
-            'lifecycle_status',
-            'notes'
-        ]
-
-
-class InventorySnapshotSummarySerializer(serializers.Serializer):
-    """Serializer for inventory snapshot summary with category aggregations."""
-    total_items = serializers.IntegerField()
-    total_weight_kg = serializers.DecimalField(max_digits=10, decimal_places=3)
-    audit_required_count = serializers.IntegerField()
-    category_summary = serializers.ListField()
-    
-    class Meta:
-        fields = [
-            'total_items',
-            'total_weight_kg',
-            'audit_required_count',
-            'category_summary'
-        ]

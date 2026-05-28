@@ -4,7 +4,7 @@ import os, json, logging, math, pandas as pd
 from django.db import transaction
 from django.conf import settings
 from django.utils import timezone
-from backend.models import User, DonationItem, MatchPrediction, UserAccountStatus, SubscriptionStatus, SubscriptionTier
+from backend.models import User, Donation, DonationItem, MatchPrediction, UserAccountStatus, SubscriptionStatus, SubscriptionTier, DonationStatus
 
 logger = logging.getLogger(__name__)
 
@@ -288,6 +288,95 @@ def run_predictions_for_donation(donation_id):
         print(f"[AI-MATCHING] Archived {archived_count} existing predictions.")
         created_preds = MatchPrediction.objects.bulk_create(preds, batch_size=2000)
         print(f"[AI-MATCHING] Successfully created {len(created_preds)} new predictions.")
+
+    return preds
+
+
+def run_predictions_for_donation_for_one_tuab(tuab):
+    MatchPredictionService.load_model()
+    items = [
+        MatchPredictionService._normalize_item_payload(item)
+        for item in DonationItem.objects.filter(
+            donation__status=DonationStatus.PENDING,
+            is_archived=False
+        ).values(
+            "item_id",
+            "weight_kg",
+            "lookup__fiber_json",
+            "lookup__brand",
+            "lookup__clothing_type",
+            "lookup__dominant_fiber",
+            "donation__pickup_latitude",
+            "donation__pickup_longitude",
+            "donation__pickup_city",
+            "donation__pickup_barangay",
+        )
+    ]
+    tuabs = [
+        MatchPredictionService._normalize_tuab_payload({
+            "user_id": tuab.user_id,
+            "target_fibers": tuab.target_fibers,
+            "latitude": tuab.latitude,
+            "longitude": tuab.longitude,
+            "min_biodeg_score": tuab.min_biodeg_score,
+            "max_distance_km": tuab.max_distance_km,
+        })
+    ]
+    if not items or not tuabs:
+        return []
+
+    meta = MatchPredictionService._metadata
+    feature_rows = []
+    pair_data = []
+    for item in items:
+        for t in tuabs:
+            feats = MatchPredictionService._build_pair_features(item, t)
+            feature_rows.append(feats)
+            pair_data.append((
+                item["item_id"],
+                t["tuab_id"],
+                feats["pct_target_fiber"],
+                feats["biodeg_target_fiber"],
+                feats["distance_km"],
+            ))
+
+    df = pd.DataFrame.from_records(feature_rows, columns=meta["feature_cols"])
+    for column in meta["cat_features"]:
+        df[column] = df[column].fillna("unknown").astype(str)
+    numeric_cols = [column for column in meta["feature_cols"] if column not in meta["cat_features"]]
+    for column in numeric_cols:
+        df[column] = pd.to_numeric(df[column], errors="coerce").fillna(0.0)
+
+    probs = MatchPredictionService._model.predict_proba(df)[:, 1]
+    thresh = meta.get("fiber_match_threshold", 50.0) / 100.0
+    run_timestamp = timezone.now()
+
+    sorted_indexes = sorted(range(len(pair_data)), key=probs.__getitem__, reverse=True)
+    preds = [
+        MatchPrediction(
+            item_id=pair_data[index][0],
+            tuab_id=pair_data[index][1],
+            is_match=probs[index] >= thresh,
+            match_prob=float(probs[index]),
+            pct_target_fiber=pair_data[index][2],
+            biodeg_target_fiber=pair_data[index][3],
+            distance_km=pair_data[index][4],
+            is_archived_version=False,
+            predicted_at=run_timestamp,
+        )
+        for index in sorted_indexes
+    ]
+
+    item_ids = [item["item_id"] for item in items]
+    print(f"\n[AI-MATCHING] Running predictions for TUAB {tuab.user_id} with active items: {item_ids}")
+    with transaction.atomic():
+        archived_count = MatchPrediction.objects.filter(
+            tuab_id=tuab.user_id,
+            is_archived_version=False
+        ).update(is_archived_version=True)
+        print(f"[AI-MATCHING] Archived {archived_count} existing predictions for TUAB {tuab.user_id}.")
+        created_preds = MatchPrediction.objects.bulk_create(preds, batch_size=2000)
+        print(f"[AI-MATCHING] Successfully created {len(created_preds)} new predictions for TUAB {tuab.user_id}.")
 
     return preds
 

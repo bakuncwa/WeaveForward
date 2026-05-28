@@ -8,15 +8,16 @@ from django.utils.dateparse import parse_datetime
 from django.db import transaction
 from django.utils import timezone
 from decimal import Decimal
+import json
 import logging
 
-from ..models import MatchPrediction, UserRole, MatchRecommendationStatus, Subscription, SubscriptionStatus
+from ..models import MatchPrediction, UserRole, MatchRecommendationStatus, Subscription, SubscriptionStatus, AuditTrail
 from ..serializers.fiberrecommendations import (
     MatchRecommendationListSerializer,
     MatchRecommendationDetailSerializer,
     MatchRecommendationActionSerializer,
 )
-from ..services.prediction_service import MatchPredictionService
+from ..services.prediction_service import MatchPredictionService, run_predictions_for_donation_for_one_tuab
 from ..services.audit_service import get_client_ip, log_audit
 from ..utils.view_mixins import PaginatedResponseMixin
 
@@ -69,6 +70,26 @@ class MatchRecommendationViewSet(viewsets.GenericViewSet, PaginatedResponseMixin
                 {'detail': 'Recommendation engine is currently unavailable. Please try again later.'},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
+
+        user = request.user
+
+        # If the TUAB changed ML-critical profile fields (fibers, biodeg, distance, location)
+        # after the last prediction run, predictions are stale — re-run before serving results.
+        latest_prediction = MatchPrediction.objects.filter(
+            tuab=user, is_archived_version=False
+        ).order_by('-predicted_at').values_list('predicted_at', flat=True).first()
+
+        latest_ml_audit = AuditTrail.objects.filter(
+            actor=user, entity_type='users', fields_modified__isnull=False,
+        ).order_by('-occurred_at').values_list('fields_modified', 'occurred_at').first()
+
+        if latest_ml_audit and latest_ml_audit[0]:
+            try:
+                modified_fields = set(json.loads(latest_ml_audit[0]))
+            except (json.JSONDecodeError, TypeError):
+                modified_fields = set()
+            if (modified_fields & {'target_fibers', 'min_biodeg_score', 'max_distance_km', 'latitude', 'longitude'}) and (not latest_prediction or latest_ml_audit[1] > latest_prediction):
+                run_predictions_for_donation_for_one_tuab(user)
 
         filters = {}
         if request.query_params.get('fiber_type'):

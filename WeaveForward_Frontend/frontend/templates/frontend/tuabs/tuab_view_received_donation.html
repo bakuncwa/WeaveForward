@@ -207,7 +207,7 @@
       <div class="right">
         <div class="panel">
           <div class="drow"><span class="lbl">Donor</span><span class="val">{{ donation.donor.first_name|default:'' }} {{ donation.donor.last_name|default:'' }}</span></div>
-          <div class="drow"><span class="lbl">Status</span><span class="val">{{ donation.status|default:'Pending' }}</span></div>
+          <div class="drow"><span class="lbl">Status</span><span class="val">{% if donation.status == 'PENDING' %}Pending{% elif donation.status == 'IN_TRANSIT' %}In Transit{% elif donation.status == 'CLAIMED' %}Claimed{% elif donation.status == 'RECEIVED' %}Received{% elif donation.status == 'REJECTED' %}Rejected{% elif donation.status == 'CANCELLED' %}Cancelled{% elif donation.status == 'ARCHIVED' %}Archived{% else %}{{ donation.status|default:'Pending' }}{% endif %}</span></div>
           <div class="drow"><span class="lbl">Is Flagged</span><span class="val">{{ donation.is_flagged|default:'False' }}</span></div>
           <div class="drow"><span class="lbl">Flag Reason</span><span class="val">{{ donation.flag_reason|default:'-' }}</span></div>
           <div class="drow"><span class="lbl">Submitted At</span><span class="val">{{ donation.submitted_at|date:"m-d-Y h:i A"|default:"-" }}</span></div>

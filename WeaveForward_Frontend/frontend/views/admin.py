@@ -733,7 +733,7 @@ async def admin_view_payments(request):
         'page_title': 'Payments',
         'sidebar_variant': 'admin',
         'user': profile,
-        'payments_json': page_data['results'],
+        'payments': page_data['results'],
         'count': page_data['count'],
         'total_pages': page_data['total_pages'],
         'current_page': page_data['current_page'],

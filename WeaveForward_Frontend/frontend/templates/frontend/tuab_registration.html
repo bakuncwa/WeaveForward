@@ -1,12 +1,13 @@
+{% load static %}
 <!--
   WeaveForward TUAB Registration (tuab_registration.html) - Refactored
   DJANGO CONVERSION NOTES: Ensure CSRF token is in the form, fiberLookup can be passed dynamically.
 -->
 <!DOCTYPE html>
-{% load static %}
 <html lang="en">
 
 <head>
+  <link rel="icon" type="image/png" href="{% static 'frontend/img/ProjectIcon.png' %}" />
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <title>WeaveForward - TUAB Registration</title>
@@ -751,7 +752,7 @@
       if (!v) return ac.classList.add('hidden');
       const matches = fiberLookup.filter(f => f.toLowerCase().includes(v.toLowerCase()) && !tgs.includes(f));
       if (!matches.length) return ac.classList.add('hidden');
-      ac.innerHTML = matches.map(f => `<div class="ac-item" onmousedown="toggleTag('${escapeHTML(f)}')">${escapeHTML(f)}</div>`).join('');
+      ac.innerHTML = matches.map(f => `<div class="ac-item" data-tag="${escapeHTML(f)}" onmousedown="toggleTag(this.getAttribute('data-tag'))">${escapeHTML(f)}</div>`).join('');
       ac.classList.remove('hidden');
     }
 
@@ -761,7 +762,7 @@
     }
 
     function renderTags() {
-      gE('tags').innerHTML = tgs.map(t => `<div class="t-chip">${escapeHTML(t)}<span onclick="toggleTag('${escapeHTML(t)}')">×</span></div>`).join('');
+      gE('tags').innerHTML = tgs.map(t => `<div class="t-chip">${escapeHTML(t)}<span data-tag="${escapeHTML(t)}" onclick="toggleTag(this.getAttribute('data-tag'))">×</span></div>`).join('');
       gE('fibs').value = tgs.join(',');
       gE('ti').value = ''; gE('f-ac').classList.add('hidden');
     }

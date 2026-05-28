@@ -508,6 +508,11 @@
     .hidden {
         display: none !important;
     }
+
+    @media (max-width: 640px) {
+        .fm-panel { width: 100%; height: 45%; top: auto; bottom: 0; border-left: none; border-top: 1px solid var(--border); }
+        .filter-drawer.open { max-height: 320px; }
+    }
 </style>
 
 <div class="fm-subheader">
@@ -681,8 +686,9 @@
     </div>
 </div>
 
+{{ recommendations|json_script:"recommendations-data" }}
 <script>
-    const recommendations = {{ recommendations_json|safe }};
+    const recommendations = JSON.parse(document.getElementById('recommendations-data').textContent);
     let map = null;
     let markerMap = {};        // pair_id (number) → L.Marker
     let rejectingPairId = null;

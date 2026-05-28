@@ -63,6 +63,46 @@
   .ss-item { padding: 10px 14px; font-size: 13px; cursor: pointer; border-bottom: 1px solid #f5f5f5; color: #666666; font-family: 'Poppins', sans-serif; }
   .ss-item b { display: block; color: var(--gold); font-size: 11px; }
 
+  .reject-modal-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent;
+  }
+  .reject-modal-box {
+    background: #fff; border-radius: 16px; padding: 24px;
+    width: 400px; max-width: 92vw;
+    box-shadow: 0 4px 20px rgba(0,0,0,.12);
+  }
+  .reject-modal-text {
+    font-family: 'Poppins', sans-serif; font-weight: 400;
+    color: #666666; font-size: 15px; text-align: left;
+    margin-bottom: 14px;
+  }
+  .reject-reason-input {
+    width: 100%; box-sizing: border-box;
+    border-radius: 10px;
+    border: 1.5px solid #e0dbd4; padding: 10px 12px;
+    font-family: 'Poppins', sans-serif; font-size: 14px; color: #222;
+    outline: none; margin-bottom: 16px;
+  }
+  .reject-reason-input:focus { border-color: #e8a020; }
+  .reject-modal-actions {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  }
+  .reject-btn-cancel, .reject-btn-confirm {
+    border: none; border-radius: 30px; padding: 12px;
+    font-family: 'Poppins', sans-serif; font-weight: 300;
+    font-size: 14px; cursor: pointer; transition: opacity .2s;
+    box-shadow: 0 2px 6px rgba(0,0,0,.1);
+  }
+  .reject-btn-cancel {
+    background: #FFF1D8; color: #E8A020;
+  }
+  .reject-btn-confirm {
+    background: #D94F3D; color: #D4D4D5;
+  }
+  .reject-btn-cancel:hover, .reject-btn-confirm:hover { opacity: .85; }
+
   .wf-alert { padding: 12px 16px; border-radius: 8px; margin-bottom: 8px; font-size: 14px; }
   .wf-alert.error { background: #fee2e2; color: #991b1b; }
 
@@ -261,7 +301,7 @@
               </div>
 
               <div class="incoming-detail-label">Status</div>
-              <div class="incoming-detail-value incoming-status {% if donation.status == 'RECEIVED' %}received{% elif donation.status == 'REJECTED' %}rejected{% endif %}">{{ donation.status }}</div>
+              <div class="incoming-detail-value incoming-status {% if donation.status == 'RECEIVED' %}received{% elif donation.status == 'REJECTED' %}rejected{% endif %}">{% if donation.status == 'PENDING' %}Pending{% elif donation.status == 'IN_TRANSIT' %}In Transit{% elif donation.status == 'CLAIMED' %}Claimed{% elif donation.status == 'RECEIVED' %}Received{% elif donation.status == 'REJECTED' %}Rejected{% elif donation.status == 'CANCELLED' %}Cancelled{% elif donation.status == 'ARCHIVED' %}Archived{% else %}{{ donation.status }}{% endif %}</div>
 
               <div class="incoming-detail-label">Is Flagged</div>
               <div class="incoming-detail-value">{% if donation.is_flagged %}Yes{% else %}No{% endif %}</div>
@@ -309,12 +349,23 @@
 
           <div class="incoming-action-wrap">
             <button type="button" class="btn-received" onclick="submitResolution('RECEIVED')">Received</button>
-            <button type="button" class="btn-rejected" onclick="submitResolution('REJECTED')">Rejected</button>
+            <button type="button" class="btn-rejected" onclick="openRejectModal()">Rejected</button>
           </div>
         </div>
       </div>
     </div>
   </form>
+</div>
+
+<div id="reject-modal" class="reject-modal-overlay" style="display:none;">
+  <div class="reject-modal-box">
+    <div class="reject-modal-text">Enter reason for rejection</div>
+                    <input type="text" id="reject-reason-input" class="reject-reason-input">
+    <div class="reject-modal-actions">
+      <button type="button" class="reject-btn-cancel" onclick="closeRejectModal()">Cancel</button>
+      <button type="button" class="reject-btn-confirm" onclick="confirmReject()">Reject</button>
+    </div>
+  </div>
 </div>
 
 <!-- Template for New Cards -->
@@ -511,12 +562,10 @@
     return true;
   }
 
-  async function submitResolution(status) {
+  async function submitResolution(status, reason) {
     let rejectionReason = '';
     if (status === 'REJECTED') {
-      rejectionReason = prompt("Please enter the reason for rejection:");
-      if (rejectionReason === null) return; // User cancelled
-      rejectionReason = rejectionReason.trim();
+      rejectionReason = (reason || '').trim();
       if (!rejectionReason) {
         showFlash("Rejection reason is required.", "error");
         return;
@@ -580,6 +629,26 @@
       btn.innerText = oldText;
       document.querySelectorAll('.btn-received, .btn-rejected').forEach(b => b.disabled = false);
     }
+  }
+
+  function openRejectModal() {
+    document.getElementById('reject-modal').style.display = 'flex';
+    document.getElementById('reject-reason-input').value = '';
+    document.getElementById('reject-reason-input').focus();
+  }
+
+  function closeRejectModal() {
+    document.getElementById('reject-modal').style.display = 'none';
+  }
+
+  function confirmReject() {
+    const reason = document.getElementById('reject-reason-input').value;
+    if (!reason.trim()) {
+      showFlash('Rejection reason is required.', 'error');
+      return;
+    }
+    closeRejectModal();
+    submitResolution('REJECTED', reason);
   }
 
   // Init existing cards
