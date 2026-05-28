@@ -1,12 +1,9 @@
 """
 Inventory views for TUAB raw material management.
-Provides real-time stock level monitoring and audit history tracking.
+Provides real-time stock level monitoring.
 """
 
-from datetime import timedelta
 from django.utils import timezone
-from django.db.models import Sum, Q, Count, DecimalField
-from django.db.models.functions import TruncDate
 from rest_framework import viewsets, mixins, status, filters
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -15,24 +12,17 @@ from rest_framework.exceptions import PermissionDenied, NotFound
 
 from decimal import Decimal, InvalidOperation
 from ..models import InventoryLedger, InventoryLifecycleStatus, InventoryExitState
-from ..serializers.inventory import (
-    InventoryLedgerSerializer,
-    InventoryAuditHistorySerializer,
-    InventorySnapshotSummarySerializer
-)
+from ..serializers.inventory import InventoryLedgerSerializer
 from ..utils.view_mixins import PaginatedResponseMixin
 from ..services.audit_service import get_client_ip, log_audit
 
 
-class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin, PaginatedResponseMixin):
+class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, PaginatedResponseMixin):
     """
     ViewSet for managing TUAB inventory ledger entries.
-    
+
     Endpoints:
         GET /inventory/ - List all inventory items for authenticated TUAB
-        GET /inventory/{inventory_id}/ - Get specific inventory item details
-        GET /inventory/snapshot/summary/ - Get inventory aggregation summary
-        GET /inventory/{inventory_id}/audit-history/ - Get audit timeline for item
     """
     permission_classes = [IsAuthenticated]
     serializer_class = InventoryLedgerSerializer
@@ -40,18 +30,12 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Re
     search_fields = ['=inventory_id', '=source_donation__donation_id', 'source_donation__donor__first_name', 'source_donation__donor__last_name']
 
     def get_queryset(self):
-        """
-        Get inventory ledger entries.
-        Only TUABs can access inventory for their own donations.
-        """
         user = self.request.user
-        
-        # Only TUABs can access inventory
+
         if user.role != 'TUAB':
             return InventoryLedger.objects.none()
-        
-        # Get inventory from donations claimed by this TUAB
-        queryset = InventoryLedger.objects.filter(
+
+        return InventoryLedger.objects.filter(
             source_donation__claimed_by_tuab=user,
             lifecycle_status=InventoryLifecycleStatus.ACTIVE
         ).select_related(
@@ -61,117 +45,14 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Re
         ).prefetch_related(
             'source_donation__items__lookup'
         ).order_by('-ingested_at')
-        
-        return queryset
 
     def list(self, request, *args, **kwargs):
-        """
-        List inventory items with pagination.
-        Includes basic item information and audit status flags.
-        """
         if request.user.role != 'TUAB':
             raise PermissionDenied("Only TUABs can view inventory.")
-        
+
         queryset = self.get_queryset()
         queryset = self.filter_queryset(queryset)
         return self.get_paginated_response_data(queryset)
-
-    def retrieve(self, request, *args, **kwargs):
-        """
-        Get detailed information about a specific inventory item.
-        Includes source donation details, current stock levels, and audit history.
-        """
-        instance = self.get_object()
-        
-        # Verify ownership
-        if instance.source_donation.claimed_by_tuab != request.user:
-            raise PermissionDenied("Access denied.")
-        
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
-
-    @action(detail=False, methods=['get'])
-    def snapshot(self, request):
-        """
-        Get inventory snapshot summary with:
-        - Total items count
-        - Total weight aggregation
-        - Items requiring audit (>30 days old)
-        - Category-wise breakdown
-        """
-        if request.user.role != 'TUAB':
-            raise PermissionDenied("Only TUABs can view inventory snapshots.")
-        
-        queryset = self.get_queryset()
-        
-        # Calculate aggregates
-        totals = queryset.aggregate(
-            total_items=Count('inventory_id'),
-            total_weight_kg=Sum('current_weight_kg', output_field=DecimalField()),
-        )
-        
-        # Count items requiring audit (>30 days since last update)
-        thirty_days_ago = timezone.now() - timedelta(days=30)
-        audit_required_count = queryset.filter(updated_at__lt=thirty_days_ago).count()
-        
-        # Aggregate by category
-        category_summary = []
-        category_data = queryset.values('source_donation__items__lookup__category').annotate(
-            category_count=Count('inventory_id'),
-            category_weight=Sum('current_weight_kg', output_field=DecimalField())
-        )
-        
-        for cat in category_data:
-            if cat.get('source_donation__items__lookup__category'):
-                category_summary.append({
-                    'category': cat['source_donation__items__lookup__category'],
-                    'items_count': cat['category_count'],
-                    'total_weight_kg': cat['category_weight']
-                })
-        
-        # Build response
-        summary_data = {
-            'total_items': totals['total_items'] or 0,
-            'total_weight_kg': totals['total_weight_kg'] or 0,
-            'audit_required_count': audit_required_count,
-            'category_summary': category_summary
-        }
-        
-        serializer = InventorySnapshotSummarySerializer(summary_data)
-        return Response(serializer.data)
-
-    @action(detail=True, methods=['get'])
-    def audit_history(self, request, pk=None):
-        """
-        Get audit timeline for a specific inventory item.
-        Shows all updates, usage tracking, and status changes.
-        """
-        instance = self.get_object()
-        
-        # Verify ownership
-        if instance.source_donation.claimed_by_tuab != request.user:
-            raise PermissionDenied("Access denied.")
-        
-        # For now, return current state (audit trail DB table can be added in future)
-        serializer = InventoryAuditHistorySerializer(instance)
-        return Response({
-            'inventory_id': instance.inventory_id,
-            'current_state': serializer.data,
-            'audit_entries': [
-                {
-                    'timestamp': instance.ingested_at,
-                    'action': 'CREATED',
-                    'weight_kg': instance.weight_before_kg,
-                    'notes': 'Initial ingestion from donation'
-                },
-                {
-                    'timestamp': instance.updated_at,
-                    'action': 'UPDATED',
-                    'weight_kg': instance.current_weight_kg,
-                    'notes': instance.notes or 'Stock update'
-                }
-            ]
-        })
 
     @action(detail=False, methods=['get'])
     def export(self, request):

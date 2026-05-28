@@ -553,8 +553,8 @@
 
   // --- 4. Fiber Tags ---
   let tags = (getEl('fibs').value || '').split(',').map(s => s.trim()).filter(Boolean);
-  const renderTags = () => { getEl('tags').innerHTML = tags.map(t => `<div class="t-chip">${escapeHTML(t)}<span onclick="toggleTag('${escapeHTML(t)}')">×</span></div>`).join(''); getEl('fibs').value = tags.join(','); };
-  const handleFiberInput = val => { const m = FIBERS.filter(f => f.toLowerCase().includes(val.toLowerCase()) && !tags.includes(f)); getEl('f-ac').innerHTML = m.map(f => `<div onmousedown="toggleTag('${escapeHTML(f)}')">${escapeHTML(f)}</div>`).join(''); getEl('f-ac').classList.toggle('hidden', !val || !m.length); };
+  const renderTags = () => { getEl('tags').innerHTML = tags.map(t => `<div class="t-chip">${escapeHTML(t)}<span data-tag="${escapeHTML(t)}" onclick="toggleTag(this.getAttribute('data-tag'))">×</span></div>`).join(''); getEl('fibs').value = tags.join(','); };
+  const handleFiberInput = val => { const m = FIBERS.filter(f => f.toLowerCase().includes(val.toLowerCase()) && !tags.includes(f)); getEl('f-ac').innerHTML = m.map(f => `<div data-tag="${escapeHTML(f)}" onmousedown="toggleTag(this.getAttribute('data-tag'))">${escapeHTML(f)}</div>`).join(''); getEl('f-ac').classList.toggle('hidden', !val || !m.length); };
   const toggleTag = f => { tags = tags.includes(f) ? tags.filter(t => t !== f) : [...tags, f]; renderTags(); getEl('ti').value = ''; getEl('f-ac').classList.add('hidden'); };
 
   // --- 5. Location ---

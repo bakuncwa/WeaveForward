@@ -70,7 +70,7 @@ async def tuab_unsubscribe_proxy(request):
 
 async def two_factor_disable_proxy(request):
     """Proxy to disable 2FA for the logged-in user."""
-    if request.method != 'POST' and request.method != 'DELETE':
+    if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
     try:
         response = await api_call(request, 'DELETE', 'users/me/2fa')

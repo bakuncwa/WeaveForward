@@ -161,7 +161,7 @@
       <td>${escapeHTML(String(d.items))}</td>
       <td><div style="display:flex;gap:6px">
         <a href="${d.status === 'IN_TRANSIT' ? `/tuab/donations/${escapeHTML(String(d.id))}/edit/` : `/tuab/donations/${escapeHTML(String(d.id))}/`}" class="btn btn-tuab">Manage</a>
-        ${(d.status === 'PENDING' || d.status === 'FLAGGED') ? `<button class="btn-flag" onclick="openFlagModal('${escapeHTML(String(d.id))}','${escapeHTML(tab)}')">Flag</button>` : ''}
+        ${(d.status === 'PENDING' || d.status === 'FLAGGED') ? `<button class="btn-flag" data-id="${escapeHTML(String(d.id))}" data-tab="${escapeHTML(tab)}" onclick="openFlagModal(this.getAttribute('data-id'), this.getAttribute('data-tab'))">Flag</button>` : ''}
       </div></td>
     </tr>`).join('')}
     </tbody></table>`;

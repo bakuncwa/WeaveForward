@@ -48,7 +48,27 @@
           <th>Status</th>
         </tr>
       </thead>
-      <tbody id="pay-tbody"></tbody>
+      <tbody>
+        {% for p in payments %}
+        <tr>
+          <td>{{ p.tuab|default:"" }}</td>
+          <td>{{ p.type }}</td>
+          <td>&#8369;{{ p.amount }}</td>
+          <td class="ref">{{ p.reference|default:"" }}</td>
+          <td>
+            {% if p.status == 'Success' %}
+              <span class="status-success">{{ p.status }}</span>
+            {% elif p.status == 'Pending' %}
+              <span class="status-pending">{{ p.status }}</span>
+            {% else %}
+              <span class="status-failed">{{ p.status }}</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" style="text-align:center;color:#888;padding:24px;">No payments found.</td></tr>
+        {% endfor %}
+      </tbody>
     </table>
   </div>
 </div>
@@ -64,28 +84,4 @@
     {% endif %}
   </div>
 </div>
-
-{{ payments_json|json_script:"payments-data" }}
-<script>
-  const escapeHTML = str => !str ? '' : str.replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c] || c));
-  const PAYMENTS = JSON.parse(document.getElementById('payments-data').textContent);
-
-  function renderRows(list) {
-    document.getElementById('pay-tbody').innerHTML = list.map(p => {
-      let statusClass = 'status-failed';
-      if (p.status === 'Success') statusClass = 'status-success';
-      if (p.status === 'Pending') statusClass = 'status-pending';
-      return `
-      <tr>
-        <td>${escapeHTML(p.tuab || '')}</td>
-        <td>${escapeHTML(p.type)}</td>
-        <td>₱${escapeHTML(String(p.amount))}</td>
-        <td class="ref">${escapeHTML(p.reference || '')}</td>
-        <td><span class="${statusClass}">${escapeHTML(p.status)}</span></td>
-      </tr>`;
-    }).join('');
-  }
-
-  window.addEventListener('load', () => renderRows(PAYMENTS));
-</script>
 {% endblock %}
