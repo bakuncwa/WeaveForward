@@ -497,13 +497,6 @@
 
   getEl('frm').onsubmit = e => {
     const form = e.target;
-    const pw = form.password.value;
-    const cpw = form.confirm_password.value;
-    if ((pw || cpw) && pw !== cpw) {
-      e.preventDefault();
-      alert('Passwords do not match.');
-      return;
-    }
     const addrEl = getEl('addr');
     const addressChanged = snapshotNamedFieldValue(addrEl) !== (initialNamedFieldValues.display_address || '');
     if (addressChanged && (!getEl('lat').value.trim() || !getEl('lng').value.trim())) {

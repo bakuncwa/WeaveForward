@@ -360,9 +360,9 @@ Features for Admin user role:
 - [x] Edit Donations
 - [x] Archive Donations
 - [x] View Donation Impact Dashboard
-- [ ] View Circular Economy Impact Dashboard
+- [x] View Circular Economy Impact Dashboard
 - [x] View Payments
-- [ ] Admin Features Blackbox Selenium Test Script
+- [x] Admin Features Blackbox Selenium Test Script
 
 ### Phase 6: Testing & Validation
 

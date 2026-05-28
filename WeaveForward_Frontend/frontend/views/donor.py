@@ -83,7 +83,6 @@ async def donor_browse_businesses(request):
     return render(request, 'frontend/donor/donor_browse_businesses.html', {
         'page_title': 'Browse Businesses', 
         'user': profile,
-        'sidebar_variant': 'donor',
         'businesses': businesses,
         'categories': categories,
         'count': count,
@@ -114,7 +113,6 @@ async def donor_my_donations(request):
     return render(request, 'frontend/donor/donor_my_donations.html', {
         'page_title': 'My Donations',
         'user': profile,
-        'sidebar_variant': 'donor',
         'donations': donations_list,
         'count': page_data['count'],
         'total_pages': page_data['total_pages'],
@@ -148,7 +146,6 @@ async def donor_view_donation(request, donation_id):
     return render(request, 'frontend/donor/donor_view_donation.html', {
         'page_title': 'View Donation',
         'user': profile,
-        'sidebar_variant': 'donor',
         'donation': donation,
         'items': donation.get('items', [])
     })
@@ -174,7 +171,6 @@ async def donor_view_tuab(request, user_id):
     return render(request, 'frontend/donor/donor_view_tuab.html', {
         'page_title': f"View Business | {business.get('business_name', 'Business Details')}",
         'user': profile,
-        'sidebar_variant': 'donor',
         'business': business,
     })
 
@@ -232,7 +228,6 @@ async def donor_create_donation(request):
     return render(request, 'frontend/donor/donor_create_donation.html', {
         'page_title': 'Create Donation',
         'user': profile,
-        'sidebar_variant': 'donor',
         'clothing_types': clothing_types,
         'all_brands': all_brands,
         'condition_choices': [
@@ -258,8 +253,7 @@ async def donor_profile(request):
         
     return render(request, 'frontend/donor/donor_profile.html', {
         'page_title': 'Account Profile',
-        'user': profile,
-        'sidebar_variant': 'donor'
+        'user': profile
     })
 
 async def donor_edit_profile(request):
@@ -337,8 +331,7 @@ async def donor_edit_profile(request):
     return render(request, 'frontend/donor/donor_edit_profile.html', {
         'page_title': 'Edit Profile',
         'user': profile,
-        'current_etag': etag,
-        'sidebar_variant': 'donor'
+        'current_etag': etag
     })
 
 async def donor_edit_donation(request, donation_id):
@@ -422,7 +415,6 @@ async def donor_edit_donation(request, donation_id):
         'user': profile,
         'donation': donation,
         'current_etag': etag,
-        'sidebar_variant': 'donor',
         'clothing_types': clothing_types,
         'all_brands': all_brands,
         'condition_choices': [
@@ -528,7 +520,6 @@ async def donor_impact_dashboard(request):
     return render(request, 'frontend/donor/donor_impact_dashboard.html', {
         'page_title': 'Donation Impact Dashboard',
         'user': profile,
-        'sidebar_variant': 'donor',
         'total_donations': total_donations,
         'claimed_count': claimed_count,
         'leaderboard': leaderboard,

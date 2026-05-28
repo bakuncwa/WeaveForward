@@ -24,23 +24,37 @@
         min-height: 100%;
         display: flex;
         flex-direction: column;
-        padding: 24px 28px;
+        padding: 0;
         gap: 20px;
     }
 
-    /* ── Date Range Section ── */
-    .ce-date-section { display: flex; flex-direction: column; gap: 10px; }
+    /* ── Filters ── */
+    .ce-filters {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        width: 100%;
+    }
 
-    .ce-date-label {
-        font-family: 'Poppins', sans-serif;
-        font-size: 13px;
+    .ce-filter-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+
+    .ce-filter-field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .ce-filter-label {
+        font-size: 12px;
         font-weight: 600;
         color: var(--navy);
     }
 
-    .ce-date-row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
-
-    .ce-date-input {
+    .ce-filter-input {
         font-family: 'Poppins', sans-serif;
         font-size: 13px;
         color: var(--text);
@@ -49,39 +63,33 @@
         border-radius: 8px;
         padding: 10px 14px;
         outline: none;
-        min-width: 200px;
+        width: 100%;
+        box-sizing: border-box;
         cursor: pointer;
         transition: border-color 0.15s;
     }
+    .ce-filter-input:focus { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(232,160,32,0.15); }
 
-    .ce-date-input:focus { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(232,160,32,0.15); }
+    .ce-filter-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
 
-    .ce-date-actions { display: flex; gap: 8px; align-items: center; }
-
-    .ce-btn-apply {
+    .ce-btn-apply, .ce-export-btn {
         font-family: 'Poppins', sans-serif;
         font-size: 12px;
-        font-weight: 600;
+        font-weight: 400;
         background: var(--gold);
         color: #fff;
         border: none;
         border-radius: 6px;
-        padding: 10px 18px;
+        padding: 10px 14px;
         cursor: pointer;
+        width: 100%;
         transition: background 0.15s;
     }
-    .ce-btn-apply:hover { background: #d18c18; }
-
-    .ce-btn-clear {
-        font-family: 'Poppins', sans-serif;
-        font-size: 12px;
-        color: var(--muted);
-        text-decoration: none;
-        padding: 10px 12px;
-        border-radius: 6px;
-        transition: background 0.15s;
-    }
-    .ce-btn-clear:hover { background: #e8e4dc; }
+    .ce-btn-apply:hover, .ce-export-btn:hover { background: #d18c18; }
 
     /* ── Error banner ── */
     .ce-error {
@@ -224,55 +232,96 @@
     .ce-empty-icon { font-size: 28px; opacity: 0.4; }
     .ce-empty-text { font-size: 12px; }
 
-    .ce-period-row { display: flex; align-items: center; gap: 8px; }
-    .ce-period-badge {
-        font-size: 11px;
-        font-weight: 600;
-        background: #eef5ee;
-        color: var(--green);
-        border: 1px solid #c3dfc3;
-        border-radius: 20px;
-        padding: 3px 12px;
-    }
-    .ce-period-badge.lifetime {
-        background: #f0f4ff;
-        color: #4a7bbf;
-        border-color: #c0d0ee;
-    }
-
     @media (max-width: 860px) {
         .ce-chart-grid { grid-template-columns: 1fr; }
-        .ce-page { padding: 16px 14px; }
+        .ce-page { padding: 0; }
+    }
+
+    @media print {
+        @page {
+            size: A4 portrait;
+            margin: 12mm;
+        }
+
+        html, body {
+            background: #fff !important;
+        }
+
+        .wf-sidebar,
+        .wf-topbar,
+        .ce-filters {
+            display: none !important;
+        }
+
+        .wf-main,
+        .wf-content {
+            background: #fff !important;
+            overflow: visible !important;
+        }
+
+        .wf-content {
+            padding: 0 !important;
+        }
+
+        .ce-page {
+            background: #fff !important;
+            padding: 0 !important;
+            gap: 0 !important;
+        }
+
+        .ce-chart-grid {
+            display: block !important;
+        }
+
+        .ce-chart-card {
+            box-shadow: none !important;
+            border: 1px solid #ddd !important;
+            break-inside: avoid-page;
+            page-break-inside: avoid;
+            break-after: page;
+            page-break-after: always;
+            margin: 0 0 12mm 0 !important;
+        }
+
+        .ce-chart-card:last-child {
+            break-after: auto;
+            page-break-after: auto;
+            margin-bottom: 0 !important;
+        }
+
+        .ce-chart-wrap {
+            overflow: visible !important;
+        }
+
+        .brand-list {
+            max-height: none !important;
+            overflow: visible !important;
+        }
+
+        .ce-empty {
+            min-height: 120mm;
+        }
     }
 </style>
 
 <div class="ce-page">
 
-    <!-- Date Range -->
-    <div class="ce-date-section">
-        <span class="ce-date-label">Date Range</span>
-        <form class="ce-date-row" method="GET" action="">
-            <input class="ce-date-input" type="date" name="date_from"
-                   value="{{ date_from }}" max="{{ today_iso }}" placeholder="mm/dd/yyyy">
-            <input class="ce-date-input" type="date" name="date_to"
-                   value="{{ date_to }}" max="{{ today_iso }}" placeholder="mm/dd/yyyy">
-            <div class="ce-date-actions">
-                <button class="ce-btn-apply" type="submit">Apply</button>
-                {% if date_from or date_to %}
-                <a class="ce-btn-clear" href="{% url 'tuab_circular_economy' %}">Clear</a>
-                {% endif %}
+    <form class="ce-filters" method="GET" action="">
+        <div class="ce-filter-row">
+            <div class="ce-filter-field">
+                <span class="ce-filter-label">Before</span>
+                <input class="ce-filter-input" type="date" name="date_from" value="{{ date_from }}" max="{{ today_iso }}">
             </div>
-        </form>
-    </div>
-
-    <!-- Period label -->
-    <div class="ce-period-row">
-        {% if date_from or date_to %}
-        <span class="ce-period-badge">Period: {{ date_from|default:"–" }} – {{ date_to|default:"Today" }}</span>
-        {% else %}
-        <span class="ce-period-badge lifetime">Lifetime Metrics</span>
-        {% endif %}
-    </div>
+            <div class="ce-filter-field">
+                <span class="ce-filter-label">After</span>
+                <input class="ce-filter-input" type="date" name="date_to" value="{{ date_to }}" max="{{ today_iso }}">
+            </div>
+        </div>
+        <div class="ce-filter-actions">
+            <button class="ce-btn-apply" type="submit">Apply Filters</button>
+            <button type="button" class="ce-export-btn" onclick="window.print()">Export Report</button>
+        </div>
+    </form>
 
     {% if error_message %}
     <div class="ce-error">{{ error_message }}</div>
@@ -359,17 +408,9 @@
 <script>
 const DATA = JSON.parse('{{ dashboard_json|escapejs }}');
 
-const FIBER_COLORS = {
-    cotton:    '#d4a843',
-    denim:     '#4a7bbf',
-    wool:      '#8b6047',
-    linen:     '#88a86a',
-    silk:      '#c084b8',
-    polyester: '#9e9e9e',
-    bamboo:    '#5aab6e',
-    rayon:     '#e87c5a',
-    other:     '#b0aaa5',
-};
+function fiberColor() {
+    return `hsl(${Math.random()*360}, 55%, 55%)`;
+}
 
 const BIODEG_COLORS = [
     'rgba(192,57,43,0.85)',
@@ -431,7 +472,11 @@ function hideCanvas(chartId, emptyId) {
     const rows = DATA.volume_by_city_fiber || [];
     if (!rows.length) { hideCanvas('chart-volume', 'empty-volume'); return; }
 
-    const citySet  = [...new Set(rows.map(r => r.city))].sort();
+    const cityTotals = {};
+    rows.forEach(r => {
+        cityTotals[r.city] = (cityTotals[r.city] || 0) + (r.weight_kg || 0);
+    });
+    const citySet  = Object.keys(cityTotals).sort((a, b) => cityTotals[b] - cityTotals[a]);
     const fiberSet = [...new Set(rows.map(r => r.fiber))].sort();
 
     const lookup = {};
@@ -443,7 +488,7 @@ function hideCanvas(chartId, emptyId) {
     const datasets = fiberSet.map(fiber => ({
         label: fiber.charAt(0).toUpperCase() + fiber.slice(1),
         data: citySet.map(city => lookup[city]?.[fiber] || 0),
-        backgroundColor: FIBER_COLORS[fiber] || FIBER_COLORS.other,
+        backgroundColor: fiberColor(fiber),
         borderRadius: 3,
         stack: 'vol',
     }));
@@ -505,8 +550,14 @@ function hideCanvas(chartId, emptyId) {
 
 // ── Panel [1,1]: Donation Decisions per NCR City (horizontal stacked) ─
 (function buildDecisions() {
-    const rows = DATA.decisions_by_city || [];
+    const rows = [...(DATA.decisions_by_city || [])];
     if (!rows.length) { hideCanvas('chart-decisions', 'empty-decisions'); return; }
+
+    rows.sort((a, b) => {
+        const totalA = (a.accepted || 0) + (a.pending || 0) + (a.rejected || 0) + (a.flagged || 0);
+        const totalB = (b.accepted || 0) + (b.pending || 0) + (b.rejected || 0) + (b.flagged || 0);
+        return totalB - totalA;
+    });
 
     const cities = rows.map(r => r.city);
 

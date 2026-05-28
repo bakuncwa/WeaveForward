@@ -230,10 +230,6 @@
       </div>
       <div class="inv-section-right">
         <a href="#" class="btn-audit-hist" onclick="viewAuditHistory(event)">View Audit History</a>
-        <button class="btn-download" type="button" onclick="exportInventoryCSV()" style="padding:7px 14px;font-size:12px;">
-          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Download
-        </button>
         <form method="GET" style="display:inline-block; margin:0;">
           <div class="search-box">
             <svg width="13" height="13" fill="none" stroke="#c0952a" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -401,7 +397,7 @@
     try {
       const res = await fetch(PROXY_URLS[activeInventoryId].update, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf(), 'X-Requested-With': 'XMLHttpRequest' },
         body: JSON.stringify({ usage_amount_kg: usage })
       });
       const data = await res.json();
@@ -433,7 +429,7 @@
     try {
       const res = await fetch(PROXY_URLS[activeInventoryId].archive, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf(), 'X-Requested-With': 'XMLHttpRequest' },
         body: JSON.stringify({ exit_state: exitState })
       });
       const data = await res.json();
@@ -479,7 +475,7 @@
     try {
       const res = await fetch(PROXY_URLS[lastArchivedId].restore, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf(), 'X-Requested-With': 'XMLHttpRequest' },
         body: '{}'
       });
       if (res.ok) {
@@ -505,7 +501,9 @@
   /* ── Export ── */
   async function exportInventoryCSV() {
     try {
-      const response = await fetch('/api/tuab/inventory/export/');
+      const response = await fetch('/api/tuab/inventory/export/', {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
       if (!response.ok) {
         alert('Failed to fetch inventory export data.');
         return;

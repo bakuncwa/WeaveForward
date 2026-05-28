@@ -67,7 +67,6 @@ async def tuab_dashboard(request):
 
     return render(request, 'frontend/tuabs/tuab_dashboard.html', {
         'page_title': 'Dashboard',
-        'sidebar_variant': 'tuab',
         'user': profile,
         'available_donations': available_donations,
         'my_claimed_donations': my_claimed_donations,
@@ -206,7 +205,6 @@ async def tuab_view_donation(request, donation_id):
     ):
         return render(request, 'frontend/tuabs/tuab_mark_claimed_donation_as_IN_TRANSIT.html', {
             'page_title': 'View Donation',
-            'sidebar_variant': 'tuab',
             'user': profile,
             'users': profile,
             'donation': donation,
@@ -232,7 +230,6 @@ async def tuab_view_donation(request, donation_id):
     if donation.get('status') in {'RECEIVED', 'REJECTED'}:
         return render(request, 'frontend/tuabs/tuab_view_received_donation.html', {
             'page_title': 'View Donation',
-            'sidebar_variant': 'tuab',
             'user': profile,
             'users': profile,
             'donation': donation,
@@ -244,7 +241,6 @@ async def tuab_view_donation(request, donation_id):
     # =========================
     return render(request, 'frontend/tuabs/tuab_view_donation.html', {
         'page_title': 'View Donation',
-        'sidebar_variant': 'tuab',
         'user': profile,
         'users': profile,
         'donation': donation,
@@ -353,7 +349,6 @@ async def tuab_update_incoming_donation(request, donation_id):
         'page_title': 'Update Donation',
         'user': profile,
         'donation': donation,
-        'sidebar_variant': 'tuab',
         'clothing_types': clothing_types,
         'all_brands': all_brands,
         'condition_choices': [
@@ -418,7 +413,6 @@ async def tuab_subscribe(request):
     if profile.get('is_subscribed'):
         return render(request, 'frontend/tuabs/tuab_subscribe_to_premium_success.html', {
             'page_title': 'Subscribe for Premium Features',
-            'sidebar_variant': 'tuab',
             'user': profile
         })
 
@@ -426,7 +420,6 @@ async def tuab_subscribe(request):
     if request.GET.get('status') == 'failed':
         return render(request, 'frontend/tuabs/tuab_subscribe_to_premium_failed.html', {
             'page_title': 'Subscribe for Premium Features',
-            'sidebar_variant': 'tuab',
             'user': profile
         })
 
@@ -471,7 +464,6 @@ async def tuab_subscribe(request):
 
     return render(request, 'frontend/tuabs/tuab_subscribe_to_premium.html', {
         'page_title': 'Subscribe for Premium Features',
-        'sidebar_variant': 'tuab',
         'user': profile,
     })
 
@@ -489,7 +481,6 @@ async def tuab_profile(request):
 
     return render(request, 'frontend/tuabs/tuab_profile.html', {
         'page_title': 'Account Profile',
-        'sidebar_variant': 'tuab',
         'user': business,
         'business': business,
     })
@@ -566,7 +557,6 @@ async def tuab_edit_profile(request):
         'page_title': 'Edit Profile',
         'user': profile,
         'current_etag': etag,
-        'sidebar_variant': 'tuab',
         'fibers': fibers,
     })
 
@@ -579,7 +569,6 @@ async def tuab_view_payments(request):
     
     return render(request, 'frontend/tuabs/tuab_view_payments.html', {
         'page_title': 'Payments',
-        'sidebar_variant': 'tuab',
         'user': profile,
         'payments_json': page_data['results'],
         'count': page_data['count'],
@@ -615,7 +604,6 @@ async def tuab_inventory_snapshot(request):
         last_audit = ''
         if updated_raw:
             try:
-                from datetime import datetime
                 dt = datetime.fromisoformat(updated_raw.replace('Z', '+00:00'))
                 last_audit = dt.strftime('%-m-%-d-%Y')
             except Exception:
@@ -683,7 +671,6 @@ async def tuab_inventory_snapshot(request):
     ]
     return render(request, 'frontend/tuabs/tuab_inventory_snapshot.html', {
         'page_title': 'Inventory Snapshot',
-        'sidebar_variant': 'tuab',
         'user': profile,
         'inventory_items': formatted_items,
         'category_summary': category_summary,
@@ -699,10 +686,7 @@ async def tuab_inventory_snapshot(request):
 async def tuab_view_audit_history(request):
     """View all TUAB inventory audit history in a table, similar to admin view donors."""
     profile = request.user_profile
-    search_query = request.GET.get('q', '')
-
-    from ..services import get_paginated_data
-    page_data = await get_paginated_data(request, 'inventory', params={'search': search_query} if search_query else None)
+    page_data = await get_paginated_data(request, 'inventory')
     inventory_items = page_data['results']
 
     formatted_items = []
@@ -711,7 +695,6 @@ async def tuab_view_audit_history(request):
         last_audit = ''
         if updated_raw:
             try:
-                from datetime import datetime
                 dt = datetime.fromisoformat(updated_raw.replace('Z', '+00:00'))
                 last_audit = dt.strftime('%-m-%-d-%Y')
             except Exception:
@@ -726,7 +709,6 @@ async def tuab_view_audit_history(request):
 
     return render(request, 'frontend/tuabs/tuab_inventory_audit_history.html', {
         'page_title': 'Inventory Snapshot',
-        'sidebar_variant': 'tuab',
         'user': profile,
         'inventory_items': formatted_items,
         'count': page_data['count'],
@@ -734,7 +716,6 @@ async def tuab_view_audit_history(request):
         'current_page': page_data['current_page'],
         'has_next': page_data['has_next'],
         'has_prev': page_data['has_prev'],
-        'q': search_query
     })
 
 
@@ -746,8 +727,8 @@ async def tuab_inventory_update_usage_proxy(request, inventory_id):
         body = json.loads(request.body)
         res = await api_call(request, 'POST', f'inventory/{inventory_id}/update-usage', json=body)
         return JsonResponse(res.json(), status=res.status_code)
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=503)
+    except httpx.RequestError:
+        return JsonResponse({'error': 'Service unavailable.'}, status=503)
 
 
 async def tuab_inventory_archive_proxy(request, inventory_id):
@@ -758,8 +739,8 @@ async def tuab_inventory_archive_proxy(request, inventory_id):
         body = json.loads(request.body)
         res = await api_call(request, 'POST', f'inventory/{inventory_id}/archive', json=body)
         return JsonResponse(res.json(), status=res.status_code)
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=503)
+    except httpx.RequestError:
+        return JsonResponse({'error': 'Service unavailable.'}, status=503)
 
 
 async def tuab_inventory_restore_proxy(request, inventory_id):
@@ -769,8 +750,8 @@ async def tuab_inventory_restore_proxy(request, inventory_id):
     try:
         res = await api_call(request, 'POST', f'inventory/{inventory_id}/restore', json={})
         return JsonResponse(res.json(), status=res.status_code)
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=503)
+    except httpx.RequestError:
+        return JsonResponse({'error': 'Service unavailable.'}, status=503)
 
 
 async def tuab_inventory_export_proxy(request):
@@ -780,8 +761,8 @@ async def tuab_inventory_export_proxy(request):
     try:
         res = await api_call(request, 'GET', 'inventory/export')
         return JsonResponse(res.json(), status=res.status_code)
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=503)
+    except httpx.RequestError:
+        return JsonResponse({'error': 'Service unavailable.'}, status=503)
 
 
 async def tuab_match_recommendation_accept_proxy(request, pair_id):
@@ -806,16 +787,6 @@ async def tuab_match_recommendation_reject_proxy(request, pair_id):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=503)
 
-
-async def tuab_donation_archive_proxy(request, donation_id):
-    """Proxy: Archive a TUAB's own claimed donation (RECEIVED or REJECTED only)."""
-    if request.method != 'POST':
-        return JsonResponse({'error': 'Method not allowed'}, status=405)
-    try:
-        res = await api_call(request, 'POST', f'donations/{donation_id}/archive', json={})
-        return JsonResponse(res.json(), status=res.status_code)
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=503)
 
 
 async def tuab_donation_flag_proxy(request, donation_id):
@@ -876,7 +847,6 @@ async def tuab_circular_economy(request):
 
     return render(request, 'frontend/tuabs/tuab_circular_economy.html', {
         'page_title': 'Circular Economy Impact Dashboard',
-        'sidebar_variant': 'tuab',
         'user': profile,
         'date_from': date_from,
         'date_to': date_to,
@@ -955,7 +925,6 @@ async def tuab_view_fiber_match_recommendations(request):
 
     return render(request, 'frontend/tuabs/tuab_view_fiber_match_recommendations.html', {
         'page_title': 'Fiber-Match Recommendations',
-        'sidebar_variant': 'tuab',
         'user': profile,
         'recommendations': recommendations,
         'error_message': error_message,

@@ -81,7 +81,7 @@ async def api_call(request, method, endpoint, **kwargs):
             elif hasattr(request, "session") and "user_profile" in request.session:
                 del request.session["user_profile"]
         except httpx.RequestError:
-            pass
+            raise
 
     return response
 

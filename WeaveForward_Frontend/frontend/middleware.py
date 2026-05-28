@@ -1,5 +1,6 @@
 import httpx
 from asgiref.sync import iscoroutinefunction, markcoroutinefunction
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
 
 from .services import (
@@ -68,7 +69,7 @@ class TokenRefreshMiddleware:
                 print(f"[MIDDLEWARE DEBUG] DECISION: /users/me threw RequestError (backend unreachable) for {path}")
                 # If auth verification itself cannot reach the backend, show the maintenance page on auth-sensitive routes.
                 if any(path.startswith(prefix) for prefix in PROTECTED_PREFIXES) or path in GUEST_ONLY_PATHS:
-                    return render(request, "frontend/503.html", status=503)
+                    return self._service_unavailable_response(request)
                 return await self.get_response(request)
 
             print(f"[MIDDLEWARE DEBUG] /users/me status={profile_response.status_code} for {path}")
@@ -96,7 +97,7 @@ class TokenRefreshMiddleware:
                 print(f"[MIDDLEWARE DEBUG] DECISION: /users/me returned {profile_response.status_code} (not 200/401/403) -> backend is in an unexpected state. Showing 503 for {path}")
                 # Unexpected auth backend responses are treated as temporary auth-service outages.
                 if any(path.startswith(prefix) for prefix in PROTECTED_PREFIXES) or path in GUEST_ONLY_PATHS:
-                    return render(request, "frontend/503.html", status=503)
+                    return self._service_unavailable_response(request)
 
         # Already-authenticated users should not stay on login/register/forgot-password screens.
         if path in GUEST_ONLY_PATHS and request.user_profile:
@@ -116,7 +117,7 @@ class TokenRefreshMiddleware:
             return await self.get_response(request)
         except httpx.RequestError:
             # Views can still surface backend outages after auth succeeds, so keep the same 503 fallback here.
-            return render(request, "frontend/503.html", status=503)
+            return self._service_unavailable_response(request)
 
     def _redirect_for_profile(self, profile):
         role = profile.get("role")
@@ -125,3 +126,8 @@ class TokenRefreshMiddleware:
         if role == "TUAB":
             return redirect("tuab_dashboard")
         return redirect("donor_browse_businesses")
+
+    def _service_unavailable_response(self, request):
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return JsonResponse({"error": "Service unavailable."}, status=503)
+        return render(request, "frontend/503.html", status=503)

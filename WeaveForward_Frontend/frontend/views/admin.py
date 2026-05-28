@@ -1,5 +1,6 @@
 import json
 import asyncio
+from datetime import datetime
 from django.shortcuts import render, redirect
 from django.http import JsonResponse, HttpResponseNotAllowed
 from django.contrib import messages
@@ -77,11 +78,7 @@ async def admin_add_tuab(request):
         else:
             payload['status'] = 'ACTIVE'
 
-        try:
-            response = await api_call(request, 'POST', f'users/{user_id}/approve', json=payload)
-        except Exception:
-            messages.error(request, "Backend API is offline or unreachable.")
-            return redirect('admin_add_tuab')
+        response = await api_call(request, 'POST', f'users/{user_id}/approve', json=payload)
 
         if response.status_code == 200:
             if action == 'reject':
@@ -176,7 +173,6 @@ async def admin_edit_donor(request, user_id):
                 'page_title': 'Edit Donor',
                 'user': profile,
                 'donor': donor,
-                'form_data': raw_data,
                 'current_etag': submitted_etag or current_etag,
                 'errors': {'Password': ["Passwords do not match."]},
             })
@@ -219,7 +215,8 @@ async def admin_edit_donor(request, user_id):
             return redirect('admin_view_donors')
 
         if response.status_code == 412:
-            return redirect(f"/admin/donors/{user_id}/edit/?stale=1")
+            messages.error(request, "This donor was updated somewhere else. Refresh the page and try again.")
+            return redirect('admin_edit_donor', user_id=user_id)
 
         try:
             response_data = response.json()
@@ -251,7 +248,6 @@ async def admin_edit_donor(request, user_id):
         'user': profile,
         'donor': donor,
         'current_etag': current_etag,
-        'error_message': "This donor was updated somewhere else. Refresh the page and try again." if request.GET.get('stale') == '1' else None,
     })
 
 async def admin_add_donor(request):
@@ -301,15 +297,12 @@ async def admin_archive_user_proxy(request, user_id):
     profile = request.user_profile
     
     if request.method == 'POST':
-        try:
-            response = await api_call(request, 'DELETE', f'users/{user_id}')
-            if response.status_code == 204:
-                messages.success(request, "User archived successfully.")
-            else:
-                response_data = response.json() if hasattr(response, 'json') else {}
-                messages.error(request, response_data.get('detail', 'Unable to archive user.'))
-        except Exception:
-            messages.error(request, "Backend API is offline or unreachable.")
+        response = await api_call(request, 'DELETE', f'users/{user_id}')
+        if response.status_code == 204:
+            messages.success(request, "User archived successfully.")
+        else:
+            response_data = response.json() if hasattr(response, 'json') else {}
+            messages.error(request, response_data.get('detail', 'Unable to archive user.'))
             
     # Redirect back to the referring page or a fallback
     referer = request.META.get('HTTP_REFERER')
@@ -656,42 +649,39 @@ async def admin_impact_dashboard(request):
     # Fetch backend impact-dashboard metrics and clothing types concurrently
     dashboard_data = {}
     clothing_types = []
-    try:
-        response, types_res = await asyncio.gather(
-            api_call(request, 'GET', 'impact-dashboard', params=api_params),
-            api_call(request, 'GET', 'clothing-types')
-        )
-        if response.status_code == 200:
-            dashboard_data = response.json()
+    response, types_res = await asyncio.gather(
+        api_call(request, 'GET', 'impact-dashboard', params=api_params),
+        api_call(request, 'GET', 'clothing-types')
+    )
+    if response.status_code == 200:
+        dashboard_data = response.json()
+    else:
+        try:
+            response_data = response.json()
+        except Exception:
+            response_data = {}
+
+        detail_message = response_data.get('detail') if isinstance(response_data, dict) else None
+        error_messages = None
+        if isinstance(response_data, dict):
+            formatted = format_errors(response_data)
+            error_messages = [
+                f"{field}: {', '.join(map(str, value if isinstance(value, list) else [value]))}"
+                if isinstance(value, (list, tuple))
+                else f"{field}: {value}"
+                for field, value in formatted.items()
+            ]
+
+        if detail_message:
+            messages.error(request, detail_message)
+        elif error_messages:
+            for message in error_messages:
+                messages.error(request, message)
         else:
-            try:
-                response_data = response.json()
-            except Exception:
-                response_data = {}
-
-            detail_message = response_data.get('detail') if isinstance(response_data, dict) else None
-            error_messages = None
-            if isinstance(response_data, dict):
-                formatted = format_errors(response_data)
-                error_messages = [
-                    f"{field}: {', '.join(map(str, value if isinstance(value, list) else [value]))}"
-                    if isinstance(value, (list, tuple))
-                    else f"{field}: {value}"
-                    for field, value in formatted.items()
-                ]
-
-            if detail_message:
-                messages.error(request, detail_message)
-            elif error_messages:
-                for message in error_messages:
-                    messages.error(request, message)
-            else:
-                messages.error(request, "Failed to load donation metrics from the backend.")
-        
-        if types_res.status_code == 200:
-            clothing_types = types_res.json()
-    except Exception as e:
-        messages.error(request, f"Backend service unreachable: {str(e)}")
+            messages.error(request, "Failed to load donation metrics from the backend.")
+    
+    if types_res.status_code == 200:
+        clothing_types = types_res.json()
 
     # Static list of cities matching the templates
     cities = [
@@ -705,7 +695,7 @@ async def admin_impact_dashboard(request):
     leaderboard = dashboard_data.get('top_donors', [])
     donations_json = dashboard_data.get('barangay_breakdown', [])
 
-    return render(request, 'frontend/admin/admin_impact_dashboard.html', {
+    return render(request, 'frontend/donor/donor_impact_dashboard.html', {
         'page_title': 'Donation Impact Dashboard',
         'user': profile,
         'total_donations': total_donations,
@@ -731,7 +721,6 @@ async def admin_view_payments(request):
     
     return render(request, 'frontend/admin/admin_view_payments.html', {
         'page_title': 'Payments',
-        'sidebar_variant': 'admin',
         'user': profile,
         'payments': page_data['results'],
         'count': page_data['count'],
@@ -745,17 +734,16 @@ async def admin_view_payments(request):
 
 async def admin_circular_economy(request):
     """Admin view of the platform-wide Circular Economy dashboard."""
-    from datetime import datetime
     profile = request.user_profile
 
     date_from = request.GET.get('date_from', '')
     date_to   = request.GET.get('date_to', '')
-    tuab_id   = request.GET.get('tuab_id', '')
 
     params = {}
-    if date_from: params['date_from'] = date_from
-    if date_to:   params['date_to']   = date_to
-    if tuab_id:   params['tuab_id']   = tuab_id
+    if date_from:
+        params['date_from'] = date_from
+    if date_to:
+        params['date_to'] = date_to
 
     dashboard_data = {
         'biodeg_distribution': [],
@@ -763,44 +751,34 @@ async def admin_circular_economy(request):
         'top_brands': [],
         'decisions_by_city': [],
     }
-    tuabs = []
     error_message = None
 
-    try:
-        res, tuab_res = await asyncio.gather(
-            api_call(request, 'GET', 'tuab-circular-economy', params=params),
-            api_call(request, 'GET', 'users', params={'role': 'TUAB', 'status': 'ACTIVE', 'page_size': 200}),
-        )
-        if res and res.status_code == 200:
-            dashboard_data = res.json()
-        elif res and res.status_code in (400, 422):
-            try:
-                err_data = res.json()
-                if isinstance(err_data, dict):
-                    parts = []
-                    for v in err_data.values():
-                        parts.append(', '.join(v) if isinstance(v, list) else str(v))
-                    error_message = ' '.join(parts) or "Invalid date range filter."
-                else:
-                    error_message = "Invalid date range filter."
-            except Exception:
+    res = await api_call(request, 'GET', 'tuab-circular-economy', params=params)
+    if res.status_code == 200:
+        dashboard_data = res.json()
+    elif res.status_code in (400, 422):
+        try:
+            err_data = res.json()
+            if isinstance(err_data, dict):
+                parts = []
+                for v in err_data.values():
+                    parts.append(', '.join(v) if isinstance(v, list) else str(v))
+                error_message = ' '.join(parts) or "Invalid date range filter."
+            else:
                 error_message = "Invalid date range filter."
-        else:
-            error_message = "Unable to load dashboard data."
-        if tuab_res and tuab_res.status_code == 200:
-            tuabs = tuab_res.json().get('results', tuab_res.json()) if isinstance(tuab_res.json(), dict) else tuab_res.json()
-    except Exception:
-        error_message = "An error occurred while loading the dashboard."
+        except Exception:
+            error_message = "Invalid date range filter."
+    elif res.status_code == 403:
+        error_message = "Access denied. Only TUABs can view this dashboard."
+    else:
+        error_message = "Unable to load dashboard data. Please try again later."
 
-    return render(request, 'frontend/admin/admin_circular_economy.html', {
+    return render(request, 'frontend/tuabs/tuab_circular_economy.html', {
         'page_title': 'Circular Economy Impact Dashboard',
-        'sidebar_variant': 'admin',
         'user': profile,
         'date_from': date_from,
         'date_to': date_to,
         'today_iso': datetime.now().strftime('%Y-%m-%d'),
-        'tuab_id': tuab_id,
-        'tuabs': tuabs,
         'error_message': error_message,
         'dashboard_json': json.dumps(dashboard_data),
     })

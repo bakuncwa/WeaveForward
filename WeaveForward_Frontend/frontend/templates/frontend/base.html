@@ -17,16 +17,6 @@
   The JS at the bottom auto-highlights the correct sidebar link
   by matching window.location.pathname. No extra work needed.
 
-  Donor sidebar is shown by default.
-  To switch to the TUAB (business) sidebar, set
-  sidebar_variant = "tuab" in your Django view's context
-  and wrap the sidebars with a template conditional:
-    [if sidebar_variant == "tuab"]
-      ... tuab sidebar ...
-    [else]
-      ... donor sidebar ...
-    [endif]
-
   page_title:
   ───────────
   Inject {{ page_title }} into the topbar title span (already marked below).
