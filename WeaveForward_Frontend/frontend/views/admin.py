@@ -741,3 +741,66 @@ async def admin_view_payments(request):
         'has_prev': page_data['has_prev'],
         'q': page_data['search_query']
     })
+
+
+async def admin_circular_economy(request):
+    """Admin view of the platform-wide Circular Economy dashboard."""
+    from datetime import datetime
+    profile = request.user_profile
+
+    date_from = request.GET.get('date_from', '')
+    date_to   = request.GET.get('date_to', '')
+    tuab_id   = request.GET.get('tuab_id', '')
+
+    params = {}
+    if date_from: params['date_from'] = date_from
+    if date_to:   params['date_to']   = date_to
+    if tuab_id:   params['tuab_id']   = tuab_id
+
+    dashboard_data = {
+        'biodeg_distribution': [],
+        'volume_by_city_fiber': [],
+        'top_brands': [],
+        'decisions_by_city': [],
+    }
+    tuabs = []
+    error_message = None
+
+    try:
+        res, tuab_res = await asyncio.gather(
+            api_call(request, 'GET', 'tuab-circular-economy', params=params),
+            api_call(request, 'GET', 'users', params={'role': 'TUAB', 'status': 'ACTIVE', 'page_size': 200}),
+        )
+        if res and res.status_code == 200:
+            dashboard_data = res.json()
+        elif res and res.status_code in (400, 422):
+            try:
+                err_data = res.json()
+                if isinstance(err_data, dict):
+                    parts = []
+                    for v in err_data.values():
+                        parts.append(', '.join(v) if isinstance(v, list) else str(v))
+                    error_message = ' '.join(parts) or "Invalid date range filter."
+                else:
+                    error_message = "Invalid date range filter."
+            except Exception:
+                error_message = "Invalid date range filter."
+        else:
+            error_message = "Unable to load dashboard data."
+        if tuab_res and tuab_res.status_code == 200:
+            tuabs = tuab_res.json().get('results', tuab_res.json()) if isinstance(tuab_res.json(), dict) else tuab_res.json()
+    except Exception:
+        error_message = "An error occurred while loading the dashboard."
+
+    return render(request, 'frontend/admin/admin_circular_economy.html', {
+        'page_title': 'Circular Economy Impact Dashboard',
+        'sidebar_variant': 'admin',
+        'user': profile,
+        'date_from': date_from,
+        'date_to': date_to,
+        'today_iso': datetime.now().strftime('%Y-%m-%d'),
+        'tuab_id': tuab_id,
+        'tuabs': tuabs,
+        'error_message': error_message,
+        'dashboard_json': json.dumps(dashboard_data),
+    })

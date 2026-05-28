@@ -1,6 +1,5 @@
 """
 ════════════════════════════════════════════════════════════════════════════════
-DE LA SALLE-COLLEGE OF SAINT BENILDE
 Application Under Test : WeaveForward  (http://127.0.0.1:8001)
 Automation Framework   : Selenium WebDriver (Python)
 File                   : main.py — entry-point; runs all admin tests.

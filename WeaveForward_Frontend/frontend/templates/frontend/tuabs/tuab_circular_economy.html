@@ -224,6 +224,22 @@
     .ce-empty-icon { font-size: 28px; opacity: 0.4; }
     .ce-empty-text { font-size: 12px; }
 
+    .ce-period-row { display: flex; align-items: center; gap: 8px; }
+    .ce-period-badge {
+        font-size: 11px;
+        font-weight: 600;
+        background: #eef5ee;
+        color: var(--green);
+        border: 1px solid #c3dfc3;
+        border-radius: 20px;
+        padding: 3px 12px;
+    }
+    .ce-period-badge.lifetime {
+        background: #f0f4ff;
+        color: #4a7bbf;
+        border-color: #c0d0ee;
+    }
+
     @media (max-width: 860px) {
         .ce-chart-grid { grid-template-columns: 1fr; }
         .ce-page { padding: 16px 14px; }
@@ -249,9 +265,18 @@
         </form>
     </div>
 
+    <!-- Period label -->
+    <div class="ce-period-row">
+        {% if date_from or date_to %}
+        <span class="ce-period-badge">Period: {{ date_from|default:"–" }} – {{ date_to|default:"Today" }}</span>
+        {% else %}
+        <span class="ce-period-badge lifetime">Lifetime Metrics</span>
+        {% endif %}
+    </div>
+
     {% if error_message %}
     <div class="ce-error">{{ error_message }}</div>
-    {% else %}
+    {% endif %}
 
     <!-- 2×2 Chart Grid -->
     <div class="ce-chart-grid">
@@ -329,7 +354,6 @@
         </div>
 
     </div>
-    {% endif %}
 </div>
 
 <script>

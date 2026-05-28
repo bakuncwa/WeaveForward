@@ -465,7 +465,6 @@ def cancel_donation(*, user, donation, ip_address=None):
 
 def archive_donation(*, user, donation, ip_address=None):
 
-    # Enforce role restriction: Only admins can archive
     if user.role != "Admin":
         raise PermissionDenied("You are not authorized to archive this donation.")
 
@@ -504,7 +503,7 @@ def archive_donation(*, user, donation, ip_address=None):
         # Write to the audit trail
         log_audit(user, "donations", "STATUS_CHANGE", ip_address, ["status"])
 
-        return {"detail": "Donation successfully archived by admin."}
+        return {"detail": "Donation successfully archived."}
 
 
 def process_auto_archive_donations():

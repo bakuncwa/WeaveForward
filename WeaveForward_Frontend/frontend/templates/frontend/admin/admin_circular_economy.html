@@ -1,0 +1,405 @@
+{% extends 'frontend/base.html' %}
+
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+<style>
+    :root {
+        --gold:   #e8a020;
+        --navy:   #1e2a3a;
+        --card:   #ffffff;
+        --bg:     #f5f4f0;
+        --border: #e0dbd4;
+        --text:   #222222;
+        --muted:  #888888;
+        --green:  #2d7a4f;
+        --red:    #c0392b;
+        --tuab:   #c0410e;
+    }
+
+    body { font-family: 'Poppins', sans-serif; }
+
+    .ce-page {
+        background: var(--bg);
+        min-height: 100%;
+        display: flex;
+        flex-direction: column;
+        padding: 24px 28px;
+        gap: 20px;
+    }
+
+    .ce-filters { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
+
+    .ce-filter-group { display: flex; flex-direction: column; gap: 6px; }
+
+    .ce-filter-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--navy);
+    }
+
+    .ce-filter-input, .ce-filter-select {
+        font-family: 'Poppins', sans-serif;
+        font-size: 13px;
+        color: var(--text);
+        background: var(--card);
+        border: 1.5px solid var(--border);
+        border-radius: 8px;
+        padding: 10px 14px;
+        outline: none;
+        min-width: 180px;
+        cursor: pointer;
+        transition: border-color 0.15s;
+    }
+    .ce-filter-input:focus, .ce-filter-select:focus { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(232,160,32,0.15); }
+
+    .ce-btn-apply {
+        font-family: 'Poppins', sans-serif;
+        font-size: 12px;
+        font-weight: 600;
+        background: var(--gold);
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 10px 18px;
+        cursor: pointer;
+        align-self: flex-end;
+        transition: background 0.15s;
+    }
+    .ce-btn-apply:hover { background: #d18c18; }
+
+    .ce-btn-clear {
+        font-family: 'Poppins', sans-serif;
+        font-size: 12px;
+        color: var(--muted);
+        text-decoration: none;
+        padding: 10px 12px;
+        border-radius: 6px;
+        align-self: flex-end;
+        transition: background 0.15s;
+    }
+    .ce-btn-clear:hover { background: #e8e4dc; }
+
+    .ce-error {
+        background: #fff3f0;
+        border: 1px solid #f5c6be;
+        border-radius: 10px;
+        padding: 14px 18px;
+        color: var(--red);
+        font-size: 13px;
+        text-align: center;
+    }
+
+    .ce-chart-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+
+    .ce-chart-card {
+        background: var(--card);
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        padding: 20px 22px 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        box-shadow: 0 1px 6px rgba(0,0,0,0.04);
+    }
+
+    .ce-chart-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    .ce-chart-title {
+        font-family: 'Poppins', sans-serif;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--navy);
+        margin: 0;
+    }
+
+    .ce-chart-subtitle { font-size: 11px; color: var(--muted); margin: 3px 0 0 0; }
+
+    .ce-badge {
+        font-size: 10px;
+        font-weight: 700;
+        background: #fef3e2;
+        color: var(--tuab);
+        border-radius: 20px;
+        padding: 3px 10px;
+        white-space: nowrap;
+        border: 1px solid #f5d8b8;
+        flex-shrink: 0;
+    }
+
+    .ce-chart-wrap { position: relative; flex: 1; }
+
+    canvas { display: block; width: 100% !important; }
+
+    /* Brands list */
+    .brand-list { display: flex; flex-direction: column; gap: 0; overflow-y: auto; max-height: 340px; }
+    .brand-row { display: flex; align-items: center; gap: 10px; padding: 7px 2px; border-bottom: 1px solid #f3f0eb; }
+    .brand-row:last-child { border-bottom: none; }
+    .brand-rank { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; color: #fff; }
+    .brand-name { font-size: 12px; font-weight: 500; color: var(--text); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .brand-bar-wrap { flex: 2; height: 3px; background: #ece8e1; border-radius: 2px; overflow: hidden; }
+    .brand-bar-fill { height: 100%; border-radius: 2px; }
+    .brand-count { font-size: 11px; font-weight: 600; color: var(--muted); min-width: 30px; text-align: right; flex-shrink: 0; }
+
+    .ce-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 36px 20px; gap: 8px; color: var(--muted); }
+    .ce-empty-icon { font-size: 28px; opacity: 0.4; }
+    .ce-empty-text { font-size: 12px; }
+
+    .ce-top-bar { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+
+    .ce-export-btn {
+        font-family: 'Poppins', sans-serif;
+        font-size: 12px;
+        font-weight: 600;
+        background: var(--navy);
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 10px 18px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background 0.15s;
+        align-self: flex-end;
+    }
+    .ce-export-btn:hover { background: #2e3f56; }
+
+    .ce-period-row { display: flex; align-items: center; gap: 8px; }
+    .ce-period-badge {
+        font-size: 11px;
+        font-weight: 600;
+        background: #eef5ee;
+        color: var(--green);
+        border: 1px solid #c3dfc3;
+        border-radius: 20px;
+        padding: 3px 12px;
+    }
+    .ce-period-badge.lifetime {
+        background: #f0f4ff;
+        color: #4a7bbf;
+        border-color: #c0d0ee;
+    }
+
+    .ce-print-header { display: none; }
+
+    @media (max-width: 860px) {
+        .ce-chart-grid { grid-template-columns: 1fr; }
+        .ce-page { padding: 16px 14px; }
+    }
+
+    @media print {
+        .wf-sidebar, #wf-sidebar-admin, .wf-topbar, .ce-export-btn,
+        .ce-btn-apply, .ce-btn-clear, .ce-filters, .ce-top-bar form { display: none !important; }
+        .ce-top-bar { justify-content: flex-start; }
+        .ce-page { padding: 16px !important; gap: 14px !important; }
+        .ce-print-header { display: block !important; margin-bottom: 8px; }
+        .ce-chart-grid { grid-template-columns: 1fr 1fr !important; }
+        .ce-chart-card { break-inside: avoid; }
+        body { background: white !important; }
+    }
+</style>
+
+<div class="ce-page">
+
+    <!-- Print header (hidden on screen) -->
+    <div class="ce-print-header">
+        <h2 style="font-family:'Poppins',sans-serif;font-size:15px;font-weight:700;color:#1e2a3a;margin:0 0 2px">Circular Economy Impact Dashboard</h2>
+        <p style="font-size:11px;color:#888;margin:0">{% if date_from or date_to %}Period: {{ date_from|default:"–" }} – {{ date_to|default:"Today" }}{% else %}Lifetime Metrics{% endif %}</p>
+    </div>
+
+    <!-- Filters + Export -->
+    <div class="ce-top-bar">
+    <form class="ce-filters" method="GET" action="">
+        <div class="ce-filter-group">
+            <span class="ce-filter-label">Date Range</span>
+            <input class="ce-filter-input" type="date" name="date_from" value="{{ date_from }}" max="{{ today_iso }}">
+        </div>
+        <div class="ce-filter-group">
+            <span class="ce-filter-label">&nbsp;</span>
+            <input class="ce-filter-input" type="date" name="date_to" value="{{ date_to }}" max="{{ today_iso }}">
+        </div>
+        {% if tuabs %}
+        <div class="ce-filter-group">
+            <span class="ce-filter-label">Filter by TUAB</span>
+            <select class="ce-filter-select" name="tuab_id">
+                <option value="">All TUABs</option>
+                {% for t in tuabs %}
+                <option value="{{ t.user_id }}" {% if tuab_id == t.user_id|stringformat:"s" %}selected{% endif %}>
+                    {{ t.business_name|default:t.email }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+        <button class="ce-btn-apply" type="submit">Apply</button>
+        {% if date_from or date_to or tuab_id %}
+        <a class="ce-btn-clear" href="{% url 'admin_circular_economy' %}">Clear</a>
+        {% endif %}
+    </form>
+    <button type="button" class="ce-export-btn" onclick="window.print()">&#8681; Export PDF</button>
+    </div>
+
+    <!-- Period label -->
+    <div class="ce-period-row">
+        {% if date_from or date_to %}
+        <span class="ce-period-badge">Period: {{ date_from|default:"–" }} – {{ date_to|default:"Today" }}</span>
+        {% else %}
+        <span class="ce-period-badge lifetime">Lifetime Metrics</span>
+        {% endif %}
+    </div>
+
+    {% if error_message %}
+    <div class="ce-error">{{ error_message }}</div>
+    {% endif %}
+
+    <div class="ce-chart-grid">
+
+        <!-- Biodegradability Score Distribution -->
+        <div class="ce-chart-card">
+            <div class="ce-chart-header">
+                <div>
+                    <p class="ce-chart-title">Biodegradability Score Distribution</p>
+                    <p class="ce-chart-subtitle">Frequency histogram &middot; ML-verified scores</p>
+                </div>
+                <span class="ce-badge">ML-Verified</span>
+            </div>
+            <div class="ce-chart-wrap" style="height:220px;">
+                <canvas id="chart-biodeg"></canvas>
+            </div>
+            <div class="ce-empty" id="empty-biodeg" style="display:none;">
+                <span class="ce-empty-icon">📊</span><span class="ce-empty-text">No data yet</span>
+            </div>
+        </div>
+
+        <!-- Donation Volume by NCR City -->
+        <div class="ce-chart-card">
+            <div class="ce-chart-header">
+                <div>
+                    <p class="ce-chart-title">Donation Volume by NCR City</p>
+                    <p class="ce-chart-subtitle">Stacked by fiber category &middot; horizontal</p>
+                </div>
+                <span class="ce-badge">Freq. Chart</span>
+            </div>
+            <div class="ce-chart-wrap" style="height:220px;">
+                <canvas id="chart-volume"></canvas>
+            </div>
+            <div class="ce-empty" id="empty-volume" style="display:none;">
+                <span class="ce-empty-icon">🧵</span><span class="ce-empty-text">No data yet</span>
+            </div>
+        </div>
+
+        <!-- Top 20 Brands -->
+        <div class="ce-chart-card">
+            <div class="ce-chart-header">
+                <div>
+                    <p class="ce-chart-title">Top 20 Brands by Donation Volume</p>
+                    <p class="ce-chart-subtitle">Leading brands in fiber-matched donations</p>
+                </div>
+                <span class="ce-badge">ML-Scraped</span>
+            </div>
+            <div id="brands-list-wrap">
+                <div class="brand-list" id="brand-list"></div>
+                <div class="ce-empty" id="empty-brands" style="display:none;">
+                    <span class="ce-empty-icon">🏷️</span><span class="ce-empty-text">No data yet</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Donation Decisions per NCR City -->
+        <div class="ce-chart-card">
+            <div class="ce-chart-header">
+                <div>
+                    <p class="ce-chart-title">Donation Decisions per NCR City</p>
+                    <p class="ce-chart-subtitle">Accepted &middot; Rejected &middot; Flagged &middot; Pending</p>
+                </div>
+                <span class="ce-badge">Decision Flow</span>
+            </div>
+            <div class="ce-chart-wrap" style="height:320px;">
+                <canvas id="chart-decisions"></canvas>
+            </div>
+            <div class="ce-empty" id="empty-decisions" style="display:none;">
+                <span class="ce-empty-icon">🏙️</span><span class="ce-empty-text">No data yet</span>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+const DATA = JSON.parse('{{ dashboard_json|escapejs }}');
+
+const FIBER_COLORS = {
+    cotton: '#d4a843', denim: '#4a7bbf', wool: '#8b6047', linen: '#88a86a',
+    silk: '#c084b8', polyester: '#9e9e9e', bamboo: '#5aab6e', rayon: '#e87c5a', other: '#b0aaa5',
+};
+const BIODEG_COLORS = ['rgba(192,57,43,.85)','rgba(230,126,34,.85)','rgba(241,196,15,.85)','rgba(39,174,96,.85)','rgba(22,160,133,.85)'];
+
+Chart.defaults.font = { family: "'Poppins', sans-serif", size: 11 };
+Chart.defaults.color = '#888';
+
+function hideCanvas(cid, eid) {
+    const c = document.getElementById(cid), e = document.getElementById(eid);
+    if (c) c.style.display = 'none';
+    if (e) e.style.display = 'flex';
+}
+
+(function buildBiodeg() {
+    const rows = DATA.biodeg_distribution || [];
+    if (!rows.reduce((s,r) => s+r.count, 0)) { hideCanvas('chart-biodeg','empty-biodeg'); return; }
+    new Chart(document.getElementById('chart-biodeg'), {
+        type: 'bar',
+        data: { labels: rows.map(r=>r.range), datasets: [{ label:'Items', data: rows.map(r=>r.count), backgroundColor: BIODEG_COLORS, borderRadius:6, borderSkipped:false }] },
+        options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false} }, scales:{ x:{grid:{display:false}}, y:{beginAtZero:true, ticks:{precision:0}, grid:{color:'#f0ede6'}} } }
+    });
+})();
+
+(function buildVolume() {
+    const rows = DATA.volume_by_city_fiber || [];
+    if (!rows.length) { hideCanvas('chart-volume','empty-volume'); return; }
+    const citySet = [...new Set(rows.map(r=>r.city))].sort();
+    const fiberSet = [...new Set(rows.map(r=>r.fiber))].sort();
+    const lookup = {};
+    rows.forEach(r => { if (!lookup[r.city]) lookup[r.city]={}; lookup[r.city][r.fiber]=r.weight_kg; });
+    const datasets = fiberSet.map(f => ({ label: f.charAt(0).toUpperCase()+f.slice(1), data: citySet.map(c=>lookup[c]?.[f]||0), backgroundColor: FIBER_COLORS[f]||FIBER_COLORS.other, borderRadius:3, stack:'vol' }));
+    new Chart(document.getElementById('chart-volume'), {
+        type:'bar', data:{ labels:citySet, datasets },
+        options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:true,position:'bottom',labels:{boxWidth:12,padding:10,font:{size:10}}} }, scales:{ x:{stacked:true,beginAtZero:true,grid:{color:'#f0ede6'},ticks:{callback:v=>v+' kg',font:{size:10}}}, y:{stacked:true,grid:{display:false},ticks:{font:{size:10}}} } }
+    });
+})();
+
+(function buildBrands() {
+    const rows = (DATA.top_brands || []).slice(0, 20);
+    const list = document.getElementById('brand-list');
+    if (!rows.length || !list) { if(list) list.style.display='none'; document.getElementById('empty-brands').style.display='flex'; return; }
+    const RANK_COLORS = ['#c0410e','#c0410e','#2d7a4f','#888','#888','#888','#888','#888','#888','#888'];
+    const maxCount = rows[0].item_count || 1;
+    list.innerHTML = rows.map((r,i) => {
+        const pct = Math.max(4, Math.round((r.item_count/maxCount)*100));
+        const bg = RANK_COLORS[i]||'#aaa';
+        return `<div class="brand-row"><span class="brand-rank" style="background:${bg}">${i+1}</span><span class="brand-name">${r.brand}</span><div class="brand-bar-wrap"><div class="brand-bar-fill" style="width:${pct}%;background:${bg}"></div></div><span class="brand-count">${r.item_count}</span></div>`;
+    }).join('');
+})();
+
+(function buildDecisions() {
+    const rows = DATA.decisions_by_city || [];
+    if (!rows.length) { hideCanvas('chart-decisions','empty-decisions'); return; }
+    new Chart(document.getElementById('chart-decisions'), {
+        type:'bar',
+        data:{ labels: rows.map(r=>r.city), datasets:[
+            { label:'Accepted', data:rows.map(r=>r.accepted||0), backgroundColor:'rgba(45,122,79,.82)', borderRadius:3, stack:'dec' },
+            { label:'Rejected', data:rows.map(r=>r.rejected||0), backgroundColor:'rgba(192,57,43,.82)', borderRadius:3, stack:'dec' },
+        ]},
+        options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:true,position:'bottom',labels:{boxWidth:12,padding:10,font:{size:10}}} }, scales:{ x:{stacked:true,beginAtZero:true,ticks:{precision:0},grid:{color:'#f0ede6'}}, y:{stacked:true,grid:{display:false},ticks:{font:{size:10}}} } }
+    });
+})();
+</script>
+
+{% endblock %}

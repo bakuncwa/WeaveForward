@@ -111,8 +111,22 @@
 
 <div id="flag-modal" class="modal-overlay hidden">
   <div class="modal-box">
-    <div style="font-family:'Poppins',sans-serif;font-size:15px;font-weight:600;margin-bottom:14px;color:#1a1a1a">Enter reason for flagging</div>
-    <input id="flag-reason-input" class="modal-input" placeholder="Type reason here..."/>
+    <div style="font-family:'Poppins',sans-serif;font-size:15px;font-weight:600;margin-bottom:4px;color:#1a1a1a">Flag for Archiving</div>
+    <div style="font-family:'Poppins',sans-serif;font-size:12px;color:#888;margin-bottom:14px">Select an archiving reason. This will notify the administrator for review.</div>
+    <div style="margin-bottom:10px">
+      <label style="font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;color:#444;display:block;margin-bottom:6px">Archiving Reason <span style="color:#c0392b">*</span></label>
+      <select id="flag-reason-select" style="font-family:'Poppins',sans-serif;font-size:13px;width:100%;padding:9px 12px;border:1.5px solid #e0dbd4;border-radius:8px;outline:none;background:#fff;color:#222;cursor:pointer">
+        <option value="">— Select a reason —</option>
+        <option value="Hazardous">Hazardous</option>
+        <option value="Spam">Spam</option>
+        <option value="Invalid Declaration">Invalid Declaration</option>
+      </select>
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;color:#444;display:block;margin-bottom:6px">Additional Details <span style="font-weight:400;color:#aaa">(optional)</span></label>
+      <input id="flag-reason-input" class="modal-input" placeholder="Provide any additional context..."/>
+    </div>
+    <div id="flag-error" style="font-family:'Poppins',sans-serif;font-size:12px;color:#c0392b;margin-bottom:10px;display:none">Archive reason required.</div>
     <div style="display:flex;gap:10px;justify-content:flex-end">
       <button onclick="closeFlagModal()" style="border-radius:30px;padding:9px 24px;font-size:14px;background:#fef7ea;border:1.5px solid #f5d898;color:#888;font-family:'Poppins',sans-serif;cursor:pointer">Cancel</button>
       <button onclick="submitFlag()" style="border-radius:30px;padding:9px 24px;font-size:14px;background:var(--tuab);border:none;color:#fff;font-family:'Poppins',sans-serif;cursor:pointer;font-weight:500">Submit</button>
@@ -147,7 +161,7 @@
       <td>${escapeHTML(String(d.items))}</td>
       <td><div style="display:flex;gap:6px">
         <a href="${d.status === 'IN_TRANSIT' ? `/tuab/donations/${escapeHTML(String(d.id))}/edit/` : `/tuab/donations/${escapeHTML(String(d.id))}/`}" class="btn btn-tuab">Manage</a>
-        <button class="btn-flag" onclick="openFlagModal('${escapeHTML(String(d.id))}','${escapeHTML(tab)}')">Flag</button>
+        ${(d.status === 'PENDING' || d.status === 'FLAGGED') ? `<button class="btn-flag" onclick="openFlagModal('${escapeHTML(String(d.id))}','${escapeHTML(tab)}')">Flag</button>` : ''}
       </div></td>
     </tr>`).join('')}
     </tbody></table>`;
@@ -229,7 +243,9 @@
 
   function openFlagModal(id, tab) {
     flagTarget = { id, tab };
+    document.getElementById('flag-reason-select').value = '';
     document.getElementById('flag-reason-input').value = '';
+    document.getElementById('flag-error').style.display = 'none';
     document.getElementById('flag-modal').classList.remove('hidden');
   }
   function closeFlagModal() {
@@ -237,8 +253,15 @@
     flagTarget = null;
   }
   async function submitFlag() {
-    const reason = document.getElementById('flag-reason-input').value.trim();
-    if (!reason) { wfToast('Please enter a reason before submitting.', 'warning'); return; }
+    const category = document.getElementById('flag-reason-select').value.trim();
+    const details  = document.getElementById('flag-reason-input').value.trim();
+    const errEl    = document.getElementById('flag-error');
+    if (!category) {
+      errEl.style.display = 'block';
+      return;
+    }
+    errEl.style.display = 'none';
+    const reason = details ? `${category} — ${details}` : category;
     const id = flagTarget.id;
     closeFlagModal();
     try {
@@ -250,7 +273,7 @@
       });
       const data = await res.json();
       if (res.ok) {
-        wfToast(data.detail || `Donation #${id} flagged successfully.`, 'success');
+        wfToast(data.detail || `Donation #${id} flagged for archiving.`, 'success');
       } else {
         wfToast(data.detail || data.error || 'Failed to flag donation.', 'error');
       }

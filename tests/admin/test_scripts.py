@@ -1,6 +1,5 @@
 """
 ════════════════════════════════════════════════════════════════════════════════
-DE LA SALLE-COLLEGE OF SAINT BENILDE
 Application Under Test : WeaveForward
 Automation Framework   : Selenium WebDriver (Python)
 File                   : test_scripts.py — complete test-function library

@@ -807,6 +807,17 @@ async def tuab_match_recommendation_reject_proxy(request, pair_id):
         return JsonResponse({'error': str(e)}, status=503)
 
 
+async def tuab_donation_archive_proxy(request, donation_id):
+    """Proxy: Archive a TUAB's own claimed donation (RECEIVED or REJECTED only)."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    try:
+        res = await api_call(request, 'POST', f'donations/{donation_id}/archive', json={})
+        return JsonResponse(res.json(), status=res.status_code)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=503)
+
+
 async def tuab_donation_flag_proxy(request, donation_id):
     """Proxy: Flag a donation with a reason (TUAB or Admin)."""
     if request.method != 'POST':
@@ -844,6 +855,18 @@ async def tuab_circular_economy(request):
         res = await api_call(request, 'GET', 'tuab-circular-economy', params=params)
         if res and not isinstance(res, Exception) and res.status_code == 200:
             dashboard_data = res.json()
+        elif res and not isinstance(res, Exception) and res.status_code in (400, 422):
+            try:
+                err_data = res.json()
+                if isinstance(err_data, dict):
+                    parts = []
+                    for v in err_data.values():
+                        parts.append(', '.join(v) if isinstance(v, list) else str(v))
+                    error_message = ' '.join(parts) or "Invalid date range filter."
+                else:
+                    error_message = "Invalid date range filter."
+            except Exception:
+                error_message = "Invalid date range filter."
         elif res and not isinstance(res, Exception) and res.status_code == 403:
             error_message = "Access denied. Only TUABs can view this dashboard."
         else:

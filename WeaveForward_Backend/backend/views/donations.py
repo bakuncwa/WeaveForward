@@ -559,6 +559,11 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
             exc.status_code = 409
             raise exc
 
+        if user.role == 'TUAB' and donation.status not in ('PENDING', 'FLAGGED'):
+            exc = APIException("Only pending or already-flagged donations can be flagged for archiving.")
+            exc.status_code = 409
+            raise exc
+
         reason = (request.data.get('flag_reason') or '').strip()
         if not reason:
             exc = APIException("A flag reason is required.")
