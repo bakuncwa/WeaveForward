@@ -1,127 +1,127 @@
-2026-05-26 01:27:37  [INFO    ]  ========================================================================
-2026-05-26 01:27:37  [INFO    ]    WEAVEFORWARD | Automated Test Run Starting
-2026-05-26 01:27:37  [INFO    ]    Date/Time   : 2026-05-26 01:27:37
-2026-05-26 01:27:37  [INFO    ]    AUT         : WeaveForward
-2026-05-26 01:27:37  [INFO    ]    Browser     : Google Chrome (headed)
-2026-05-26 01:27:37  [INFO    ]    Selenium TC : 36
-2026-05-26 01:27:37  [INFO    ]  ========================================================================
-2026-05-26 01:27:37  [INFO    ]    Launching browser for TC1-001 …
-2026-05-26 01:27:40  [INFO    ]  [END]   TC1-001 – PASS | 1.12s
-2026-05-26 01:27:42  [INFO    ]    Browser closed after TC1-001.
-2026-05-26 01:27:42  [INFO    ]    Launching browser for TC1-002 …
-2026-05-26 01:27:45  [INFO    ]  [END]   TC1-002 – PASS | 1.39s
-2026-05-26 01:27:47  [INFO    ]    Browser closed after TC1-002.
-2026-05-26 01:27:47  [INFO    ]    Launching browser for TC1-003 …
-2026-05-26 01:27:49  [INFO    ]  [END]   TC1-003 – PASS | 1.73s
-2026-05-26 01:27:51  [INFO    ]    Browser closed after TC1-003.
-2026-05-26 01:27:51  [INFO    ]    Launching browser for TC1-004 …
-2026-05-26 01:27:53  [INFO    ]  [END]   TC1-004 – PASS | 1.69s
-2026-05-26 01:27:56  [INFO    ]    Browser closed after TC1-004.
-2026-05-26 01:27:56  [INFO    ]    Launching browser for TC10-001 …
-2026-05-26 01:27:58  [INFO    ]  [END]   TC10-001 – PASS | 2.17s
-2026-05-26 01:28:00  [INFO    ]    Browser closed after TC10-001.
-2026-05-26 01:28:00  [INFO    ]    Launching browser for TC10-002 …
-2026-05-26 01:28:03  [INFO    ]  [END]   TC10-002 – PASS | 1.68s
-2026-05-26 01:28:05  [INFO    ]    Browser closed after TC10-002.
-2026-05-26 01:28:05  [INFO    ]    Launching browser for TC10-003 …
-2026-05-26 01:28:08  [INFO    ]  [END]   TC10-003 – PASS | 2.28s
-2026-05-26 01:28:10  [INFO    ]    Browser closed after TC10-003.
-2026-05-26 01:28:10  [INFO    ]    Launching browser for TC10-004 …
-2026-05-26 01:28:12  [INFO    ]  [END]   TC10-004 – PASS | 1.6s
-2026-05-26 01:28:14  [INFO    ]    Browser closed after TC10-004.
-2026-05-26 01:28:14  [INFO    ]    Launching browser for TC10-005 …
-2026-05-26 01:28:19  [INFO    ]  [END]   TC10-005 – PASS | 3.85s
-2026-05-26 01:28:21  [INFO    ]    Browser closed after TC10-005.
-2026-05-26 01:28:21  [INFO    ]    Launching browser for TC10-006 …
-2026-05-26 01:28:25  [INFO    ]  [END]   TC10-006 – PASS | 3.98s
-2026-05-26 01:28:28  [INFO    ]    Browser closed after TC10-006.
-2026-05-26 01:28:28  [INFO    ]    Launching browser for TC10-007 …
-2026-05-26 01:28:36  [INFO    ]  [END]   TC10-007 – PASS | 7.77s
-2026-05-26 01:28:39  [INFO    ]    Browser closed after TC10-007.
-2026-05-26 01:28:39  [INFO    ]    Launching browser for TC2-001 …
-2026-05-26 01:28:42  [INFO    ]  [END]   TC2-001 – PASS | 2.46s
-2026-05-26 01:28:44  [INFO    ]    Browser closed after TC2-001.
-2026-05-26 01:28:44  [INFO    ]    Launching browser for TC2-002 …
-2026-05-26 01:28:47  [INFO    ]  [END]   TC2-002 – PASS | 2.44s
-2026-05-26 01:28:49  [INFO    ]    Browser closed after TC2-002.
-2026-05-26 01:28:49  [INFO    ]    Launching browser for TC2-003 …
-2026-05-26 01:28:52  [INFO    ]  [END]   TC2-003 – PASS | 1.68s
-2026-05-26 01:28:54  [INFO    ]    Browser closed after TC2-003.
-2026-05-26 01:28:54  [INFO    ]    Launching browser for TC2-004 …
-2026-05-26 01:28:57  [INFO    ]  [END]   TC2-004 – PASS | 2.48s
-2026-05-26 01:29:00  [INFO    ]    Browser closed after TC2-004.
-2026-05-26 01:29:00  [INFO    ]    Launching browser for TC2-005 …
-2026-05-26 01:29:02  [INFO    ]  [END]   TC2-005 – PASS | 1.3s
-2026-05-26 01:29:04  [INFO    ]    Browser closed after TC2-005.
-2026-05-26 01:29:04  [INFO    ]    Launching browser for TC3-001 …
-2026-05-26 01:29:07  [INFO    ]  [END]   TC3-001 – PASS | 2.43s
-2026-05-26 01:29:09  [INFO    ]    Browser closed after TC3-001.
-2026-05-26 01:29:09  [INFO    ]    Launching browser for TC3-002 …
-2026-05-26 01:29:13  [INFO    ]  [END]   TC3-002 – PASS | 2.78s
-2026-05-26 01:29:15  [INFO    ]    Browser closed after TC3-002.
-2026-05-26 01:29:15  [INFO    ]    Launching browser for TC3-003 …
-2026-05-26 01:29:19  [INFO    ]  [END]   TC3-003 – PASS | 2.56s
-2026-05-26 01:29:21  [INFO    ]    Browser closed after TC3-003.
-2026-05-26 01:29:21  [INFO    ]    Launching browser for TC3-004 …
-2026-05-26 01:29:25  [INFO    ]  [END]   TC3-004 – PASS | 2.52s
-2026-05-26 01:29:27  [INFO    ]    Browser closed after TC3-004.
-2026-05-26 01:29:27  [INFO    ]    Launching browser for TC3-005 …
-2026-05-26 01:29:30  [INFO    ]  [END]   TC3-005 – PASS | 2.56s
-2026-05-26 01:29:32  [INFO    ]    Browser closed after TC3-005.
-2026-05-26 01:29:32  [INFO    ]    Launching browser for TC4-001 …
-2026-05-26 01:29:35  [INFO    ]  [END]   TC4-001 – PASS | 2.64s
-2026-05-26 01:29:38  [INFO    ]    Browser closed after TC4-001.
-2026-05-26 01:29:38  [INFO    ]    Launching browser for TC5-001 …
-2026-05-26 01:29:47  [INFO    ]  TC5-001 submit result: None
-2026-05-26 01:29:47  [INFO    ]  Captured CREATED_DONATION_ID: 164
-2026-05-26 01:29:47  [INFO    ]  [END]   TC5-001 – PASS | 9.0s
-2026-05-26 01:29:49  [INFO    ]    Browser closed after TC5-001.
-2026-05-26 01:29:49  [INFO    ]    Launching browser for TC5-002 …
-2026-05-26 01:29:54  [INFO    ]  TC5-002 URL after submit: http://127.0.0.1:8001/donor/create-donation/
-2026-05-26 01:29:54  [INFO    ]  TC5-002 redirect to my-donations succeeded
-2026-05-26 01:29:54  [INFO    ]  [END]   TC5-002 – PASS | 4.05s
-2026-05-26 01:29:57  [INFO    ]    Browser closed after TC5-002.
-2026-05-26 01:29:57  [INFO    ]    Launching browser for TC5-003 …
-2026-05-26 01:30:01  [INFO    ]  [END]   TC5-003 – PASS | 3.72s
-2026-05-26 01:30:03  [INFO    ]    Browser closed after TC5-003.
-2026-05-26 01:30:03  [INFO    ]    Launching browser for TC6-001 …
-2026-05-26 01:30:06  [INFO    ]  [END]   TC6-001 – PASS | 2.46s
-2026-05-26 01:30:08  [INFO    ]    Browser closed after TC6-001.
-2026-05-26 01:30:08  [INFO    ]    Launching browser for TC7-001 …
-2026-05-26 01:30:12  [INFO    ]  [END]   TC7-001 – PASS | 2.78s
-2026-05-26 01:30:14  [INFO    ]    Browser closed after TC7-001.
-2026-05-26 01:30:14  [INFO    ]    Launching browser for TC7-002 …
-2026-05-26 01:30:17  [INFO    ]  [END]   TC7-002 – PASS | 2.84s
-2026-05-26 01:30:19  [INFO    ]    Browser closed after TC7-002.
-2026-05-26 01:30:19  [INFO    ]    Launching browser for TC7-003 …
-2026-05-26 01:30:24  [INFO    ]  [END]   TC7-003 – PASS | 3.79s
-2026-05-26 01:30:26  [INFO    ]    Browser closed after TC7-003.
-2026-05-26 01:30:26  [INFO    ]    Launching browser for TC7-004 …
-2026-05-26 01:30:35  [INFO    ]  [END]   TC7-004 – PASS | 8.11s
-2026-05-26 01:30:37  [INFO    ]    Browser closed after TC7-004.
-2026-05-26 01:30:37  [INFO    ]    Launching browser for TC8-002 …
-2026-05-26 01:30:45  [INFO    ]  [END]   TC8-002 – PASS | 7.97s
-2026-05-26 01:30:48  [INFO    ]    Browser closed after TC8-002.
-2026-05-26 01:30:48  [INFO    ]    Launching browser for TC8-001 …
-2026-05-26 01:30:52  [INFO    ]  [END]   TC8-001 – PASS | 3.7s
-2026-05-26 01:30:54  [INFO    ]    Browser closed after TC8-001.
-2026-05-26 01:30:54  [INFO    ]    Launching browser for TC8-003 …
-2026-05-26 01:31:05  [INFO    ]  [END]   TC8-003 – PASS | 10.42s
-2026-05-26 01:31:07  [INFO    ]    Browser closed after TC8-003.
-2026-05-26 01:31:07  [INFO    ]    Launching browser for TC9-001 …
-2026-05-26 01:31:11  [INFO    ]  [END]   TC9-001 – PASS | 3.0s
-2026-05-26 01:31:13  [INFO    ]    Browser closed after TC9-001.
-2026-05-26 01:31:13  [INFO    ]    Launching browser for TC9-002 …
-2026-05-26 01:31:16  [INFO    ]  [END]   TC9-002 – PASS | 2.95s
-2026-05-26 01:31:19  [INFO    ]    Browser closed after TC9-002.
-2026-05-26 01:31:19  [INFO    ]    Launching browser for TC9-003 …
-2026-05-26 01:31:22  [INFO    ]  [END]   TC9-003 – PASS | 2.73s
-2026-05-26 01:31:24  [INFO    ]    Browser closed after TC9-003.
+2026-05-29 17:12:37  [INFO    ]  ========================================================================
+2026-05-29 17:12:37  [INFO    ]    WEAVEFORWARD | Automated Test Run Starting
+2026-05-29 17:12:37  [INFO    ]    Date/Time   : 2026-05-29 17:12:37
+2026-05-29 17:12:37  [INFO    ]    AUT         : WeaveForward
+2026-05-29 17:12:37  [INFO    ]    Browser     : Google Chrome (headed)
+2026-05-29 17:12:37  [INFO    ]    Selenium TC : 36
+2026-05-29 17:12:37  [INFO    ]  ========================================================================
+2026-05-29 17:12:37  [INFO    ]    Launching browser for TC1-001 …
+2026-05-29 17:12:39  [INFO    ]  [END]   TC1-001 – PASS | 1.12s
+2026-05-29 17:12:41  [INFO    ]    Browser closed after TC1-001.
+2026-05-29 17:12:41  [INFO    ]    Launching browser for TC1-002 …
+2026-05-29 17:12:43  [INFO    ]  [END]   TC1-002 – PASS | 1.38s
+2026-05-29 17:12:45  [INFO    ]    Browser closed after TC1-002.
+2026-05-29 17:12:45  [INFO    ]    Launching browser for TC1-003 …
+2026-05-29 17:12:47  [INFO    ]  [END]   TC1-003 – PASS | 1.5s
+2026-05-29 17:12:50  [INFO    ]    Browser closed after TC1-003.
+2026-05-29 17:12:50  [INFO    ]    Launching browser for TC1-004 …
+2026-05-29 17:12:52  [INFO    ]  [END]   TC1-004 – PASS | 1.69s
+2026-05-29 17:12:54  [INFO    ]    Browser closed after TC1-004.
+2026-05-29 17:12:54  [INFO    ]    Launching browser for TC10-001 …
+2026-05-29 17:12:57  [INFO    ]  [END]   TC10-001 – PASS | 2.54s
+2026-05-29 17:12:59  [INFO    ]    Browser closed after TC10-001.
+2026-05-29 17:12:59  [INFO    ]    Launching browser for TC10-002 …
+2026-05-29 17:13:02  [INFO    ]  [END]   TC10-002 – PASS | 1.79s
+2026-05-29 17:13:04  [INFO    ]    Browser closed after TC10-002.
+2026-05-29 17:13:04  [INFO    ]    Launching browser for TC10-003 …
+2026-05-29 17:13:07  [INFO    ]  [END]   TC10-003 – PASS | 2.29s
+2026-05-29 17:13:09  [INFO    ]    Browser closed after TC10-003.
+2026-05-29 17:13:09  [INFO    ]    Launching browser for TC10-004 …
+2026-05-29 17:13:11  [INFO    ]  [END]   TC10-004 – PASS | 1.75s
+2026-05-29 17:13:13  [INFO    ]    Browser closed after TC10-004.
+2026-05-29 17:13:13  [INFO    ]    Launching browser for TC10-005 …
+2026-05-29 17:13:18  [INFO    ]  [END]   TC10-005 – PASS | 3.8s
+2026-05-29 17:13:20  [INFO    ]    Browser closed after TC10-005.
+2026-05-29 17:13:20  [INFO    ]    Launching browser for TC10-006 …
+2026-05-29 17:13:24  [INFO    ]  [END]   TC10-006 – PASS | 3.72s
+2026-05-29 17:13:26  [INFO    ]    Browser closed after TC10-006.
+2026-05-29 17:13:26  [INFO    ]    Launching browser for TC10-007 …
+2026-05-29 17:13:35  [INFO    ]  [END]   TC10-007 – PASS | 7.86s
+2026-05-29 17:13:37  [INFO    ]    Browser closed after TC10-007.
+2026-05-29 17:13:37  [INFO    ]    Launching browser for TC2-001 …
+2026-05-29 17:13:40  [INFO    ]  [END]   TC2-001 – PASS | 2.46s
+2026-05-29 17:13:42  [INFO    ]    Browser closed after TC2-001.
+2026-05-29 17:13:42  [INFO    ]    Launching browser for TC2-002 …
+2026-05-29 17:13:46  [INFO    ]  [END]   TC2-002 – PASS | 2.98s
+2026-05-29 17:13:48  [INFO    ]    Browser closed after TC2-002.
+2026-05-29 17:13:48  [INFO    ]    Launching browser for TC2-003 …
+2026-05-29 17:13:50  [INFO    ]  [END]   TC2-003 – PASS | 1.38s
+2026-05-29 17:13:52  [INFO    ]    Browser closed after TC2-003.
+2026-05-29 17:13:52  [INFO    ]    Launching browser for TC2-004 …
+2026-05-29 17:13:55  [INFO    ]  [END]   TC2-004 – PASS | 2.46s
+2026-05-29 17:13:57  [INFO    ]    Browser closed after TC2-004.
+2026-05-29 17:13:57  [INFO    ]    Launching browser for TC2-005 …
+2026-05-29 17:14:00  [INFO    ]  [END]   TC2-005 – PASS | 2.03s
+2026-05-29 17:14:02  [INFO    ]    Browser closed after TC2-005.
+2026-05-29 17:14:02  [INFO    ]    Launching browser for TC3-001 …
+2026-05-29 17:14:05  [INFO    ]  [END]   TC3-001 – PASS | 2.49s
+2026-05-29 17:14:07  [INFO    ]    Browser closed after TC3-001.
+2026-05-29 17:14:07  [INFO    ]    Launching browser for TC3-002 …
+2026-05-29 17:14:10  [INFO    ]  [END]   TC3-002 – PASS | 2.46s
+2026-05-29 17:14:12  [INFO    ]    Browser closed after TC3-002.
+2026-05-29 17:14:12  [INFO    ]    Launching browser for TC3-003 …
+2026-05-29 17:14:15  [INFO    ]  [END]   TC3-003 – PASS | 2.46s
+2026-05-29 17:14:17  [INFO    ]    Browser closed after TC3-003.
+2026-05-29 17:14:17  [INFO    ]    Launching browser for TC3-004 …
+2026-05-29 17:14:21  [INFO    ]  [END]   TC3-004 – PASS | 2.8s
+2026-05-29 17:14:23  [INFO    ]    Browser closed after TC3-004.
+2026-05-29 17:14:23  [INFO    ]    Launching browser for TC3-005 …
+2026-05-29 17:14:26  [INFO    ]  [END]   TC3-005 – PASS | 2.56s
+2026-05-29 17:14:28  [INFO    ]    Browser closed after TC3-005.
+2026-05-29 17:14:28  [INFO    ]    Launching browser for TC4-001 …
+2026-05-29 17:14:31  [INFO    ]  [END]   TC4-001 – PASS | 2.51s
+2026-05-29 17:14:34  [INFO    ]    Browser closed after TC4-001.
+2026-05-29 17:14:34  [INFO    ]    Launching browser for TC5-001 …
+2026-05-29 17:14:43  [INFO    ]  TC5-001 submit result: None
+2026-05-29 17:14:43  [INFO    ]  Captured CREATED_DONATION_ID: 224
+2026-05-29 17:14:43  [INFO    ]  [END]   TC5-001 – PASS | 8.9s
+2026-05-29 17:14:45  [INFO    ]    Browser closed after TC5-001.
+2026-05-29 17:14:45  [INFO    ]    Launching browser for TC5-002 …
+2026-05-29 17:14:49  [INFO    ]  TC5-002 URL after submit: http://127.0.0.1:8001/donor/create-donation/
+2026-05-29 17:14:50  [INFO    ]  TC5-002 redirect to my-donations succeeded
+2026-05-29 17:14:50  [INFO    ]  [END]   TC5-002 – PASS | 3.82s
+2026-05-29 17:14:52  [INFO    ]    Browser closed after TC5-002.
+2026-05-29 17:14:52  [INFO    ]    Launching browser for TC5-003 …
+2026-05-29 17:14:57  [INFO    ]  [END]   TC5-003 – PASS | 4.88s
+2026-05-29 17:14:59  [INFO    ]    Browser closed after TC5-003.
+2026-05-29 17:14:59  [INFO    ]    Launching browser for TC6-001 …
+2026-05-29 17:15:03  [INFO    ]  [END]   TC6-001 – PASS | 2.54s
+2026-05-29 17:15:05  [INFO    ]    Browser closed after TC6-001.
+2026-05-29 17:15:05  [INFO    ]    Launching browser for TC7-001 …
+2026-05-29 17:15:09  [INFO    ]  [END]   TC7-001 – PASS | 3.16s
+2026-05-29 17:15:11  [INFO    ]    Browser closed after TC7-001.
+2026-05-29 17:15:11  [INFO    ]    Launching browser for TC7-002 …
+2026-05-29 17:15:14  [INFO    ]  [END]   TC7-002 – PASS | 2.85s
+2026-05-29 17:15:16  [INFO    ]    Browser closed after TC7-002.
+2026-05-29 17:15:16  [INFO    ]    Launching browser for TC7-003 …
+2026-05-29 17:15:21  [INFO    ]  [END]   TC7-003 – PASS | 4.26s
+2026-05-29 17:15:23  [INFO    ]    Browser closed after TC7-003.
+2026-05-29 17:15:23  [INFO    ]    Launching browser for TC7-004 …
+2026-05-29 17:15:32  [INFO    ]  [END]   TC7-004 – PASS | 8.04s
+2026-05-29 17:15:34  [INFO    ]    Browser closed after TC7-004.
+2026-05-29 17:15:34  [INFO    ]    Launching browser for TC8-002 …
+2026-05-29 17:15:43  [INFO    ]  [END]   TC8-002 – PASS | 8.03s
+2026-05-29 17:15:45  [INFO    ]    Browser closed after TC8-002.
+2026-05-29 17:15:45  [INFO    ]    Launching browser for TC8-001 …
+2026-05-29 17:15:49  [INFO    ]  [END]   TC8-001 – PASS | 3.69s
+2026-05-29 17:15:51  [INFO    ]    Browser closed after TC8-001.
+2026-05-29 17:15:51  [INFO    ]    Launching browser for TC8-003 …
+2026-05-29 17:16:02  [INFO    ]  [END]   TC8-003 – PASS | 10.61s
+2026-05-29 17:16:05  [INFO    ]    Browser closed after TC8-003.
+2026-05-29 17:16:05  [INFO    ]    Launching browser for TC9-001 …
+2026-05-29 17:16:08  [INFO    ]  [END]   TC9-001 – PASS | 3.01s
+2026-05-29 17:16:10  [INFO    ]    Browser closed after TC9-001.
+2026-05-29 17:16:10  [INFO    ]    Launching browser for TC9-002 …
+2026-05-29 17:16:14  [INFO    ]  [END]   TC9-002 – PASS | 3.12s
+2026-05-29 17:16:16  [INFO    ]    Browser closed after TC9-002.
+2026-05-29 17:16:16  [INFO    ]    Launching browser for TC9-003 …
+2026-05-29 17:16:20  [INFO    ]  [END]   TC9-003 – PASS | 2.88s
+2026-05-29 17:16:22  [INFO    ]    Browser closed after TC9-003.
 
 ========================================================================
   WEAVEFORWARD AUTOMATION SUITE | COMPLETE TEST EXECUTION SUMMARY
 ========================================================================
-  Timestamp              : 2026-05-26 01:31:24
+  Timestamp              : 2026-05-29 17:16:22
   AUT                    : WeaveForward
   Automation Framework   : Selenium WebDriver (Python)
 ────────────────────────────────────────────────────────────────────────
@@ -130,56 +130,56 @@
   FAILED                 : 0
   ERRORS                 : 0
   Pass Rate              : 100.0%
-  Total Execution Time   : 226.85 s
+  Total Execution Time   : 224.48 s
 ────────────────────────────────────────────────────────────────────────
   DETAILED RESULTS BY WORKFLOW
 ────────────────────────────────────────────────────────────────────────
   ▸ Donor Register Account  (4/4 passed)
     [✓] TC1-001  | PASS  |  1.12s | Verify That Donor Can Create Donor Account with Valid Registration Details
-    [✓] TC1-002  | PASS  |  1.39s | Verify That Donor Can Cancel Registration Before Submission
-    [✓] TC1-003  | PASS  |  1.73s | Verify That Invalid Registration Details Are Rejected
+    [✓] TC1-002  | PASS  |  1.38s | Verify That Donor Can Cancel Registration Before Submission
+    [✓] TC1-003  | PASS  |  1.50s | Verify That Invalid Registration Details Are Rejected
     [✓] TC1-004  | PASS  |  1.69s | Verify That Registration Is Blocked If The Email Is Already In Use
   ▸ Donor Update Account Information  (7/7 passed)
-    [✓] TC10-001 | PASS  |  2.17s | Verify That Donor Account Is Updated Successfully Without Changing Location or 2FA
-    [✓] TC10-002 | PASS  |  1.68s | Verify That Cancellation aborts Edit Successfully
-    [✓] TC10-003 | PASS  |  2.28s | Verify That Account Location Edits Without Enabling TOTP Are Successful
-    [✓] TC10-004 | PASS  |  1.60s | Verify That The System Can Disable 2FA successfully
-    [✓] TC10-005 | PASS  |  3.85s | Verify That Enabling 2FA During Updating Account Information Is Successful
-    [✓] TC10-006 | PASS  |  3.98s | Verify That Invalid Fields Prevent Editing Donor Account Successfully
-    [✓] TC10-007 | PASS  |  7.77s | Verify That Invalid TOTP Prevents Editing Donor Account Successfully
+    [✓] TC10-001 | PASS  |  2.54s | Verify That Donor Account Is Updated Successfully Without Changing Location or 2FA
+    [✓] TC10-002 | PASS  |  1.79s | Verify That Cancellation aborts Edit Successfully
+    [✓] TC10-003 | PASS  |  2.29s | Verify That Account Location Edits Without Enabling TOTP Are Successful
+    [✓] TC10-004 | PASS  |  1.75s | Verify That The System Can Disable 2FA successfully
+    [✓] TC10-005 | PASS  |  3.80s | Verify That Enabling 2FA During Updating Account Information Is Successful
+    [✓] TC10-006 | PASS  |  3.72s | Verify That Invalid Fields Prevent Editing Donor Account Successfully
+    [✓] TC10-007 | PASS  |  7.86s | Verify That Invalid TOTP Prevents Editing Donor Account Successfully
   ▸ Donor Login  (5/5 passed)
     [✓] TC2-001  | PASS  |  2.46s | Verify That Donor Login Succeeds With Valid Credentials
-    [✓] TC2-002  | PASS  |  2.44s | Verify That Donor Login Requires Two-Factor Verification When Enabled
-    [✓] TC2-003  | PASS  |  1.68s | Verify That Login Is Rejected With Invalid Credentials
-    [✓] TC2-004  | PASS  |  2.48s | Verify That Login Is Rejected With Invalid TOTP
-    [✓] TC2-005  | PASS  |  1.30s | Verify That Password Recovery Can Be Initiated Via Forgot Password
+    [✓] TC2-002  | PASS  |  2.98s | Verify That Donor Login Requires Two-Factor Verification When Enabled
+    [✓] TC2-003  | PASS  |  1.38s | Verify That Login Is Rejected With Invalid Credentials
+    [✓] TC2-004  | PASS  |  2.46s | Verify That Login Is Rejected With Invalid TOTP
+    [✓] TC2-005  | PASS  |  2.03s | Verify That Password Recovery Can Be Initiated Via Forgot Password
   ▸ Donor Browse TUABs  (5/5 passed)
-    [✓] TC3-001  | PASS  |  2.43s | Verify That TUABs Are Displayed With Proximity Ordering And Valid Filters Applied
-    [✓] TC3-002  | PASS  |  2.78s | Verify That TUABs Are Displayed Without Ordering When Location Is Denied
-    [✓] TC3-003  | PASS  |  2.56s | Verify That TUABs Can be Displayed Without Filters
-    [✓] TC3-004  | PASS  |  2.52s | Verify That TUABs Can be Filtered Using User-Provided Location Filter
+    [✓] TC3-001  | PASS  |  2.49s | Verify That TUABs Are Displayed With Proximity Ordering And Valid Filters Applied
+    [✓] TC3-002  | PASS  |  2.46s | Verify That TUABs Are Displayed Without Ordering When Location Is Denied
+    [✓] TC3-003  | PASS  |  2.46s | Verify That TUABs Can be Displayed Without Filters
+    [✓] TC3-004  | PASS  |  2.80s | Verify That TUABs Can be Filtered Using User-Provided Location Filter
     [✓] TC3-005  | PASS  |  2.56s | Verify That Filters are Rejected for Browsing TUABs when Invalid
   ▸ Donor View TUAB  (1/1 passed)
-    [✓] TC4-001  | PASS  |  2.64s | Verify That The Selected Artisan Business Profile Is Displayed
+    [✓] TC4-001  | PASS  |  2.51s | Verify That The Selected Artisan Business Profile Is Displayed
   ▸ Donor Submit Donation  (3/3 passed)
-    [✓] TC5-001  | PASS  |  9.00s | Verify That A Donation Can Be Created After Giving Location Permission
-    [✓] TC5-002  | PASS  |  4.05s | Verify That A Donation Can Be Created After Denying Location Permission
-    [✓] TC5-003  | PASS  |  3.72s | Verify That Donation Creation Is Rejected With Invalid Information
+    [✓] TC5-001  | PASS  |  8.90s | Verify That A Donation Can Be Created After Giving Location Permission
+    [✓] TC5-002  | PASS  |  3.82s | Verify That A Donation Can Be Created After Denying Location Permission
+    [✓] TC5-003  | PASS  |  4.88s | Verify That Donation Creation Is Rejected With Invalid Information
   ▸ Donor View Donation  (1/1 passed)
-    [✓] TC6-001  | PASS  |  2.46s | Verify That A Donor Can View An Owned Donation Successfully
+    [✓] TC6-001  | PASS  |  2.54s | Verify That A Donor Can View An Owned Donation Successfully
   ▸ Donor Edit Donation  (4/4 passed)
-    [✓] TC7-001  | PASS  |  2.78s | Verify That A Pending Donation Can Be Edited Without Changing Location
-    [✓] TC7-002  | PASS  |  2.84s | Verify That A Pending Donation Can Be Edited By Changing Location
-    [✓] TC7-003  | PASS  |  3.79s | Verify That Editing Is Rejected When Invalid Information Is Supplied
-    [✓] TC7-004  | PASS  |  8.11s | Verify That Editing Is Rejected When The Donation Is In An Uneditable State
+    [✓] TC7-001  | PASS  |  3.16s | Verify That A Pending Donation Can Be Edited Without Changing Location
+    [✓] TC7-002  | PASS  |  2.85s | Verify That A Pending Donation Can Be Edited By Changing Location
+    [✓] TC7-003  | PASS  |  4.26s | Verify That Editing Is Rejected When Invalid Information Is Supplied
+    [✓] TC7-004  | PASS  |  8.04s | Verify That Editing Is Rejected When The Donation Is In An Uneditable State
   ▸ Donor Cancel Donation  (3/3 passed)
-    [✓] TC8-002  | PASS  |  7.97s | Verify That Donor Can Abort Cancellation By Letting Countdown Expire
-    [✓] TC8-001  | PASS  |  3.70s | Verify That An Eligible Donation Can be Successfully Cancelled
-    [✓] TC8-003  | PASS  | 10.42s | Verify That Cancellation Is Rejected For Non-Pending Donations
+    [✓] TC8-002  | PASS  |  8.03s | Verify That Donor Can Abort Cancellation By Letting Countdown Expire
+    [✓] TC8-001  | PASS  |  3.69s | Verify That An Eligible Donation Can be Successfully Cancelled
+    [✓] TC8-003  | PASS  | 10.61s | Verify That Cancellation Is Rejected For Non-Pending Donations
   ▸ Donor View Donation Impact Dashboard  (3/3 passed)
-    [✓] TC9-001  | PASS  |  3.00s | Verify That The Dashboard With Filters Works
-    [✓] TC9-002  | PASS  |  2.95s | Verify That The Dashboard Can Be Viewed Without Applying Filters
-    [✓] TC9-003  | PASS  |  2.73s | Verify That Viewing The Dashboard With Invalid Filters Is Not Allowed
+    [✓] TC9-001  | PASS  |  3.01s | Verify That The Dashboard With Filters Works
+    [✓] TC9-002  | PASS  |  3.12s | Verify That The Dashboard Can Be Viewed Without Applying Filters
+    [✓] TC9-003  | PASS  |  2.88s | Verify That Viewing The Dashboard With Invalid Filters Is Not Allowed
 ────────────────────────────────────────────────────────────────────────
   VERDICT  :  ALL SELENIUM TESTS PASSED
 ========================================================================

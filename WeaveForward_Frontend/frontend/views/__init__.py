@@ -6,10 +6,11 @@ from django.contrib import messages
 from django.urls import reverse
 from ..services import (
     api_call,
-    apply_backend_auth_cookies,
     format_errors,
     get_fiber_choices,
 )
+from ..middleware import apply_backend_auth_cookies
+
 from ..constants import ALLOWED_FIBERS
 
 # Import role-based views for convenience

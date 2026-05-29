@@ -229,7 +229,7 @@
             } else {
                 btn.disabled = false; btn.textContent = 'Save Changes';
                 if (d.errors) { for (let f in d.errors) showFlash(`${f}: ${d.errors[f].join(', ')}`, 'error'); }
-                else showFlash(d.detail || 'Update failed', 'error');
+                else showFlash(d.detail || d.error || 'Update failed', 'error');
                 return false;
             }
         } catch (e) {

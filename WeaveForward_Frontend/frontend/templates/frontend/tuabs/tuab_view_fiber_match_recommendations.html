@@ -760,9 +760,9 @@
     async function acceptRecommendation(e, pairId) {
         e.stopPropagation();
         try {
-            const res = await fetch(`/api/match-recommendations/${pairId}/accept/`, {
+            const res = await fetch(`/api/tuab/match-recommendations/${pairId}/accept/`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf(), 'X-Requested-With': 'XMLHttpRequest' },
                 body: JSON.stringify({}),
             });
             if (res.ok) {
@@ -794,9 +794,9 @@
         const reason = document.getElementById('rejectReason').value.trim();
         const pid = rejectingPairId;
         try {
-            const res = await fetch(`/api/match-recommendations/${pid}/reject/`, {
+            const res = await fetch(`/api/tuab/match-recommendations/${pid}/reject/`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf(), 'X-Requested-With': 'XMLHttpRequest' },
                 body: JSON.stringify({ reason }),
             });
             if (res.ok) {
