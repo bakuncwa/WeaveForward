@@ -261,21 +261,27 @@ def main() -> None:
     selenium_results: list = []
     suite_start = datetime.datetime.now()
 
+    driver = create_driver(headless=headless) if any(e["needs_driver"] for e in TEST_SUITE) else None
+
     for entry in TEST_SUITE:
         test_fn      = entry["fn"]
         tc_id        = entry["tc_id"]
         workflow     = entry["workflow"]
         needs_driver = entry["needs_driver"]
-        driver       = None
 
         try:
-            if needs_driver:
-                logger.info(f"  Launching browser for {tc_id} …")
-                driver = create_driver(headless=headless)
-
             result = test_fn(driver)
             result["workflow"] = workflow
             selenium_results.append(result)
+
+            if tc_id == "TC2-004" and result["status"] == "PASS":
+                try:
+                    logger.info("  Disabling 2FA to speed up subsequent tests...")
+                    test_tc10_004_disable_2fa(driver)
+                    import test_scripts
+                    test_scripts.REGISTERED_TOTP_SECRET = None
+                except Exception as e:
+                    logger.warning(f"Failed to disable 2FA: {e}")
 
         except Exception as exc:
             logger.exception(f"Fatal error running {tc_id}: {exc}")
@@ -288,9 +294,18 @@ def main() -> None:
                 "duration_sec": 0.0,
             })
         finally:
-            if driver:
-                driver.quit()
-                logger.info(f"  Browser closed after {tc_id}.")
+            if needs_driver and driver:
+                # Registration (TC1) and Login (TC2) tests require starting in a logged-out state.
+                # The last update account test (TC10-007) also needs to clear cookies so that the subsequent
+                # login tests start logged out.
+                if tc_id.startswith("TC1-") or tc_id.startswith("TC2-") or tc_id == "TC10-007":
+                    try:
+                        driver.delete_all_cookies()
+                    except Exception as exc:
+                        logger.warning(f"Failed to clear cookies after {tc_id}: {exc}")
+
+    if driver:
+        driver.quit()
 
     total_time = (datetime.datetime.now() - suite_start).total_seconds()
     _write_summary(selenium_results, total_time)

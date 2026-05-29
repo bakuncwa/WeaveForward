@@ -272,7 +272,7 @@
                 <div class="restored-group">
                   <label class="up-label">Material</label>
                   <div class="ss-wrap">
-                    <input type="text" class="restored-in mat-in" placeholder="Search..." value="{{ item.lookup_details.fiber_json }} - {{ item.lookup_details.category }}" oninput="searchMaterials(this)" required>
+                    <input type="text" class="restored-in mat-in" placeholder="Search" value="{{ item.lookup_details.fiber_json }} - {{ item.lookup_details.category }}" oninput="searchMaterials(this)" required>
                     <input type="hidden" class="lookup-id" value="{{ item.lookup_details.lookup_id }}">
                     <div class="ss-list hidden"></div>
                   </div>
@@ -409,7 +409,7 @@
         <div class="restored-group">
           <label class="up-label">Material</label>
           <div class="ss-wrap">
-            <input type="text" class="restored-in mat-in" oninput="searchMaterials(this)" required>
+            <input type="text" class="restored-in mat-in" placeholder="Please select a brand and clothing type" disabled oninput="searchMaterials(this)" required>
             <input type="hidden" class="lookup-id">
             <div class="ss-list hidden"></div>
           </div>
@@ -467,6 +467,8 @@
     }
     
     if (!type || !brand) {
+      mIn.disabled = true;
+      mIn.placeholder = 'Please select a brand and clothing type';
       list.innerHTML = '';
       return;
     }
@@ -477,7 +479,7 @@
       const materials = await res.json();
       
       mIn.disabled = !materials.length;
-      mIn.placeholder = materials.length ? 'Search...' : 'No combinations found';
+      mIn.placeholder = materials.length ? 'Search' : 'No combinations found';
       list.innerHTML = '';
       for (const m of materials) {
         const div = document.createElement('div');

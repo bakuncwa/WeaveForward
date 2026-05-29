@@ -429,20 +429,14 @@ async def donor_edit_donation(request, donation_id):
 
 async def donor_cancel_donation(request, donation_id):
     if request.method == 'POST':
-        try:
-            response = await api_call(request, 'POST', f'donations/{donation_id}/cancel')
-            if response.status_code == 200:
-                messages.success(request, "Donation cancelled successfully!")
-            else:
-                try:
-                    err_data = response.json()
-                except:
-                    err_data = {}
-                error_msg = err_data.get('detail') if isinstance(err_data, dict) else None
-                messages.error(request, error_msg or "Failed to cancel donation.")
-        except Exception as e:
-            messages.error(request, f"System Error: {str(e)}")
-    return redirect('donor_my_donations')
+        response = await api_call(request, 'POST', f'donations/{donation_id}/cancel')
+        if response.status_code == 200:
+            return JsonResponse({'success': True, 'message': 'Donation cancelled successfully!'})
+        else:
+            err_data = response.json()
+            error_msg = err_data.get('detail') if isinstance(err_data, dict) else None
+            return JsonResponse({'success': False, 'error': error_msg or 'Failed to cancel donation.'}, status=400)
+    return JsonResponse({'success': False, 'error': 'Invalid request method.'}, status=405)
 
 
 async def donor_impact_dashboard(request):

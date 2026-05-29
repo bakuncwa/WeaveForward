@@ -27,7 +27,7 @@
     .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: none; cursor: pointer; font-family: 'Poppins', sans-serif; font-weight: 500; transition: all .2s; text-decoration: none; }
     .btn-primary { background: var(--gold); color: #fff; border-radius: 8px; padding: 10px 20px; font-size: 14px; white-space: nowrap; }
     .btn-primary:hover { background: var(--gold-dark); }
-    .btn-outline { background: #fff; color: #444; border: 1.5px solid #ccc; border-radius: 6px; padding: 5px 12px; font-size: 11px; }
+    .btn-outline { background: #f4f4f4; color: #666; border: 1px solid #e2e2e2; border-radius: 6px; padding: 5px 10px; font-size: 11px; width: 100%; text-align: center; }
     .btn-outline:hover { border-color: #999; }
 
     .table-wrap { background: #fff; border-radius: 14px; overflow-x: auto; border: 1.5px solid var(--border); }
@@ -49,13 +49,81 @@
     .badge-received { background: var(--green); }
     .badge-cancelled { background: #8c8c8c; }
 
-    .action-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+    .action-btns { display: flex; flex-direction: column; gap: 6px; width: 88px; }
     .thumb { width: 58px; height: 58px; object-fit: cover; border-radius: 8px; display: block; background: #f2efe9; }
     .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .pagination-wrap { display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding: 0 4px; }
     .pg-info { font-family:'Poppins',sans-serif; font-size:13px; color:#888; }
     .pg-btns { display: flex; gap: 8px; }
     .pg-btns .btn-outline { width: auto; padding: 8px 16px; border-radius: 8px; font-weight: 500; }
+
+    /* Modal Backdrop & Animation Styles matching Archive TUAB Modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: transparent;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+    }
+    .modal-backdrop.is-open {
+      display: flex;
+    }
+    .modal-box {
+      width: min(360px, calc(100vw - 32px));
+      background: #fff;
+      border: 1px solid #ebe6df;
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 12px 30px rgba(34, 34, 34, 0.15);
+    }
+    .modal-title {
+      font-family: 'Poppins', sans-serif;
+      font-size: 16px;
+      font-weight: 400;
+      color: #222;
+      margin-bottom: 16px;
+      text-align: left;
+    }
+    .modal-actions {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .modal-actions .btn {
+      width: auto;
+      min-width: 100px;
+      min-height: 40px;
+      border-radius: 20px;
+      font-family: 'Poppins', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 10px 24px;
+    }
+    .modal-btn-goback {
+      background: #FFF1D8 !important;
+      color: #E8A020 !important;
+      border: none !important;
+      font-family: 'Poppins', sans-serif !important;
+      font-weight: 300 !important;
+      box-shadow: 0 4px 10px rgba(232, 160, 32, 0.15) !important;
+    }
+    .modal-btn-goback:hover {
+      background: #ffe8c2 !important;
+    }
+    .modal-btn-yes {
+      background: #E8A020 !important;
+      color: #ffffff !important;
+      border: none !important;
+      font-family: 'Poppins', sans-serif !important;
+      font-weight: 300 !important;
+      box-shadow: 0 4px 12px rgba(232, 160, 32, 0.3) !important;
+    }
+    .modal-btn-yes:hover {
+      background: #d49019 !important;
+    }
 </style>
 
 <p class="count" id="don-count">{{ count }} Donation Request{{ count|pluralize }}</p>
@@ -114,10 +182,7 @@
             <a href="{% url 'donor_view_donation' donation.donation_id %}" class="btn btn-outline">View</a>
             {% if donation.status == 'PENDING' %}
                 <a href="{% url 'donor_edit_donation' donation.donation_id %}" class="btn btn-outline">Edit</a>
-                <form action="{% url 'donor_cancel_donation' donation.donation_id %}" method="post" style="display:inline;" onsubmit="return handleCancelClick(event, this);">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-outline cancel-btn">Cancel</button>
-                </form>
+                <button type="button" class="btn btn-outline cancel-btn" data-api-url="{% url 'donor_cancel_donation' donation.donation_id %}">Cancel</button>
             {% endif %}
           </div>
         </td>
@@ -151,40 +216,93 @@
   </div>
 </div>
 
+<div id="cancel-modal" class="modal-backdrop" aria-hidden="true">
+  <div class="modal-box">
+    <div class="modal-title" style="text-align: center; font-size: 13px; color: #666666; font-weight: 300; font-family: 'Poppins', sans-serif;">Are you sure you want to cancel this Donation?</div>
+    <form id="cancel-form" method="POST" action="">
+      {% csrf_token %}
+      <div class="modal-actions">
+        <button id="cancel-cancel" class="btn modal-btn-goback" type="button">Go Back</button>
+        <button type="submit" class="btn modal-btn-yes" id="cancel-submit">Yes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script>
-  function handleCancelClick(event, form) {
-    const btn = form.querySelector('.cancel-btn');
-    if (btn.dataset.confirming === 'true') {
-      if (btn.dataset.intervalId) {
-        clearInterval(Number(btn.dataset.intervalId));
-      }
-      return true;
-    }
-    event.preventDefault();
-    btn.dataset.confirming = 'true';
-    
-    let seconds = 3;
-    btn.innerText = `Confirm? (${seconds})`;
-    btn.style.borderColor = '#ff4444';
-    btn.style.color = '#ff4444';
-    
-    const interval = setInterval(() => {
-      seconds--;
-      if (seconds > 0) {
-        btn.innerText = `Confirm? (${seconds})`;
-      } else {
-        clearInterval(interval);
-        delete btn.dataset.confirming;
-        delete btn.dataset.intervalId;
-        btn.innerText = 'Cancel';
-        btn.style.borderColor = '';
-        btn.style.color = '';
-      }
-    }, 1000);
-    
-    btn.dataset.intervalId = interval.toString();
-    return false;
+  const cancelModal = document.getElementById('cancel-modal');
+  const cancelCancel = document.getElementById('cancel-cancel');
+  const cancelForm = document.getElementById('cancel-form');
+  const modalBox = cancelModal.querySelector('.modal-box');
+  const originalModalBoxHtml = modalBox.innerHTML;
+
+  function resetModalBox() {
+    modalBox.innerHTML = originalModalBoxHtml;
+    // Rebind events on the newly restored HTML
+    document.getElementById('cancel-cancel')?.addEventListener('click', closeModal);
+    document.getElementById('cancel-form')?.addEventListener('submit', handleFormSubmit);
   }
+
+  function closeModal() {
+    cancelModal.classList.remove('is-open');
+    cancelModal.setAttribute('aria-hidden', 'true');
+    // Wait for the CSS transition to finish before resetting the HTML
+    setTimeout(resetModalBox, 300);
+  }
+
+  document.querySelectorAll('.cancel-btn').forEach((button) => {
+    button.addEventListener('click', () => {
+      cancelModal.classList.add('is-open');
+      cancelModal.setAttribute('aria-hidden', 'false');
+      const form = document.getElementById('cancel-form');
+      if (form) {
+        form.action = button.dataset.apiUrl;
+      }
+    });
+  });
+
+  cancelCancel?.addEventListener('click', closeModal);
+
+  async function handleFormSubmit(event) {
+    event.preventDefault();
+    const form = event.target;
+    const url = form.action;
+    const csrfToken = form.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': csrfToken,
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
+      const body = await response.json().catch(() => null);
+      if (response.ok && body?.success) {
+        window.location.reload();
+      } else {
+        showFailureScreen();
+      }
+    } catch (e) {
+      showFailureScreen();
+    }
+  }
+
+  function showFailureScreen() {
+    modalBox.innerHTML = `
+      <div class="modal-title" style="text-align: center; font-size: 13px; color: #666666; font-weight: 300; font-family: 'Poppins', sans-serif;">
+        This donation can no longer be cancelled.
+      </div>
+      <div style="display: flex; justify-content: center; margin-top: 16px;">
+        <button type="button" id="close-modal-btn" class="btn modal-btn-yes">
+          Close
+        </button>
+      </div>
+    `;
+    document.getElementById('close-modal-btn').addEventListener('click', closeModal);
+  }
+
+  document.getElementById('cancel-form')?.addEventListener('submit', handleFormSubmit);
 
   document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.badge').forEach(function (el) {

@@ -39,7 +39,8 @@
         align-items: center;
         gap: 10px;
         flex-shrink: 0;
-        z-index: 100;
+        position: relative;
+        z-index: 2;
     }
 
     .fm-subheader-title {
@@ -62,6 +63,7 @@
         position: relative;
         flex: 1;
         overflow: hidden;
+        z-index: 1;
     }
 
     #recommendations-map {
@@ -512,6 +514,8 @@
     @media (max-width: 640px) {
         .fm-panel { width: 100%; height: 45%; top: auto; bottom: 0; border-left: none; border-top: 1px solid var(--border); }
         .filter-drawer.open { max-height: 320px; }
+        /* Push Leaflet bottom controls (attribution) above the 45% panel */
+        .leaflet-bottom { bottom: 45% !important; }
     }
 </style>
 

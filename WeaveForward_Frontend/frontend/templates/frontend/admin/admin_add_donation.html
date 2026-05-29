@@ -70,7 +70,7 @@
           <div class="restored-group" style="margin-bottom:18px">
             <label class="sub-title">Donor</label>
             <div class="ss-wrap">
-              <input type="text" class="restored-in restored-in-lg" id="dnr-in" placeholder="Search donor..." 
+              <input type="text" class="restored-in restored-in-lg" id="dnr-in" placeholder="Search donor" 
                 autocomplete="off" oninput="fetchDonors(this.value)" 
                 onfocus="if(this.value) document.getElementById('dnr-ac').classList.remove('hidden')"
                 onblur="setTimeout(()=>document.getElementById('dnr-ac').classList.add('hidden'),200)" required>
@@ -169,7 +169,7 @@
         <div class="restored-group">
           <label class="up-label">Material</label>
           <div class="ss-wrap">
-            <input type="text" class="restored-in mat-in" oninput="searchMaterials(this)" required>
+            <input type="text" class="restored-in mat-in" placeholder="Please select a brand and clothing type" disabled oninput="searchMaterials(this)" required>
             <input type="hidden" class="lookup-id">
             <div class="ss-list hidden"></div>
           </div>
@@ -259,6 +259,8 @@
     card.querySelector('.lookup-id').value = '';
     
     if (!type || !brand) {
+      mIn.disabled = true;
+      mIn.placeholder = 'Please select a brand and clothing type';
       list.innerHTML = '';
       return;
     }

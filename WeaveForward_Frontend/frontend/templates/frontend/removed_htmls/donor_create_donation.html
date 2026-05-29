@@ -433,7 +433,7 @@
             <div class="ac">
               <div class="pin-wrap">
                 <input id="addr" class="restored-in restored-in-lg" name="pickup_display_address"
-                  placeholder="Address..." value="{{ form_data.pickup_display_address|default:user.display_address }}"
+                  placeholder="Address" value="{{ form_data.pickup_display_address|default:user.display_address }}"
                   oninput="srchAddr(this.value)" onblur="hideAc()" required>
                 <button type="button" class="pin" onclick="openMap()"><svg width="18" height="18" fill="none"
                     stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -512,7 +512,7 @@
       <div class="restored-group">
         <label class="up-label">Material</label>
         <div class="ss-wrap">
-          <input type="text" class="restored-in ss-input" placeholder="Search materials or series..." disabled required
+          <input type="text" class="restored-in ss-input" placeholder="Search materials or series" disabled required
             onfocus="this.nextElementSibling.nextElementSibling.classList.remove('hidden')"
             onblur="setTimeout(()=>this.nextElementSibling.nextElementSibling.classList.add('hidden'),200)"
             oninput="filterSS(this)">
@@ -600,7 +600,7 @@
     const bV = b.value;
     ss.in.value = ss.hid.value = ss.list.innerHTML = '';
     ss.in.disabled = !bV;
-    ss.in.placeholder = bV ? 'Search materials...' : (t ? 'Select brand first...' : 'Choose category...');
+    ss.in.placeholder = bV ? 'Search materials' : (t ? 'Select brand first...' : 'Choose category...');
 
     if (bV) {
       const res = await fetch(`{% url "material_search_proxy" %}?clothing_type=${encodeURIComponent(t)}&brand=${encodeURIComponent(bV)}`);

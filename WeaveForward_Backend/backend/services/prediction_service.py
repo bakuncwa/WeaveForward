@@ -203,6 +203,15 @@ class MatchPredictionService:
         return cls._build_pair_features(normalized_item, normalized_tuab)
 
 def run_predictions_for_donation(donation_id):
+    donation = Donation.objects.get(pk=donation_id)
+
+    if donation.status != DonationStatus.PENDING:
+        item_ids = DonationItem.objects.filter(donation_id=donation_id).values_list("item_id", flat=True)
+        if item_ids:
+            with transaction.atomic():
+                MatchPrediction.objects.filter(item_id__in=item_ids, is_archived_version=False).update(is_archived_version=True)
+        return []
+
     MatchPredictionService.load_model()
     items = [
         MatchPredictionService._normalize_item_payload(item)
@@ -261,7 +270,7 @@ def run_predictions_for_donation(donation_id):
         df[column] = pd.to_numeric(df[column], errors="coerce").fillna(0.0)
 
     probs = MatchPredictionService._model.predict_proba(df)[:, 1]
-    thresh = meta.get("fiber_match_threshold", 50.0) / 100.0
+    thresh = 0.5
     run_timestamp = timezone.now()
     
     # Revert to database persistence for predictions
@@ -348,7 +357,7 @@ def run_predictions_for_donation_for_one_tuab(tuab):
         df[column] = pd.to_numeric(df[column], errors="coerce").fillna(0.0)
 
     probs = MatchPredictionService._model.predict_proba(df)[:, 1]
-    thresh = meta.get("fiber_match_threshold", 50.0) / 100.0
+    thresh = 0.5
     run_timestamp = timezone.now()
 
     sorted_indexes = sorted(range(len(pair_data)), key=probs.__getitem__, reverse=True)

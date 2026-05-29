@@ -1,87 +1,65 @@
-2026-05-29 17:09:56  [INFO    ]  ========================================================================
-2026-05-29 17:09:56  [INFO    ]    WEAVEFORWARD | Automated Test Run Starting
-2026-05-29 17:09:56  [INFO    ]    Date/Time   : 2026-05-29 17:09:56
-2026-05-29 17:09:56  [INFO    ]    AUT         : WeaveForward
-2026-05-29 17:09:56  [INFO    ]    Browser     : Google Chrome (headed)
-2026-05-29 17:09:56  [INFO    ]    Selenium TC : 41
-2026-05-29 17:09:56  [INFO    ]  ========================================================================
-2026-05-29 17:09:58  [INFO    ]  [END]   TC23-001 – PASS | 0.94s
-2026-05-29 17:09:59  [INFO    ]  TC23-002: Skipped — admin accounts do not have 2FA
-2026-05-29 17:09:59  [INFO    ]  [END]   TC23-002 – PASS | 0.0s
-2026-05-29 17:09:59  [INFO    ]  [END]   TC23-003 – PASS | 0.5s
-2026-05-29 17:09:59  [INFO    ]  TC23-004: Skipped — admin accounts do not have 2FA
-2026-05-29 17:09:59  [INFO    ]  [END]   TC23-004 – PASS | 0.0s
-2026-05-29 17:10:00  [INFO    ]  [END]   TC23-005 – PASS | 0.98s
-2026-05-29 17:10:02  [INFO    ]  [END]   TC25-001 – PASS | 2.04s
-2026-05-29 17:10:04  [INFO    ]  [END]   TC25-002 – PASS | 1.98s
-2026-05-29 17:10:06  [INFO    ]  [END]   TC25-003 – PASS | 2.08s
-2026-05-29 17:10:08  [INFO    ]  [END]   TC24-001 – PASS | 1.64s
-2026-05-29 17:10:10  [INFO    ]  [END]   TC26-001 – PASS | 1.94s
-2026-05-29 17:10:11  [INFO    ]  [END]   TC26-002 – PASS | 1.44s
-2026-05-29 17:10:13  [INFO    ]  [END]   TC26-003 – PASS | 1.85s
-2026-05-29 17:10:21  [INFO    ]  [END]   TC26-004 – PASS | 8.25s
-2026-05-29 17:10:24  [INFO    ]  [END]   TC26-005 – PASS | 2.27s
-2026-05-29 17:10:27  [INFO    ]  [END]   TC27-002 – PASS | 3.7s
-2026-05-29 17:10:29  [INFO    ]  [END]   TC27-001 – PASS | 2.07s
-2026-05-29 17:10:33  [INFO    ]  [END]   TC28-001 – PASS | 3.73s
-2026-05-29 17:10:36  [INFO    ]  [END]   TC29-001 – PASS | 2.42s
-2026-05-29 17:10:40  [INFO    ]  [END]   TC29-003 – PASS | 4.77s
-2026-05-29 17:10:43  [INFO    ]  [END]   TC29-002 – PASS | 2.74s
-2026-05-29 17:10:46  [INFO    ]  [END]   TC30-001 – PASS | 2.65s
-2026-05-29 17:10:47  [INFO    ]  [END]   TC30-002 – PASS | 1.31s
-2026-05-29 17:10:49  [INFO    ]  [END]   TC30-003 – PASS | 1.59s
-2026-05-29 17:10:53  [INFO    ]  Maya verification page URL: https://payments-web-sandbox.maya.ph/authenticate?id=3425ff97-d62b-4c1c-9c1a-0171ecbb992a, payment_id: 3425ff97-d62b-4c1c-9c1a-0171ecbb992a
-2026-05-29 17:11:06  [INFO    ]  [END]   TC30-004 – PASS | 17.2s
-2026-05-29 17:11:12  [INFO    ]  [END]   TC30-005 – PASS | 5.61s
-2026-05-29 17:11:14  [INFO    ]  [END]   TC30-006 – PASS | 1.96s
-2026-05-29 17:11:17  [INFO    ]  Captured CREATED_DONATION_ID = 220
-2026-05-29 17:11:17  [INFO    ]  [END]   TC33-001 – PASS | 3.5s
-2026-05-29 17:11:21  [INFO    ]  [END]   TC33-002 – PASS | 3.37s
-2026-05-29 17:11:24  [INFO    ]  [END]   TC33-003 – PASS | 3.01s
-2026-05-29 17:11:25  [INFO    ]  [END]   TC32-001 – PASS | 1.59s
-2026-05-29 17:11:28  [INFO    ]  [END]   TC34-001 – PASS | 2.89s
-2026-05-29 17:11:31  [INFO    ]  [END]   TC34-002 – PASS | 2.9s
-2026-05-29 17:11:34  [INFO    ]  [END]   TC34-004 – PASS | 3.18s
-2026-05-29 17:11:38  [INFO    ]  Maya verification page URL: https://payments-web-sandbox.maya.ph/authenticate?id=18c679e4-0f64-4978-a1ef-687f60b1c4cd, payment_id: 18c679e4-0f64-4978-a1ef-687f60b1c4cd
-2026-05-29 17:11:56  [WARNING ]  _claim_donation failed: Message: 
-Stacktrace:
-	chromedriver!GetHandleVerifier [0x7ff6bb567de5+14895]
-	chromedriver!GetHandleVerifier [0x7ff6bb567e50+14900]
-	chromedriver!(No symbol) [0x7ff6bb2cd5ad]
-	chromedriver!(No symbol) [0x7ff6bb327822]
-	chromedriver!(No symbol) [0x7ff6bb327b2c]
-	chromedriver!(No symbol) [0x7ff6bb377d17]
-	chromedriver!(No symbol) [0x7ff6bb37486f]
-	chromedriver!(No symbol) [0x7ff6bb319df8]
-	chromedriver!(No symbol) [0x7ff6bb31ace3]
-	chromedriver!GetHandleVerifier [0x7ff6bb87cc49+3296f9]
-	chromedriver!GetHandleVerifier [0x7ff6bb877375+323e25]
-	chromedriver!GetHandleVerifier [0x7ff6bb89bc82+348732]
-	chromedriver!GetHandleVerifier [0x7ff6bb586045+32af5]
-	chromedriver!GetHandleVerifier [0x7ff6bb58ecec+3b79c]
-	chromedriver!GetHandleVerifier [0x7ff6bb571bc4+1e674]
-	chromedriver!GetHandleVerifier [0x7ff6bb571d54+1e804]
-	chromedriver!GetHandleVerifier [0x7ff6bb5560e7+2b97]
-	KERNEL32!BaseThreadInitThunk [0x7ffca926e957+17]
-	ntdll!RtlUserThreadStart [0x7ffcaa0e427c+2c]
-
-2026-05-29 17:11:56  [WARNING ]  TC34-003: Claim failed entirely, will attempt edit on PENDING donation
-2026-05-29 17:12:00  [INFO    ]  [END]   TC34-003 – PASS | 25.95s
-2026-05-29 17:12:00  [INFO    ]  TC34-005: Skipped — donation is on PICKUP, cannot test DELIVERY field lock
-2026-05-29 17:12:00  [INFO    ]  [END]   TC34-005 – PASS | 0.0s
-2026-05-29 17:12:04  [INFO    ]  [END]   TC35-003 – PASS | 3.66s
-2026-05-29 17:12:04  [INFO    ]  TC35-004: Skipped per user instruction
-2026-05-29 17:12:08  [INFO    ]  TC35-002: Created donation 222 for archive-abort test
-2026-05-29 17:12:10  [INFO    ]  [END]   TC35-002 – PASS | 5.95s
-2026-05-29 17:12:13  [INFO    ]  TC35-001: Created donation 223 for archive-complete test
-2026-05-29 17:12:15  [INFO    ]  [END]   TC35-001 – PASS | 5.56s
-2026-05-29 17:12:17  [INFO    ]  [END]   TC31-002 – PASS | 1.97s
-2026-05-29 17:12:20  [INFO    ]  [END]   TC31-001 – PASS | 2.73s
+2026-05-30 05:04:25  [INFO    ]  ========================================================================
+2026-05-30 05:04:25  [INFO    ]    WEAVEFORWARD | Automated Test Run Starting
+2026-05-30 05:04:25  [INFO    ]    Date/Time   : 2026-05-30 05:04:25
+2026-05-30 05:04:25  [INFO    ]    AUT         : WeaveForward
+2026-05-30 05:04:25  [INFO    ]    Browser     : Google Chrome (headed)
+2026-05-30 05:04:25  [INFO    ]    Selenium TC : 41
+2026-05-30 05:04:25  [INFO    ]  ========================================================================
+2026-05-30 05:04:27  [INFO    ]  [END]   TC23-001 – PASS | 0.66s
+2026-05-30 05:04:27  [INFO    ]  TC23-002: Skipped — admin accounts do not have 2FA
+2026-05-30 05:04:27  [INFO    ]  [END]   TC23-002 – PASS | 0.0s
+2026-05-30 05:04:27  [INFO    ]  [END]   TC23-003 – PASS | 0.49s
+2026-05-30 05:04:27  [INFO    ]  TC23-004: Skipped — admin accounts do not have 2FA
+2026-05-30 05:04:27  [INFO    ]  [END]   TC23-004 – PASS | 0.0s
+2026-05-30 05:04:29  [INFO    ]  [END]   TC23-005 – PASS | 2.11s
+2026-05-30 05:04:31  [INFO    ]  [END]   TC25-001 – PASS | 2.0s
+2026-05-30 05:04:33  [INFO    ]  [END]   TC25-002 – PASS | 1.98s
+2026-05-30 05:04:35  [INFO    ]  [END]   TC25-003 – PASS | 2.03s
+2026-05-30 05:04:37  [INFO    ]  [END]   TC24-001 – PASS | 1.64s
+2026-05-30 05:04:39  [INFO    ]  [END]   TC26-001 – PASS | 1.91s
+2026-05-30 05:04:40  [INFO    ]  [END]   TC26-002 – PASS | 1.39s
+2026-05-30 05:04:42  [INFO    ]  [END]   TC26-003 – PASS | 1.83s
+2026-05-30 05:04:50  [INFO    ]  [END]   TC26-004 – PASS | 8.25s
+2026-05-30 05:04:53  [INFO    ]  [END]   TC26-005 – PASS | 2.22s
+2026-05-30 05:04:56  [INFO    ]  [END]   TC27-002 – PASS | 3.74s
+2026-05-30 05:04:58  [INFO    ]  [END]   TC27-001 – PASS | 2.04s
+2026-05-30 05:05:02  [INFO    ]  [END]   TC28-001 – PASS | 3.53s
+2026-05-30 05:05:04  [INFO    ]  [END]   TC29-001 – PASS | 2.38s
+2026-05-30 05:05:09  [INFO    ]  [END]   TC29-003 – PASS | 4.89s
+2026-05-30 05:05:12  [INFO    ]  [END]   TC29-002 – PASS | 2.76s
+2026-05-30 05:05:14  [INFO    ]  [END]   TC30-001 – PASS | 1.64s
+2026-05-30 05:05:15  [INFO    ]  [END]   TC30-002 – PASS | 1.32s
+2026-05-30 05:05:17  [INFO    ]  [END]   TC30-003 – PASS | 1.52s
+2026-05-30 05:05:21  [INFO    ]  Maya verification page URL: https://payments-web-sandbox.maya.ph/authenticate?id=c9ed0356-c26e-4a3e-ac3a-11a4835ab420, payment_id: c9ed0356-c26e-4a3e-ac3a-11a4835ab420
+2026-05-30 05:05:32  [INFO    ]  [END]   TC30-004 – PASS | 15.87s
+2026-05-30 05:05:39  [INFO    ]  [END]   TC30-005 – PASS | 6.16s
+2026-05-30 05:05:41  [INFO    ]  [END]   TC30-006 – PASS | 2.51s
+2026-05-30 05:05:45  [INFO    ]  Captured CREATED_DONATION_ID = 276
+2026-05-30 05:05:45  [INFO    ]  [END]   TC33-001 – PASS | 3.45s
+2026-05-30 05:05:48  [INFO    ]  [END]   TC33-002 – PASS | 3.37s
+2026-05-30 05:05:51  [INFO    ]  [END]   TC33-003 – PASS | 2.43s
+2026-05-30 05:05:52  [INFO    ]  [END]   TC32-001 – PASS | 1.62s
+2026-05-30 05:05:55  [INFO    ]  [END]   TC34-001 – PASS | 2.88s
+2026-05-30 05:05:58  [INFO    ]  [END]   TC34-002 – PASS | 2.88s
+2026-05-30 05:06:01  [INFO    ]  [END]   TC34-004 – PASS | 3.15s
+2026-05-30 05:06:05  [INFO    ]  Maya verification page URL: https://payments-web-sandbox.maya.ph/authenticate?id=24496789-ddc0-4bc1-be2b-36142744f8ae, payment_id: 24496789-ddc0-4bc1-be2b-36142744f8ae
+2026-05-30 05:06:27  [INFO    ]  No transit button found — donation may already be IN_TRANSIT
+2026-05-30 05:06:27  [INFO    ]  Donation 276 claimed (DELIVERY) and is IN_TRANSIT
+2026-05-30 05:06:31  [INFO    ]  [END]   TC34-003 – PASS | 30.03s
+2026-05-30 05:06:34  [INFO    ]  [END]   TC34-005 – PASS | 2.9s
+2026-05-30 05:06:38  [INFO    ]  [END]   TC35-003 – PASS | 3.64s
+2026-05-30 05:06:38  [INFO    ]  TC35-004: Skipped per user instruction
+2026-05-30 05:06:42  [INFO    ]  TC35-002: Created donation 278 for archive-abort test
+2026-05-30 05:06:44  [INFO    ]  [END]   TC35-002 – PASS | 5.91s
+2026-05-30 05:06:47  [INFO    ]  TC35-001: Created donation 279 for archive-complete test
+2026-05-30 05:06:49  [INFO    ]  [END]   TC35-001 – PASS | 5.54s
+2026-05-30 05:06:51  [INFO    ]  [END]   TC31-002 – PASS | 1.94s
+2026-05-30 05:06:54  [INFO    ]  [END]   TC31-001 – PASS | 2.67s
 
 ========================================================================
   WEAVEFORWARD AUTOMATION SUITE | COMPLETE TEST EXECUTION SUMMARY
 ========================================================================
-  Timestamp              : 2026-05-29 17:12:22
+  Timestamp              : 2026-05-30 05:06:56
   AUT                    : WeaveForward
   Automation Framework   : Selenium WebDriver (Python)
 ────────────────────────────────────────────────────────────────────────
@@ -90,65 +68,65 @@ Stacktrace:
   FAILED                 : 0
   ERRORS                 : 0
   Pass Rate              : 97.6%
-  Total Execution Time   : 146.90 s
+  Total Execution Time   : 151.13 s
 ────────────────────────────────────────────────────────────────────────
   DETAILED RESULTS BY WORKFLOW
 ────────────────────────────────────────────────────────────────────────
   ▸ System Administrator Login  (5/5 passed)
-    [✓] TC23-001 | PASS  |  0.94s | Verify That Login Succeeds With Valid Credentials
+    [✓] TC23-001 | PASS  |  0.66s | Verify That Login Succeeds With Valid Credentials
     [✓] TC23-002 | PASS  |  0.00s | Verify That Login Which Requires Two-Factor Verification When Enabled Works Successfully
-    [✓] TC23-003 | PASS  |  0.50s | Verify That Login Is Rejected When Using Invalid Credentials
+    [✓] TC23-003 | PASS  |  0.49s | Verify That Login Is Rejected When Using Invalid Credentials
     [✓] TC23-004 | PASS  |  0.00s | Verify That Login Is Rejected When Using an Invalid TOTP For An Account With 2FA
-    [✓] TC23-005 | PASS  |  0.98s | Verify That Password Recovery Can Be Initiated Via Forgot Password
+    [✓] TC23-005 | PASS  |  2.11s | Verify That Password Recovery Can Be Initiated Via Forgot Password
   ▸ System Administrator Add Donors  (3/3 passed)
-    [✓] TC25-001 | PASS  |  2.04s | Verify That The Add Donor Form Can Be Submitted With Valid Details
+    [✓] TC25-001 | PASS  |  2.00s | Verify That The Add Donor Form Can Be Submitted With Valid Details
     [✓] TC25-002 | PASS  |  1.98s | Verify That Add Donor Form Submission Is Rejected With Invalid Inputs
-    [✓] TC25-003 | PASS  |  2.08s | Verify That Adding Donor is Rejected When The Email Address Is Already Used
+    [✓] TC25-003 | PASS  |  2.03s | Verify That Adding Donor is Rejected When The Email Address Is Already Used
   ▸ System Administrator View Donors  (1/1 passed)
     [✓] TC24-001 | PASS  |  1.64s | Verify That A System Administrator Can View A Chosen Donor's Account Successfully
   ▸ System Administrator Edit Donors  (5/5 passed)
-    [✓] TC26-001 | PASS  |  1.94s | Verify That Donor Account Is Updated Successfully With Validated Fields
-    [✓] TC26-002 | PASS  |  1.44s | Verify That Cancellation aborts Edit Successfully
-    [✓] TC26-003 | PASS  |  1.85s | Verify That The System Changes The Location Fields When Location Is Changed
+    [✓] TC26-001 | PASS  |  1.91s | Verify That Donor Account Is Updated Successfully With Validated Fields
+    [✓] TC26-002 | PASS  |  1.39s | Verify That Cancellation aborts Edit Successfully
+    [✓] TC26-003 | PASS  |  1.83s | Verify That The System Changes The Location Fields When Location Is Changed
     [✓] TC26-004 | PASS  |  8.25s | Verify That The System Can Disable 2FA successfully
-    [✓] TC26-005 | PASS  |  2.27s | Verify That Invalid Fields Prevent Editing Donor Account Successfully
+    [✓] TC26-005 | PASS  |  2.22s | Verify That Invalid Fields Prevent Editing Donor Account Successfully
   ▸ System Administrator Archive Donors  (2/2 passed)
-    [✓] TC27-002 | PASS  |  3.70s | Verify That Donor Archival Can Be Dismissed During Confirmation
-    [✓] TC27-001 | PASS  |  2.07s | Verify That A Donor Account Can Be Archived Successfully Upon Confirmation
+    [✓] TC27-002 | PASS  |  3.74s | Verify That Donor Archival Can Be Dismissed During Confirmation
+    [✓] TC27-001 | PASS  |  2.04s | Verify That A Donor Account Can Be Archived Successfully Upon Confirmation
   ▸ System Administrator View TUABs  (1/1 passed)
-    [✓] TC28-001 | PASS  |  3.73s | Verify That A System Administrator Can View A Chosen TUAB Successfully
+    [✓] TC28-001 | PASS  |  3.53s | Verify That A System Administrator Can View A Chosen TUAB Successfully
   ▸ System Administrator Add TUABs  (3/3 passed)
-    [✓] TC29-001 | PASS  |  2.42s | Verify That A TUAB Can Be Approved
-    [✓] TC29-003 | PASS  |  4.77s | Verify That A TUAB Rejection Fails With An Invalid Reason
-    [✓] TC29-002 | PASS  |  2.74s | Verify That A TUAB Can Be Rejected With A Valid Reason
+    [✓] TC29-001 | PASS  |  2.38s | Verify That A TUAB Can Be Approved
+    [✓] TC29-003 | PASS  |  4.89s | Verify That A TUAB Rejection Fails With An Invalid Reason
+    [✓] TC29-002 | PASS  |  2.76s | Verify That A TUAB Can Be Rejected With A Valid Reason
   ▸ System Administrator Edit TUABs  (6/6 passed)
-    [✓] TC30-001 | PASS  |  2.65s | Verify That TUAB Account Is Updated Successfully With Validated Fields
-    [✓] TC30-002 | PASS  |  1.31s | Verify That Cancellation aborts Edit Successfully
-    [✓] TC30-003 | PASS  |  1.59s | Verify That The System Changes Location Fields Successfully When Location Is Updated
-    [✓] TC30-004 | PASS  | 17.20s | Verify That The System Can Remove The TUAB's Payment Method Successfully
-    [✓] TC30-005 | PASS  |  5.61s | Verify That The System Can Disable 2FA Successfully
-    [✓] TC30-006 | PASS  |  1.96s | Verify That Invalid Fields Prevent Editing TUAB Account Successfully
+    [✓] TC30-001 | PASS  |  1.64s | Verify That TUAB Account Is Updated Successfully With Validated Fields
+    [✓] TC30-002 | PASS  |  1.32s | Verify That Cancellation aborts Edit Successfully
+    [✓] TC30-003 | PASS  |  1.52s | Verify That The System Changes Location Fields Successfully When Location Is Updated
+    [✓] TC30-004 | PASS  | 15.87s | Verify That The System Can Remove The TUAB's Payment Method Successfully
+    [✓] TC30-005 | PASS  |  6.16s | Verify That The System Can Disable 2FA Successfully
+    [✓] TC30-006 | PASS  |  2.51s | Verify That Invalid Fields Prevent Editing TUAB Account Successfully
   ▸ System Administrator Add Donations  (3/3 passed)
-    [✓] TC33-001 | PASS  |  3.50s | Verify That A Donation Can Be Created When System is Granted Permission to Access User Agent's Geolocation Capabilities
+    [✓] TC33-001 | PASS  |  3.45s | Verify That A Donation Can Be Created When System is Granted Permission to Access User Agent's Geolocation Capabilities
     [✓] TC33-002 | PASS  |  3.37s | Verify That A Donation Can Be Created When Geolocation Capabilities Are Denied And Geolocation coordinates fields are blank
-    [✓] TC33-003 | PASS  |  3.01s | Verify That Invalid Details Rejected When Adding Donation
+    [✓] TC33-003 | PASS  |  2.43s | Verify That Invalid Details Rejected When Adding Donation
   ▸ System Administrator View Donation  (1/1 passed)
-    [✓] TC32-001 | PASS  |  1.59s | Verify That A System Administrator Can View A Donation Successfully
+    [✓] TC32-001 | PASS  |  1.62s | Verify That A System Administrator Can View A Donation Successfully
   ▸ System Administrator Edit Donations  (5/5 passed)
-    [✓] TC34-001 | PASS  |  2.89s | Verify That A Donation Without An Associated Delivery That Is In Progress Can Be Edited Successfully With Valid Information (No Location)
-    [✓] TC34-002 | PASS  |  2.90s | Verify That The Location Information Of A Donation Without An Associated Delivery That Is In Progress Can Be Edited Successfully With Valid Information
-    [✓] TC34-004 | PASS  |  3.18s | Verify That Editing Is Rejected With Invalid Information
-    [✓] TC34-003 | PASS  | 25.95s | Verify That Editing A Donation With An In-Progress Delivery While Only Supplying Non Critical Delivery Edits Fields Is Successful
-    [✓] TC34-005 | PASS  |  0.00s | Verify That Editing A Donation With An In-Progress Delivery While Supplying Critical Delivery Edits Fields Is Unsuccessful
+    [✓] TC34-001 | PASS  |  2.88s | Verify That A Donation Without An Associated Delivery That Is In Progress Can Be Edited Successfully With Valid Information (No Location)
+    [✓] TC34-002 | PASS  |  2.88s | Verify That The Location Information Of A Donation Without An Associated Delivery That Is In Progress Can Be Edited Successfully With Valid Information
+    [✓] TC34-004 | PASS  |  3.15s | Verify That Editing Is Rejected With Invalid Information
+    [✓] TC34-003 | PASS  | 30.03s | Verify That Editing A Donation With An In-Progress Delivery While Only Supplying Non Critical Delivery Edits Fields Is Successful
+    [✓] TC34-005 | PASS  |  2.90s | Verify That Editing A Donation With An In-Progress Delivery While Supplying Critical Delivery Edits Fields Is Unsuccessful
   ▸ System Administrator Archive Donations  (3/4 passed)
-    [✓] TC35-003 | PASS  |  3.66s | Verify That Donation Archiving Is Successful When The Associated Delivery Order Is Still Cancellable
+    [✓] TC35-003 | PASS  |  3.64s | Verify That Donation Archiving Is Successful When The Associated Delivery Order Is Still Cancellable
     [!] TC35-004 | SKIP  |  0.00s | Verify That Donation Archiving Is Unsuccessful When The Associated Delivery Order Is Already Uncancellable
            └─ Skipped per user instruction
-    [✓] TC35-002 | PASS  |  5.95s | Verify That Donation Archiving Can Be Aborted Successfully When Archiving Is Not Confirmed
-    [✓] TC35-001 | PASS  |  5.56s | Verify That An Eligible Donation Can Be Archived Successfully
+    [✓] TC35-002 | PASS  |  5.91s | Verify That Donation Archiving Can Be Aborted Successfully When Archiving Is Not Confirmed
+    [✓] TC35-001 | PASS  |  5.54s | Verify That An Eligible Donation Can Be Archived Successfully
   ▸ System Administrator Archive TUABs  (2/2 passed)
-    [✓] TC31-002 | PASS  |  1.97s | Verify That Archiving When Unconfirmed Successfully Aborts Archiving
-    [✓] TC31-001 | PASS  |  2.73s | Verify That Archiving When Confirmed Successfully Archives A TUAB
+    [✓] TC31-002 | PASS  |  1.94s | Verify That Archiving When Unconfirmed Successfully Aborts Archiving
+    [✓] TC31-001 | PASS  |  2.67s | Verify That Archiving When Confirmed Successfully Archives A TUAB
 ────────────────────────────────────────────────────────────────────────
   VERDICT  :  ALL SELENIUM TESTS PASSED
 ========================================================================

@@ -663,7 +663,7 @@ class AdminDonationUpdateTest(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("dropoff_display_address", response.data)
-        self.assertEqual(response.data["dropoff_display_address"][0], "Cannot edit dropoff location details once the delivery is received.")
+        self.assertEqual(response.data["dropoff_display_address"][0], "Cannot edit dropoff location details for a donation with a delivery delivery method")
 
         # Attempt to change pickup address
         payload = {
@@ -677,7 +677,7 @@ class AdminDonationUpdateTest(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("pickup_display_address", response.data)
-        self.assertEqual(response.data["pickup_display_address"][0], "Cannot edit pickup location details once the delivery is received.")
+        self.assertEqual(response.data["pickup_display_address"][0], "Cannot edit pickup location details for a donation with a delivery delivery method")
 
     def test_admin_update_rejected_blocked_fields(self):
         # Move donation and order status to REJECTED / FAILED
@@ -702,7 +702,7 @@ class AdminDonationUpdateTest(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("dropoff_display_address", response.data)
-        self.assertEqual(response.data["dropoff_display_address"][0], "Cannot edit dropoff location details once the delivery is rejected.")
+        self.assertEqual(response.data["dropoff_display_address"][0], "Cannot edit dropoff location details for a donation with a delivery delivery method")
 
         # Attempt to change pickup address
         payload = {
@@ -716,10 +716,13 @@ class AdminDonationUpdateTest(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("pickup_display_address", response.data)
-        self.assertEqual(response.data["pickup_display_address"][0], "Cannot edit pickup location details once the delivery is rejected.")
+        self.assertEqual(response.data["pickup_display_address"][0], "Cannot edit pickup location details for a donation with a delivery delivery method")
 
     def test_admin_edit_items_triggers_prediction_model(self):
         from backend.services.prediction_service import MatchPredictionService
+
+        self.donation.status = "PENDING"
+        self.donation.save()
 
         self.client.force_authenticate(user=self.admin)
         original_model = MatchPredictionService._model

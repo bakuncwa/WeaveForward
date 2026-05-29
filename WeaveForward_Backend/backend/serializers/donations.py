@@ -666,21 +666,17 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
         win_end = data.get('preferred_pickup_window_end') if 'preferred_pickup_window_end' in data else self.instance.preferred_pickup_window_end
 
         if 'preferred_pickup_date' not in errors and 'preferred_pickup_window_start' not in errors and 'preferred_pickup_window_end' not in errors:
-            if pick_date:
-                try:
-                    if isinstance(pick_date, timezone.datetime) and timezone.is_naive(pick_date):
-                        pick_date = timezone.make_aware(pick_date)
-                    pick_date_local = timezone.localtime(pick_date)
-                    if pick_date_local.date() < now_local.date():
-                        errors['preferred_pickup_date'] = "Pickup date cannot be in the past."
-                    elif pick_date_local.date() > (now_local + timedelta(days=29)).date():
-                        errors['preferred_pickup_date'] = "Pickup date cannot be more than 29 days into the future."
-                    
-                    # Additional check: Today's pickup window cannot start in the past
-                    if pick_date_local.date() == now_local.date() and win_start and win_start < now_local.time():
-                        errors['preferred_pickup_window_start'] = "Pickup window start time cannot be in the past for today's pickup."
-                except Exception:
-                    pass
+            pick_date_local = timezone.localtime(pick_date)
+            if 'preferred_pickup_date' in data:
+                if pick_date_local.date() < now_local.date():
+                    errors['preferred_pickup_date'] = "Pickup date cannot be in the past."
+                elif pick_date_local.date() > (now_local + timedelta(days=29)).date():
+                    errors['preferred_pickup_date'] = "Pickup date cannot be more than 29 days into the future."
+            
+            # Additional check: Today's pickup window cannot start in the past
+            if ('preferred_pickup_date' in data or 'preferred_pickup_window_start' in data):
+                if pick_date_local.date() == now_local.date() and win_start and win_start < now_local.time():
+                    errors['preferred_pickup_window_start'] = "Pickup window start time cannot be in the past for today's pickup."
 
             if win_start and win_end and win_start >= win_end:
                 errors['preferred_pickup_window_start'] = "Start time must be before end time."
@@ -834,17 +830,18 @@ class AdminDonationUpdateSerializer(serializers.ModelSerializer):
                     'dropoff_display_address', 'dropoff_latitude', 'dropoff_longitude'
                 }):
                     for field in intersecting_dropoff:
-                        errors[field] = f"Cannot edit dropoff location details once the delivery is {status_str}."
-                
+                        errors[field] = "Cannot edit dropoff location details for a donation with a delivery delivery method"
                 if intersecting_pickup := set(data.keys()).intersection({
                     'pickup_display_address', 'pickup_latitude', 'pickup_longitude',
                     'preferred_pickup_date', 'preferred_pickup_window_start', 'preferred_pickup_window_end'
                 }):
                     for field in intersecting_pickup:
                         if 'date' in field or 'window' in field:
-                            errors[field] = f"Cannot edit pickup date/time windows once the delivery is {status_str}."
+                            errors[field] = "Cannot edit pickup date/time windows for a donation with a delivery delivery method"
                         else:
-                            errors[field] = f"Cannot edit pickup location details once the delivery is {status_str}."
+                            errors[field] = "Cannot edit pickup location details for a donation with a delivery delivery method"
+                
+
 
         # 2. Coordinate & Location Validation (only if they aren't blocked by state lock)
         if ('pickup_latitude' in data or 'pickup_longitude' in data) and 'pickup_latitude' not in errors and 'pickup_longitude' not in errors:
@@ -918,21 +915,17 @@ class AdminDonationUpdateSerializer(serializers.ModelSerializer):
         win_end = data.get('preferred_pickup_window_end') if 'preferred_pickup_window_end' in data else self.instance.preferred_pickup_window_end
 
         if 'preferred_pickup_date' not in errors and 'preferred_pickup_window_start' not in errors and 'preferred_pickup_window_end' not in errors:
-            if pick_date:
-                try:
-                    if isinstance(pick_date, timezone.datetime) and timezone.is_naive(pick_date):
-                        pick_date = timezone.make_aware(pick_date)
-                    pick_date_local = timezone.localtime(pick_date)
-                    if pick_date_local.date() < now_local.date():
-                        errors['preferred_pickup_date'] = "Pickup date cannot be in the past."
-                    elif pick_date_local.date() > (now_local + timedelta(days=29)).date():
-                        errors['preferred_pickup_date'] = "Pickup date cannot be more than 29 days into the future."
-                    
-                    # Additional check: Today's pickup window cannot start in the past
-                    if pick_date_local.date() == now_local.date() and win_start and win_start < now_local.time():
-                        errors['preferred_pickup_window_start'] = "Pickup window start time cannot be in the past for today's pickup."
-                except Exception:
-                    pass
+            pick_date_local = timezone.localtime(pick_date)
+            if 'preferred_pickup_date' in data:
+                if pick_date_local.date() < now_local.date():
+                    errors['preferred_pickup_date'] = "Pickup date cannot be in the past."
+                elif pick_date_local.date() > (now_local + timedelta(days=29)).date():
+                    errors['preferred_pickup_date'] = "Pickup date cannot be more than 29 days into the future."
+            
+            # Additional check: Today's pickup window cannot start in the past
+            if ('preferred_pickup_date' in data or 'preferred_pickup_window_start' in data):
+                if pick_date_local.date() == now_local.date() and win_start and win_start < now_local.time():
+                    errors['preferred_pickup_window_start'] = "Pickup window start time cannot be in the past for today's pickup."
 
             if win_start and win_end and win_start >= win_end:
                 errors['preferred_pickup_window_start'] = "Start time must be before end time."

@@ -1462,7 +1462,7 @@ class UserSubscriptionAPITest(TestCase):
             response = self.client.delete(reverse('user-me-subscription'))
 
         self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
-        self.assertIn("Maya card deletion failed", response.data['detail'])
+        self.assertIn("Unable to process unsubscription at this time. Please contact Maya Payment Gateway support for assistance.", response.data['detail'])
         self.user.refresh_from_db()
         active_subscription.refresh_from_db()
         self.assertEqual(self.user.maya_customer_id, "maya-customer-sub")
@@ -1484,7 +1484,7 @@ class UserSubscriptionAPITest(TestCase):
             response = self.client.delete(reverse('user-me-subscription'))
 
         self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
-        self.assertIn("Maya card deletion failed", response.data['detail'])
+        self.assertIn("Unable to process unsubscription at this time. Please contact Maya Payment Gateway support for assistance.", response.data['detail'])
         self.user.refresh_from_db()
         active_subscription.refresh_from_db()
         self.assertEqual(self.user.maya_customer_id, "maya-customer-sub")

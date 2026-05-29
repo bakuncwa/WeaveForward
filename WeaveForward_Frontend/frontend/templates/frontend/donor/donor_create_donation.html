@@ -158,7 +158,7 @@
         <div class="restored-group">
           <label class="up-label">Material</label>
           <div class="ss-wrap">
-            <input type="text" class="restored-in mat-in" oninput="searchMaterials(this)" required>
+            <input type="text" class="restored-in mat-in" placeholder="Please select a brand and clothing type" disabled oninput="searchMaterials(this)" required>
             <input type="hidden" class="lookup-id">
             <div class="ss-list hidden"></div>
           </div>
@@ -249,6 +249,8 @@
     card.querySelector('.lookup-id').value = '';
     
     if (!type || !brand) {
+      mIn.disabled = true;
+      mIn.placeholder = 'Please select a brand and clothing type';
       list.innerHTML = '';
       return;
     }

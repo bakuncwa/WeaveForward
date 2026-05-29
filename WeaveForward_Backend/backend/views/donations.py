@@ -26,7 +26,18 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
     permission_classes = [IsAuthenticated]
     serializer_class = DonationDetailSerializer
     filter_backends = [filters.SearchFilter]
-    search_fields = ['=donation_id', 'donor__email', 'donor__first_name', 'donor__last_name', 'claimed_by_tuab__business_name', 'claimed_by_tuab__email']
+    search_fields = [
+        '=donation_id', 
+        'donor__email', 
+        'donor__first_name', 
+        'donor__last_name', 
+        'claimed_by_tuab__business_name', 
+        'claimed_by_tuab__email',
+        'items__lookup__brand',
+        'items__lookup__clothing_type',
+        'items__lookup__dominant_fiber',
+        'items__condition_rating',
+    ]
 
     def get_serializer_class(self):
         if getattr(self, 'action', None) in ['list', 'me']:

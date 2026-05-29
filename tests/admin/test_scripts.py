@@ -1279,10 +1279,10 @@ def test_tc33_003_add_donation_invalid(driver: webdriver.Chrome) -> dict:
         weight_el = card.find_element(By.CSS_SELECTOR, ".weight-in")
         driver.execute_script("arguments[0].removeAttribute('min'); arguments[0].value = '-5.0';", weight_el)
         
-        mat_in = card.find_element(By.CSS_SELECTOR, ".mat-in")
-        mat_in.clear()
-        mat_in.send_keys("Dummy Cotton - Category 99999")
-        driver.execute_script("document.querySelector('.lookup-id').value = '99999';")
+        driver.execute_script("""
+            document.querySelector('.mat-in').value = 'Dummy Cotton - Category 99999';
+            document.querySelector('.lookup-id').value = '99999';
+        """)
 
         cond_sel = Select(card.find_element(By.CSS_SELECTOR, ".cond-sel"))
         cond_sel.select_by_value("GOOD")
@@ -1429,7 +1429,7 @@ def _claim_donation(driver: webdriver.Chrome, wait: WebDriverWait, donation_id: 
                 return False
 
             continue_btn = wait.until(EC.element_to_be_clickable(
-                (By.XPATH, "//button[contains(text(), 'Continue')]")
+                (By.CSS_SELECTOR, "#delivery-confirm-modal button.submit")
             ))
             continue_btn.click()
         else:
@@ -1466,7 +1466,7 @@ def _claim_donation(driver: webdriver.Chrome, wait: WebDriverWait, donation_id: 
         return True
 
     except Exception as e:
-        logger.warning(f"_claim_donation failed: {e}")
+        logger.warning(f"_claim_donation failed: {e}", exc_info=True)
         return False
 
 

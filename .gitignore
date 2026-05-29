@@ -9,8 +9,9 @@ db.sqlite3-journal
 # WeaveForward_Frontend/db.sqlite3
 
 # Environment variables
-# .env is NOT ignored as per user preference
-# .env
+.env
+**/ .env
+**/.env
 
 # Virtual environments
 venv/

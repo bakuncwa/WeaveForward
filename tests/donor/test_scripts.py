@@ -831,12 +831,19 @@ def test_tc8_002_abort_cancel_donation(driver: webdriver.Chrome) -> dict:
     _ensure_login(driver, wait, my_donations_url)
     def action():
         cancel_btn = wait.until(EC.element_to_be_clickable(
-            (By.XPATH, f"//form[contains(@action, '/{TC8_DONATION_ID}/cancel/')]//button[@type='submit']")))
+            (By.XPATH, f"//button[contains(@class, 'cancel-btn') and contains(@data-api-url, '/{TC8_DONATION_ID}/cancel/')]")))
         cancel_btn.click()
-        time.sleep(4)
-        btn_text = cancel_btn.text.strip()
-        if btn_text != "Cancel":
-            raise Exception(f"Strictly Authentic: Button did not reset to 'Cancel' after countdown, got '{btn_text}'")
+        
+        # Wait for modal to open
+        wait.until(EC.visibility_of_element_located((By.ID, "cancel-modal")))
+        
+        # Click "No, Keep"
+        modal_cancel_btn = wait.until(EC.element_to_be_clickable((By.ID, "cancel-cancel")))
+        modal_cancel_btn.click()
+        
+        # Wait for modal to hide
+        wait.until(EC.invisibility_of_element_located((By.ID, "cancel-modal")))
+        
         status_span = driver.find_element(By.XPATH,
             f"//tr[.//a[contains(@href, '/my-donations/{TC8_DONATION_ID}')]]//span[contains(@class, 'badge')]")
         if "PENDING" not in status_span.text.upper():
@@ -848,7 +855,6 @@ def test_tc8_001_cancel_donation(driver: webdriver.Chrome) -> dict:
     r = _build_result("TC8-001", "Verify That An Eligible Donation Can be Successfully Cancelled")
     wait = WebDriverWait(driver, DEFAULT_WAIT)
     t0 = time.time()
-    did = TC8_DONATION_ID or CREATED_DONATION_ID or "1"
     my_donations_url = f"{BASE_URL}/donor/my-donations/"
     driver.get(my_donations_url)
     _ensure_login(driver, wait, my_donations_url)
@@ -856,13 +862,18 @@ def test_tc8_001_cancel_donation(driver: webdriver.Chrome) -> dict:
         if not TC8_DONATION_ID:
             raise Exception("Strictly Authentic: No TC8 donation ID available.")
         cancel_btn = wait.until(EC.element_to_be_clickable(
-            (By.XPATH, f"//form[contains(@action, '/{TC8_DONATION_ID}/cancel/')]//button[@type='submit']")))
+            (By.XPATH, f"//button[contains(@class, 'cancel-btn') and contains(@data-api-url, '/{TC8_DONATION_ID}/cancel/')]")))
         cancel_btn.click()
-        time.sleep(1)
         
-        # Capture the body element before triggering page reload
+        # Wait for modal to open
+        wait.until(EC.visibility_of_element_located((By.ID, "cancel-modal")))
+        
+        # Click "Yes, Cancel"
+        modal_submit_btn = wait.until(EC.element_to_be_clickable((By.ID, "cancel-submit")))
+        
+        # Capture body element to watch for staleness
         old_body = driver.find_element(By.TAG_NAME, "body")
-        cancel_btn.click()
+        modal_submit_btn.click()
         
         # Wait for the old page to go stale (meaning it has unloaded/reloaded)
         try:
@@ -895,7 +906,7 @@ def test_tc8_003_cancel_donation_invalid_state(driver: webdriver.Chrome) -> dict
     _ensure_login(driver, wait, my_donations_url)
     def action():
         cancel_btns = driver.find_elements(By.XPATH,
-            f"//form[contains(@action, '/{TC8_DONATION_ID}/cancel/')]//button[@type='submit']")
+            f"//button[contains(@class, 'cancel-btn') and contains(@data-api-url, '/{TC8_DONATION_ID}/cancel/')]")
         if cancel_btns:
             raise Exception("Strictly Authentic: Cancel button should not be present for a cancelled donation")
     _execute(action, r, "Cancellation rejected for invalid state (no cancel button shown).")

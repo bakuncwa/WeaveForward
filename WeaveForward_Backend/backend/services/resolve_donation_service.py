@@ -7,6 +7,7 @@ from ..models import (
     Donation, DonationStatus, DonationItem, DonationDeliveryMethod, Order, OrderStatus, InventoryLedger
 )
 from .audit_service import log_audit
+from .prediction_service import run_predictions_for_donation
 
 
 def resolve_donation(*, user, donation, validated_data, ip_address=None):
@@ -100,5 +101,12 @@ def resolve_donation(*, user, donation, validated_data, ip_address=None):
             ip_address=ip_address,
             fields_modified=list(validated_data.keys())
         )
+
+        # Archive prediction records for the resolved donation only if items were modified
+        if items_data is not None:
+            try:
+                run_predictions_for_donation(donation.donation_id)
+            except Exception:
+                pass  # Fail-safe to ensure resolution still completes even if prediction archiving errors out
 
     return {"detail": f"Donation successfully resolved as {validated_data['status'].lower()}."}
