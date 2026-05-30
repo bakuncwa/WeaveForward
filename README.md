@@ -52,9 +52,9 @@ This project adheres to formal proposal specifications, featuring a **physically
 ---
 
 ## Project Completion Status
-**Overall Progress: ~70%**
+**Overall Progress: ~95%**
 
-Core infrastructure (JWT, 3-tier, Admin) and key integrations (**Maya Payments** & **CatBoost ML**) are fully operational. Final development is focused on **Lalamove integration**, TUAB workflows, and impact dashboards.
+Core infrastructure are fully operational. Final development is focused on deployment in Cloud Storage, Cloud SQL, Cloud Scheduler, and Cloud Runs for user acceptance testing (UAT).
 
 ---
 
@@ -99,9 +99,6 @@ After initializing the database (see Backend Step 4), you can log in with the fo
 | :--- | :--- |
 | **Email** | `admin@weaveforward.com` |
 | **Password** | `SecureAdminPassword123` |
-
-> [!IMPORTANT]
-> Ensure your local MySQL `root` user has the password set to `1234` or update the `.env` file to match your configuration.
 
 ---
 
@@ -333,10 +330,10 @@ Features for TUAB (Organization) user role:
 
 - [x] View Inventory Items
 - [x] Update Inventory Items
-- [ ] Delete Inventory Items
+- [x] Delete Inventory Items
 - [x] View Incoming Donations
 - [x] Update Incoming Donations
-- [ ] Archive Incoming Donations
+- [x] Archive Incoming Donations
 - [x] View Match Donation Recommendations (CatBoostAI ML Model Integration with DB)
 - [x] View Circular Economy Impact Dashboard
 - [x] Subscribe for Premium Features
@@ -381,14 +378,6 @@ System testing and user acceptance testing:
 
 ### Database Connection Issues (Backend)
 If the backend application fails to connect to MySQL, verify that the MySQL service is active and that the credentials in `WeaveForward_Backend/.env` match your local configuration.
-
----
-
-## Deployment Configuration
-The application architecture supports hybrid deployment for Google Cloud Platform (GCP). For production deployment:
-1. Locate the **BLOCK 2** settings in the `.env` files.
-2. Uncomment the production-specific variables (Cloud SQL, GCS, etc.).
-3. Configure the GCP environment according to the project's Cloud Run and Cloud SQL specifications.
 
 ---
 
