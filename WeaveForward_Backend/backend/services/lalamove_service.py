@@ -96,7 +96,6 @@ def reverse_or_refund_payment(payment_record, amount):
     try:
         void_resp = requests.delete(void_url, json={"reason": "Delivery failure reversal."}, headers=headers, timeout=30)
         if void_resp.status_code == 200:
-            print(f"[PAYMENT] Successfully VOIDED payment: {payment_record.payment_reference}", flush=True)
             # Create a new reversal/refund payment record with a negative amount
             OrderPayment.objects.create(
                 order=payment_record.order,
@@ -106,9 +105,9 @@ def reverse_or_refund_payment(payment_record, amount):
             )
             return True
         else:
-            print(f"[PAYMENT] Void failed with status {void_resp.status_code}: {void_resp.text}. Proceeding to Refund...", flush=True)
+            pass
     except Exception as e:
-        print(f"[PAYMENT] Void connectivity error: {str(e)}. Proceeding to Refund...", flush=True)
+        pass
 
     # 2. Try Refund Fallback (POST /refunds)
     refund_url = f"{settings.MAYA_SANDBOX_BASE_URL.rstrip('/')}/payments/{payment_record.payment_reference}/refunds"
@@ -122,7 +121,6 @@ def reverse_or_refund_payment(payment_record, amount):
     try:
         refund_resp = requests.post(refund_url, json=refund_payload, headers=headers, timeout=30)
         if refund_resp.status_code in [200, 201]:
-            print(f"[PAYMENT] Successfully REFUNDED payment: {payment_record.payment_reference}", flush=True)
             # Create a new reversal/refund payment record with a negative amount
             OrderPayment.objects.create(
                 order=payment_record.order,
@@ -132,20 +130,18 @@ def reverse_or_refund_payment(payment_record, amount):
             )
             return True
         else:
-            print(f"[PAYMENT] Refund failed: {refund_resp.text}", flush=True)
+            pass
     except Exception as e:
-        print(f"[PAYMENT] Refund connectivity error: {str(e)}", flush=True)
+        pass
 
     return False
 
 
 def process_lalamove_webhook(payload, client_ip):
     if not payload:
-        print("[LALAMOVE WEBHOOK] [INFO] Received empty payload (verification ping). Returning 200 OK.", flush=True)
         return {"status_code": 200, "detail": "Lalamove webhook URL verified successfully."}
 
     if not (payload.get("signature") and payload.get("timestamp") and payload.get("data")):
-        print("[LALAMOVE WEBHOOK] [REJECTED] Rejecting: Missing signature, timestamp, or data.", flush=True)
         return {"status_code": 400, "detail": "Missing signature verification details."}
 
     signature, timestamp, data_obj = payload["signature"], payload["timestamp"], payload["data"]
@@ -154,7 +150,6 @@ def process_lalamove_webhook(payload, client_ip):
     calculated_signature = hmac.new(settings.LALAMOVE_API_SECRET.encode(), message.encode(), hashlib.sha256).hexdigest()
 
     if not hmac.compare_digest(calculated_signature, signature):
-        print(f"[LALAMOVE WEBHOOK] [UNAUTHORIZED] Signature mismatch. Calculated: {calculated_signature}, Provided: {signature}", flush=True)
         return {"status_code": 401, "detail": "Invalid Lalamove webhook signature."}
 
     if payload.get("eventType") != "ORDER_STATUS_CHANGED":
@@ -164,16 +159,12 @@ def process_lalamove_webhook(payload, client_ip):
     lalamove_order_id, status, previous_status = order_data.get("orderId"), order_data.get("status"), order_data.get("previousStatus")
 
     if not lalamove_order_id:
-        print("[LALAMOVE WEBHOOK] [REJECTED] Missing orderId in payload order details.", flush=True)
         return {"status_code": 400, "detail": "Missing orderId in Lalamove webhook payload."}
-
-    print(f"[LALAMOVE WEBHOOK] [TRANSITION] Context: {previous_status} -> {status}", flush=True)
 
     with transaction.atomic():
         try:
             order_record = Order.objects.select_for_update().get(lalamove_order_id=lalamove_order_id)
         except Order.DoesNotExist:
-            print(f"[LALAMOVE WEBHOOK] [ERROR] Order not found: lalamove_order_id {lalamove_order_id}", flush=True)
             return {"status_code": 404, "detail": f"Order with lalamove_order_id {lalamove_order_id} not found."}
 
 
@@ -184,12 +175,10 @@ def process_lalamove_webhook(payload, client_ip):
 
         # "" -> "ASSIGNING_DRIVER"
         if previous_status == "" and status == "ASSIGNING_DRIVER":
-            print("[LALAMOVE WEBHOOK] [INFO] No action required: order already at ASSIGNING_DRIVER.", flush=True)
             return {"status_code": 200, "detail": "Order status is already ASSIGNING_DRIVER. No status update required."}
 
         # "ASSIGNING_DRIVER" (or "") -> "ON_GOING"
         if previous_status in ["ASSIGNING_DRIVER", ""] and status == "ON_GOING":
-            print("[LALAMOVE WEBHOOK] [TRANSITION] ASSIGNING_DRIVER -> ON_GOING. Updating order status.", flush=True)
             order_record.status = OrderStatus.ON_GOING
             order_record.updated_at = timezone.now()
             order_record.save(update_fields=["status", "updated_at"])
@@ -201,7 +190,6 @@ def process_lalamove_webhook(payload, client_ip):
 
         # "ON_GOING" -> "PICKED_UP"
         if previous_status in ["ON_GOING", ""] and status == "PICKED_UP":
-            print("[LALAMOVE WEBHOOK] [TRANSITION] ON_GOING -> PICKED_UP. Updating order status to PICKED_UP and donation status to IN_TRANSIT.", flush=True)
             order_record.status = OrderStatus.PICKED_UP
             order_record.updated_at = timezone.now()
             order_record.save(update_fields=["status", "updated_at"])
@@ -222,7 +210,6 @@ def process_lalamove_webhook(payload, client_ip):
 
         # "PICKED_UP" -> "COMPLETED"
         if previous_status in ["PICKED_UP", ""] and status == "COMPLETED":
-            print("[LALAMOVE WEBHOOK] [TRANSITION] PICKED_UP -> COMPLETED. Updating order status to COMPLETED.", flush=True)
             order_record.status = OrderStatus.COMPLETED
             order_record.updated_at = timezone.now()
             order_record.save(update_fields=["status", "updated_at"])
@@ -235,7 +222,6 @@ def process_lalamove_webhook(payload, client_ip):
         # "ON_GOING" -> "ASSIGNING_DRIVER" (Driver Rejected / Reassigning)
         if previous_status == "ON_GOING" and status == "ASSIGNING_DRIVER":
             if order_record.no_reassigned >= 1:
-                print(f"[LALAMOVE WEBHOOK] [WARNING] Max driver reassignments reached ({order_record.no_reassigned}). Failing order, reversing payment, and converting donation to PICKUP.", flush=True)
                 order_record.status = OrderStatus.FAILED
                 order_record.no_reassigned = 2
                 order_record.updated_at = timezone.now()
@@ -262,7 +248,6 @@ def process_lalamove_webhook(payload, client_ip):
 
                 return {"status_code": 200, "detail": "Order failed due to max driver rejections. Payment reversed/refunded, donation converted to PICKUP."}
             else:
-                print(f"[LALAMOVE WEBHOOK] [TRANSITION] Driver rejected. Reassignment count incrementing from {order_record.no_reassigned} to {order_record.no_reassigned + 1}.", flush=True)
                 order_record.status = OrderStatus.ASSIGNING_DRIVER
                 order_record.no_reassigned += 1
                 order_record.updated_at = timezone.now()
@@ -275,7 +260,6 @@ def process_lalamove_webhook(payload, client_ip):
 
         # Any -> "EXPIRED"
         if status == "EXPIRED":
-            print(f"[LALAMOVE WEBHOOK] [WARNING] Order EXPIRED. Failing order, reversing payment, and converting donation to PICKUP.", flush=True)
             order_record.status = OrderStatus.FAILED
             order_record.updated_at = timezone.now()
             order_record.save(update_fields=["status", "updated_at"])
@@ -300,8 +284,6 @@ def process_lalamove_webhook(payload, client_ip):
                 reverse_or_refund_payment(payment_record, payment_record.amount)
 
             return {"status_code": 200, "detail": "Order expired and failed. Payment reversed/refunded, donation converted to PICKUP."}
-
-        print(f"[LALAMOVE WEBHOOK] [WARNING] Unhandled state transition: {previous_status} -> {status}", flush=True)
 
     return {"status_code": 200, "detail": "Lalamove webhook signature verified successfully."}
 

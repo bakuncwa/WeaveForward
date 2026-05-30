@@ -27,8 +27,6 @@ def send_password_reset_email(to_email, reset_link):
 
     try:
         email = resend.Emails.send(params)
-        print(f"DEBUG: Resend Response: {email}")
         return email
     except Exception as e:
-        print(f"DEBUG: Resend Error: {e}")
         return None

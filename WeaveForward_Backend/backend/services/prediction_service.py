@@ -291,12 +291,9 @@ def run_predictions_for_donation(donation_id):
     ]
 
     item_ids = [item["item_id"] for item in items]
-    print(f"\n[AI-MATCHING] Running predictions for donation {donation_id} with active items: {item_ids}")
     with transaction.atomic():
-        archived_count = MatchPrediction.objects.filter(item_id__in=item_ids, is_archived_version=False).update(is_archived_version=True)
-        print(f"[AI-MATCHING] Archived {archived_count} existing predictions.")
-        created_preds = MatchPrediction.objects.bulk_create(preds, batch_size=2000)
-        print(f"[AI-MATCHING] Successfully created {len(created_preds)} new predictions.")
+        MatchPrediction.objects.filter(item_id__in=item_ids, is_archived_version=False).update(is_archived_version=True)
+        MatchPrediction.objects.bulk_create(preds, batch_size=2000)
 
     return preds
 
@@ -376,16 +373,12 @@ def run_predictions_for_donation_for_one_tuab(tuab):
         for index in sorted_indexes
     ]
 
-    item_ids = [item["item_id"] for item in items]
-    print(f"\n[AI-MATCHING] Running predictions for TUAB {tuab.user_id} with active items: {item_ids}")
     with transaction.atomic():
-        archived_count = MatchPrediction.objects.filter(
+        MatchPrediction.objects.filter(
             tuab_id=tuab.user_id,
             is_archived_version=False
         ).update(is_archived_version=True)
-        print(f"[AI-MATCHING] Archived {archived_count} existing predictions for TUAB {tuab.user_id}.")
-        created_preds = MatchPrediction.objects.bulk_create(preds, batch_size=2000)
-        print(f"[AI-MATCHING] Successfully created {len(created_preds)} new predictions for TUAB {tuab.user_id}.")
+        MatchPrediction.objects.bulk_create(preds, batch_size=2000)
 
     return preds
 

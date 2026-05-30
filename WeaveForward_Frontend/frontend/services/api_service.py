@@ -1,18 +1,8 @@
 import logging
 import httpx
-from asgiref.sync import sync_to_async
 from ..constants import BACKEND_BASE_URL
 
 logger = logging.getLogger(__name__)
-
-
-class _RequestsShim:
-    """Compatibility shim so older tests can patch requests.request."""
-
-    request = None
-
-
-requests = _RequestsShim()
 
 
 async_client = httpx.AsyncClient(
@@ -30,6 +20,4 @@ async def api_call(request, method, endpoint, **kwargs):
 
     url = f"{BACKEND_BASE_URL.rstrip('/')}/{endpoint.lstrip('/')}"
     cookies = dict(request.COOKIES.items())
-    if callable(requests.request):
-        return await sync_to_async(requests.request)(method, url, cookies=cookies, **kwargs)
     return await async_client.request(method, url, cookies=cookies, **kwargs)

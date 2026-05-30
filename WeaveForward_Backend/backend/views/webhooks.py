@@ -27,15 +27,10 @@ def webhooks(request):
     #   by the batch jobs it invokes.
     client_ip = get_client_ip(request)
     payload = request.data if isinstance(request.data, dict) else {}
-    
-    print("[WEBHOOK RECEIVED] IP:", client_ip, flush=True)
-    print("[WEBHOOK RECEIVED] HEADERS:", dict(request.headers), flush=True)
-    print("[WEBHOOK RECEIVED] PAYLOAD:", payload, flush=True)
 
     # 1. Authenticate Cloud Scheduler via secret header
     scheduler_secret = request.headers.get('X-Scheduler-Secret')
     if scheduler_secret and scheduler_secret == settings.SCHEDULER_SECRET:
-        print("[WEBHOOK RECEIVED] Cloud Scheduler trigger authenticated successfully.", flush=True)
         cancelled_subs = process_expired_subscriptions()
         archived_donations = process_auto_archive_donations()
         deleted_predictions = delete_archived_match_predictions()

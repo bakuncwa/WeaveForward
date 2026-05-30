@@ -78,7 +78,6 @@ class PasswordResetRequestView(APIView):
                 uidb64, token = generate_reset_token(user)
                 frontend_base_url = get_request_base_url(request)
                 reset_link = f"{frontend_base_url}/reset-password-confirm/?uidb64={uidb64}&token={token}"
-                print(f"DEBUG: Password Reset Link for {email}: {reset_link}")
                 send_password_reset_email(email, reset_link)
 
             return Response(

@@ -375,8 +375,9 @@ def unsubscribe_user(*, target_user_id, actor=None, ip_address=None):
 
 def process_expired_subscriptions():
     """
-    Finds all active subscriptions that have expired (end_date <= now)
-    and cancels them.
+    Finds all active subscriptions that have expired (end_date <= now).
+    Tries to charge the user's Maya card and extend by one month;
+    cancels the subscription if payment fails.
     """
     with transaction.atomic():
         now = timezone.now()
@@ -387,8 +388,33 @@ def process_expired_subscriptions():
         admin_user = User.objects.filter(role=UserRole.ADMIN).first()
         cancelled_count = 0
         for sub in expired_subs:
-            unsubscribe_user(target_user_id=sub.user_id, actor=admin_user)
-            cancelled_count += 1
+            user = User.objects.select_for_update().get(pk=sub.user_id)
+            renewed = False
+            try:
+                resp = _maya_post(
+                    url=f"{settings.MAYA_SANDBOX_BASE_URL.rstrip('/')}/customers/{user.maya_customer_id}/cards/{user.maya_card_id}/payments",
+                    payload={
+                        'totalAmount': {'amount': 499.00, 'currency': 'PHP'},
+                        'cardId': user.maya_card_id,
+                        'requestReferenceNumber': f"renew-{user.user_id}-{int(now.timestamp())}"[:36],
+                    },
+                    authorization_value=settings.MAYA_SANDBOX_SECRET_BASIC_AUTH,
+                )
+                body = resp.json() if resp.status_code == 200 else {}
+                if body.get('status') == 'PAYMENT_SUCCESS' and body.get('isPaid') is True and Decimal(str(body.get('amount'))) == Decimal('499.00'):
+                    sub.end_date = sub.end_date + timezone.timedelta(days=30)
+                    sub.save(update_fields=['end_date', 'updated_at'])
+                    SubscriptionPayment.objects.create(
+                        subscription=sub, amount=Decimal('499.00'),
+                        status=PaymentStatus.SUCCESS, payment_reference=f"renew-{user.user_id}-{int(now.timestamp())}"[:36],
+                    )
+                    renewed = True
+            except (requests.RequestException, InvalidOperation, TypeError, ValueError):
+                pass
+
+            if not renewed:
+                unsubscribe_user(target_user_id=sub.user_id, actor=admin_user)
+                cancelled_count += 1
 
     return cancelled_count
 
