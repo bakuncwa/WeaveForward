@@ -589,12 +589,8 @@ async def tuab_inventory_snapshot(request):
     page_data = await get_paginated_data(request, 'inventory', params={'search': search_query} if search_query else None)
     inventory_items = page_data['results']
     
-    # 2. Fetch unpaginated export data for snapshot summary
-    export_res = await api_call(request, 'GET', 'inventory/export')
-    all_inventory_items = []
-    
-    if export_res and export_res.status_code == 200:
-        all_inventory_items = export_res.json().get('inventory_items', [])
+    # 2. Extract category summary from the paginated response
+    category_summary = page_data.get('category_summary', [])
     
     # Parse and format inventory items for display (current page only)
     formatted_items = []
@@ -625,50 +621,6 @@ async def tuab_inventory_snapshot(request):
         }
         formatted_items.append(formatted_item)
     
-    # Calculate category summary in terms of fibers dynamically by parsing from fiber json (all items)
-    fiber_weights = {}
-    for item in all_inventory_items:
-        current_weight_kg = float(item.get('current_weight_kg', 0))
-        source_donation = item.get('source_donation', {})
-        donation_items = source_donation.get('items', [])
-        
-        total_orig_weight = sum(float(x.get('weight_kg', 0)) for x in donation_items)
-        if total_orig_weight > 0:
-            for donation_item in donation_items:
-                item_orig_weight = float(donation_item.get('weight_kg', 0))
-                item_current_weight = current_weight_kg * (item_orig_weight / total_orig_weight)
-                
-                lookup_details = donation_item.get('lookup_details') or {}
-                fiber_str = lookup_details.get('fiber_json', '')
-                
-                parts = [p.strip() for p in fiber_str.split(',') if p.strip()]
-                parsed_any = False
-                for part in parts:
-                    if '%' in part:
-                        pct_str, fiber_name = part.split('%', 1)
-                        try:
-                            pct = float(pct_str.strip())
-                            fiber_name = fiber_name.strip().capitalize()
-                            fiber_weight = item_current_weight * (pct / 100.0)
-                            fiber_weights[fiber_name] = fiber_weights.get(fiber_name, 0.0) + fiber_weight
-                            parsed_any = True
-                        except ValueError:
-                            pass
-                
-                if not parsed_any:
-                    dominant_fiber = lookup_details.get('dominant_fiber')
-                    if dominant_fiber:
-                        fiber_name = dominant_fiber.strip().capitalize()
-                        fiber_weights[fiber_name] = fiber_weights.get(fiber_name, 0.0) + item_current_weight
-                    else:
-                        category = lookup_details.get('category', 'Other')
-                        fiber_name = category.strip().capitalize()
-                        fiber_weights[fiber_name] = fiber_weights.get(fiber_name, 0.0) + item_current_weight
-
-    category_summary = [
-        {'category': fiber, 'total_weight_kg': weight}
-        for fiber, weight in sorted(fiber_weights.items(), key=lambda x: x[1], reverse=True)
-    ]
     return render(request, 'frontend/tuabs/tuab_inventory_snapshot.html', {
         'page_title': 'Inventory Snapshot',
         'user': profile,

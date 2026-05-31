@@ -3,6 +3,7 @@ Inventory views for TUAB raw material management.
 Provides real-time stock level monitoring.
 """
 
+import json
 from django.utils import timezone
 from rest_framework import viewsets, mixins, status, filters
 from rest_framework.decorators import action
@@ -11,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied, NotFound
 
 from decimal import Decimal, InvalidOperation
+from collections import defaultdict
 from ..models import InventoryLedger, InventoryLifecycleStatus, InventoryExitState
 from ..serializers.inventory import InventoryLedgerSerializer
 from ..utils.view_mixins import PaginatedResponseMixin
@@ -50,9 +52,59 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
         if request.user.role != 'TUAB':
             raise PermissionDenied("Only TUABs can view inventory.")
 
-        queryset = self.get_queryset()
-        queryset = self.filter_queryset(queryset)
-        return self.get_paginated_response_data(queryset)
+        base_qs = self.get_queryset()
+        queryset = self.filter_queryset(base_qs)
+        response = self.get_paginated_response_data(queryset)
+        
+        # Calculate summary using optimized .values() query to avoid DRF serialization
+        rows = base_qs.values(
+            'inventory_id',
+            'current_weight_kg',
+            'source_donation__items__weight_kg',
+            'source_donation__items__lookup__fiber_json'
+        )
+        
+        inv_data = defaultdict(lambda: {'current': 0.0, 'total_orig': 0.0, 'items': []})
+        for row in rows:
+            i_id = row['inventory_id']
+            inv_data[i_id]['current'] = float(row['current_weight_kg'] or 0)
+            orig_w = float(row['source_donation__items__weight_kg'] or 0)
+            inv_data[i_id]['total_orig'] += orig_w
+            
+            f_json = row['source_donation__items__lookup__fiber_json'] or ''
+            inv_data[i_id]['items'].append((orig_w, f_json))
+            
+        fiber_weights = defaultdict(float)
+        # Time Complexity: O(N * I * F) where:
+        # N = number of inventory ledger rows
+        # I = number of donation items per inventory entry
+        # F = number of fiber components per item
+        for data in inv_data.values():
+            if data['total_orig'] <= 0: continue
+            for w, fiber_str in data['items']:
+                item_current_weight = data['current'] * (w / data['total_orig'])
+                
+                if fiber_str:
+                    try:
+                        parsed_json = json.loads(fiber_str)
+                        if isinstance(parsed_json, dict):
+                            for name, pct in parsed_json.items():
+                                try:
+                                    fiber_weights[str(name).strip().capitalize()] += item_current_weight * (float(pct) / 100.0)
+                                except (ValueError, TypeError):
+                                    pass
+                    except Exception:
+                        pass
+                            
+        category_summary = [
+            {'category': f, 'total_weight_kg': round(w, 2)}
+            for f, w in sorted(fiber_weights.items(), key=lambda x: x[1], reverse=True)
+        ]
+        
+        if isinstance(response.data, dict):
+            response.data['category_summary'] = category_summary
+            
+        return response
 
     @action(detail=False, methods=['get'])
     def export(self, request):

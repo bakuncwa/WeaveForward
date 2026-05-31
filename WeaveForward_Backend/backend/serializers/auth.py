@@ -4,6 +4,7 @@ import re
 from decimal import Decimal
 
 import pyotp
+import uuid
 from django.contrib.auth import authenticate
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
@@ -312,8 +313,9 @@ class TUABRegisterSerializer(serializers.ModelSerializer):
                 img.save(buffer, format="JPEG", quality=IMAGE_COMPRESSION_QUALITY, optimize=True)
                 documentation = ContentFile(buffer.getvalue(), name=os.path.splitext(documentation.name)[0] + ".jpg")
 
-            path = default_storage.save(f'documentation/{documentation.name}', documentation)
-            validated_data['documentation'] = Upload.objects.create(file_path=path, name=documentation.name[:50])
+            safe_name = f"{uuid.uuid4().hex}{os.path.splitext(documentation.name)[1]}"
+            path = default_storage.save(f'documentation/{safe_name}', documentation)
+            validated_data['documentation'] = Upload.objects.create(file_path=path, name=os.path.basename(safe_name))
 
         return User.objects.create_user(password=password, **validated_data)
 

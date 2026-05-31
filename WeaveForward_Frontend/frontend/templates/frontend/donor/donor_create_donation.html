@@ -239,8 +239,10 @@
   // --- 2. Material Search ---
   async function loadMaterials(el) {
     const card = el.closest('.restored-card');
-    const type = card.querySelector('.type-sel').value;
-    const brand = card.querySelector('.brand-sel').value;
+    const typeSel = card.querySelector('.type-sel');
+    const brandSel = card.querySelector('.brand-sel');
+    const type = typeSel.value;
+    const brand = brandSel.value;
     const mIn = card.querySelector('.mat-in');
     const list = card.querySelector('.ss-list');
 
@@ -255,6 +257,8 @@
       return;
     }
     
+    typeSel.disabled = true;
+    brandSel.disabled = true;
     try {
       const res = await fetch(`{% url "material_search_proxy" %}?clothing_type=${type}&brand=${brand}`);
       if (!res.ok) throw new Error("HTTP error " + res.status);
@@ -279,6 +283,9 @@
     } catch (e) {
       console.error(e);
       showFlash("Donation records could not be retrieved.", "error");
+    } finally {
+      typeSel.disabled = false;
+      brandSel.disabled = false;
     }
   }
 

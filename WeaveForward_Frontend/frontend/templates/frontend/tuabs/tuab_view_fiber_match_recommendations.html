@@ -619,7 +619,7 @@
                     data-lng="{{ rec.donation.location.longitude }}"
                     data-confidence="{{ rec.match_confidence|floatformat:4 }}"
                 >
-                    <span class="rec-badge">&#9733; {{ rec.match_confidence|floatformat:0 }}%</span>
+                    <span class="rec-badge">{{ rec.match_confidence|floatformat:0 }}%</span>
 
                     <div class="rec-name-row">
                         <span class="rec-dot"></span>
@@ -652,15 +652,15 @@
 
                     <div class="rec-actions">
                         <button type="button" class="btn-accept"
-                            onclick="acceptRecommendation(event, {{ rec.pair_id }})">&#10003; Accept</button>
+                            onclick="acceptRecommendation(event, {{ rec.pair_id }})">Accept</button>
                         <button type="button" class="btn-reject"
-                            onclick="showRejectModal(event, {{ rec.pair_id }})">&#10007; Reject</button>
+                            onclick="showRejectModal(event, {{ rec.pair_id }})">Reject</button>
                     </div>
                 </div>
                 {% endfor %}
             {% else %}
                 <div class="empty-state">
-                    <div class="empty-icon">&#128587;</div>
+                    <div class="empty-icon"></div>
                     <p class="empty-title">No Recommendations</p>
                     <p class="empty-desc">
                         {% if error_message %}
@@ -716,7 +716,7 @@
             const marker = L.marker([lat, lng]).addTo(map);
             marker.bindPopup(
                 `<strong>${rec.donor.name}</strong><br/>` +
-                `&#9733; ${Math.round(rec.match_confidence)}%<br/>` +
+                `${Math.round(rec.match_confidence)}%<br/>` +
                 `${rec.item.weight_kg} kg`
             );
             marker.on('click', () => selectRecommendation(rec.pair_id, lat, lng));
@@ -754,7 +754,7 @@
         if (remaining === 0) {
             document.getElementById('panelScroll').innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-icon">&#10003;</div>
+                    <div class="empty-icon"></div>
                     <p class="empty-title">All Done!</p>
                     <p class="empty-desc">You have reviewed all your recommendations.</p>
                 </div>`;

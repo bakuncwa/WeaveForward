@@ -63,14 +63,6 @@ class MatchRecommendationViewSet(viewsets.GenericViewSet, PaginatedResponseMixin
         ).order_by('-match_prob')
 
     def list(self, request, *args, **kwargs):
-        try:
-            MatchPredictionService.load_model()
-        except ValueError:
-            return Response(
-                {'detail': 'Recommendation engine is currently unavailable. Please try again later.'},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE
-            )
-
         user = request.user
 
         # If the TUAB changed ML-critical profile fields (fibers, biodeg, distance, location)

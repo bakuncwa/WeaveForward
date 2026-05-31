@@ -28,7 +28,7 @@ async def get_paginated_data(request, endpoint, params=None, page_size=10):
         }
     
     count = data.get('count', 0)
-    return {
+    ret = {
         'results': data.get('results', []),
         'count': count,
         'total_pages': (count + page_size - 1) // page_size,
@@ -37,3 +37,10 @@ async def get_paginated_data(request, endpoint, params=None, page_size=10):
         'has_prev': data.get('previous') is not None,
         'search_query': search_query
     }
+    
+    # Forward any extra keys (like category_summary) that the backend might have added
+    for key, value in data.items():
+        if key not in ['results', 'count', 'next', 'previous']:
+            ret[key] = value
+            
+    return ret

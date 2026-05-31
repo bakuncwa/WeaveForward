@@ -4,6 +4,7 @@ from PIL import Image
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 import pyotp
+import uuid
 import re
 from rest_framework import serializers
 
@@ -200,31 +201,24 @@ class DonorUpdateSerializer(serializers.ModelSerializer):
             instance.set_password(password)
 
         if upload_file:
-            try:
-                img = Image.open(upload_file)
-                if img.mode != 'RGB':
-                    img = img.convert('RGB')
-                
-                img.thumbnail((300, 300), Image.Resampling.LANCZOS)
-                
-                buffer = BytesIO()
-                img.save(buffer, format='JPEG', quality=85, optimize=True)
-                buffer.seek(0)
-                
-                optimized_filename = f"{os.path.splitext(upload_file.name)[0]}.jpg"
-                optimized_file = ContentFile(buffer.read(), name=optimized_filename)
-                
-                stored_path = default_storage.save(f"profile_photos/{optimized_filename}", optimized_file)
-                instance.upload = Upload.objects.create(
-                    file_path=stored_path,
-                    name=os.path.basename(optimized_filename)[:50]
-                )
-            except Exception as e:
-                stored_path = default_storage.save(f"profile_photos/{upload_file.name}", upload_file)
-                instance.upload = Upload.objects.create(
-                    file_path=stored_path,
-                    name=os.path.basename(upload_file.name)[:50]
-                )
+            img = Image.open(upload_file)
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            
+            img.thumbnail((300, 300), Image.Resampling.LANCZOS)
+            
+            buffer = BytesIO()
+            img.save(buffer, format='JPEG', quality=85, optimize=True)
+            buffer.seek(0)
+            
+            optimized_filename = f"{uuid.uuid4().hex}.jpg"
+            optimized_file = ContentFile(buffer.read(), name=optimized_filename)
+            
+            stored_path = default_storage.save(f"profile_photos/{optimized_filename}", optimized_file)
+            instance.upload = Upload.objects.create(
+                file_path=stored_path,
+                name=os.path.basename(optimized_filename)
+            )
 
         instance.save()
         return instance

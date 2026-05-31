@@ -179,7 +179,6 @@ class MatchPredictionService:
 
     @classmethod
     def build_features(cls, item, tuab):
-        cls.load_model()
         normalized_item = cls._normalize_item_payload({
             "item_id": item.item_id,
             "weight_kg": item.weight_kg,
@@ -212,7 +211,6 @@ def run_predictions_for_donation(donation_id):
                 MatchPrediction.objects.filter(item_id__in=item_ids, is_archived_version=False).update(is_archived_version=True)
         return []
 
-    MatchPredictionService.load_model()
     items = [
         MatchPredictionService._normalize_item_payload(item)
         for item in DonationItem.objects.filter(donation_id=donation_id, is_archived=False).values(
@@ -299,7 +297,6 @@ def run_predictions_for_donation(donation_id):
 
 
 def run_predictions_for_donation_for_one_tuab(tuab):
-    MatchPredictionService.load_model()
     items = [
         MatchPredictionService._normalize_item_payload(item)
         for item in DonationItem.objects.filter(

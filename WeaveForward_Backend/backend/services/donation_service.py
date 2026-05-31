@@ -7,6 +7,7 @@ from django.db import transaction
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.utils import timezone
+import uuid
 
 from ..models import Donation, DonationItem, Upload, User, DonationStatus, DonationItemConditionRating, Order, OrderStatus, PaymentStatus, DonationDeliveryMethod, UserRole
 from ..serializers.donations import DonationCreateSerializer, DonorDonationUpdateSerializer, AdminDonationUpdateSerializer
@@ -47,22 +48,19 @@ def create_donation(*, request):
         image_file = request.FILES.get('donation_image')
         if image_file:
             # We don't save yet, just set the attribute
-            try:
-                img = PILImage.open(image_file)
-                if img.mode != 'RGB': img = img.convert('RGB')
-                img.thumbnail((1024, 1024), PILImage.Resampling.LANCZOS)
-                buffer = BytesIO()
-                img.save(buffer, format='JPEG', quality=65, optimize=True)
-                buffer.seek(0)
-                filename = f"don_{donor_id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.jpg"
-                path = default_storage.save(f"donations/{filename}", ContentFile(buffer.read(), name=filename))
-                donation_upload = Upload.objects.create(file_path=path, name=filename[:50])
-                # We'll pass this to the serializer or set it on the instance
-                # Since DonationCreateSerializer is already instantiated, we'll set it in the context or just save later.
-                # Actually, DonationCreateSerializer.create is already defined.
-            except Exception:
-                path = default_storage.save(f"donations/{image_file.name}", image_file)
-                donation_upload = Upload.objects.create(file_path=path, name=image_file.name[:50])
+            img = PILImage.open(image_file)
+            if img.mode != 'RGB': img = img.convert('RGB')
+            img.thumbnail((1024, 1024), PILImage.Resampling.LANCZOS)
+            buffer = BytesIO()
+            img.save(buffer, format='JPEG', quality=65, optimize=True)
+            buffer.seek(0)
+            filename = f"don_{donor_id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+            hashed_filename = f"{uuid.uuid4().hex}.jpg"
+            path = default_storage.save(f"donations/{hashed_filename}", ContentFile(buffer.read(), name=hashed_filename))
+            donation_upload = Upload.objects.create(file_path=path, name=hashed_filename)
+            # We'll pass this to the serializer or set it on the instance
+            # Since DonationCreateSerializer is already instantiated, we'll set it in the context or just save later.
+            # Actually, DonationCreateSerializer.create is already defined.
         else:
             donation_upload = None
 
@@ -183,19 +181,16 @@ def donor_update_donation(*, request, donation):
     with transaction.atomic():
         # 1. Handle Image update
         if image_file:
-            try:
-                img = PILImage.open(image_file)
-                if img.mode != 'RGB': img = img.convert('RGB')
-                img.thumbnail((1024, 1024), PILImage.Resampling.LANCZOS)
-                buffer = BytesIO()
-                img.save(buffer, format='JPEG', quality=65, optimize=True)
-                buffer.seek(0)
-                filename = f"don_{donation.donor_id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.jpg"
-                path = default_storage.save(f"donations/{filename}", ContentFile(buffer.read(), name=filename))
-                donation.upload = Upload.objects.create(file_path=path, name=filename[:50])
-            except Exception:
-                path = default_storage.save(f"donations/{image_file.name}", image_file)
-                donation.upload = Upload.objects.create(file_path=path, name=image_file.name[:50])
+            img = PILImage.open(image_file)
+            if img.mode != 'RGB': img = img.convert('RGB')
+            img.thumbnail((1024, 1024), PILImage.Resampling.LANCZOS)
+            buffer = BytesIO()
+            img.save(buffer, format='JPEG', quality=65, optimize=True)
+            buffer.seek(0)
+            filename = f"don_{donation.donor_id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+            hashed_filename = f"{uuid.uuid4().hex}.jpg"
+            path = default_storage.save(f"donations/{hashed_filename}", ContentFile(buffer.read(), name=hashed_filename))
+            donation.upload = Upload.objects.create(file_path=path, name=hashed_filename)
 
         # 2. Update Header (This will save the donation once)
         donation = serializer.save()
@@ -274,20 +269,17 @@ def admin_update_donation(*, request, donation) -> Donation:
     with transaction.atomic():
         # 1. Handle Image update
         if image_file:
-            try:
-                img = PILImage.open(image_file)
-                if img.mode != 'RGB': 
-                    img = img.convert('RGB')
-                img.thumbnail((1024, 1024), PILImage.Resampling.LANCZOS)
-                buffer = BytesIO()
-                img.save(buffer, format='JPEG', quality=65, optimize=True)
-                buffer.seek(0)
-                filename = f"don_{donation.donor_id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.jpg"
-                path = default_storage.save(f"donations/{filename}", ContentFile(buffer.read(), name=filename))
-                donation.upload = Upload.objects.create(file_path=path, name=filename[:50])
-            except Exception:
-                path = default_storage.save(f"donations/{image_file.name}", image_file)
-                donation.upload = Upload.objects.create(file_path=path, name=image_file.name[:50])
+            img = PILImage.open(image_file)
+            if img.mode != 'RGB': 
+                img = img.convert('RGB')
+            img.thumbnail((1024, 1024), PILImage.Resampling.LANCZOS)
+            buffer = BytesIO()
+            img.save(buffer, format='JPEG', quality=65, optimize=True)
+            buffer.seek(0)
+            filename = f"don_{donation.donor_id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+            hashed_filename = f"{uuid.uuid4().hex}.jpg"
+            path = default_storage.save(f"donations/{hashed_filename}", ContentFile(buffer.read(), name=hashed_filename))
+            donation.upload = Upload.objects.create(file_path=path, name=hashed_filename)
 
         # 2. Update Donation model fields
         for k, v in v_data.items():
