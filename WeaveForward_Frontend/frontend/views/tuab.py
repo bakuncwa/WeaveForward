@@ -225,18 +225,6 @@ async def tuab_view_donation(request, donation_id):
         return redirect('tuab_update_incoming_donation', donation_id=donation_id)
 
     # =========================
-    # Show: Received/Rejected Donation Page
-    # =========================
-    if donation.get('status') in {'RECEIVED', 'REJECTED'}:
-        return render(request, 'frontend/tuabs/tuab_view_received_donation.html', {
-            'page_title': 'View Donation',
-            'user': profile,
-            'users': profile,
-            'donation': donation,
-            'items': items,
-        })
-
-    # =========================
     # Show: Standard Donation Detail Page
     # =========================
     return render(request, 'frontend/tuabs/tuab_view_donation.html', {
@@ -509,7 +497,7 @@ async def tuab_edit_profile(request):
             elif not c.startswith('+63'):
                 payload['contact_no'] = '+63' + c
 
-        for k in ['csrfmiddlewaretoken', 'current_etag', 'confirm_password', 'new_password', 'user_id', 'photo', 'upload']:
+        for k in ['csrfmiddlewaretoken', 'current_etag', 'confirm_password', 'new_password', 'user_id', 'photo', 'upload', 'otp_code', 'secret', 'disable_2fa', 'remove_payment_method']:
             payload.pop(k, None)
 
         files = {}
@@ -518,7 +506,29 @@ async def tuab_edit_profile(request):
 
         headers = {'If-Match': submitted_etag} if submitted_etag else {}
         try:
-            response = await api_call(request, 'PATCH', 'users/me', data=payload, files=files, headers=headers)
+            response = await api_call(request, 'PATCH', 'users/me?validate_only=true', data=payload, files=files, headers=headers)
+            
+            if response.status_code == 200:
+                etag_changed = False
+                if request.POST.get('otp_code'):
+                    res = await api_call(request, 'POST', 'users/me/2fa', json={'otp_code': request.POST['otp_code'], 'secret': request.POST.get('secret')})
+                    if res.status_code != 200: return JsonResponse({'error': res.json().get('detail', 'Invalid 2FA code.')}, status=400)
+                    etag_changed = True
+                
+                if request.POST.get('disable_2fa') == '1':
+                    try: await api_call(request, 'DELETE', 'users/me/2fa'); etag_changed = True
+                    except: pass
+                    
+                if request.POST.get('remove_payment_method') == '1':
+                    try: await api_call(request, 'DELETE', 'users/me/subscription'); etag_changed = True
+                    except: pass
+                    
+                if etag_changed:
+                    get_res = await api_call(request, 'GET', 'users/me')
+                    if get_res.status_code == 200: headers['If-Match'] = get_res.headers.get('ETag')
+                    
+                response = await api_call(request, 'PATCH', 'users/me', data=payload, files=files, headers=headers)
+
             if response.status_code == 200:
                 messages.success(request, "Profile updated successfully.")
                 return JsonResponse({'message': 'Success'}, status=200)
@@ -566,6 +576,8 @@ async def tuab_view_payments(request):
     reference = request.GET.get('reference', '')
     
     page_data = await get_paginated_data(request, 'users/me/payments', params={'reference': reference} if reference else None)
+    for payment in page_data['results']:
+        payment['amount'] = -float(payment['amount'])
     
     return render(request, 'frontend/tuabs/tuab_view_payments.html', {
         'page_title': 'Payments',
@@ -722,7 +734,7 @@ async def tuab_match_recommendation_accept_proxy(request, pair_id):
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
     try:
-        res = await api_call(request, 'POST', f'match-recommendations/{pair_id}/accept', json={})
+        res = await api_call(request, 'POST', f'match-predict/{pair_id}/accept', json={})
         return JsonResponse(res.json(), status=res.status_code)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=503)
@@ -734,7 +746,7 @@ async def tuab_match_recommendation_reject_proxy(request, pair_id):
         return JsonResponse({'error': 'Method not allowed'}, status=405)
     try:
         body = json.loads(request.body)
-        res = await api_call(request, 'POST', f'match-recommendations/{pair_id}/reject', json=body)
+        res = await api_call(request, 'POST', f'match-predict/{pair_id}/reject', json=body)
         return JsonResponse(res.json(), status=res.status_code)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=503)
@@ -842,7 +854,7 @@ async def tuab_view_fiber_match_recommendations(request):
                 elif key != 'biodeg_tier':
                     params[key] = value
 
-        res = await api_call(request, 'GET', 'match-recommendations', params=params)
+        res = await api_call(request, 'GET', 'match-predict', params=params)
 
 
         if res and not isinstance(res, Exception) and res.status_code == 200:

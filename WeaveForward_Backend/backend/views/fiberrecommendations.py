@@ -2,16 +2,20 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.exceptions import PermissionDenied, NotFound
+from rest_framework.exceptions import PermissionDenied, NotFound, AuthenticationFailed
+from rest_framework.authentication import BaseAuthentication
+from rest_framework.settings import api_settings
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils.dateparse import parse_datetime
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from decimal import Decimal
 import json
 import logging
+import hashlib
 
-from ..models import MatchPrediction, UserRole, MatchRecommendationStatus, Subscription, SubscriptionStatus, AuditTrail
+from ..models import MatchPrediction, UserRole, MatchRecommendationStatus, Subscription, SubscriptionStatus, AuditTrail, ApiToken, DonationItem
 from ..serializers.fiberrecommendations import (
     MatchRecommendationListSerializer,
     MatchRecommendationDetailSerializer,
@@ -22,6 +26,25 @@ from ..services.audit_service import get_client_ip, log_audit
 from ..utils.view_mixins import PaginatedResponseMixin
 
 logger = logging.getLogger(__name__)
+
+
+class ApiKeyAuthentication(BaseAuthentication):
+    def authenticate(self, request):
+        auth_header = request.headers.get("Authorization")
+        if not auth_header:
+            return None
+        
+        parts = auth_header.split(" ")
+        if len(parts) != 2 or parts[0] != "ApiKey":
+            return None
+            
+        api_key = parts[1]
+        hashed_key = hashlib.sha1(api_key.encode()).hexdigest()
+        try:
+            api_token = ApiToken.objects.select_related("user").get(token=hashed_key)
+            return (api_token.user, api_token)
+        except ApiToken.DoesNotExist:
+            raise AuthenticationFailed("Invalid API key.")
 
 
 class IsTUABWithSubscription(IsAuthenticated):
@@ -45,6 +68,7 @@ class IsTUABWithSubscription(IsAuthenticated):
 
 
 class MatchRecommendationViewSet(viewsets.GenericViewSet, PaginatedResponseMixin):
+    authentication_classes = [ApiKeyAuthentication] + list(api_settings.DEFAULT_AUTHENTICATION_CLASSES)
     permission_classes = [IsTUABWithSubscription]
     serializer_class = MatchRecommendationDetailSerializer
 
@@ -71,16 +95,21 @@ class MatchRecommendationViewSet(viewsets.GenericViewSet, PaginatedResponseMixin
             tuab=user, is_archived_version=False
         ).order_by('-predicted_at').values_list('predicted_at', flat=True).first()
 
-        latest_ml_audit = AuditTrail.objects.filter(
-            actor=user, entity_type='users', fields_modified__isnull=False,
-        ).order_by('-occurred_at').values_list('fields_modified', 'occurred_at').first()
+        if not latest_prediction:
+            if DonationItem.objects.filter(donation__status='PENDING', is_archived=False).exists():
+                run_predictions_for_donation_for_one_tuab(user)
+        else:
+            q = Q()
+            for field in {'target_fibers', 'min_biodeg_score', 'max_distance_km', 'latitude', 'longitude'}:
+                q |= Q(fields_modified__contains=field)
 
-        if latest_ml_audit and latest_ml_audit[0]:
-            try:
-                modified_fields = set(json.loads(latest_ml_audit[0]))
-            except (json.JSONDecodeError, TypeError):
-                modified_fields = set()
-            if (modified_fields & {'target_fibers', 'min_biodeg_score', 'max_distance_km', 'latitude', 'longitude'}) and (not latest_prediction or latest_ml_audit[1] > latest_prediction):
+            latest_ml_audit = AuditTrail.objects.filter(
+                q,
+                actor=user,
+                entity_type='users',
+            ).order_by('-occurred_at').values_list('fields_modified', 'occurred_at').first()
+
+            if latest_ml_audit and latest_ml_audit[1] > latest_prediction:
                 run_predictions_for_donation_for_one_tuab(user)
 
         filters = {}

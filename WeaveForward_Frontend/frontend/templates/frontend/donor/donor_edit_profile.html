@@ -184,7 +184,7 @@
         await submitProfile();
     }
 
-    async function submitProfile(skipRedirect = false) {
+    async function submitProfile(skipRedirect = false, otpCode = null, totpSecret = null) {
         const form = $('ep-form'), btn = $('save-btn');
         const addressChanged = (($('addr').value || '').trim() !== (initialData.display_address || '').trim());
         if (addressChanged && (!$('lat').value.trim() || !$('lng').value.trim())) {
@@ -209,21 +209,20 @@
         });
 
         if (fd.get('new_password')) toSend.append('confirm_password', fd.get('confirm_password'));
+        if (otpCode) { toSend.append('otp_code', otpCode); toSend.append('secret', totpSecret); changed = true; }
+        if (!staged2FA && INIT_2FA) { toSend.append('disable_2fa', '1'); changed = true; }
 
         try {
             const res = await fetch(form.action, { method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}, body:toSend });
             
             if (res.status === 412) {
                 btn.disabled = false; btn.textContent = 'Save Changes';
-                showFlash("This profile was recently modified. Your changes have been blocked to prevent overwriting other updates. Please refresh the page.", "error");
+                showFlash("This profile was recently modified. Please refresh the page.", "error");
                 return false;
             }
 
             const d = await res.json();
             if (res.ok) {
-                if (!staged2FA && INIT_2FA) {
-                    await fetch("{% url 'two_factor_disable_proxy' %}", { method:'POST', headers:{'X-CSRFToken':'{{ csrf_token }}'} });
-                }
                 if (!skipRedirect) window.location.href = "{% url 'donor_profile' %}";
                 return true;
             } else {
@@ -242,44 +241,11 @@
     async function verify2FA() {
         const code = $('totp-in').value;
         if (code.length < 6) return showFlash('Enter 6-digit code.', 'error');
+        $('save-btn').disabled = true; $('save-btn').textContent = 'Verifying...';
 
-        const btn = $('save-btn');
-        btn.disabled = true; btn.textContent = 'Verifying...';
-
-        try {
-            // Step 1: Verify the code on the BACKEND first.
-            // This prevents saving the profile if the token is expired or invalid.
-            const res = await fetch("{% url 'two_factor_verify_proxy' %}", {
-                method:'POST',
-                headers:{'Content-Type':'application/json', 'X-CSRFToken':'{{ csrf_token }}'},
-                body:JSON.stringify({ otp_code: code, secret: stagedSecret })
-            });
-
-            if (!res.ok) {
-                const d = await res.json();
-                btn.disabled = false; btn.textContent = 'Save Changes';
-                showFlash(d.detail || d.error || 'Invalid or expired 2FA code.', 'error');
-                return;
-            }
-
-            const d = await res.json();
-            if (d.etag) {
-                const etagField = document.querySelector('[name=current_etag]');
-                if (etagField) etagField.value = d.etag;
-            }
-
-            // Step 2: 2FA verified and enabled! Now save the profile edits.
-            const ok = await submitProfile(true);
-            if (ok) {
-                window.location.href = "{% url 'donor_profile' %}";
-            } else {
-                btn.disabled = false; btn.textContent = 'Save Changes';
-                cancel2FA(); // Hide modal so they can see other validation errors (e.g. Name, Phone)
-            }
-        } catch (e) {
-            btn.disabled = false; btn.textContent = 'Save Changes';
-            showFlash('Verification error.', 'error');
-        }
+        const ok = await submitProfile(true, code, stagedSecret);
+        if (ok) window.location.href = "{% url 'donor_profile' %}";
+        else cancel2FA();
     }
 
     // --- Location Helpers ---

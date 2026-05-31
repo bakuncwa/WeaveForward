@@ -16,9 +16,6 @@
   .pay-table td { font-family: 'Poppins', sans-serif; font-size: 13px; color: #333; padding: 15px 14px; border-bottom: 1px solid #f0ede8; white-space: nowrap; }
   .pay-table tr:last-child td { border-bottom: none; }
   .pay-table td.ref { font-size: 12px; color: #666; }
-  .status-success { color: #4a7c59; font-weight: 500; }
-  .status-failed  { color: #e05050; font-weight: 500; }
-  .status-pending { color: #e8a020; font-weight: 500; }
   
   /* ── Pagination ── */
   .pagination-wrap { display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding: 0 4px; }
@@ -71,15 +68,12 @@
 
   function renderRows(list) {
     document.getElementById('pay-tbody').innerHTML = list.map(p => {
-      let statusClass = 'status-failed';
-      if (p.status === 'Success') statusClass = 'status-success';
-      if (p.status === 'Pending') statusClass = 'status-pending';
       return `
       <tr>
         <td>${escapeHTML(p.type)}</td>
         <td>₱${escapeHTML(String(p.amount))}</td>
         <td class="ref">${escapeHTML(p.reference || '')}</td>
-        <td><span class="${statusClass}">${escapeHTML(p.status)}</span></td>
+        <td>${escapeHTML(p.status)}</td>
       </tr>`;
     }).join('');
   }

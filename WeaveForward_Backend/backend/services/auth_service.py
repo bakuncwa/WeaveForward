@@ -6,9 +6,10 @@ from rest_framework import exceptions
 from rest_framework.authentication import CSRFCheck
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.settings import api_settings
+import secrets
+import hashlib
 from urllib.parse import urlsplit
-
-from ..models import User
+from ..models import User, ApiToken
 
 ACCESS_COOKIE_NAME = "access_token"
 REFRESH_COOKIE_NAME = "refresh_token"
@@ -106,3 +107,9 @@ def reset_user_password(user, new_password):
     user.is_2fa_enabled = False
     user.totp_secret = None
     user.save()
+
+
+def generate_api_key(user):
+    raw_key = secrets.token_urlsafe(32)
+    ApiToken.objects.create(user=user, token=hashlib.sha1(raw_key.encode()).hexdigest())
+    return raw_key

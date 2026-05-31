@@ -28,7 +28,7 @@ from ..serializers import (
     TUABRegisterSerializer
 )
 from ..services.audit_service import get_client_ip, log_audit
-from ..services.auth_service import get_request_base_url
+from ..services.auth_service import get_request_base_url, generate_api_key
 from ..services.etag_service import build_updated_at_etag, matches_if_match
 from ..services.two_factor_service import disable_two_factor, enable_two_factor
 from ..services.user_archive_service import archive_user
@@ -170,6 +170,9 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
 
+        if request.query_params.get('validate_only') == 'true':
+            return Response({"detail": "Validation successful."}, status=status.HTTP_200_OK)
+
         fields_modified = list(serializer.validated_data.keys())
         if instance.role == UserRole.TUAB:
             critical = ['max_distance_km', 'min_biodeg_score', 'target_fibers', 'latitude', 'longitude', 'display_address']
@@ -245,6 +248,7 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
             else:
                 target_user.status = UserAccountStatus.ACTIVE
                 target_user.rejection_reason = None
+                generate_api_key(target_user)
             
             target_user.save(update_fields=['status', 'rejection_reason', 'updated_at'])
 

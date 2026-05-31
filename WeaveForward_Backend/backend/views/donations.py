@@ -13,11 +13,13 @@ from django.utils.dateparse import parse_datetime
 from ..utils.view_mixins import PaginatedResponseMixin
 from ..models import Donation, DonationItem, Subscription
 from ..serializers import DonationDetailSerializer, DonationListSerializer, QuotationRequestSerializer, DonorDonationUpdateSerializer, DonationResolveSerializer
-from ..services.donation_service import create_donation, mark_donation_in_transit, donor_update_donation, admin_update_donation, cancel_donation, archive_donation
-from ..services.resolve_donation_service import resolve_donation
+from ..services.donation_service import (
+    create_donation, mark_donation_in_transit, donor_update_donation,
+    admin_update_donation, cancel_donation, archive_donation,
+    resolve_donation, claim_donation, sign_quotation_data
+)
 from ..services.etag_service import build_updated_at_etag, matches_if_match
 from ..services.lalamove_service import get_lalamove_quotation
-from ..services.claim_donation_service import claim_donation, sign_quotation_data
 from ..services.audit_service import get_client_ip
 from ..services.location_service import get_city_and_barangay
 

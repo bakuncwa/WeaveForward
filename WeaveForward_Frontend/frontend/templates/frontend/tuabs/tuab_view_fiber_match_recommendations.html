@@ -2,10 +2,7 @@
 
 {% block content %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.1/dist/MarkerCluster.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.1/dist/MarkerCluster.Default.css"/>
-<script src="https://unpkg.com/leaflet.markercluster@1.5.1/dist/leaflet.markercluster.js"></script>
+<script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <style>
     /* Override .wf-content so map can go edge-to-edge */
@@ -764,7 +761,7 @@
     async function acceptRecommendation(e, pairId) {
         e.stopPropagation();
         try {
-            const res = await fetch(`/api/tuab/match-recommendations/${pairId}/accept/`, {
+            const res = await fetch(`/api/tuab/match-predict/${pairId}/accept/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf(), 'X-Requested-With': 'XMLHttpRequest' },
                 body: JSON.stringify({}),
@@ -798,7 +795,7 @@
         const reason = document.getElementById('rejectReason').value.trim();
         const pid = rejectingPairId;
         try {
-            const res = await fetch(`/api/tuab/match-recommendations/${pid}/reject/`, {
+            const res = await fetch(`/api/tuab/match-predict/${pid}/reject/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf(), 'X-Requested-With': 'XMLHttpRequest' },
                 body: JSON.stringify({ reason }),

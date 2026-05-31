@@ -4,11 +4,14 @@ import json
 import time
 import uuid
 import requests
+from decimal import Decimal
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 from .audit_service import log_audit
 from ..models import User, UserRole, Donation, Order, OrderStatus, DonationStatus, OrderPayment, PaymentStatus, DonationDeliveryMethod
+
+
 
 def get_lalamove_quotation(pickup_lat, pickup_lng, pickup_address, dropoff_lat, dropoff_lng, dropoff_address, schedule_at):
     """
@@ -152,6 +155,33 @@ def process_lalamove_webhook(payload, client_ip):
     if not hmac.compare_digest(calculated_signature, signature):
         return {"status_code": 401, "detail": "Invalid Lalamove webhook signature."}
 
+    if payload.get("eventType") == "ORDER_AMOUNT_CHANGED":
+        order_data = data_obj["order"]
+        with transaction.atomic():
+            order_record = Order.objects.select_for_update().get(lalamove_order_id=order_data["orderId"])
+            total_price = Decimal(str(order_data["price"]["totalPrice"]))
+            paid_amount = sum((p.amount for p in order_record.payments.filter(status=PaymentStatus.SUCCESS)), Decimal("0.00"))
+            amount = total_price - paid_amount
+            if amount <= 0:
+                return {"status_code": 200, "detail": "Order amount change did not require an additional charge."}
+            tuab = order_record.donation.claimed_by_tuab
+            reference = f"edit-{order_record.order_id}-{int(timezone.now().timestamp())}"[:36]
+            payment = OrderPayment.objects.create(order=order_record, amount=amount, status=PaymentStatus.FAILED, payment_reference=reference)
+
+            response = requests.post(
+                f"{settings.MAYA_SANDBOX_BASE_URL.rstrip('/')}/customers/{tuab.maya_customer_id}/cards/{tuab.maya_card_id}/payments",
+                json={"totalAmount": {"amount": float(amount), "currency": "PHP"}, "cardId": tuab.maya_card_id, "requestReferenceNumber": reference},
+                headers={"Authorization": settings.MAYA_SANDBOX_SECRET_BASIC_AUTH, "Content-Type": "application/json", "Accept": "application/json"},
+                timeout=30,
+            )
+            response_json = response.json()
+            if response.status_code == 200 and response_json.get("status") == "PAYMENT_SUCCESS":
+                payment.status = PaymentStatus.SUCCESS
+                payment.payment_reference = response_json.get("id")
+                payment.save(update_fields=["status", "payment_reference", "updated_at"])
+                return {"status_code": 200, "detail": "Order amount change charged successfully."}
+            return {"status_code": 502, "detail": f"Maya payment failed: {response_json.get('message', response.text)}"}
+
     if payload.get("eventType") != "ORDER_STATUS_CHANGED":
         return {"status_code": 200, "detail": f"Webhook event type {payload.get('eventType')} ignored."}
 
@@ -242,8 +272,7 @@ def process_lalamove_webhook(payload, client_ip):
                 donation_record.updated_at = timezone.now()
                 donation_record.save(update_fields=["status", "delivery_method", "updated_at"])
 
-                payment_record = order_record.payments.filter(status=PaymentStatus.SUCCESS).first()
-                if payment_record and payment_record.payment_reference:
+                for payment_record in order_record.payments.filter(status=PaymentStatus.SUCCESS, amount__gt=0):
                     reverse_or_refund_payment(payment_record, payment_record.amount)
 
                 return {"status_code": 200, "detail": "Order failed due to max driver rejections. Payment reversed/refunded, donation converted to PICKUP."}
@@ -279,8 +308,7 @@ def process_lalamove_webhook(payload, client_ip):
             donation_record.updated_at = timezone.now()
             donation_record.save(update_fields=["status", "delivery_method", "updated_at"])
 
-            payment_record = order_record.payments.filter(status=PaymentStatus.SUCCESS).first()
-            if payment_record and payment_record.payment_reference:
+            for payment_record in order_record.payments.filter(status=PaymentStatus.SUCCESS, amount__gt=0):
                 reverse_or_refund_payment(payment_record, payment_record.amount)
 
             return {"status_code": 200, "detail": "Order expired and failed. Payment reversed/refunded, donation converted to PICKUP."}
@@ -435,8 +463,7 @@ def process_expired_orders():
                 )
 
             # 3. Refund the payment if it was successful
-            payment = order.payments.filter(status=PaymentStatus.SUCCESS).first()
-            if payment and payment.payment_reference:
+            for payment in order.payments.filter(status=PaymentStatus.SUCCESS, amount__gt=0):
                 reverse_or_refund_payment(payment, payment.amount)
 
             expired_count += 1

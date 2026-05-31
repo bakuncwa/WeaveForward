@@ -1,6 +1,5 @@
 {% extends 'frontend/base.html' %}
 {% block content %}
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
   :root {
     --gold: #e8a020;
@@ -138,7 +137,7 @@
   /* ── Modals ── */
   .modal-overlay {
     position: fixed; inset: 0; z-index: 9000; display: flex;
-    align-items: center; justify-content: center; background: rgba(0,0,0,.35);
+    align-items: center; justify-content: center; background: transparent;
   }
   .modal-card {
     background: #fff; border-radius: 16px; padding: 28px 28px 24px;
@@ -499,31 +498,50 @@
   }
 
   /* ── Export ── */
+  async function fetchExportData() {
+    const response = await fetch('/api/tuab/inventory/export/', {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    });
+    if (!response.ok) throw new Error('Failed to fetch inventory export data.');
+    const data = await response.json();
+    return data.inventory_items || [];
+  }
+
+  function mapExportItems(items) {
+    const headers = [
+      'Inventory ID', 'Donation ID', 'Donor', 'Material Category', 'Initial Weight (kg)', 
+      'Current Weight (kg)', 'Status', 'Is Upcyclable', 'Audit Required', 'Days Since Audit',
+      'Pickup Address', 'Pickup Latitude', 'Pickup Longitude', 'Ingested Date', 'Updated Date'
+    ];
+    const rows = items.map(item => {
+      const source = item.source_donation || {};
+      const donor = source.donor || {};
+      const donorName = `${donor.first_name || ''} ${donor.last_name || ''}`.trim();
+      return [
+        item.inventory_id,
+        source.donation_id,
+        donorName,
+        item.material_category || '',
+        item.weight_before_kg,
+        item.current_weight_kg,
+        item.lifecycle_status,
+        item.is_upcyclable ? 'Yes' : 'No',
+        item.audit_required ? 'Yes' : 'No',
+        item.days_since_audit,
+        source.pickup_display_address || '',
+        source.pickup_latitude || '',
+        source.pickup_longitude || '',
+        item.ingested_at || '',
+        item.updated_at || ''
+      ];
+    });
+    return { headers, rows };
+  }
+
   async function exportInventoryCSV() {
     try {
-      const response = await fetch('/api/tuab/inventory/export/', {
-        headers: { 'X-Requested-With': 'XMLHttpRequest' }
-      });
-      if (!response.ok) {
-        alert('Failed to fetch inventory export data.');
-        return;
-      }
-      const data = await response.json();
-      const items = data.inventory_items || [];
-      
-      const headers = ['Inventory ID', 'Donation ID', 'Donor', 'Current Weight (kg)', 'Audit Required'];
-      const rows = items.map(item => {
-        const source_donation = item.source_donation || {};
-        const donor = source_donation.donor || {};
-        const donorName = `${donor.first_name || ''} ${donor.last_name || ''}`.strip || `${donor.first_name || ''} ${donor.last_name || ''}`.trim();
-        return [
-          item.inventory_id,
-          source_donation.donation_id,
-          donorName,
-          item.current_weight_kg,
-          item.audit_required ? 'Yes' : 'No'
-        ];
-      });
+      const items = await fetchExportData();
+      const { headers, rows } = mapExportItems(items);
 
       // Convert rows to CSV strings with proper escaping
       const csvContent = [
@@ -548,20 +566,6 @@
       console.error(err);
       alert('An error occurred while exporting CSV.');
     }
-  }
-
-  function exportInventoryData() {
-    const rows = [
-      ['Inventory ID', 'Donation ID', 'Donor', 'Current Weight (kg)', 'Audit Required'],
-      {% for item in inventory_items %}
-      [{{ item.inventory_id }}, {{ item.donation_id }}, '{{ item.donor_name|escapejs }}', {{ item.current_weight_kg }}, {{ item.audit_required|lower }}],
-      {% endfor %}
-    ];
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{ wch: 14 }, { wch: 13 }, { wch: 28 }, { wch: 22 }, { wch: 16 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Inventory Snapshot');
-    XLSX.writeFile(wb, `inventory-snapshot-${new Date().toISOString().split('T')[0]}.xlsx`);
   }
 
   /* Close modals on backdrop click */

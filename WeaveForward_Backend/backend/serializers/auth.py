@@ -20,7 +20,7 @@ from ..constants import (
     TUAB_REG_MAX_SIZE,
 )
 from ..models import Upload, User, UserAccountStatus, UserOperationalStatus
-from ..services.auth_service import reset_user_password, validate_reset_token
+from ..services.auth_service import reset_user_password, validate_reset_token, generate_api_key
 from ..services.location_service import get_city_and_barangay
 from ..services.brand_fiber_lookup_service import get_allowed_fibers
 

@@ -50,10 +50,10 @@ urlpatterns = [
     path('inventory/export', views.InventoryViewSet.as_view({'get': 'export'}), name='inventory-export'),
 
     # --- MATCH RECOMMENDATIONS ---
-    path('match-recommendations', views.MatchRecommendationViewSet.as_view({'get': 'list'}), name='match-recommendation-list'),
-    path('match-recommendations/<int:pk>', views.MatchRecommendationViewSet.as_view({'get': 'retrieve'}), name='match-recommendation-detail'),
-    path('match-recommendations/<int:pk>/accept', views.MatchRecommendationViewSet.as_view({'post': 'accept'}), name='match-recommendation-accept'),
-    path('match-recommendations/<int:pk>/reject', views.MatchRecommendationViewSet.as_view({'post': 'reject'}), name='match-recommendation-reject'),
+    path('match-predict', views.MatchRecommendationViewSet.as_view({'get': 'list'}), name='match-recommendation-list'),
+    path('match-predict/<int:pk>', views.MatchRecommendationViewSet.as_view({'get': 'retrieve'}), name='match-recommendation-detail'),
+    path('match-predict/<int:pk>/accept', views.MatchRecommendationViewSet.as_view({'post': 'accept'}), name='match-recommendation-accept'),
+    path('match-predict/<int:pk>/reject', views.MatchRecommendationViewSet.as_view({'post': 'reject'}), name='match-recommendation-reject'),
 
     # --- IMPACT DASHBOARD ---
     path('impact-dashboard', views.ImpactDashboardViewSet.as_view({'get': 'list'}), name='impact-dashboard'),

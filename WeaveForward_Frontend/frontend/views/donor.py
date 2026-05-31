@@ -281,7 +281,7 @@ async def donor_edit_profile(request):
             elif not c.startswith('+63'): payload['contact_no'] = '+63' + c
 
         # 4. Clean internal/blocked fields
-        for k in ['csrfmiddlewaretoken', 'current_etag', 'confirm_password', 'new_password', 'user_id', 'photo', 'upload']:
+        for k in ['csrfmiddlewaretoken', 'current_etag', 'confirm_password', 'new_password', 'user_id', 'photo', 'upload', 'otp_code', 'secret', 'disable_2fa']:
             payload.pop(k, None)
 
         # 5. Handle File Upload
@@ -292,7 +292,25 @@ async def donor_edit_profile(request):
         # 6. Proxy PATCH to backend
         headers = {'If-Match': submitted_etag} if submitted_etag else {}
         try:
-            response = await api_call(request, 'PATCH', 'users/me', data=payload, files=files, headers=headers)
+            response = await api_call(request, 'PATCH', 'users/me?validate_only=true', data=payload, files=files, headers=headers)
+            
+            if response.status_code == 200:
+                etag_changed = False
+                if request.POST.get('otp_code'):
+                    res = await api_call(request, 'POST', 'users/me/2fa', json={'otp_code': request.POST['otp_code'], 'secret': request.POST.get('secret')})
+                    if res.status_code != 200: return JsonResponse({'error': res.json().get('detail', 'Invalid 2FA code.')}, status=400)
+                    etag_changed = True
+                
+                if request.POST.get('disable_2fa') == '1':
+                    try: await api_call(request, 'DELETE', 'users/me/2fa'); etag_changed = True
+                    except: pass
+                    
+                if etag_changed:
+                    get_res = await api_call(request, 'GET', 'users/me')
+                    if get_res.status_code == 200: headers['If-Match'] = get_res.headers.get('ETag')
+                    
+                response = await api_call(request, 'PATCH', 'users/me', data=payload, files=files, headers=headers)
+
             if response.status_code == 200:
                 messages.success(request, "Profile updated successfully.")
                 return JsonResponse({'message': 'Success'}, status=200)

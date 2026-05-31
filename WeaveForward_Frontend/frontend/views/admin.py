@@ -205,14 +205,21 @@ async def admin_edit_donor(request, user_id):
         if files:
             patch_kwargs['files'] = files
 
-        response = await api_call(request, 'PATCH', f'users/{user_id}', **patch_kwargs)
-
-        if response.status_code == 200:
+        val_response = await api_call(request, 'PATCH', f'users/{user_id}?validate_only=true', **patch_kwargs)
+        if val_response.status_code != 200:
+            response = val_response
+        else:
             if raw_data.get('disable_2fa') == '1' and donor.get('is_2fa_enabled'):
-                try: await api_call(request, 'DELETE', f'users/{user_id}/2fa')
+                try: 
+                    await api_call(request, 'DELETE', f'users/{user_id}/2fa')
+                    get_res = await api_call(request, 'GET', f'users/{user_id}')
+                    if get_res.status_code == 200:
+                        patch_kwargs['headers']['If-Match'] = get_res.headers.get('ETag')
                 except: pass
-            messages.success(request, "Donor profile updated successfully.")
-            return redirect('admin_view_donors')
+            response = await api_call(request, 'PATCH', f'users/{user_id}', **patch_kwargs)
+            if response.status_code == 200:
+                messages.success(request, "Donor profile updated successfully.")
+                return redirect('admin_view_donors')
 
         if response.status_code == 412:
             messages.error(request, "This donor was updated somewhere else. Refresh the page and try again.")
@@ -345,18 +352,29 @@ async def admin_edit_tuab(request, user_id):
             files['upload'] = request.FILES['upload']
 
         headers = {'If-Match': submitted_etag} if submitted_etag else {}
-        response = await api_call(request, 'PATCH', f'users/{user_id}', data=payload, files=files, headers=headers)
-
-        if response.status_code == 200:
+        val_response = await api_call(request, 'PATCH', f'users/{user_id}?validate_only=true', data=payload, files=files, headers=headers)
+        if val_response.status_code != 200:
+            response = val_response
+        else:
+            etag_changed = False
             if raw_data.get('is_2fa_enabled') == 'false':
-                await api_call(request, 'DELETE', f'users/{user_id}/2fa')
-            
-            if raw_data.get('remove_payment_method') == '1':
-                try: await api_call(request, 'DELETE', f'users/{user_id}/subscription')
+                try: 
+                    await api_call(request, 'DELETE', f'users/{user_id}/2fa')
+                    etag_changed = True
                 except: pass
-
-            messages.success(request, "TUAB profile updated successfully.")
-            return redirect('admin_view_tuabs')
+            if raw_data.get('remove_payment_method') == '1':
+                try: 
+                    await api_call(request, 'DELETE', f'users/{user_id}/subscription')
+                    etag_changed = True
+                except: pass
+            if etag_changed:
+                get_res = await api_call(request, 'GET', f'users/{user_id}')
+                if get_res.status_code == 200:
+                    headers['If-Match'] = get_res.headers.get('ETag')
+            response = await api_call(request, 'PATCH', f'users/{user_id}', data=payload, files=files, headers=headers)
+            if response.status_code == 200:
+                messages.success(request, "TUAB profile updated successfully.")
+                return redirect('admin_view_tuabs')
         
         if response.status_code == 412: 
             messages.error(request, "The profile was updated by someone else. Please refresh and try again.")

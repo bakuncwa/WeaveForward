@@ -16,7 +16,7 @@ from ..models import (
     ApiToken,
 )
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
-from .unclaim_donation_service import unclaim_tuab_donations, archive_donor_donations
+from .donation_service import unclaim_tuab_donations, archive_donor_donations
 
 # Archive rules:
 # - Donor archive:
