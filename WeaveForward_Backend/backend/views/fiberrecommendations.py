@@ -23,6 +23,10 @@ from ..serializers.fiberrecommendations import (
 )
 from ..services.prediction_service import MatchPredictionService, run_predictions_for_donation_for_one_tuab
 from ..services.audit_service import get_client_ip, log_audit
+from ..services.email_service import (
+    send_match_accept_notification,
+    send_match_reject_notification,
+)
 from ..utils.view_mixins import PaginatedResponseMixin
 
 logger = logging.getLogger(__name__)
@@ -201,25 +205,57 @@ class MatchRecommendationViewSet(viewsets.GenericViewSet, PaginatedResponseMixin
 
     @action(detail=True, methods=['post'])
     def accept(self, request, pk=None):
-        with transaction.atomic():
-            try:
-                match_pred = MatchPrediction.objects.select_for_update().get(
-                    pair_id=pk, tuab=request.user,
-                    recommendation_status=MatchRecommendationStatus.PENDING,
-                )
-            except MatchPrediction.DoesNotExist:
-                return Response({'detail': 'Recommendation not found or no longer pending'}, status=status.HTTP_404_NOT_FOUND)
+        _notify_data = None
 
-            try:
-                match_pred.recommendation_status = MatchRecommendationStatus.ACCEPTED
-                match_pred.save(update_fields=['recommendation_status'])
-                log_audit(actor=request.user, entity_type='MatchPrediction', action='ACCEPT_RECOMMENDATION',
-                          fields_modified='recommendation_status', ip_address=get_client_ip(request))
-                return Response({'pair_id': pk, 'recommendation_status': MatchRecommendationStatus.ACCEPTED,
-                                 'message': 'Recommendation accepted successfully'}, status=status.HTTP_200_OK)
-            except Exception as e:
-                logger.error(f"Error accepting recommendation {pk}: {e}")
-                return Response({'detail': 'Failed to process acceptance'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        with transaction.atomic():
+            qs = MatchPrediction.objects.select_for_update().select_related(
+                'item__donation__donor', 'item__lookup', 'tuab',
+            )
+            match_pred = qs.filter(
+                pair_id=pk, tuab=request.user,
+                recommendation_status=MatchRecommendationStatus.PENDING,
+            ).first()
+
+            if not match_pred:
+                return Response({'detail': 'Recommendation not found or no longer pending'},
+                                status=status.HTTP_404_NOT_FOUND)
+
+            match_pred.recommendation_status = MatchRecommendationStatus.ACCEPTED
+            match_pred.save(update_fields=['recommendation_status'])
+            log_audit(actor=request.user, entity_type='MatchPrediction', action='ACCEPT_RECOMMENDATION',
+                      fields_modified='recommendation_status', ip_address=get_client_ip(request))
+
+            donation = match_pred.item.donation
+            donor = donation.donor
+            already_notified = MatchPrediction.objects.filter(
+                tuab=request.user,
+                item__donation_id=donation.donation_id,
+                is_archived_version=False,
+                recommendation_status=MatchRecommendationStatus.ACCEPTED,
+            ).exclude(pair_id=pk).exists()
+
+            if not already_notified:
+                tuab_name = request.user.business_name or request.user.email
+                _notify_data = {
+                    'donor_email': donor.email,
+                    'donor_name': donor.first_name or 'Donor',
+                    'tuab_name': tuab_name,
+                    'pickup_address': donation.pickup_display_address,
+                    'pickup_date': donation.preferred_pickup_date.strftime(
+                        '%B %d, %Y at %I:%M %p'
+                    ) if donation.preferred_pickup_date else 'TBD',
+                    'items_list': [{
+                        'brand': match_pred.item.lookup.brand,
+                        'clothing_type': match_pred.item.lookup.clothing_type,
+                        'condition': match_pred.item.condition_rating,
+                        'weight': str(match_pred.item.weight_kg),
+                    }],
+                }
+
+        if _notify_data:
+            send_match_accept_notification(**_notify_data)
+        return Response({'pair_id': pk, 'recommendation_status': MatchRecommendationStatus.ACCEPTED,
+                         'message': 'Recommendation accepted successfully'}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):
@@ -227,25 +263,53 @@ class MatchRecommendationViewSet(viewsets.GenericViewSet, PaginatedResponseMixin
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        with transaction.atomic():
-            try:
-                match_pred = MatchPrediction.objects.select_for_update().get(
-                    pair_id=pk, tuab=request.user,
-                    recommendation_status=MatchRecommendationStatus.PENDING,
-                )
-            except MatchPrediction.DoesNotExist:
-                return Response({'detail': 'Recommendation not found or no longer pending'}, status=status.HTTP_404_NOT_FOUND)
+        _notify_data = None
 
-            try:
-                reason = serializer.validated_data.get('reason')
-                match_pred.recommendation_status = MatchRecommendationStatus.REJECTED
-                match_pred.tuab_rejection_reason = reason if reason and reason.strip() else None
-                match_pred.save(update_fields=['recommendation_status', 'tuab_rejection_reason'])
-                log_audit(actor=request.user, entity_type='MatchPrediction', action='REJECT_RECOMMENDATION',
-                          fields_modified='recommendation_status,tuab_rejection_reason', ip_address=get_client_ip(request))
-                return Response({'pair_id': pk, 'recommendation_status': MatchRecommendationStatus.REJECTED,
-                                 'tuab_rejection_reason': match_pred.tuab_rejection_reason,
-                                 'message': 'Recommendation rejected successfully'}, status=status.HTTP_200_OK)
-            except Exception as e:
-                logger.error(f"Error rejecting recommendation {pk}: {e}")
-                return Response({'detail': 'Failed to process rejection'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        with transaction.atomic():
+            qs = MatchPrediction.objects.select_for_update().select_related(
+                'item__donation__donor', 'item__lookup', 'tuab',
+            )
+            match_pred = qs.filter(
+                pair_id=pk, tuab=request.user,
+                recommendation_status=MatchRecommendationStatus.PENDING,
+            ).first()
+
+            if not match_pred:
+                return Response({'detail': 'Recommendation not found or no longer pending'},
+                                status=status.HTTP_404_NOT_FOUND)
+
+            reason = serializer.validated_data.get('reason')
+            match_pred.recommendation_status = MatchRecommendationStatus.REJECTED
+            match_pred.tuab_rejection_reason = reason if reason and reason.strip() else None
+            match_pred.save(update_fields=['recommendation_status', 'tuab_rejection_reason'])
+            log_audit(actor=request.user, entity_type='MatchPrediction', action='REJECT_RECOMMENDATION',
+                      fields_modified='recommendation_status,tuab_rejection_reason', ip_address=get_client_ip(request))
+
+            donation = match_pred.item.donation
+            donor = donation.donor
+            already_notified = MatchPrediction.objects.filter(
+                tuab=request.user,
+                item__donation_id=donation.donation_id,
+                is_archived_version=False,
+                recommendation_status=MatchRecommendationStatus.REJECTED,
+            ).exclude(pair_id=pk).exists()
+
+            if not already_notified:
+                tuab_name = request.user.business_name or request.user.email
+                _notify_data = {
+                    'donor_email': donor.email,
+                    'donor_name': donor.first_name or 'Donor',
+                    'tuab_name': tuab_name,
+                    'items_list': [{
+                        'brand': match_pred.item.lookup.brand,
+                        'clothing_type': match_pred.item.lookup.clothing_type,
+                        'condition': match_pred.item.condition_rating,
+                        'weight': str(match_pred.item.weight_kg),
+                    }],
+                }
+
+        if _notify_data:
+            send_match_reject_notification(**_notify_data)
+        return Response({'pair_id': pk, 'recommendation_status': MatchRecommendationStatus.REJECTED,
+                         'tuab_rejection_reason': match_pred.tuab_rejection_reason,
+                         'message': 'Recommendation rejected successfully'}, status=status.HTTP_200_OK)

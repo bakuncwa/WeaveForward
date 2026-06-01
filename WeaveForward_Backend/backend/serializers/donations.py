@@ -11,6 +11,7 @@ from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from rest_framework import serializers
 
+from ..constants import TEXT_FIELD_MAX_LENGTH
 from ..models import (
     BrandFiberLookup, Donation, DonationItem, Upload, User, 
     UserAccountStatus, UserRole, DonationStatus, DonationItemConditionRating, Order,
@@ -22,6 +23,10 @@ from ..services.upload_service import build_upload_url
 
 from .brandfiberlookups import BrandFiberLookupSerializer
 
+
+def _add_length_error(errors, field_name, value, max_length=TEXT_FIELD_MAX_LENGTH):
+    if value is not None and len(str(value)) > max_length:
+        errors[field_name] = f"Ensure this field has no more than {max_length} characters."
 
 
 # ------------------------------------------------------------------------------
@@ -200,6 +205,16 @@ class DonationCreateSerializer(serializers.ModelSerializer):
     def validate(self, data):
         request = self.context.get('request')
         errors = {}
+        for field in [
+            'items',
+            'preferred_pickup_date',
+            'preferred_pickup_window_start',
+            'preferred_pickup_window_end',
+            'pickup_latitude',
+            'pickup_longitude',
+            'pickup_display_address',
+        ]:
+            _add_length_error(errors, field, self.initial_data.get(field))
 
         # 1. Image Validation (Format & Size)
         image = data.get('donation_image')
@@ -211,7 +226,7 @@ class DonationCreateSerializer(serializers.ModelSerializer):
 
         # 2. Required Display Address
         pickup_display_address = (data.get('pickup_display_address') or '').strip()
-        if not pickup_display_address:
+        if 'pickup_display_address' not in errors and not pickup_display_address:
             errors['pickup_display_address'] = "This field is required."
 
         # 3. Coordinate Precision & Location Check (NCR only)
@@ -219,7 +234,13 @@ class DonationCreateSerializer(serializers.ModelSerializer):
         raw_lng = str(self.initial_data.get('pickup_longitude') or '').strip()
         coord_error = False
 
-        if not raw_lat or not raw_lng or raw_lat == 'None' or raw_lng == 'None':
+        if 'pickup_latitude' in errors or 'pickup_longitude' in errors:
+            if (not raw_lat or raw_lat == 'None') and 'pickup_latitude' not in errors:
+                errors['pickup_latitude'] = "This field is required."
+            if (not raw_lng or raw_lng == 'None') and 'pickup_longitude' not in errors:
+                errors['pickup_longitude'] = "This field is required."
+            coord_error = True
+        elif not raw_lat or not raw_lng or raw_lat == 'None' or raw_lng == 'None':
             if not raw_lat or raw_lat == 'None':
                 errors['pickup_latitude'] = "This field is required."
             if not raw_lng or raw_lng == 'None':
@@ -258,7 +279,9 @@ class DonationCreateSerializer(serializers.ModelSerializer):
         parsed_end = None
 
         val_date = str(raw_date or '').strip()
-        if not val_date or val_date == 'None':
+        if 'preferred_pickup_date' in errors:
+            pass
+        elif not val_date or val_date == 'None':
             errors['preferred_pickup_date'] = "This field is required."
         else:
             try:
@@ -278,7 +301,9 @@ class DonationCreateSerializer(serializers.ModelSerializer):
                 errors['preferred_pickup_date'] = "Datetime has wrong format."
 
         val_start = str(raw_start or '').strip()
-        if not val_start or val_start == 'None':
+        if 'preferred_pickup_window_start' in errors:
+            pass
+        elif not val_start or val_start == 'None':
             errors['preferred_pickup_window_start'] = "This field is required."
         else:
             try:
@@ -291,7 +316,9 @@ class DonationCreateSerializer(serializers.ModelSerializer):
                 errors['preferred_pickup_window_start'] = "Time has wrong format."
 
         val_end = str(raw_end or '').strip()
-        if not val_end or val_end == 'None':
+        if 'preferred_pickup_window_end' in errors:
+            pass
+        elif not val_end or val_end == 'None':
             errors['preferred_pickup_window_end'] = "This field is required."
         else:
             try:
@@ -349,7 +376,9 @@ class DonationCreateSerializer(serializers.ModelSerializer):
 
         # 7. Items Parsing & DB Validation
         items_raw = data.get('items')
-        if not items_raw:
+        if 'items' in errors:
+            pass
+        elif not items_raw:
             errors['items'] = "This field is required."
         else:
             try:
@@ -401,7 +430,7 @@ class DonationCreateSerializer(serializers.ModelSerializer):
 # ## Quotation Request Serializer
 # ------------------------------------------------------------------------------
 class QuotationRequestSerializer(serializers.ModelSerializer):
-    dropoff_address = serializers.CharField(source='dropoff_display_address', max_length=200)
+    dropoff_address = serializers.CharField(source='dropoff_display_address', max_length=TEXT_FIELD_MAX_LENGTH)
     dropoff_lat = serializers.DecimalField(source='dropoff_latitude', max_digits=9, decimal_places=7)
     dropoff_lng = serializers.DecimalField(source='dropoff_longitude', max_digits=10, decimal_places=7)
     scheduled_time = serializers.TimeField(input_formats=['%H:%M', '%H:%M:%S'])
@@ -547,6 +576,17 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
     def validate(self, data):
         request = self.context.get('request')
         errors = {}
+        for field in [
+            'items',
+            'preferred_pickup_date',
+            'preferred_pickup_window_start',
+            'preferred_pickup_window_end',
+            'pickup_latitude',
+            'pickup_longitude',
+            'pickup_display_address',
+        ]:
+            if field in self.initial_data:
+                _add_length_error(errors, field, self.initial_data.get(field))
 
         # 1. Image Validation
         image = data.get('donation_image')
@@ -559,18 +599,23 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
         # 2. Address Validation
         if 'pickup_display_address' in data:
             pickup_display_address = (data.get('pickup_display_address') or '').strip()
-            if not pickup_display_address:
+            if 'pickup_display_address' not in errors and not pickup_display_address:
                 errors['pickup_display_address'] = "This field may not be blank."
 
         # 3. Location Validation
         if 'pickup_latitude' in data or 'pickup_longitude' in data:
-            if 'pickup_display_address' not in data or not (data.get('pickup_display_address') or '').strip():
+            if 'pickup_display_address' not in errors and ('pickup_display_address' not in data or not (data.get('pickup_display_address') or '').strip()):
                 errors['pickup_display_address'] = "This field is required when updating coordinates."
 
             raw_lat = str(self.initial_data.get('pickup_latitude') or '').strip()
             raw_lng = str(self.initial_data.get('pickup_longitude') or '').strip()
 
-            if not raw_lat or not raw_lng or raw_lat == 'None' or raw_lng == 'None':
+            if 'pickup_latitude' in errors or 'pickup_longitude' in errors:
+                if (not raw_lat or raw_lat == 'None') and 'pickup_latitude' not in errors:
+                    errors['pickup_latitude'] = "This field may not be null."
+                if (not raw_lng or raw_lng == 'None') and 'pickup_longitude' not in errors:
+                    errors['pickup_longitude'] = "This field may not be null."
+            elif not raw_lat or not raw_lng or raw_lat == 'None' or raw_lng == 'None':
                 errors['pickup_latitude'] = "This field may not be null."
                 errors['pickup_longitude'] = "This field may not be null."
             else:
@@ -601,7 +646,9 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
         if 'preferred_pickup_date' in data:
             raw_date = data.get('preferred_pickup_date')
             val_date = str(raw_date or '').strip()
-            if not val_date or val_date == 'None':
+            if 'preferred_pickup_date' in errors:
+                pass
+            elif not val_date or val_date == 'None':
                 errors['preferred_pickup_date'] = "This field may not be null."
             else:
                 try:
@@ -623,7 +670,9 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
         if 'preferred_pickup_window_start' in data:
             raw_start = data.get('preferred_pickup_window_start')
             val_start = str(raw_start or '').strip()
-            if not val_start or val_start == 'None':
+            if 'preferred_pickup_window_start' in errors:
+                pass
+            elif not val_start or val_start == 'None':
                 errors['preferred_pickup_window_start'] = "This field may not be null."
             else:
                 try:
@@ -638,7 +687,9 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
         if 'preferred_pickup_window_end' in data:
             raw_end = data.get('preferred_pickup_window_end')
             val_end = str(raw_end or '').strip()
-            if not val_end or val_end == 'None':
+            if 'preferred_pickup_window_end' in errors:
+                pass
+            elif not val_end or val_end == 'None':
                 errors['preferred_pickup_window_end'] = "This field may not be null."
             else:
                 try:
@@ -681,7 +732,9 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
 
         # 7. Items Parsing & Validation (Simplified via nested serializer)
         items_json = data.get('items')
-        if items_json:
+        if 'items' in errors:
+            pass
+        elif items_json:
             try:
                 raw_items = json.loads(items_json)
                 item_serializer = DonationItemUpdateSerializer(data=raw_items, many=True)
@@ -717,7 +770,7 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
 
 class DonationResolveSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=[DonationStatus.RECEIVED, DonationStatus.REJECTED])
-    rejection_reason = serializers.CharField(required=False, allow_blank=True, max_length=200)
+    rejection_reason = serializers.CharField(required=False, allow_blank=True)
     items = serializers.CharField(required=False)
 
     def validate(self, data):
@@ -725,12 +778,21 @@ class DonationResolveSerializer(serializers.Serializer):
         rejection_reason = data.get('rejection_reason')
         items_json = data.get('items')
         errors = {}
+        _add_length_error(errors, 'items', self.initial_data.get('items'))
+        _add_length_error(
+            errors,
+            'rejection_reason',
+            self.initial_data.get('rejection_reason'),
+            Donation._meta.get_field('rejection_reason').max_length,
+        )
 
         if status == DonationStatus.REJECTED:
-            if not rejection_reason or not rejection_reason.strip():
+            if 'rejection_reason' not in errors and (not rejection_reason or not rejection_reason.strip()):
                 errors['rejection_reason'] = "Rejection reason is required when status is REJECTED."
         
-        if items_json:
+        if 'items' in errors:
+            pass
+        elif items_json:
             try:
                 raw_items = json.loads(items_json)
                 item_serializer = DonationItemUpdateSerializer(data=raw_items, many=True)
@@ -769,6 +831,7 @@ class AdminDonationUpdateSerializer(serializers.ModelSerializer):
     """Specific serializer for Admins to update donations and nested donation items."""
     items = serializers.CharField(required=False)  # JSON string for items
     donation_image = serializers.ImageField(required=False, allow_null=True)
+    pickup_display_address = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     # Optional fields for dropoff location (associated Order fields)
     dropoff_display_address = serializers.CharField(required=False, allow_blank=True, allow_null=True)
@@ -791,6 +854,9 @@ class AdminDonationUpdateSerializer(serializers.ModelSerializer):
         errors = {}
         current_delivery_method = self.instance.delivery_method
         current_status = self.instance.status
+        for field in ['items', 'pickup_display_address', 'dropoff_display_address']:
+            if field in self.initial_data:
+                _add_length_error(errors, field, self.initial_data.get(field))
 
         # 0. Image Validation (consistent with Donor restrictions)
         image = data.get('donation_image')
@@ -845,7 +911,7 @@ class AdminDonationUpdateSerializer(serializers.ModelSerializer):
         if ('pickup_latitude' in data or 'pickup_longitude' in data) and 'pickup_latitude' not in errors and 'pickup_longitude' not in errors:
             if 'pickup_latitude' not in self.initial_data or 'pickup_longitude' not in self.initial_data:
                 errors['pickup_latitude'] = "Both pickup_latitude and pickup_longitude are required to update coordinates."
-            if 'pickup_display_address' not in data or not (data.get('pickup_display_address') or '').strip():
+            if 'pickup_display_address' not in errors and ('pickup_display_address' not in data or not (data.get('pickup_display_address') or '').strip()):
                 errors['pickup_display_address'] = "This field is required when updating coordinates."
 
             if 'pickup_latitude' not in errors:
@@ -881,7 +947,7 @@ class AdminDonationUpdateSerializer(serializers.ModelSerializer):
         elif ('dropoff_latitude' in data or 'dropoff_longitude' in data) and 'dropoff_latitude' not in errors and 'dropoff_longitude' not in errors:
             if 'dropoff_latitude' not in self.initial_data or 'dropoff_longitude' not in self.initial_data:
                 errors['dropoff_latitude'] = "Both dropoff_latitude and dropoff_longitude are required to update coordinates."
-            if 'dropoff_display_address' not in data or not (data.get('dropoff_display_address') or '').strip():
+            if 'dropoff_display_address' not in errors and ('dropoff_display_address' not in data or not (data.get('dropoff_display_address') or '').strip()):
                 errors['dropoff_display_address'] = "This field is required when updating coordinates."
 
             if 'dropoff_latitude' not in errors:
@@ -937,7 +1003,9 @@ class AdminDonationUpdateSerializer(serializers.ModelSerializer):
 
         # 5. Items validation (reusing items updates logic)
         items_json = data.get('items')
-        if items_json:
+        if 'items' in errors:
+            pass
+        elif items_json:
             try:
                 raw_items = json.loads(items_json)
                 item_serializer = DonationItemUpdateSerializer(data=raw_items, many=True)

@@ -8,6 +8,7 @@ import uuid
 import re
 from rest_framework import serializers
 
+from ..constants import TEXT_FIELD_MAX_LENGTH
 from ..models import Donation, DonationStatus, SubscriptionStatus, Upload, User, UserRole
 from ..services.etag_service import build_updated_at_etag
 from ..services.upload_service import build_upload_url
@@ -23,7 +24,7 @@ class AdminUserDetailSerializer(serializers.ModelSerializer):
     latitude = serializers.DecimalField(max_digits=9, decimal_places=7, required=False, allow_null=True)
     longitude = serializers.DecimalField(max_digits=10, decimal_places=7, required=False, allow_null=True)
     upload = serializers.FileField(write_only=True, required=False, allow_null=True)
-    password = serializers.CharField(write_only=True, required=False, allow_blank=False)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=False, max_length=User._meta.get_field('password').max_length)
     distance_km = serializers.FloatField(read_only=True, required=False)
     blocked_patch_fields = {
         'email', 'user_id', 'city', 'barangay', 'role',
@@ -111,7 +112,7 @@ class DonorUpdateSerializer(serializers.ModelSerializer):
     latitude = serializers.DecimalField(max_digits=9, decimal_places=7, required=False, allow_null=True)
     longitude = serializers.DecimalField(max_digits=10, decimal_places=7, required=False, allow_null=True)
     upload = serializers.FileField(write_only=True, required=False, allow_null=True)
-    password = serializers.CharField(write_only=True, required=False, allow_blank=False)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=False, max_length=User._meta.get_field('password').max_length)
 
     class Meta:
         model = User
@@ -121,6 +122,9 @@ class DonorUpdateSerializer(serializers.ModelSerializer):
             'city', 'barangay'
         ]
         read_only_fields = ['city', 'barangay']
+        extra_kwargs = {
+            'display_address': {'max_length': TEXT_FIELD_MAX_LENGTH},
+        }
 
 
 
@@ -236,7 +240,7 @@ class TuabUpdateSerializer(serializers.ModelSerializer):
     latitude = serializers.DecimalField(max_digits=9, decimal_places=7, required=False, allow_null=True)
     longitude = serializers.DecimalField(max_digits=10, decimal_places=7, required=False, allow_null=True)
     upload = serializers.FileField(write_only=True, required=False, allow_null=True)
-    password = serializers.CharField(write_only=True, required=False, allow_blank=False)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=False, max_length=User._meta.get_field('password').max_length)
 
     class Meta:
         model = User
@@ -247,6 +251,12 @@ class TuabUpdateSerializer(serializers.ModelSerializer):
             'display_address', 'password', 'upload', 'city', 'barangay'
         ]
         read_only_fields = ['city', 'barangay']
+        extra_kwargs = {
+            'description': {'max_length': TEXT_FIELD_MAX_LENGTH},
+            'social_link': {'max_length': TEXT_FIELD_MAX_LENGTH},
+            'target_fibers': {'max_length': TEXT_FIELD_MAX_LENGTH},
+            'display_address': {'max_length': TEXT_FIELD_MAX_LENGTH},
+        }
 
     def validate_password(self, value):
         if len(value) < 8 or not any(c.isalpha() for c in value) or not any(c.isdigit() for c in value):
@@ -502,7 +512,7 @@ class TuabDetailSerializer(serializers.ModelSerializer):
 
 class TwoFactorSerializer(serializers.Serializer):
     secret = serializers.CharField(min_length=32, max_length=32)
-    otp_code = serializers.CharField()
+    otp_code = serializers.CharField(max_length=TEXT_FIELD_MAX_LENGTH)
 
     default_error_messages = {
         'invalid_otp': 'Invalid 2FA code.',
@@ -522,15 +532,15 @@ class TwoFactorSerializer(serializers.Serializer):
 
 
 class MayaCardSerializer(serializers.Serializer):
-    number = serializers.CharField()
-    expMonth = serializers.CharField()
-    expYear = serializers.CharField()
-    cvc = serializers.CharField()
+    number = serializers.CharField(max_length=TEXT_FIELD_MAX_LENGTH)
+    expMonth = serializers.CharField(max_length=TEXT_FIELD_MAX_LENGTH)
+    expYear = serializers.CharField(max_length=TEXT_FIELD_MAX_LENGTH)
+    cvc = serializers.CharField(max_length=TEXT_FIELD_MAX_LENGTH)
 
 
 class SubscribeSetupSerializer(serializers.Serializer):
-    firstName = serializers.CharField()
-    lastName = serializers.CharField()
+    firstName = serializers.CharField(max_length=TEXT_FIELD_MAX_LENGTH)
+    lastName = serializers.CharField(max_length=TEXT_FIELD_MAX_LENGTH)
     card = MayaCardSerializer()
 
 
@@ -539,7 +549,7 @@ class DonorUpdateSelfSerializer(serializers.ModelSerializer):
     latitude = serializers.DecimalField(max_digits=9, decimal_places=7, required=False, allow_null=True)
     longitude = serializers.DecimalField(max_digits=10, decimal_places=7, required=False, allow_null=True)
     upload = serializers.FileField(write_only=True, required=False, allow_null=True)
-    password = serializers.CharField(write_only=True, required=False, allow_blank=False)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=False, max_length=User._meta.get_field('password').max_length)
 
     class Meta:
         model = User
@@ -549,6 +559,9 @@ class DonorUpdateSelfSerializer(serializers.ModelSerializer):
             'city', 'barangay'
         ]
         read_only_fields = ['city', 'barangay']
+        extra_kwargs = {
+            'display_address': {'max_length': TEXT_FIELD_MAX_LENGTH},
+        }
 
 
 
@@ -673,7 +686,7 @@ class TuabUpdateSelfSerializer(serializers.ModelSerializer):
     latitude = serializers.DecimalField(max_digits=9, decimal_places=7, required=False, allow_null=True)
     longitude = serializers.DecimalField(max_digits=10, decimal_places=7, required=False, allow_null=True)
     upload = serializers.FileField(write_only=True, required=False, allow_null=True)
-    password = serializers.CharField(write_only=True, required=False, allow_blank=False)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=False, max_length=User._meta.get_field('password').max_length)
 
     class Meta:
         model = User
@@ -684,6 +697,12 @@ class TuabUpdateSelfSerializer(serializers.ModelSerializer):
             'display_address', 'password', 'upload', 'city', 'barangay'
         ]
         read_only_fields = ['city', 'barangay']
+        extra_kwargs = {
+            'description': {'max_length': TEXT_FIELD_MAX_LENGTH},
+            'social_link': {'max_length': TEXT_FIELD_MAX_LENGTH},
+            'target_fibers': {'max_length': TEXT_FIELD_MAX_LENGTH},
+            'display_address': {'max_length': TEXT_FIELD_MAX_LENGTH},
+        }
 
     def validate_password(self, value):
         if len(value) < 8 or not any(c.isalpha() for c in value) or not any(c.isdigit() for c in value):

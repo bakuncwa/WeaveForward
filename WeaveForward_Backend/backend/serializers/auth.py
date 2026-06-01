@@ -16,6 +16,7 @@ from rest_framework_simplejwt.settings import api_settings
 from ..constants import (
     ALLOWED_IMAGE_EXTENSIONS,
     IMAGE_COMPRESSION_QUALITY,
+    TEXT_FIELD_MAX_LENGTH,
     TUAB_REG_ALLOWED_EXTENSIONS,
     TUAB_REG_MAX_SIZE,
 )
@@ -37,11 +38,11 @@ class DonorRegisterSerializer(serializers.ModelSerializer):
             'display_address', 'latitude', 'longitude'
         ]
         extra_kwargs = {
-            'password': {'write_only': True, 'required': False, 'allow_null': True, 'allow_blank': True},
-            'first_name': {'required': False, 'allow_null': True, 'allow_blank': True},
-            'last_name': {'required': False, 'allow_null': True, 'allow_blank': True},
-            'middle_name': {'required': False, 'allow_null': True, 'allow_blank': True},
-            'display_address': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'password': {'write_only': True, 'required': False, 'allow_null': True, 'allow_blank': True, 'max_length': None},
+            'first_name': {'required': False, 'allow_null': True, 'allow_blank': True, 'max_length': None},
+            'last_name': {'required': False, 'allow_null': True, 'allow_blank': True, 'max_length': None},
+            'middle_name': {'required': False, 'allow_null': True, 'allow_blank': True, 'max_length': None},
+            'display_address': {'required': False, 'allow_null': True, 'allow_blank': True, 'max_length': TEXT_FIELD_MAX_LENGTH},
             'latitude': {'required': False, 'allow_null': True},
             'longitude': {'required': False, 'allow_null': True},
         }
@@ -50,30 +51,34 @@ class DonorRegisterSerializer(serializers.ModelSerializer):
         errors = {}
 
         # 1. First Name
+        first_name_max = User._meta.get_field('first_name').max_length
         first_name = (data.get('first_name') or '').strip()
         if not first_name:
             errors["first_name"] = ["First name is required."]
-        elif len(first_name) > 50:
-            errors["first_name"] = ["Ensure this field has no more than 50 characters."]
+        elif len(first_name) > first_name_max:
+            errors["first_name"] = [f"Ensure this field has no more than {first_name_max} characters."]
 
         # 2. Last Name
+        last_name_max = User._meta.get_field('last_name').max_length
         last_name = (data.get('last_name') or '').strip()
         if not last_name:
             errors["last_name"] = ["Last name is required."]
-        elif len(last_name) > 50:
-            errors["last_name"] = ["Ensure this field has no more than 50 characters."]
+        elif len(last_name) > last_name_max:
+            errors["last_name"] = [f"Ensure this field has no more than {last_name_max} characters."]
 
         # 3. Middle Name
+        middle_name_max = User._meta.get_field('middle_name').max_length
         middle_name = (data.get('middle_name') or '').strip()
-        if middle_name and len(middle_name) > 50:
-            errors["middle_name"] = ["Ensure this field has no more than 50 characters."]
+        if middle_name and len(middle_name) > middle_name_max:
+            errors["middle_name"] = [f"Ensure this field has no more than {middle_name_max} characters."]
 
         # 4. Email validation
+        email_max = User._meta.get_field('email').max_length
         email = (data.get('email') or '').strip()
         if not email:
             errors["email"] = ["Email is required."]
-        elif len(email) > 100:
-            errors["email"] = ["Ensure this field has no more than 100 characters."]
+        elif len(email) > email_max:
+            errors["email"] = [f"Ensure this field has no more than {email_max} characters."]
         elif not re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', email):
             errors["email"] = ["Enter a valid email address."]
         elif User.objects.filter(email__iexact=email).exists():
@@ -138,7 +143,7 @@ class DonorRegisterSerializer(serializers.ModelSerializer):
 
 
 class TUABRegisterSerializer(serializers.ModelSerializer):
-    social_link = serializers.URLField(required=False)
+    social_link = serializers.URLField(required=False, max_length=TEXT_FIELD_MAX_LENGTH)
     documentation = serializers.FileField(required=False, allow_null=True)
     email = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     contact_no = serializers.CharField(required=False, allow_null=True, allow_blank=True)
@@ -151,13 +156,13 @@ class TUABRegisterSerializer(serializers.ModelSerializer):
             'target_fibers', 'max_distance_km', 'min_biodeg_score', 'documentation'
         ]
         extra_kwargs = {
-            'password': {'write_only': True, 'required': False, 'allow_null': True, 'allow_blank': True},
-            'business_name': {'required': False, 'allow_null': True, 'allow_blank': True},
-            'description': {'required': False, 'allow_null': True, 'allow_blank': True},
-            'display_address': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'password': {'write_only': True, 'required': False, 'allow_null': True, 'allow_blank': True, 'max_length': None},
+            'business_name': {'required': False, 'allow_null': True, 'allow_blank': True, 'max_length': None},
+            'description': {'required': False, 'allow_null': True, 'allow_blank': True, 'max_length': TEXT_FIELD_MAX_LENGTH},
+            'display_address': {'required': False, 'allow_null': True, 'allow_blank': True, 'max_length': TEXT_FIELD_MAX_LENGTH},
             'latitude': {'required': False, 'allow_null': True},
             'longitude': {'required': False, 'allow_null': True},
-            'target_fibers': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'target_fibers': {'required': False, 'allow_null': True, 'allow_blank': True, 'max_length': TEXT_FIELD_MAX_LENGTH},
             'max_distance_km': {'required': False, 'allow_null': True},
             'min_biodeg_score': {'required': False, 'allow_null': True},
         }
@@ -166,18 +171,20 @@ class TUABRegisterSerializer(serializers.ModelSerializer):
         errors = {}
 
         # 1. Business Name
+        business_name_max = User._meta.get_field('business_name').max_length
         business_name = (data.get('business_name') or '').strip()
         if not business_name:
             errors["business_name"] = ["Business name is required."]
-        elif len(business_name) > 125:
-            errors["business_name"] = ["Ensure this field has no more than 125 characters."]
+        elif len(business_name) > business_name_max:
+            errors["business_name"] = [f"Ensure this field has no more than {business_name_max} characters."]
 
         # 2. Email validation
+        email_max = User._meta.get_field('email').max_length
         email = (data.get('email') or '').strip()
         if not email:
             errors["email"] = ["Email is required."]
-        elif len(email) > 100:
-            errors["email"] = ["Ensure this field has no more than 100 characters."]
+        elif len(email) > email_max:
+            errors["email"] = [f"Ensure this field has no more than {email_max} characters."]
         elif not re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', email):
             errors["email"] = ["Enter a valid email address."]
         elif User.objects.filter(email__iexact=email).exists():
@@ -321,7 +328,7 @@ class TUABRegisterSerializer(serializers.ModelSerializer):
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-    otp_code = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    otp_code = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=TEXT_FIELD_MAX_LENGTH)
 
     default_error_messages = {
         'no_active_account': 'Invalid email or password.',
@@ -336,6 +343,14 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         email = attrs.get(self.username_field)
         password = attrs.get('password')
+
+        errors = {}
+        if email and len(str(email)) > User._meta.get_field('email').max_length:
+            errors[self.username_field] = f"Ensure this field has no more than {User._meta.get_field('email').max_length} characters."
+        if password and len(str(password)) > User._meta.get_field('password').max_length:
+            errors["password"] = f"Ensure this field has no more than {User._meta.get_field('password').max_length} characters."
+        if errors:
+            raise serializers.ValidationError(errors)
         
         # PRE-CHECK: Django's `authenticate` silently rejects users if `is_active=False`.
         # We manually intercept REJECTED users here so we can show their specific reason,
@@ -405,13 +420,13 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 
 class PasswordResetRequestSerializer(serializers.Serializer):
-    email = serializers.EmailField()
+    email = serializers.EmailField(max_length=User._meta.get_field('email').max_length)
 
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
-    uidb64 = serializers.CharField()
-    token = serializers.CharField()
-    new_password = serializers.CharField(write_only=True)
+    uidb64 = serializers.CharField(max_length=TEXT_FIELD_MAX_LENGTH)
+    token = serializers.CharField(max_length=TEXT_FIELD_MAX_LENGTH)
+    new_password = serializers.CharField(write_only=True, max_length=User._meta.get_field('password').max_length)
 
     def validate(self, data):
 

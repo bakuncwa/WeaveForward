@@ -11,7 +11,7 @@ from datetime import timezone as dt_timezone
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from ..utils.view_mixins import PaginatedResponseMixin
-from ..models import Donation, DonationItem, Subscription
+from ..models import Donation, DonationItem, Subscription, User, UserRole
 from ..serializers import DonationDetailSerializer, DonationListSerializer, QuotationRequestSerializer, DonorDonationUpdateSerializer, DonationResolveSerializer
 from ..services.donation_service import (
     create_donation, mark_donation_in_transit, donor_update_donation,
@@ -20,8 +20,10 @@ from ..services.donation_service import (
 )
 from ..services.etag_service import build_updated_at_etag, matches_if_match
 from ..services.lalamove_service import get_lalamove_quotation
-from ..services.audit_service import get_client_ip
+from ..services.audit_service import get_client_ip, log_audit
+from ..services.email_service import send_flag_notification
 from ..services.location_service import get_city_and_barangay
+from ..constants import TEXT_FIELD_MAX_LENGTH
 
 
 class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin, PaginatedResponseMixin):
@@ -471,6 +473,10 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
 
         # 3. Request Data
         delivery_method = request.data.get('delivery_method')
+        if delivery_method is not None and len(str(delivery_method)) > TEXT_FIELD_MAX_LENGTH:
+            exc = APIException(f"delivery_method is too long (max {TEXT_FIELD_MAX_LENGTH} characters).")
+            exc.status_code = 400
+            raise exc
         if delivery_method not in ['PICKUP', 'DELIVERY']:
             exc = APIException("Invalid delivery_method. Must be 'PICKUP' or 'DELIVERY'.")
             exc.status_code = 400
@@ -486,9 +492,15 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
                     "detail": "An active PRO subscription is required to claim donations."
                 })
 
+        quotation_token = request.data.get('quotation_token')
+        if quotation_token is not None and len(str(quotation_token)) > TEXT_FIELD_MAX_LENGTH:
+            exc = APIException(f"quotation_token is too long (max {TEXT_FIELD_MAX_LENGTH} characters).")
+            exc.status_code = 400
+            raise exc
+
         claim_params = {
             'delivery_method': delivery_method,
-            'quotation_token': request.data.get('quotation_token'),
+            'quotation_token': quotation_token,
         }
 
         # 5. Call Service
@@ -594,9 +606,33 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
             exc = APIException("A flag reason is required.")
             exc.status_code = 400
             raise exc
+        if len(reason) > TEXT_FIELD_MAX_LENGTH:
+            exc = APIException(f"Ensure this field has no more than {TEXT_FIELD_MAX_LENGTH} characters.")
+            exc.status_code = 400
+            raise exc
 
+        was_already_flagged = donation.is_flagged
         donation.is_flagged = True
         donation.flag_reason = reason
         donation.save(update_fields=['is_flagged', 'flag_reason'])
+        log_audit(actor=user, entity_type='Donation', action='FLAG_DONATION',
+                  fields_modified='is_flagged,flag_reason', ip_address=get_client_ip(request))
+
+        if not was_already_flagged:
+            try:
+                admin_emails = list(User.objects.filter(
+                    role=UserRole.ADMIN, status='ACTIVE',
+                ).values_list('email', flat=True))
+                if admin_emails:
+                    send_flag_notification(
+                        admin_emails=admin_emails,
+                        donation_id=donation.pk,
+                        flag_reason=reason,
+                        flagged_by_name=user.business_name or user.email,
+                        donor_name=donation.donor.first_name or donation.donor.email,
+                        pickup_city=donation.pickup_city,
+                    )
+            except Exception:
+                pass
 
         return Response({'detail': f'Donation #{donation.pk} has been flagged.'}, status=status.HTTP_200_OK)

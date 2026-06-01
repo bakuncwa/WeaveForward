@@ -4,6 +4,7 @@ from asgiref.sync import iscoroutinefunction, markcoroutinefunction
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 
+from .constants import TEXT_FIELD_MAX_LENGTH
 from .services import api_call
 
 AUTH_COOKIE_NAMES = ("access_token", "refresh_token", "user_role", "user_name", "user_email")
@@ -26,6 +27,21 @@ GUEST_ONLY_PATHS = {
     "/reset-password-confirm/",
 }
 PUBLIC_PASSTHROUGH_PATHS = {"/api/location/lookup/", "/logout/"}
+
+
+class QueryStringLengthLimitMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if len(request.META.get("QUERY_STRING", "")) > TEXT_FIELD_MAX_LENGTH:
+            message = f"Query string must be no more than {TEXT_FIELD_MAX_LENGTH} characters."
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.path.startswith("/api/"):
+                return JsonResponse({"detail": message}, status=400)
+
+            return render(request, "frontend/400.html", {"message": message}, status=400)
+
+        return self.get_response(request)
 
 
 class TokenRefreshMiddleware:
