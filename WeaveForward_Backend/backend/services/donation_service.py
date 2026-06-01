@@ -19,11 +19,62 @@ import uuid
 
 from ..models import Donation, DonationItem, Upload, User, DonationStatus, DonationItemConditionRating, Order, OrderPayment, OrderStatus, PaymentStatus, DonationDeliveryMethod, UserRole, InventoryLedger
 from ..serializers.donations import DonationCreateSerializer, DonorDonationUpdateSerializer, AdminDonationUpdateSerializer
-from .lalamove_service import cancel_lalamove_order, reverse_or_refund_payment
+from .lalamove_service import cancel_lalamove_order, reverse_or_refund_payment, update_lalamove_order
 from .location_service import get_city_and_barangay
 from .audit_service import log_audit, get_client_ip
+from .etag_service import build_updated_at_etag, matches_if_match
 from .prediction_service import run_predictions_for_donation
 from rest_framework.exceptions import PermissionDenied, APIException, NotFound
+
+
+def _extract_external_error_message(error):
+    if isinstance(error, str) and error.startswith("{"):
+        try:
+            error = json.loads(error)
+        except ValueError:
+            return error
+
+    if isinstance(error, dict):
+        errors = error.get("errors") or []
+        message = next(
+            (
+                item.get("message") or item.get("detail")
+                for item in errors
+                if isinstance(item, dict) and (item.get("message") or item.get("detail"))
+            ),
+            None,
+        )
+        return message or error.get("message") or error.get("detail") or str(error)
+
+    return str(error)
+
+
+def _raise_external_api_error(prefix, result, default_status=400):
+    exc = APIException(f"{prefix}: {_extract_external_error_message(result.get('error'))}")
+    exc.status_code = result.get("status_code", default_status)
+    raise exc
+
+
+def _revert_failed_delivery_claim(*, donation_id, user_id, order_id, payment_id=None, reversal_reference=None):
+    with transaction.atomic():
+        donation = Donation.objects.select_for_update().get(pk=donation_id)
+        order = Order.objects.select_for_update().get(pk=order_id)
+
+        if donation.claimed_by_tuab_id == user_id and donation.delivery_method == DonationDeliveryMethod.DELIVERY and order.status == OrderStatus.FAILED:
+            donation.status = DonationStatus.PENDING
+            donation.claimed_by_tuab = None
+            donation.delivery_method = None
+            donation.updated_at = timezone.now()
+            donation.save(update_fields=["status", "claimed_by_tuab", "delivery_method", "updated_at"])
+
+        if payment_id and reversal_reference:
+            payment = OrderPayment.objects.select_for_update().get(pk=payment_id)
+            OrderPayment.objects.create(
+                order=order,
+                amount=-payment.amount,
+                status=PaymentStatus.SUCCESS,
+                payment_reference=reversal_reference,
+            )
 
 
 def create_donation(*, request):
@@ -187,6 +238,14 @@ def donor_update_donation(*, request, donation):
     image_file = request.FILES.get('donation_image')
 
     with transaction.atomic():
+        donation = Donation.objects.select_for_update().get(pk=donation.pk)
+        serializer.instance = donation
+
+        if donation.status != DonationStatus.PENDING:
+            exc = APIException(f"This donation cannot be modified because its current status is {donation.status.lower().replace('_', ' ')}.")
+            exc.status_code = 409
+            raise exc
+
         # 1. Handle Image update
         if image_file:
             img = PILImage.open(image_file)
@@ -274,7 +333,66 @@ def admin_update_donation(*, request, donation) -> Donation:
     dropoff_lat = v_data.pop('dropoff_latitude', None)
     dropoff_lng = v_data.pop('dropoff_longitude', None)
 
+    lalamove_update_payload = None
+    lalamove_update_order_id = None
+    lalamove_update_lalamove_order_id = None
+
+    if dropoff_address is not None or dropoff_lat is not None or dropoff_lng is not None:
+        with transaction.atomic():
+            donation = Donation.objects.select_for_update().get(pk=donation.pk)
+
+            if donation.status == DonationStatus.ARCHIVED:
+                exc = APIException("Donations in archived status are immutable.")
+                exc.status_code = 409
+                raise exc
+
+            if_match = request.headers.get('If-Match')
+            if if_match and not matches_if_match(build_updated_at_etag(donation), if_match):
+                exc = APIException("ETag does not match the current resource version.")
+                exc.status_code = 412
+                raise exc
+
+            order = donation.orders.select_for_update().filter(status__in=['ASSIGNING_DRIVER', 'ON_GOING', 'PICKED_UP']).first()
+            if order and order.lalamove_order_id:
+                lalamove_update_order_id = order.pk
+                lalamove_update_lalamove_order_id = order.lalamove_order_id
+                lalamove_update_payload = {
+                    "lalamove_order_id": order.lalamove_order_id,
+                    "pickup_lat": v_data.get('pickup_latitude', donation.pickup_latitude),
+                    "pickup_lng": v_data.get('pickup_longitude', donation.pickup_longitude),
+                    "pickup_address": v_data.get('pickup_display_address', donation.pickup_display_address) or "N/A",
+                    "dropoff_lat": dropoff_lat if dropoff_lat is not None else order.dropoff_latitude,
+                    "dropoff_lng": dropoff_lng if dropoff_lng is not None else order.dropoff_longitude,
+                    "dropoff_address": dropoff_address if dropoff_address is not None else order.dropoff_display_address,
+                    "pickup_name": f"{donation.donor.first_name or ''} {donation.donor.last_name or ''}".strip(),
+                    "pickup_phone": donation.donor.contact_no,
+                    "dropoff_name": (
+                        f"{(donation.claimed_by_tuab.first_name if donation.claimed_by_tuab else '') or ''} "
+                        f"{(donation.claimed_by_tuab.last_name if donation.claimed_by_tuab else '') or ''}"
+                    ).strip() or (donation.claimed_by_tuab.business_name if donation.claimed_by_tuab else ""),
+                    "dropoff_phone": donation.claimed_by_tuab.contact_no if donation.claimed_by_tuab else None,
+                }
+
+        if lalamove_update_payload:
+            res = update_lalamove_order(**lalamove_update_payload)
+            if "error" in res:
+                _raise_external_api_error("Failed to update dropoff with Lalamove", res)
+
     with transaction.atomic():
+        donation = Donation.objects.select_for_update().get(pk=donation.pk)
+        serializer.instance = donation
+
+        if donation.status == DonationStatus.ARCHIVED:
+            exc = APIException("Donations in archived status are immutable.")
+            exc.status_code = 409
+            raise exc
+
+        if_match = request.headers.get('If-Match')
+        if if_match and not matches_if_match(build_updated_at_etag(donation), if_match):
+            exc = APIException("ETag does not match the current resource version.")
+            exc.status_code = 412
+            raise exc
+
         # 1. Handle Image update
         if image_file:
             img = PILImage.open(image_file)
@@ -290,6 +408,8 @@ def admin_update_donation(*, request, donation) -> Donation:
             donation.upload = Upload.objects.create(file_path=path, name=hashed_filename)
 
         # 2. Update Donation model fields
+        if 'is_flagged' in v_data and not v_data['is_flagged']:
+            v_data['flag_reason'] = None
         for k, v in v_data.items():
             setattr(donation, k, v)
         donation.save()
@@ -328,7 +448,18 @@ def admin_update_donation(*, request, donation) -> Donation:
 
         # 4. Update associated Order dropoff fields if present
         if dropoff_address is not None or dropoff_lat is not None or dropoff_lng is not None:
-            order = donation.orders.select_for_update().filter(status__in=['ASSIGNING_DRIVER', 'ON_GOING', 'PICKED_UP']).first()
+            if lalamove_update_order_id:
+                order = donation.orders.select_for_update().filter(pk=lalamove_update_order_id).first()
+                if (
+                    not order
+                    or order.lalamove_order_id != lalamove_update_lalamove_order_id
+                    or order.status not in ['ASSIGNING_DRIVER', 'ON_GOING', 'PICKED_UP']
+                ):
+                    exc = APIException("Dropoff update could not be finalized because the delivery order changed during the Lalamove update.")
+                    exc.status_code = 409
+                    raise exc
+            else:
+                order = donation.orders.select_for_update().filter(status__in=['ASSIGNING_DRIVER', 'ON_GOING', 'PICKED_UP']).first()
             if order:
                 if dropoff_address is not None:
                     order.dropoff_display_address = dropoff_address
@@ -337,31 +468,6 @@ def admin_update_donation(*, request, donation) -> Donation:
                 if dropoff_lng is not None:
                     order.dropoff_longitude = dropoff_lng
                 order.save()
-
-                if order.lalamove_order_id:
-                    from .lalamove_service import update_lalamove_order
-                    res = update_lalamove_order(
-                        lalamove_order_id=order.lalamove_order_id,
-                        pickup_lat=donation.pickup_latitude,
-                        pickup_lng=donation.pickup_longitude,
-                        pickup_address=donation.pickup_display_address or "N/A",
-                        dropoff_lat=order.dropoff_latitude,
-                        dropoff_lng=order.dropoff_longitude,
-                        dropoff_address=order.dropoff_display_address,
-                        pickup_name=f"{donation.donor.first_name or ''} {donation.donor.last_name or ''}".strip(),
-                        pickup_phone=donation.donor.contact_no,
-                        dropoff_name=(
-                            f"{(donation.claimed_by_tuab.first_name if donation.claimed_by_tuab else '') or ''} "
-                            f"{(donation.claimed_by_tuab.last_name if donation.claimed_by_tuab else '') or ''}"
-                        ).strip() or (donation.claimed_by_tuab.business_name if donation.claimed_by_tuab else ""),
-                        dropoff_phone=donation.claimed_by_tuab.contact_no if donation.claimed_by_tuab else None,
-                    )
-                    if "error" in res:
-                        err = json.loads(res["error"]) if isinstance(res["error"], str) and res["error"].startswith("{") else res["error"]
-                        msg = next((item.get("message") or item.get("detail") for item in (err.get("errors") or []) if isinstance(item, dict) and (item.get("message") or item.get("detail"))), err.get("message") or err.get("detail") or str(err)) if isinstance(err, dict) else str(err)
-                        exc = APIException(f"Failed to update dropoff with Lalamove: {msg}")
-                        exc.status_code = res.get("status_code", 400)
-                        raise exc
 
         # 5. Audit Logging
         log_audit(
@@ -387,7 +493,9 @@ def cancel_donation(*, user, donation, ip_address=None):
     if user.role not in ["Admin", "Donor"]:
         raise PermissionDenied("You are not authorized to cancel this donation.")
 
-    # Execute cancellation orchestration inside a single atomic transaction
+    payment_ids_to_refund = []
+
+    # Execute local cancellation checks and state changes inside short transactions
     with transaction.atomic():
         # Retrieve donation with database pessimistic locking to avoid race conditions
         donation = Donation.objects.select_for_update().get(pk=donation.pk)
@@ -433,27 +541,12 @@ def cancel_donation(*, user, donation, ip_address=None):
             # Case 3: Claimed Delivery Donation Cancellation (requires external logistics cancellation and payment refund)
             elif donation.status == DonationStatus.CLAIMED and donation.delivery_method == DonationDeliveryMethod.DELIVERY:
                 # Retrieve the active delivery order associated with this donation
-                order = Order.objects.filter(donation=donation).exclude(status=OrderStatus.CANCELLED).first()
+                order = Order.objects.select_for_update().filter(donation=donation).exclude(status=OrderStatus.CANCELLED).first()
                 if not order or not order.lalamove_order_id:
                     raise NotFound("Could not find an active delivery order associated with this donation.")
 
-                # Terminate the order inside Lalamove API
-                lalamove_res = cancel_lalamove_order(order.lalamove_order_id)
-                if "error" in lalamove_res:
-                    exc = APIException(f"Lalamove cancellation failed. We were unable to cancel the delivery at this time. Please try again. Error detail: {json.loads(lalamove_res['error'])['errors'][0]['message'] if lalamove_res['error'].startswith('{') else lalamove_res['error']}")
-                    exc.status_code = 502
-                    raise exc
-                order.status, order.updated_at = OrderStatus.CANCELLED, timezone.now(); order.save(update_fields=["status", "updated_at"])
-
-                donation.status, donation.updated_at = DonationStatus.CANCELLED, timezone.now(); donation.save(update_fields=["status", "updated_at"])
-
-                # Refund the claiming TUAB's payment if it was captured successfully
-                for payment in order.payments.filter(status=PaymentStatus.SUCCESS, amount__gt=0):
-                    reverse_or_refund_payment(payment, payment.amount)
-
-                # Write to the audit trail logging the status change
-                log_audit(user, "donations", "STATUS_CHANGE", ip_address, ["status"])
-                return {"detail": "Donation and associated delivery successfully cancelled by admin."}
+                lalamove_order_id = order.lalamove_order_id
+                order_id = order.pk
 
             # Admin is forbidden from cancelling in any other status
             else:
@@ -461,38 +554,87 @@ def cancel_donation(*, user, donation, ip_address=None):
                 exc.status_code = 409
                 raise exc
 
+    # Terminate the order outside the database transaction
+    lalamove_res = cancel_lalamove_order(lalamove_order_id)
+    if "error" in lalamove_res:
+        _raise_external_api_error(
+            "Lalamove cancellation failed. We were unable to cancel the delivery at this time. Please try again. Error detail",
+            lalamove_res,
+            default_status=502,
+        )
+
+    with transaction.atomic():
+        donation = Donation.objects.select_for_update().get(pk=donation.pk)
+        order = Order.objects.select_for_update().get(pk=order_id)
+
+        if donation.status != DonationStatus.CLAIMED or donation.delivery_method != DonationDeliveryMethod.DELIVERY or order.status == OrderStatus.CANCELLED:
+            exc = APIException("This donation can no longer be cancelled because its state changed during delivery cancellation.")
+            exc.status_code = 409
+            raise exc
+
+        order.status, order.updated_at = OrderStatus.CANCELLED, timezone.now()
+        order.save(update_fields=["status", "updated_at"])
+
+        donation.status, donation.updated_at = DonationStatus.CANCELLED, timezone.now()
+        donation.save(update_fields=["status", "updated_at"])
+
+        payment_ids_to_refund = list(order.payments.filter(status=PaymentStatus.SUCCESS, amount__gt=0).values_list("pk", flat=True))
+
+        # Write to the audit trail logging the status change
+        log_audit(user, "donations", "STATUS_CHANGE", ip_address, ["status"])
+
+    for payment in OrderPayment.objects.filter(pk__in=payment_ids_to_refund):
+        reverse_or_refund_payment(payment, payment.amount)
+
+    return {"detail": "Donation and associated delivery successfully cancelled by admin."}
+
 
 def archive_donation(*, user, donation, ip_address=None):
 
     if user.role != "Admin":
         raise PermissionDenied("You are not authorized to archive this donation.")
 
+    order_id = None
+    lalamove_order_id = None
+    payment_ids_to_refund = []
+
     with transaction.atomic():
         # Retrieve donation with database pessimistic locking
         donation = Donation.objects.select_for_update().get(pk=donation.pk)
 
         # Check if there is an in-progress delivery order
-        order = Order.objects.filter(donation=donation).exclude(
+        order = Order.objects.select_for_update().filter(donation=donation).exclude(
             status__in=[OrderStatus.COMPLETED, OrderStatus.CANCELLED, OrderStatus.FAILED]
         ).first()
 
         if order:
             if not order.lalamove_order_id:
                 raise NotFound("Could not find an active delivery order associated with this donation.")
+            order_id = order.pk
+            lalamove_order_id = order.lalamove_order_id
 
-            # Terminate the order inside Lalamove API
-            lalamove_res = cancel_lalamove_order(order.lalamove_order_id)
-            if "error" in lalamove_res:
-                exc = APIException(f"Lalamove cancellation failed. We were unable to cancel the delivery at this time. Please try again. Error detail: {json.loads(lalamove_res['error'])['errors'][0]['message'] if lalamove_res['error'].startswith('{') else lalamove_res['error']}")
-                exc.status_code = 502
+    if lalamove_order_id:
+        lalamove_res = cancel_lalamove_order(lalamove_order_id)
+        if "error" in lalamove_res:
+            _raise_external_api_error(
+                "Lalamove cancellation failed. We were unable to cancel the delivery at this time. Please try again. Error detail",
+                lalamove_res,
+                default_status=502,
+            )
+
+    with transaction.atomic():
+        donation = Donation.objects.select_for_update().get(pk=donation.pk)
+
+        if order_id:
+            order = Order.objects.select_for_update().get(pk=order_id)
+            if order.status in [OrderStatus.COMPLETED, OrderStatus.CANCELLED, OrderStatus.FAILED]:
+                exc = APIException("This donation can no longer be archived because its delivery state changed during cancellation.")
+                exc.status_code = 409
                 raise exc
-
             order.status, order.updated_at = OrderStatus.CANCELLED, timezone.now()
             order.save(update_fields=["status", "updated_at"])
 
-            # Refund the claiming TUAB's payment if it was captured successfully
-            for payment in order.payments.filter(status=PaymentStatus.SUCCESS, amount__gt=0):
-                reverse_or_refund_payment(payment, payment.amount)
+            payment_ids_to_refund = list(order.payments.filter(status=PaymentStatus.SUCCESS, amount__gt=0).values_list("pk", flat=True))
 
         # Archive the donation
         donation.status, donation.updated_at = DonationStatus.ARCHIVED, timezone.now()
@@ -501,7 +643,10 @@ def archive_donation(*, user, donation, ip_address=None):
         # Write to the audit trail
         log_audit(user, "donations", "STATUS_CHANGE", ip_address, ["status"])
 
-        return {"detail": "Donation successfully archived."}
+    for payment in OrderPayment.objects.filter(pk__in=payment_ids_to_refund):
+        reverse_or_refund_payment(payment, payment.amount)
+
+    return {"detail": "Donation successfully archived."}
 
 
 def process_auto_archive_donations():
@@ -547,169 +692,193 @@ def sign_quotation_data(data):
     return f"{data_b64}.{signature}"
 
 
+
 def claim_donation(user, donation, claim_params, ip_address=None):
     """
-    Orchestrates the donation claiming process.
-    
-    This function manages the atomicity of the claim process, including:
-    1. Cryptographic token verification for delivery quotations.
-    2. Maya payment processing.
-    3. Lalamove delivery order creation.
-    4. Automatic transaction reversal (Void) if downstream logistics fail.
+    Orchestrates the donation claiming process while keeping external API calls
+    outside database transactions.
     """
     delivery_method = claim_params.get('delivery_method')
-    
-    with transaction.atomic():
-        # 0. Concurrency Control: Lock records and verify availability
-        donation = Donation.objects.select_for_update().get(pk=donation.pk)
-        user = User.objects.select_for_update().get(pk=user.pk)
 
-        if user.operational_status != 'ACTIVE':
-            raise PermissionDenied("Only operational TUABs can claim donations.")
-        
-        if donation.status != DonationStatus.PENDING:
-            exc = APIException("This donation is no longer available to be claimed.")
-            exc.status_code = 409
-            raise exc
+    if delivery_method == 'PICKUP':
+        with transaction.atomic():
+            donation = Donation.objects.select_for_update().get(pk=donation.pk)
+            user = User.objects.select_for_update().get(pk=user.pk)
 
-        if Donation.objects.filter(claimed_by_tuab=user, status__in=[DonationStatus.CLAIMED, DonationStatus.IN_TRANSIT]).count() >= user.max_active_claims:
-            exc = APIException(f"You have reached your active claim limit of {user.max_active_claims} active claims. Please complete or cancel your existing claims first.")
-            exc.status_code = 409
-            raise exc
+            if user.operational_status != 'ACTIVE':
+                raise PermissionDenied("Only operational TUABs can claim donations.")
+            if donation.status != DonationStatus.PENDING:
+                exc = APIException("This donation is no longer available to be claimed.")
+                exc.status_code = 409
+                raise exc
+            if Donation.objects.filter(claimed_by_tuab=user, status__in=[DonationStatus.CLAIMED, DonationStatus.IN_TRANSIT]).count() >= user.max_active_claims:
+                exc = APIException(f"You have reached your active claim limit of {user.max_active_claims} active claims. Please complete or cancel your existing claims first.")
+                exc.status_code = 409
+                raise exc
 
-        # --- PICKUP WORKFLOW ---
-        if delivery_method == 'PICKUP':
             donation.status, donation.claimed_by_tuab, donation.delivery_method = DonationStatus.CLAIMED, user, DonationDeliveryMethod.PICKUP
             donation.save()
             log_audit(user, 'donations', 'STATUS_CHANGE', ip_address, ['status', 'claimed_by_tuab', 'delivery_method'])
             return {"detail": "Donation successfully claimed for pickup."}
 
-        # --- DELIVERY WORKFLOW ---
-        quotation_token = claim_params.get('quotation_token')
-        if not quotation_token:
-            exc = APIException("Malformed or expired quotation token.")
-            exc.status_code = 400
-            raise exc
-        try:
-            # Verify cryptographic integrity and expiry
-            data_b64, token_signature = quotation_token.split('.')
-            if not hmac.compare_digest(hmac.new(settings.SECRET_KEY.encode(), data_b64.encode(), hashlib.sha256).hexdigest(), token_signature):
-                exc = APIException("Invalid quotation signature.")
-                exc.status_code = 400
-                raise exc
-            
-            token_data = json.loads(base64.urlsafe_b64decode(data_b64 + '=' * (4 - len(data_b64) % 4)).decode())
-            if token_data.get('expires_at', 0) < int(time.time()):
-                exc = APIException("Quotation has expired.")
-                exc.status_code = 400
-                raise exc
-            
-            charge_amount, lalamove_quotation_id, pickup_stop_id, dropoff_stop_id, sch_str = float(token_data['amount']), token_data['quotationId'], token_data['stopId_1'], token_data['stopId_2'], token_data.get('schedule_at')
-            quoted_dropoff_address = token_data.get('dropoff_address') or user.display_address or "N/A"
-            quoted_dropoff_lat = Decimal(str(token_data.get('dropoff_latitude') if token_data.get('dropoff_latitude') is not None else user.latitude or 0))
-            quoted_dropoff_lng = Decimal(str(token_data.get('dropoff_longitude') if token_data.get('dropoff_longitude') is not None else user.longitude or 0))
-            order_scheduled_at = parse_datetime(sch_str) if sch_str else timezone.now()
-        except APIException:
-            raise
-        except Exception:
-            exc = APIException("Malformed or expired quotation token.")
+    quotation_token = claim_params.get('quotation_token')
+    if not quotation_token:
+        exc = APIException("Malformed or expired quotation token.")
+        exc.status_code = 400
+        raise exc
+
+    try:
+        data_b64, token_signature = quotation_token.split('.')
+        if not hmac.compare_digest(hmac.new(settings.SECRET_KEY.encode(), data_b64.encode(), hashlib.sha256).hexdigest(), token_signature):
+            exc = APIException("Invalid quotation signature.")
             exc.status_code = 400
             raise exc
 
-        if order_scheduled_at < timezone.now():
-            exc = APIException("The selected delivery schedule is in the past. Please request a new quotation with a later time within the pickup window.")
+        token_data = json.loads(base64.urlsafe_b64decode(data_b64 + '=' * (4 - len(data_b64) % 4)).decode())
+        if token_data.get('expires_at', 0) < int(time.time()):
+            exc = APIException("Quotation has expired.")
+            exc.status_code = 400
+            raise exc
+
+        charge_amount = float(token_data['amount'])
+        lalamove_quotation_id = token_data['quotationId']
+        pickup_stop_id = token_data['stopId_1']
+        dropoff_stop_id = token_data['stopId_2']
+        order_scheduled_at = parse_datetime(token_data.get('schedule_at')) if token_data.get('schedule_at') else timezone.now()
+    except APIException:
+        raise
+    except Exception:
+        exc = APIException("Malformed or expired quotation token.")
+        exc.status_code = 400
+        raise exc
+
+    if order_scheduled_at < timezone.now():
+        exc = APIException("The selected delivery schedule is in the past. Please request a new quotation with a later time within the pickup window.")
+        exc.status_code = 409
+        raise exc
+
+    with transaction.atomic():
+        donation = Donation.objects.select_for_update().get(pk=donation.pk)
+        user = User.objects.select_for_update().get(pk=user.pk)
+
+        if user.operational_status != 'ACTIVE':
+            raise PermissionDenied("Only operational TUABs can claim donations.")
+        if donation.status != DonationStatus.PENDING:
+            exc = APIException("This donation is no longer available to be claimed.")
             exc.status_code = 409
             raise exc
-
+        if Donation.objects.filter(claimed_by_tuab=user, status__in=[DonationStatus.CLAIMED, DonationStatus.IN_TRANSIT]).count() >= user.max_active_claims:
+            exc = APIException(f"You have reached your active claim limit of {user.max_active_claims} active claims. Please complete or cancel your existing claims first.")
+            exc.status_code = 409
+            raise exc
         if not all([user.maya_customer_id, user.maya_card_id]):
             exc = APIException("Your payment details are not fully configured. Please setup your credit card in your profile before claiming deliveries.")
             exc.status_code = 400
             raise exc
 
-        # B. Robust Record Management: Pre-create records to ensure traceability during failures
-        maya_reference = f"claim-{donation.donation_id}-{int(timezone.now().timestamp())}"
-        order_expires_at = order_scheduled_at + timedelta(hours=2)
-        order_record = Order.objects.create(donation=donation, status=OrderStatus.FAILED, dropoff_display_address=quoted_dropoff_address, dropoff_latitude=quoted_dropoff_lat, dropoff_longitude=quoted_dropoff_lng, scheduled_at=order_scheduled_at, expires_at=order_expires_at)
-        payment_record = OrderPayment.objects.create(order=order_record, amount=Decimal(str(charge_amount)), status=PaymentStatus.FAILED, payment_reference=maya_reference)
+        quoted_dropoff_address = token_data.get('dropoff_address') or user.display_address or "N/A"
+        quoted_dropoff_lat = Decimal(str(token_data.get('dropoff_latitude') if token_data.get('dropoff_latitude') is not None else user.latitude or 0))
+        quoted_dropoff_lng = Decimal(str(token_data.get('dropoff_longitude') if token_data.get('dropoff_longitude') is not None else user.longitude or 0))
 
-        # C. Payment Integration: Maya Vault Charge
+        donation.status, donation.claimed_by_tuab, donation.delivery_method = DonationStatus.CLAIMED, user, DonationDeliveryMethod.DELIVERY
+        donation.save(update_fields=["status", "claimed_by_tuab", "delivery_method", "updated_at"])
+
+        order_record = Order.objects.create(donation=donation, status=OrderStatus.FAILED, dropoff_display_address=quoted_dropoff_address, dropoff_latitude=quoted_dropoff_lat, dropoff_longitude=quoted_dropoff_lng, scheduled_at=order_scheduled_at, expires_at=order_scheduled_at + timedelta(hours=2))
+        payment_record = OrderPayment.objects.create(order=order_record, amount=Decimal(str(charge_amount)), status=PaymentStatus.FAILED, payment_reference=f"claim-{donation.donation_id}-{int(timezone.now().timestamp())}")
+
         maya_url = f"{settings.MAYA_SANDBOX_BASE_URL.rstrip('/')}/customers/{user.maya_customer_id}/cards/{user.maya_card_id}/payments"
-        try:
-            maya_resp = requests.post(maya_url, json={'totalAmount': {'amount': charge_amount, 'currency': 'PHP'}, 'cardId': user.maya_card_id, 'requestReferenceNumber': maya_reference[:36]}, headers={'Authorization': settings.MAYA_SANDBOX_SECRET_BASIC_AUTH, 'Content-Type': 'application/json', 'Accept': 'application/json'}, timeout=30)
-            maya_json = maya_resp.json()
-            if maya_resp.status_code == 200 and maya_json.get('status') == 'PAYMENT_SUCCESS':
-                maya_payment_id = maya_json.get('id')
-                payment_record.payment_reference = maya_payment_id
-                payment_record.status = PaymentStatus.SUCCESS
-                payment_record.updated_at = timezone.now()
-                payment_record.save(update_fields=["payment_reference", "status", "updated_at"])
-            else:
-                exc = APIException(f"Maya payment failed: {maya_json.get('message', maya_resp.text)}")
-                exc.status_code = 502
-                raise exc
-        except APIException:
-            raise
-        except Exception as e:
-            exc = APIException(f"Maya connectivity error: {str(e)}")
+        maya_card_id = user.maya_card_id
+        donor_name = f"{donation.donor.first_name} {donation.donor.last_name}".strip()
+        donor_phone = donation.donor.contact_no
+        tuab_name = f"{user.first_name} {user.last_name}".strip()
+        tuab_phone = user.contact_no
+
+    maya_payment_id = None
+    try:
+        maya_resp = requests.post(maya_url, json={'totalAmount': {'amount': charge_amount, 'currency': 'PHP'}, 'cardId': maya_card_id, 'requestReferenceNumber': payment_record.payment_reference}, headers={'Authorization': settings.MAYA_SANDBOX_SECRET_BASIC_AUTH, 'Content-Type': 'application/json', 'Accept': 'application/json'}, timeout=30)
+        maya_json = maya_resp.json()
+        if maya_resp.status_code == 200 and maya_json.get('status') == 'PAYMENT_SUCCESS':
+            maya_payment_id = maya_json.get('id')
+        else:
+            _revert_failed_delivery_claim(donation_id=donation.pk, user_id=user.pk, order_id=order_record.pk)
+            exc = APIException(f"Maya payment failed: {maya_json.get('message', maya_resp.text)}")
             exc.status_code = 502
             raise exc
+    except APIException:
+        raise
+    except Exception as e:
+        _revert_failed_delivery_claim(donation_id=donation.pk, user_id=user.pk, order_id=order_record.pk)
+        exc = APIException(f"Maya connectivity error: {str(e)}")
+        exc.status_code = 502
+        raise exc
 
-        # D. Logistics Integration: Lalamove Order Creation
-        l_payload = {"data": {"quotationId": lalamove_quotation_id, "sender": {"stopId": pickup_stop_id, "name": f"{donation.donor.first_name} {donation.donor.last_name}".strip(), "phone": donation.donor.contact_no}, "recipients": [{"stopId": dropoff_stop_id, "name": f"{user.first_name} {user.last_name}".strip(), "phone": user.contact_no}], "metadata": {"notes": "Fragile items"}}}
-        l_ts, l_body = str(int(time.time() * 1000)), json.dumps(l_payload, separators=(',', ':'))
-        l_sig = hmac.new(settings.LALAMOVE_API_SECRET.encode(), f"{l_ts}\r\nPOST\r\n/v3/orders\r\n\r\n{l_body}".encode(), hashlib.sha256).hexdigest()
-        
-        lalamove_success = False
-        lalamove_error_msg = "Unknown logistics error"
+    l_payload = {"data": {"quotationId": lalamove_quotation_id, "sender": {"stopId": pickup_stop_id, "name": donor_name, "phone": donor_phone}, "recipients": [{"stopId": dropoff_stop_id, "name": tuab_name, "phone": tuab_phone}], "metadata": {"notes": "Fragile items"}}}
+    l_ts, l_body = str(int(time.time() * 1000)), json.dumps(l_payload, separators=(',', ':'))
+    l_sig = hmac.new(settings.LALAMOVE_API_SECRET.encode(), f"{l_ts}\r\nPOST\r\n/v3/orders\r\n\r\n{l_body}".encode(), hashlib.sha256).hexdigest()
+
+    lalamove_success = False
+    lalamove_error_msg = "Unknown logistics error"
+    lalamove_order_id = None
+    try:
+        l_resp = requests.post("https://rest.sandbox.lalamove.com/v3/orders", data=l_body, headers={"Authorization": f"hmac {settings.LALAMOVE_API_KEY}:{l_ts}:{l_sig}", "Market": "PH", "Request-ID": str(uuid.uuid4()), "Content-Type": "application/json", "Accept": "application/json"}, timeout=30)
+        if l_resp.status_code in [200, 201]:
+            lalamove_order_id = l_resp.json().get("data", {}).get("orderId")
+            lalamove_success = True
+        else:
+            lalamove_error_msg = l_resp.text
+    except Exception as e:
+        lalamove_error_msg = str(e)
+
+    if not lalamove_success:
+        void_success = False
         try:
-            l_resp = requests.post("https://rest.sandbox.lalamove.com/v3/orders", data=l_body, headers={"Authorization": f"hmac {settings.LALAMOVE_API_KEY}:{l_ts}:{l_sig}", "Market": "PH", "Request-ID": str(uuid.uuid4()), "Content-Type": "application/json", "Accept": "application/json"}, timeout=30)
-            if l_resp.status_code in [200, 201]:
-                order_record.lalamove_order_id, order_record.status = l_resp.json().get("data", {}).get("orderId"), OrderStatus.ASSIGNING_DRIVER
-                order_record.save()
-                donation.status, donation.claimed_by_tuab, donation.delivery_method = DonationStatus.CLAIMED, user, DonationDeliveryMethod.DELIVERY
-                donation.save()
-                log_audit(user, 'donations', 'STATUS_CHANGE', ip_address, ['status', 'claimed_by_tuab', 'delivery_method'])
-                lalamove_success = True
-            else:
-                lalamove_error_msg = l_resp.text
-        except Exception as e:
-            lalamove_error_msg = str(e)
-
-        # E. Compensating Transaction: Automatic Reversal (Void) if logistics placement fails
-        if not lalamove_success:
-            void_success = False
-            try:
-                void_resp = requests.delete(
-                    f"{settings.MAYA_SANDBOX_BASE_URL.rstrip('/')}/payments/{maya_payment_id}",
-                    json={"reason": "Automatic reversal due to logistics failure."},
-                    headers={'Authorization': settings.MAYA_SANDBOX_SECRET_BASIC_AUTH, 'Content-Type': 'application/json'},
-                    timeout=30
-                )
-                if void_resp.status_code == 200:
-                    void_success = True
-                    # Create negative payment record for void
-                    OrderPayment.objects.create(
-                        order=payment_record.order,
-                        amount=-payment_record.amount,
-                        status=PaymentStatus.SUCCESS,
-                        payment_reference=f"void-{payment_record.payment_reference}"
-                    )
-            except Exception:
-                pass
-
-            payment_record.save()
-            exc = APIException(
-                f"Delivery placement failed: {lalamove_error_msg}. " +
-                ("Payment has been automatically reversed." if void_success else "Automatic payment reversal failed. Please contact support for a manual refund.")
+            void_resp = requests.delete(
+                f"{settings.MAYA_SANDBOX_BASE_URL.rstrip('/')}/payments/{maya_payment_id}",
+                json={"reason": "Automatic reversal due to logistics failure."},
+                headers={'Authorization': settings.MAYA_SANDBOX_SECRET_BASIC_AUTH, 'Content-Type': 'application/json'},
+                timeout=30
             )
-            exc.status_code = 502
+            void_success = void_resp.status_code == 200
+        except Exception:
+            pass
+
+        _revert_failed_delivery_claim(
+            donation_id=donation.pk,
+            user_id=user.pk,
+            order_id=order_record.pk,
+            payment_id=payment_record.pk,
+            reversal_reference=f"void-{maya_payment_id}" if void_success else None,
+        )
+        exc = APIException(
+            f"Delivery placement failed: {lalamove_error_msg}. " +
+            ("Payment has been automatically reversed." if void_success else "Automatic payment reversal failed. Please contact support for a manual refund.")
+        )
+        exc.status_code = 502
+        raise exc
+
+    with transaction.atomic():
+        donation = Donation.objects.select_for_update().get(pk=donation.pk)
+        order_record = Order.objects.select_for_update().get(pk=order_record.pk)
+        payment_record = OrderPayment.objects.select_for_update().get(pk=payment_record.pk)
+
+        if donation.claimed_by_tuab_id != user.pk or donation.delivery_method != DonationDeliveryMethod.DELIVERY or order_record.status != OrderStatus.FAILED:
+            exc = APIException("Donation claim could not be finalized because its state changed during delivery scheduling.")
+            exc.status_code = 409
             raise exc
 
-        return {"detail": "Donation successfully claimed and delivery scheduled.", "lalamove_order_id": order_record.lalamove_order_id}
+        order_record.lalamove_order_id = lalamove_order_id
+        order_record.status = OrderStatus.ASSIGNING_DRIVER
+        order_record.updated_at = timezone.now()
+        order_record.save(update_fields=["lalamove_order_id", "status", "updated_at"])
 
-    exc = APIException("Internal system error during orchestration.")
-    exc.status_code = 500
-    raise exc
+        payment_record.payment_reference = maya_payment_id
+        payment_record.status = PaymentStatus.SUCCESS
+        payment_record.updated_at = timezone.now()
+        payment_record.save(update_fields=["payment_reference", "status", "updated_at"])
+
+        log_audit(user, 'donations', 'STATUS_CHANGE', ip_address, ['status', 'claimed_by_tuab', 'delivery_method'])
+
+    return {"detail": "Donation successfully claimed and delivery scheduled.", "lalamove_order_id": lalamove_order_id}
 
 
 def resolve_donation(*, user, donation, validated_data, ip_address=None):
@@ -815,72 +984,74 @@ def resolve_donation(*, user, donation, validated_data, ip_address=None):
 
 
 def unclaim_tuab_donations(*, tuab):
-    # Lock and load all donations claimed by this TUAB to prevent race conditions and deadlocks during unclaiming
-    affected_donations = list(Donation.objects.select_for_update().filter(claimed_by_tuab=tuab).order_by('donation_id'))
+    with transaction.atomic():
+        # Lock and load all donations claimed by this TUAB to prevent race conditions and deadlocks during unclaiming
+        affected_donations = list(Donation.objects.select_for_update().filter(claimed_by_tuab=tuab).order_by('donation_id'))
 
-    # Guard: Block archiving if any claimed delivery is currently in progress (CLAIMED or IN_TRANSIT with DELIVERY method)
-    if any(donation.status in (DonationStatus.CLAIMED, DonationStatus.IN_TRANSIT) and donation.delivery_method == DonationDeliveryMethod.DELIVERY for donation in affected_donations):
+        # Guard: Block archiving if any claimed delivery is currently in progress (CLAIMED or IN_TRANSIT with DELIVERY method)
+        if any(donation.status in (DonationStatus.CLAIMED, DonationStatus.IN_TRANSIT) and donation.delivery_method == DonationDeliveryMethod.DELIVERY for donation in affected_donations):
+            return {
+                "status_code": 409,
+                "detail": "Archiving is not allowed while an associated delivery is in progress.",
+                "changed_donations": [],
+            }
+
+        for donation in affected_donations:
+            # Case 1: Claimed Pickup (safe to unclaim directly)
+            if donation.status == DonationStatus.CLAIMED and donation.delivery_method == DonationDeliveryMethod.PICKUP:
+                donation.claimed_by_tuab = None
+                donation.delivery_method = None
+                donation.status = DonationStatus.PENDING
+                donation.updated_at = timezone.now()
+                donation.save(update_fields=['claimed_by_tuab', 'delivery_method', 'status', 'updated_at'])
+
+            # Case 2: In-Transit Pickup (self-pickup, safe to unclaim directly)
+            elif donation.status == DonationStatus.IN_TRANSIT and donation.delivery_method == DonationDeliveryMethod.PICKUP:
+                donation.claimed_by_tuab = None
+                donation.delivery_method = None
+                donation.status = DonationStatus.PENDING
+                donation.updated_at = timezone.now()
+                donation.save(update_fields=['claimed_by_tuab', 'delivery_method', 'status', 'updated_at'])
+
         return {
-            "status_code": 409,
-            "detail": "Archiving is not allowed while an associated delivery is in progress.",
-            "changed_donations": [],
+            "status_code": 204,
+            "detail": None,
+            "changed_donations": [donation for donation in affected_donations if donation.claimed_by_tuab is None],
         }
-
-    for donation in affected_donations:
-        # Case 1: Claimed Pickup (safe to unclaim directly)
-        if donation.status == DonationStatus.CLAIMED and donation.delivery_method == DonationDeliveryMethod.PICKUP:
-            donation.claimed_by_tuab = None
-            donation.delivery_method = None
-            donation.status = DonationStatus.PENDING
-            donation.updated_at = timezone.now()
-            donation.save(update_fields=['claimed_by_tuab', 'delivery_method', 'status', 'updated_at'])
-
-        # Case 2: In-Transit Pickup (self-pickup, safe to unclaim directly)
-        elif donation.status == DonationStatus.IN_TRANSIT and donation.delivery_method == DonationDeliveryMethod.PICKUP:
-            donation.claimed_by_tuab = None
-            donation.delivery_method = None
-            donation.status = DonationStatus.PENDING
-            donation.updated_at = timezone.now()
-            donation.save(update_fields=['claimed_by_tuab', 'delivery_method', 'status', 'updated_at'])
-
-    return {
-        "status_code": 204,
-        "detail": None,
-        "changed_donations": [donation for donation in affected_donations if donation.claimed_by_tuab is None],
-    }
 
 
 def archive_donor_donations(*, donor):
-    # Lock and load all donations owned by this Donor to prevent concurrency issues during archiving
-    affected_donations = list(Donation.objects.select_for_update().filter(donor=donor).order_by('donation_id'))
+    with transaction.atomic():
+        # Lock and load all donations owned by this Donor to prevent concurrency issues during archiving
+        affected_donations = list(Donation.objects.select_for_update().filter(donor=donor).order_by('donation_id'))
 
-    # Guard: Block archiving if any owned delivery is currently in progress (CLAIMED or IN_TRANSIT with DELIVERY method)
-    if any(donation.status in (DonationStatus.CLAIMED, DonationStatus.IN_TRANSIT) and donation.delivery_method == DonationDeliveryMethod.DELIVERY for donation in affected_donations):
+        # Guard: Block archiving if any owned delivery is currently in progress (CLAIMED or IN_TRANSIT with DELIVERY method)
+        if any(donation.status in (DonationStatus.CLAIMED, DonationStatus.IN_TRANSIT) and donation.delivery_method == DonationDeliveryMethod.DELIVERY for donation in affected_donations):
+            return {
+                "status_code": 409,
+                "detail": "Archiving is not allowed while an associated delivery is in progress.",
+                "changed_donations": [],
+            }
+
+        for donation in affected_donations:
+            # Case 1: Pending Donation (safe to archive directly)
+            if donation.status == DonationStatus.PENDING:
+                donation.status = DonationStatus.ARCHIVED
+                donation.updated_at = timezone.now()
+                donation.save(update_fields=['status', 'updated_at'])
+
+            # Case 2: Claimed or In-Transit Pickup Donation (pickup method, safe to archive directly)
+            elif (
+                donation.status in (DonationStatus.CLAIMED, DonationStatus.IN_TRANSIT)
+                and donation.delivery_method == DonationDeliveryMethod.PICKUP
+            ):
+                donation.status = DonationStatus.ARCHIVED
+                donation.updated_at = timezone.now()
+                donation.save(update_fields=['status', 'updated_at'])
+
         return {
-            "status_code": 409,
-            "detail": "Archiving is not allowed while an associated delivery is in progress.",
-            "changed_donations": [],
+            "status_code": 204,
+            "detail": None,
+            "changed_donations": [donation for donation in affected_donations if donation.status == DonationStatus.ARCHIVED],
         }
-
-    for donation in affected_donations:
-        # Case 1: Pending Donation (safe to archive directly)
-        if donation.status == DonationStatus.PENDING:
-            donation.status = DonationStatus.ARCHIVED
-            donation.updated_at = timezone.now()
-            donation.save(update_fields=['status', 'updated_at'])
-
-        # Case 2: Claimed or In-Transit Pickup Donation (pickup method, safe to archive directly)
-        elif (
-            donation.status in (DonationStatus.CLAIMED, DonationStatus.IN_TRANSIT)
-            and donation.delivery_method == DonationDeliveryMethod.PICKUP
-        ):
-            donation.status = DonationStatus.ARCHIVED
-            donation.updated_at = timezone.now()
-            donation.save(update_fields=['status', 'updated_at'])
-
-    return {
-        "status_code": 204,
-        "detail": None,
-        "changed_donations": [donation for donation in affected_donations if donation.status == DonationStatus.ARCHIVED],
-    }
 

@@ -194,6 +194,41 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
         # - If predictions are rerun, the dominant cost is O(i * t).
         # - Overall worst case: O(m + i * t).
         user = request.user
+
+        if user.role == 'Admin':
+            donation = Donation.objects.filter(pk=kwargs.get('pk')).first()
+            if not donation:
+                raise NotFound("Donation not found.")
+
+            if_match = request.headers.get('If-Match')
+            if not if_match:
+                exc = APIException("If-Match header is required.")
+                exc.status_code = 428
+                raise exc
+            if not matches_if_match(build_updated_at_etag(donation), if_match):
+                exc = APIException("ETag does not match the current resource version.")
+                exc.status_code = 412
+                raise exc
+
+            if donation.status == 'ARCHIVED':
+                exc = APIException("Donations in archived status are immutable.")
+                exc.status_code = 409
+                raise exc
+
+            try:
+                updated_donation = admin_update_donation(request=request, donation=donation)
+            except (ValueError, serializers.ValidationError) as e:
+                if isinstance(e, serializers.ValidationError):
+                    raise
+                exc = APIException(str(e))
+                exc.status_code = 400
+                raise exc
+
+            serializer = DonationDetailSerializer(updated_donation, context={'request': request})
+            response = Response(serializer.data)
+            response['ETag'] = build_updated_at_etag(updated_donation)
+            return response
+
         with transaction.atomic():
             # 0. Fetch with Pessimistic Locking
             donation = Donation.objects.select_for_update().filter(pk=kwargs.get('pk')).first()
@@ -235,29 +270,6 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
                     exc = APIException(f"This donation cannot be modified because its current status is {donation.status.lower().replace('_', ' ')}.")
                     exc.status_code = 409
                     raise exc
-
-            # 3. Admin Path
-            elif user.role == 'Admin':
-                # 3.1. Immutable Statuses
-                if donation.status == 'ARCHIVED':
-                    exc = APIException("Donations in archived status are immutable.")
-                    exc.status_code = 409
-                    raise exc
-
-                # 3.2. Perform Admin Update
-                try:
-                    updated_donation = admin_update_donation(request=request, donation=donation)
-                except (ValueError, serializers.ValidationError) as e:
-                    if isinstance(e, serializers.ValidationError):
-                        raise
-                    exc = APIException(str(e))
-                    exc.status_code = 400
-                    raise exc
-
-                serializer = DonationDetailSerializer(updated_donation, context={'request': request})
-                response = Response(serializer.data)
-                response['ETag'] = build_updated_at_etag(updated_donation)
-                return response
 
             raise PermissionDenied("You are not authorized to edit this donation.")
 

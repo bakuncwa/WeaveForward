@@ -1,6 +1,4 @@
 from django.utils import timezone
-import requests
-from django.conf import settings
 
 from ..models import (
     Donation,
@@ -72,44 +70,6 @@ def archive_user(*, target_user_id):
         if in_progress:
             donation_ids = ", ".join(str(donation.donation_id) for donation in in_progress)
             return {"status_code": 409, "detail": f"Archiving is not allowed while an associated delivery is in progress. Affected donation IDs: {donation_ids}", "changed_donations": [], "changed_inventory_ledgers": [], "user_updated": False}
-
-
-        if target_user.maya_customer_id and target_user.maya_card_id:
-            base_url = settings.MAYA_SANDBOX_BASE_URL.rstrip('/')
-            try:
-                delete_response = requests.delete(
-                    f"{base_url}/customers/{target_user.maya_customer_id}/cards/{target_user.maya_card_id}",
-                    headers={
-                        'Authorization': settings.MAYA_SANDBOX_SECRET_BASIC_AUTH,
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                    },
-                    timeout=30,
-                )
-            except requests.RequestException as exc:
-                return {
-                    "status_code": 502,
-                    "detail": f"Maya card deletion failed: {exc}",
-                    "changed_donations": [],
-                    "changed_inventory_ledgers": [],
-                    "user_updated": False,
-                }
-            if delete_response.status_code != 200:
-                try:
-                    delete_payload = delete_response.json()
-                    delete_error = (
-                        delete_payload.get('error') or delete_payload.get('message') or delete_payload.get('detail') or str(delete_payload)
-                        if isinstance(delete_payload, dict) else str(delete_payload)
-                    )
-                except ValueError:
-                    delete_error = delete_response.text or "Maya request failed."
-                return {
-                    "status_code": 502,
-                    "detail": f"Maya card deletion failed: {delete_error}",
-                    "changed_donations": [],
-                    "changed_inventory_ledgers": [],
-                    "user_updated": False,
-                }
 
         donation_result = unclaim_tuab_donations(tuab=target_user)
         # Guard: Exit early if unclaiming fails (e.g. logistics cancellation or driver assignment checks fail)

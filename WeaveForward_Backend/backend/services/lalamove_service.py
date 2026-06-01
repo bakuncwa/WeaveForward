@@ -167,20 +167,27 @@ def process_lalamove_webhook(payload, client_ip):
             tuab = order_record.donation.claimed_by_tuab
             reference = f"edit-{order_record.order_id}-{int(timezone.now().timestamp())}"[:36]
             payment = OrderPayment.objects.create(order=order_record, amount=amount, status=PaymentStatus.FAILED, payment_reference=reference)
+            maya_url = f"{settings.MAYA_SANDBOX_BASE_URL.rstrip('/')}/customers/{tuab.maya_customer_id}/cards/{tuab.maya_card_id}/payments"
+            maya_payload = {"totalAmount": {"amount": float(amount), "currency": "PHP"}, "cardId": tuab.maya_card_id, "requestReferenceNumber": reference}
 
-            response = requests.post(
-                f"{settings.MAYA_SANDBOX_BASE_URL.rstrip('/')}/customers/{tuab.maya_customer_id}/cards/{tuab.maya_card_id}/payments",
-                json={"totalAmount": {"amount": float(amount), "currency": "PHP"}, "cardId": tuab.maya_card_id, "requestReferenceNumber": reference},
-                headers={"Authorization": settings.MAYA_SANDBOX_SECRET_BASIC_AUTH, "Content-Type": "application/json", "Accept": "application/json"},
-                timeout=30,
-            )
-            response_json = response.json()
-            if response.status_code == 200 and response_json.get("status") == "PAYMENT_SUCCESS":
+        response = requests.post(
+            maya_url,
+            json=maya_payload,
+            headers={"Authorization": settings.MAYA_SANDBOX_SECRET_BASIC_AUTH, "Content-Type": "application/json", "Accept": "application/json"},
+            timeout=30,
+        )
+        response_json = response.json()
+        if response.status_code == 200 and response_json.get("status") == "PAYMENT_SUCCESS":
+            with transaction.atomic():
+                payment = OrderPayment.objects.select_for_update().get(pk=payment.pk)
+                order_record = Order.objects.select_for_update().get(pk=order_record.pk)
+                if payment.status != PaymentStatus.FAILED or order_record.lalamove_order_id != order_data["orderId"]:
+                    return {"status_code": 409, "detail": "Order amount change could not be finalized because the order state changed during payment."}
                 payment.status = PaymentStatus.SUCCESS
                 payment.payment_reference = response_json.get("id")
                 payment.save(update_fields=["status", "payment_reference", "updated_at"])
-                return {"status_code": 200, "detail": "Order amount change charged successfully."}
-            return {"status_code": 502, "detail": f"Maya payment failed: {response_json.get('message', response.text)}"}
+            return {"status_code": 200, "detail": "Order amount change charged successfully."}
+        return {"status_code": 502, "detail": f"Maya payment failed: {response_json.get('message', response.text)}"}
 
     if payload.get("eventType") != "ORDER_STATUS_CHANGED":
         return {"status_code": 200, "detail": f"Webhook event type {payload.get('eventType')} ignored."}
@@ -190,6 +197,9 @@ def process_lalamove_webhook(payload, client_ip):
 
     if not lalamove_order_id:
         return {"status_code": 400, "detail": "Missing orderId in Lalamove webhook payload."}
+
+    payment_ids_to_refund = []
+    webhook_response = None
 
     with transaction.atomic():
         try:
@@ -272,10 +282,8 @@ def process_lalamove_webhook(payload, client_ip):
                 donation_record.updated_at = timezone.now()
                 donation_record.save(update_fields=["status", "delivery_method", "updated_at"])
 
-                for payment_record in order_record.payments.filter(status=PaymentStatus.SUCCESS, amount__gt=0):
-                    reverse_or_refund_payment(payment_record, payment_record.amount)
-
-                return {"status_code": 200, "detail": "Order failed due to max driver rejections. Payment reversed/refunded, donation converted to PICKUP."}
+                payment_ids_to_refund = list(order_record.payments.filter(status=PaymentStatus.SUCCESS, amount__gt=0).values_list("pk", flat=True))
+                webhook_response = {"status_code": 200, "detail": "Order failed due to max driver rejections. Payment reversed/refunded, donation converted to PICKUP."}
             else:
                 order_record.status = OrderStatus.ASSIGNING_DRIVER
                 order_record.no_reassigned += 1
@@ -308,10 +316,13 @@ def process_lalamove_webhook(payload, client_ip):
             donation_record.updated_at = timezone.now()
             donation_record.save(update_fields=["status", "delivery_method", "updated_at"])
 
-            for payment_record in order_record.payments.filter(status=PaymentStatus.SUCCESS, amount__gt=0):
-                reverse_or_refund_payment(payment_record, payment_record.amount)
+            payment_ids_to_refund = list(order_record.payments.filter(status=PaymentStatus.SUCCESS, amount__gt=0).values_list("pk", flat=True))
+            webhook_response = {"status_code": 200, "detail": "Order expired and failed. Payment reversed/refunded, donation converted to PICKUP."}
 
-            return {"status_code": 200, "detail": "Order expired and failed. Payment reversed/refunded, donation converted to PICKUP."}
+    if webhook_response:
+        for payment_record in OrderPayment.objects.filter(pk__in=payment_ids_to_refund):
+            reverse_or_refund_payment(payment_record, payment_record.amount)
+        return webhook_response
 
     return {"status_code": 200, "detail": "Lalamove webhook signature verified successfully."}
 
@@ -429,6 +440,8 @@ def process_expired_orders():
     and transitions them to FAILED, reverts the associated donation to PICKUP,
     and refunds the payment.
     """
+    payment_ids_to_refund = []
+
     with transaction.atomic():
         now = timezone.now()
         expired_orders = Order.objects.select_for_update().filter(
@@ -463,10 +476,14 @@ def process_expired_orders():
                 )
 
             # 3. Refund the payment if it was successful
-            for payment in order.payments.filter(status=PaymentStatus.SUCCESS, amount__gt=0):
-                reverse_or_refund_payment(payment, payment.amount)
+            payment_ids_to_refund.extend(
+                order.payments.filter(status=PaymentStatus.SUCCESS, amount__gt=0).values_list("pk", flat=True)
+            )
 
             expired_count += 1
+
+    for payment in OrderPayment.objects.filter(pk__in=payment_ids_to_refund):
+        reverse_or_refund_payment(payment, payment.amount)
 
     return expired_count
 

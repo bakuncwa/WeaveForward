@@ -529,15 +529,6 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
             'preferred_pickup_date', 'preferred_pickup_window_start', 'preferred_pickup_window_end',
             'items', 'donation_image'
         ]
-        extra_kwargs = {
-            'pickup_latitude': {'required': False, 'allow_null': True},
-            'pickup_longitude': {'required': False, 'allow_null': True},
-            'preferred_pickup_date': {'required': False, 'allow_null': True},
-            'preferred_pickup_window_start': {'required': False, 'allow_null': True},
-            'preferred_pickup_window_end': {'required': False, 'allow_null': True},
-            'pickup_display_address': {'required': False, 'allow_null': True, 'allow_blank': True},
-        }
-
     def update(self, instance, validated_data):
         # 1. Pop non-model fields (items handled by service)
         validated_data.pop('items', None)
@@ -664,24 +655,31 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
         pick_date = data.get('preferred_pickup_date') if 'preferred_pickup_date' in data else self.instance.preferred_pickup_date
         win_start = data.get('preferred_pickup_window_start') if 'preferred_pickup_window_start' in data else self.instance.preferred_pickup_window_start
         win_end = data.get('preferred_pickup_window_end') if 'preferred_pickup_window_end' in data else self.instance.preferred_pickup_window_end
+        is_updating_schedule = ('preferred_pickup_date' in data or 'preferred_pickup_window_start' in data or 'preferred_pickup_window_end' in data)
 
         if 'preferred_pickup_date' not in errors and 'preferred_pickup_window_start' not in errors and 'preferred_pickup_window_end' not in errors:
             pick_date_local = timezone.localtime(pick_date)
-            if 'preferred_pickup_date' in data:
-                if pick_date_local.date() < now_local.date():
-                    errors['preferred_pickup_date'] = "Pickup date cannot be in the past."
-                elif pick_date_local.date() > (now_local + timedelta(days=29)).date():
+            if is_updating_schedule and pick_date_local.date() < now_local.date():
+                errors['preferred_pickup_date'] = "Pickup date cannot be in the past."
+            elif 'preferred_pickup_date' in data:
+                if pick_date_local.date() > (now_local + timedelta(days=29)).date():
                     errors['preferred_pickup_date'] = "Pickup date cannot be more than 29 days into the future."
             
             # Additional check: Today's pickup window cannot start in the past
-            if ('preferred_pickup_date' in data or 'preferred_pickup_window_start' in data):
+            if is_updating_schedule:
                 if pick_date_local.date() == now_local.date() and win_start and win_start < now_local.time():
                     errors['preferred_pickup_window_start'] = "Pickup window start time cannot be in the past for today's pickup."
 
             if win_start and win_end and win_start >= win_end:
                 errors['preferred_pickup_window_start'] = "Start time must be before end time."
 
-        # 6. Items Parsing & Validation (Simplified via nested serializer)
+        # 6. Cross-check: auto_archive_at must be after preferred_pickup_date
+        if is_updating_schedule or 'auto_archive_at' in data:
+            archive = data.get('auto_archive_at') if 'auto_archive_at' in data else self.instance.auto_archive_at
+            if archive and pick_date and timezone.localtime(archive).date() <= timezone.localtime(pick_date).date():
+                errors['auto_archive_at'] = f"The preferred pickup date must be before the auto-archive/expiry date ({timezone.localtime(archive).strftime('%B %d, %Y')})."
+
+        # 7. Items Parsing & Validation (Simplified via nested serializer)
         items_json = data.get('items')
         if items_json:
             try:
@@ -804,7 +802,7 @@ class AdminDonationUpdateSerializer(serializers.ModelSerializer):
         if 'auto_archive_at' in data and data['auto_archive_at'] and data['auto_archive_at'] < timezone.now(): errors['auto_archive_at'] = "Auto archive cannot be earlier than today."
 
         # 1. State-based Lock Validation
-        # Rules:
+        # Rules for a Delivery Donation:
         # - If status is CLAIMED:
         #   Locked fields: The pickup details (pickup_display_address, pickup_latitude,
         #   pickup_longitude, preferred_pickup_date, preferred_pickup_window_start,
@@ -913,24 +911,31 @@ class AdminDonationUpdateSerializer(serializers.ModelSerializer):
         pick_date = data.get('preferred_pickup_date') if 'preferred_pickup_date' in data else self.instance.preferred_pickup_date
         win_start = data.get('preferred_pickup_window_start') if 'preferred_pickup_window_start' in data else self.instance.preferred_pickup_window_start
         win_end = data.get('preferred_pickup_window_end') if 'preferred_pickup_window_end' in data else self.instance.preferred_pickup_window_end
+        is_updating_schedule = ('preferred_pickup_date' in data or 'preferred_pickup_window_start' in data or 'preferred_pickup_window_end' in data)
 
         if 'preferred_pickup_date' not in errors and 'preferred_pickup_window_start' not in errors and 'preferred_pickup_window_end' not in errors:
             pick_date_local = timezone.localtime(pick_date)
-            if 'preferred_pickup_date' in data:
-                if pick_date_local.date() < now_local.date():
-                    errors['preferred_pickup_date'] = "Pickup date cannot be in the past."
-                elif pick_date_local.date() > (now_local + timedelta(days=29)).date():
+            if is_updating_schedule and pick_date_local.date() < now_local.date():
+                errors['preferred_pickup_date'] = "Pickup date cannot be in the past."
+            elif 'preferred_pickup_date' in data:
+                if pick_date_local.date() > (now_local + timedelta(days=29)).date():
                     errors['preferred_pickup_date'] = "Pickup date cannot be more than 29 days into the future."
             
             # Additional check: Today's pickup window cannot start in the past
-            if ('preferred_pickup_date' in data or 'preferred_pickup_window_start' in data):
+            if is_updating_schedule:
                 if pick_date_local.date() == now_local.date() and win_start and win_start < now_local.time():
                     errors['preferred_pickup_window_start'] = "Pickup window start time cannot be in the past for today's pickup."
 
             if win_start and win_end and win_start >= win_end:
                 errors['preferred_pickup_window_start'] = "Start time must be before end time."
 
-        # 4. Items validation (reusing items updates logic)
+        # 4. Cross-check: auto_archive_at must be after preferred_pickup_date
+        if is_updating_schedule or 'auto_archive_at' in data:
+            archive = data.get('auto_archive_at') if 'auto_archive_at' in data else self.instance.auto_archive_at
+            if archive and pick_date and timezone.localtime(archive).date() <= timezone.localtime(pick_date).date():
+                errors['auto_archive_at'] = f"The preferred pickup date must be before the auto-archive/expiry date ({timezone.localtime(archive).strftime('%B %d, %Y')})."
+
+        # 5. Items validation (reusing items updates logic)
         items_json = data.get('items')
         if items_json:
             try:
