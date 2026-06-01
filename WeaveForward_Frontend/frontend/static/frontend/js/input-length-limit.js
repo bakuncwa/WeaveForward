@@ -1,5 +1,6 @@
 (function () {
   const maxLength = Number(window.WF_TEXT_FIELD_MAX_LENGTH || 1000);
+  const numberMaxLength = 50;
   const skippedTypes = new Set([
     'button',
     'checkbox',
@@ -10,7 +11,6 @@
     'hidden',
     'image',
     'month',
-    'number',
     'radio',
     'range',
     'reset',
@@ -25,6 +25,17 @@
 
     if (tagName === 'input' && skippedTypes.has(type)) return;
     if (field.readOnly || field.disabled) return;
+
+    if (tagName === 'input' && type === 'number') {
+      if (field.dataset.wfLengthCapAttached) return;
+      field.dataset.wfLengthCapAttached = 'true';
+      field.addEventListener('input', function () {
+        if (field.value.length > numberMaxLength) {
+          field.value = field.value.slice(0, numberMaxLength);
+        }
+      });
+      return;
+    }
 
     const currentMax = Number(field.getAttribute('maxlength'));
     if (!currentMax || currentMax > maxLength) {
