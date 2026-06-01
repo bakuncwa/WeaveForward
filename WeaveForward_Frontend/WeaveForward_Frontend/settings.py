@@ -59,6 +59,7 @@ TEMPLATES = [
             'context_processors': [
                 'django.template.context_processors.request',
                 'django.contrib.messages.context_processors.messages',
+                'frontend.context_processors.frontend_constants',
             ],
         },
     },

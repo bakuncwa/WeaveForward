@@ -860,6 +860,10 @@
       }, duration);
     }
   </script>
+  <script>
+    window.WF_TEXT_FIELD_MAX_LENGTH = {{ TEXT_FIELD_MAX_LENGTH }};
+  </script>
+  <script src="{% static 'frontend/js/input-length-limit.js' %}"></script>
 
 </body>
 

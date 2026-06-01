@@ -412,6 +412,10 @@
     async function cfMap() { gE('lat').value = (+tLt).toFixed(7); gE('lng').value = (+tLg).toFixed(7); const lt = gE('lat').value, lg = gE('lng').value; clMap(); try { const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lt}&lon=${lg}`); gE('addr').value = (await r.json()).display_name || `${lt}, ${lg}` } catch { } fLD(lt, lg) }
     function clMap() { gE('map-modal').classList.add('hidden') }
   </script>
+  <script>
+    window.WF_TEXT_FIELD_MAX_LENGTH = {{ TEXT_FIELD_MAX_LENGTH }};
+  </script>
+  <script src="{% static 'frontend/js/input-length-limit.js' %}"></script>
 </body>
 
 </html>

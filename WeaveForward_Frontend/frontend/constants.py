@@ -3,7 +3,7 @@ import os
 # Base Backend URL
 BACKEND_BASE_URL = os.getenv("BACKEND_BASE_URL", "http://127.0.0.1:8000/api")
 
-TEXT_FIELD_MAX_LENGTH = 1000
+TEXT_FIELD_MAX_LENGTH = 10000
 
 # Strict Fiber Whitelist (Must match backend/constants.py)
 ALLOWED_FIBERS = [
