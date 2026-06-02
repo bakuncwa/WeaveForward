@@ -338,40 +338,39 @@ def admin_update_donation(*, request, donation) -> Donation:
     lalamove_update_lalamove_order_id = None
 
     if dropoff_address is not None or dropoff_lat is not None or dropoff_lng is not None:
-        with transaction.atomic():
-            donation = Donation.objects.select_for_update().get(pk=donation.pk)
+        donation = Donation.objects.get(pk=donation.pk)
 
-            if donation.status == DonationStatus.ARCHIVED:
-                exc = APIException("Donations in archived status are immutable.")
-                exc.status_code = 409
-                raise exc
+        if donation.status == DonationStatus.ARCHIVED:
+            exc = APIException("Donations in archived status are immutable.")
+            exc.status_code = 409
+            raise exc
 
-            if_match = request.headers.get('If-Match')
-            if if_match and not matches_if_match(build_updated_at_etag(donation), if_match):
-                exc = APIException("ETag does not match the current resource version.")
-                exc.status_code = 412
-                raise exc
+        if_match = request.headers.get('If-Match')
+        if if_match and not matches_if_match(build_updated_at_etag(donation), if_match):
+            exc = APIException("ETag does not match the current resource version.")
+            exc.status_code = 412
+            raise exc
 
-            order = donation.orders.select_for_update().filter(status__in=['ASSIGNING_DRIVER', 'ON_GOING', 'PICKED_UP']).first()
-            if order and order.lalamove_order_id:
-                lalamove_update_order_id = order.pk
-                lalamove_update_lalamove_order_id = order.lalamove_order_id
-                lalamove_update_payload = {
-                    "lalamove_order_id": order.lalamove_order_id,
-                    "pickup_lat": v_data.get('pickup_latitude', donation.pickup_latitude),
-                    "pickup_lng": v_data.get('pickup_longitude', donation.pickup_longitude),
-                    "pickup_address": v_data.get('pickup_display_address', donation.pickup_display_address) or "N/A",
-                    "dropoff_lat": dropoff_lat if dropoff_lat is not None else order.dropoff_latitude,
-                    "dropoff_lng": dropoff_lng if dropoff_lng is not None else order.dropoff_longitude,
-                    "dropoff_address": dropoff_address if dropoff_address is not None else order.dropoff_display_address,
-                    "pickup_name": f"{donation.donor.first_name or ''} {donation.donor.last_name or ''}".strip(),
-                    "pickup_phone": donation.donor.contact_no,
-                    "dropoff_name": (
-                        f"{(donation.claimed_by_tuab.first_name if donation.claimed_by_tuab else '') or ''} "
-                        f"{(donation.claimed_by_tuab.last_name if donation.claimed_by_tuab else '') or ''}"
-                    ).strip() or (donation.claimed_by_tuab.business_name if donation.claimed_by_tuab else ""),
-                    "dropoff_phone": donation.claimed_by_tuab.contact_no if donation.claimed_by_tuab else None,
-                }
+        order = donation.orders.filter(status__in=['ASSIGNING_DRIVER', 'ON_GOING', 'PICKED_UP']).first()
+        if order and order.lalamove_order_id:
+            lalamove_update_order_id = order.pk
+            lalamove_update_lalamove_order_id = order.lalamove_order_id
+            lalamove_update_payload = {
+                "lalamove_order_id": order.lalamove_order_id,
+                "pickup_lat": v_data.get('pickup_latitude', donation.pickup_latitude),
+                "pickup_lng": v_data.get('pickup_longitude', donation.pickup_longitude),
+                "pickup_address": v_data.get('pickup_display_address', donation.pickup_display_address) or "N/A",
+                "dropoff_lat": dropoff_lat if dropoff_lat is not None else order.dropoff_latitude,
+                "dropoff_lng": dropoff_lng if dropoff_lng is not None else order.dropoff_longitude,
+                "dropoff_address": dropoff_address if dropoff_address is not None else order.dropoff_display_address,
+                "pickup_name": f"{donation.donor.first_name or ''} {donation.donor.last_name or ''}".strip(),
+                "pickup_phone": donation.donor.contact_no,
+                "dropoff_name": (
+                    f"{(donation.claimed_by_tuab.first_name if donation.claimed_by_tuab else '') or ''} "
+                    f"{(donation.claimed_by_tuab.last_name if donation.claimed_by_tuab else '') or ''}"
+                ).strip() or (donation.claimed_by_tuab.business_name if donation.claimed_by_tuab else ""),
+                "dropoff_phone": donation.claimed_by_tuab.contact_no if donation.claimed_by_tuab else None,
+            }
 
         if lalamove_update_payload:
             res = update_lalamove_order(**lalamove_update_payload)
@@ -495,6 +494,51 @@ def cancel_donation(*, user, donation, ip_address=None):
 
     payment_ids_to_refund = []
 
+    if user.role == "Admin":
+        current_donation = Donation.objects.get(pk=donation.pk)
+        if current_donation.status == DonationStatus.CLAIMED and current_donation.delivery_method == DonationDeliveryMethod.DELIVERY:
+            # Retrieve the active delivery order associated with this donation before the external cancellation call.
+            order = Order.objects.filter(donation=current_donation).exclude(status=OrderStatus.CANCELLED).first()
+            if not order or not order.lalamove_order_id:
+                raise NotFound("Could not find an active delivery order associated with this donation.")
+
+            lalamove_order_id = order.lalamove_order_id
+            order_id = order.pk
+
+            # Terminate the order outside the database transaction
+            lalamove_res = cancel_lalamove_order(lalamove_order_id)
+            if "error" in lalamove_res:
+                _raise_external_api_error(
+                    "Lalamove cancellation failed. We were unable to cancel the delivery at this time. Please try again. Error detail",
+                    lalamove_res,
+                    default_status=502,
+                )
+
+            with transaction.atomic():
+                donation = Donation.objects.select_for_update().get(pk=donation.pk)
+                order = Order.objects.select_for_update().get(pk=order_id)
+
+                if donation.status != DonationStatus.CLAIMED or donation.delivery_method != DonationDeliveryMethod.DELIVERY or order.status == OrderStatus.CANCELLED:
+                    exc = APIException("This donation can no longer be cancelled because its state changed during delivery cancellation.")
+                    exc.status_code = 409
+                    raise exc
+
+                order.status, order.updated_at = OrderStatus.CANCELLED, timezone.now()
+                order.save(update_fields=["status", "updated_at"])
+
+                donation.status, donation.updated_at = DonationStatus.CANCELLED, timezone.now()
+                donation.save(update_fields=["status", "updated_at"])
+
+                payment_ids_to_refund = list(order.payments.filter(status=PaymentStatus.SUCCESS, amount__gt=0).values_list("pk", flat=True))
+
+                # Write to the audit trail logging the status change
+                log_audit(user, "donations", "STATUS_CHANGE", ip_address, ["status"])
+
+            for payment in OrderPayment.objects.filter(pk__in=payment_ids_to_refund):
+                reverse_or_refund_payment(payment, payment.amount)
+
+            return {"detail": "Donation and associated delivery successfully cancelled by admin."}
+
     # Execute local cancellation checks and state changes inside short transactions
     with transaction.atomic():
         # Retrieve donation with database pessimistic locking to avoid race conditions
@@ -538,55 +582,11 @@ def cancel_donation(*, user, donation, ip_address=None):
                 log_audit(user, "donations", "STATUS_CHANGE", ip_address, ["status"])
                 return {"detail": "Donation successfully cancelled by admin."}
 
-            # Case 3: Claimed Delivery Donation Cancellation (requires external logistics cancellation and payment refund)
-            elif donation.status == DonationStatus.CLAIMED and donation.delivery_method == DonationDeliveryMethod.DELIVERY:
-                # Retrieve the active delivery order associated with this donation
-                order = Order.objects.select_for_update().filter(donation=donation).exclude(status=OrderStatus.CANCELLED).first()
-                if not order or not order.lalamove_order_id:
-                    raise NotFound("Could not find an active delivery order associated with this donation.")
-
-                lalamove_order_id = order.lalamove_order_id
-                order_id = order.pk
-
             # Admin is forbidden from cancelling in any other status
             else:
                 exc = APIException(f"This donation cannot be cancelled because its current status is {DonationStatus(donation.status).label}.")
                 exc.status_code = 409
                 raise exc
-
-    # Terminate the order outside the database transaction
-    lalamove_res = cancel_lalamove_order(lalamove_order_id)
-    if "error" in lalamove_res:
-        _raise_external_api_error(
-            "Lalamove cancellation failed. We were unable to cancel the delivery at this time. Please try again. Error detail",
-            lalamove_res,
-            default_status=502,
-        )
-
-    with transaction.atomic():
-        donation = Donation.objects.select_for_update().get(pk=donation.pk)
-        order = Order.objects.select_for_update().get(pk=order_id)
-
-        if donation.status != DonationStatus.CLAIMED or donation.delivery_method != DonationDeliveryMethod.DELIVERY or order.status == OrderStatus.CANCELLED:
-            exc = APIException("This donation can no longer be cancelled because its state changed during delivery cancellation.")
-            exc.status_code = 409
-            raise exc
-
-        order.status, order.updated_at = OrderStatus.CANCELLED, timezone.now()
-        order.save(update_fields=["status", "updated_at"])
-
-        donation.status, donation.updated_at = DonationStatus.CANCELLED, timezone.now()
-        donation.save(update_fields=["status", "updated_at"])
-
-        payment_ids_to_refund = list(order.payments.filter(status=PaymentStatus.SUCCESS, amount__gt=0).values_list("pk", flat=True))
-
-        # Write to the audit trail logging the status change
-        log_audit(user, "donations", "STATUS_CHANGE", ip_address, ["status"])
-
-    for payment in OrderPayment.objects.filter(pk__in=payment_ids_to_refund):
-        reverse_or_refund_payment(payment, payment.amount)
-
-    return {"detail": "Donation and associated delivery successfully cancelled by admin."}
 
 
 def archive_donation(*, user, donation, ip_address=None):
@@ -598,20 +598,16 @@ def archive_donation(*, user, donation, ip_address=None):
     lalamove_order_id = None
     payment_ids_to_refund = []
 
-    with transaction.atomic():
-        # Retrieve donation with database pessimistic locking
-        donation = Donation.objects.select_for_update().get(pk=donation.pk)
+    donation = Donation.objects.get(pk=donation.pk)
+    order = Order.objects.filter(donation=donation).exclude(
+        status__in=[OrderStatus.COMPLETED, OrderStatus.CANCELLED, OrderStatus.FAILED]
+    ).first()
 
-        # Check if there is an in-progress delivery order
-        order = Order.objects.select_for_update().filter(donation=donation).exclude(
-            status__in=[OrderStatus.COMPLETED, OrderStatus.CANCELLED, OrderStatus.FAILED]
-        ).first()
-
-        if order:
-            if not order.lalamove_order_id:
-                raise NotFound("Could not find an active delivery order associated with this donation.")
-            order_id = order.pk
-            lalamove_order_id = order.lalamove_order_id
+    if order:
+        if not order.lalamove_order_id:
+            raise NotFound("Could not find an active delivery order associated with this donation.")
+        order_id = order.pk
+        lalamove_order_id = order.lalamove_order_id
 
     if lalamove_order_id:
         lalamove_res = cancel_lalamove_order(lalamove_order_id)

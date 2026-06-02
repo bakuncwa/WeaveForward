@@ -8,3 +8,10 @@ __pycache__/
 db.sqlite3
 .git/
 .gitignore
+
+# Production: media goes to GCS, not the image
+media/
+
+# Local dev artifacts
+scratch/
+backend/data/visualizations/

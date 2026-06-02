@@ -21,11 +21,11 @@ from ..models import (
 MAYA_REQUEST_TIMEOUT_SECONDS = 30
 
 
-def get_active_subscriptions_for_user(*, user):
-    return list(
-        Subscription.objects.select_for_update()
-        .filter(user=user, status=SubscriptionStatus.ACTIVE)
-    )
+def get_active_subscriptions_for_user(*, user, for_update=True):
+    qs = Subscription.objects
+    if for_update:
+        qs = qs.select_for_update()
+    return list(qs.filter(user=user, status=SubscriptionStatus.ACTIVE))
 
 
 def _maya_headers(authorization_value):
@@ -65,25 +65,24 @@ def _maya_delete(*, url, authorization_value):
 
 
 def subscribe_user(*, target_user_id, first_name, last_name, card, frontend_base_url):
-    with transaction.atomic():
-        try:
-            user = User.objects.select_for_update().get(pk=target_user_id)
-        except User.DoesNotExist:
-            return {"status_code": 404, "detail": "User not found."}
+    try:
+        user = User.objects.get(pk=target_user_id)
+    except User.DoesNotExist:
+        return {"status_code": 404, "detail": "User not found."}
 
-        if user.status != UserAccountStatus.ACTIVE:
-            return {"status_code": 409, "detail": "Only active TUAB users can subscribe."}
+    if user.status != UserAccountStatus.ACTIVE:
+        return {"status_code": 409, "detail": "Only active TUAB users can subscribe."}
 
-        active_subscriptions = get_active_subscriptions_for_user(user=user)
-        if active_subscriptions:
-            return {"status_code": 409, "detail": "User is already subscribed."}
+    active_subscriptions = get_active_subscriptions_for_user(user=user, for_update=False)
+    if active_subscriptions:
+        return {"status_code": 409, "detail": "User is already subscribed."}
 
-        if not settings.MAYA_SANDBOX_SECRET_BASIC_AUTH or not settings.MAYA_SANDBOX_PUBLIC_BASIC_AUTH:
-            return {"status_code": 500, "detail": "Maya sandbox credentials are not configured."}
+    if not settings.MAYA_SANDBOX_SECRET_BASIC_AUTH or not settings.MAYA_SANDBOX_PUBLIC_BASIC_AUTH:
+        return {"status_code": 500, "detail": "Maya sandbox credentials are not configured."}
 
-        base_url = settings.MAYA_SANDBOX_BASE_URL.rstrip('/')
+    base_url = settings.MAYA_SANDBOX_BASE_URL.rstrip('/')
 
-        customer_id = user.maya_customer_id
+    customer_id = user.maya_customer_id
 
     if not customer_id:
         try:
@@ -220,21 +219,20 @@ def _activate_subscription_from_maya_verification(payload):
     if v_resp.status_code != 200 or v_resp.json().get('status') not in ['PAYMENT_SUCCESS', 'VOIDED']:
         return {"status_code": 200, "detail": "Maya verification failed."}
 
-    with transaction.atomic():
-        user = User.objects.select_for_update().get(role=UserRole.TUAB, maya_card_id=maya_card_token_id)
+    user = User.objects.get(role=UserRole.TUAB, maya_card_id=maya_card_token_id)
 
-        if user.status != UserAccountStatus.ACTIVE:
-            return {"status_code": 200, "detail": "Maya webhook ignored because the matched TUAB is not active."}
-        if get_active_subscriptions_for_user(user=user):
-            return {"status_code": 200, "detail": "Maya webhook ignored because the matched TUAB is already subscribed."}
-        if not all((settings.MAYA_SANDBOX_SECRET_BASIC_AUTH, settings.MAYA_SANDBOX_BASE_URL, user.maya_customer_id, user.maya_card_id)):
-            return {"status_code": 500, "detail": "Maya subscription charge is not fully configured for the matched user."}
+    if user.status != UserAccountStatus.ACTIVE:
+        return {"status_code": 200, "detail": "Maya webhook ignored because the matched TUAB is not active."}
+    if get_active_subscriptions_for_user(user=user, for_update=False):
+        return {"status_code": 200, "detail": "Maya webhook ignored because the matched TUAB is already subscribed."}
+    if not all((settings.MAYA_SANDBOX_SECRET_BASIC_AUTH, settings.MAYA_SANDBOX_BASE_URL, user.maya_customer_id, user.maya_card_id)):
+        return {"status_code": 500, "detail": "Maya subscription charge is not fully configured for the matched user."}
 
-        request_reference_number = payload.get('id') or f"user-{user.user_id}-{int(timezone.now().timestamp())}"
-        request_reference_number = request_reference_number[:36]
-        user_id = user.pk
-        maya_customer_id = user.maya_customer_id
-        maya_card_id = user.maya_card_id
+    request_reference_number = payload.get('id') or f"user-{user.user_id}-{int(timezone.now().timestamp())}"
+    request_reference_number = request_reference_number[:36]
+    user_id = user.pk
+    maya_customer_id = user.maya_customer_id
+    maya_card_id = user.maya_card_id
 
     charge_response = _maya_post(
         url=f"{settings.MAYA_SANDBOX_BASE_URL.rstrip('/')}/customers/{maya_customer_id}/cards/{maya_card_id}/payments",
