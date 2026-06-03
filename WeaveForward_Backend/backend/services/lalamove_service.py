@@ -19,7 +19,7 @@ def get_lalamove_quotation(pickup_lat, pickup_lng, pickup_address, dropoff_lat, 
     """
     api_key = settings.LALAMOVE_API_KEY
     api_secret = settings.LALAMOVE_API_SECRET
-    base_url = "https://rest.sandbox.lalamove.com"
+    base_url = settings.LALAMOVE_BASE_URL
     path = "/v3/quotations"
     
     # Ensure coordinates are formatted to 7 decimal places as requested
@@ -165,6 +165,8 @@ def process_lalamove_webhook(payload, client_ip):
             if amount <= 0:
                 return {"status_code": 200, "detail": "Order amount change did not require an additional charge."}
             tuab = order_record.donation.claimed_by_tuab
+            if not tuab or not tuab.maya_customer_id or not tuab.maya_card_id:
+                return {"status_code": 200, "detail": "Order amount change could not be charged because the TUAB has no valid payment method."}
             reference = f"edit-{order_record.order_id}-{int(timezone.now().timestamp())}"[:36]
             payment = OrderPayment.objects.create(order=order_record, amount=amount, status=PaymentStatus.FAILED, payment_reference=reference)
             maya_url = f"{settings.MAYA_SANDBOX_BASE_URL.rstrip('/')}/customers/{tuab.maya_customer_id}/cards/{tuab.maya_card_id}/payments"
@@ -331,7 +333,7 @@ def cancel_lalamove_order(lalamove_order_id):
     # Lalamove credentials from settings
     api_key = settings.LALAMOVE_API_KEY
     api_secret = settings.LALAMOVE_API_SECRET
-    base_url = "https://rest.sandbox.lalamove.com"
+    base_url = settings.LALAMOVE_BASE_URL
     path = f"/v3/orders/{lalamove_order_id}"
     # DELETE request body must be empty string
     body = ""
@@ -376,7 +378,7 @@ def update_lalamove_order(
 ):
     api_key = settings.LALAMOVE_API_KEY
     api_secret = settings.LALAMOVE_API_SECRET
-    base_url = "https://rest.sandbox.lalamove.com"
+    base_url = settings.LALAMOVE_BASE_URL
     path = f"/v3/orders/{lalamove_order_id}"
 
     formatted_pickup_lat = "{:.7f}".format(float(pickup_lat))

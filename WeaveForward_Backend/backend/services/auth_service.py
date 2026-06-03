@@ -1,15 +1,22 @@
 from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from PIL import Image
 from rest_framework import exceptions
 from rest_framework.authentication import CSRFCheck
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.settings import api_settings
 import secrets
 import hashlib
+import io
+import os
+import uuid
 from urllib.parse import urlsplit
-from ..models import User, ApiToken
+from ..constants import ALLOWED_IMAGE_EXTENSIONS, IMAGE_COMPRESSION_QUALITY
+from ..models import Upload, User, ApiToken
 
 ACCESS_COOKIE_NAME = "access_token"
 REFRESH_COOKIE_NAME = "refresh_token"
@@ -113,3 +120,22 @@ def generate_api_key(user):
     raw_key = secrets.token_urlsafe(32)
     ApiToken.objects.create(user=user, token=hashlib.sha1(raw_key.encode()).hexdigest())
     return raw_key
+
+
+def create_tuab_documentation_upload(documentation):
+    # Process and Minify image files
+    if documentation:
+        ext = os.path.splitext(documentation.name)[1].lower()
+        if ext in ALLOWED_IMAGE_EXTENSIONS:
+            img = Image.open(documentation)
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            buffer = io.BytesIO()
+            img.save(buffer, format="JPEG", quality=IMAGE_COMPRESSION_QUALITY, optimize=True)
+            documentation = ContentFile(buffer.getvalue(), name=os.path.splitext(documentation.name)[0] + ".jpg")
+
+        safe_name = f"{uuid.uuid4().hex}{os.path.splitext(documentation.name)[1]}"
+        path = default_storage.save(f'documentation/{safe_name}', documentation)
+        return Upload.objects.create(file_path=path, name=os.path.basename(safe_name))
+
+    return None

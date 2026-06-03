@@ -17,7 +17,7 @@ from django.conf import settings
 from django.utils.dateparse import parse_datetime
 import uuid
 
-from ..models import Donation, DonationItem, Upload, User, DonationStatus, DonationItemConditionRating, Order, OrderPayment, OrderStatus, PaymentStatus, DonationDeliveryMethod, UserRole, InventoryLedger
+from ..models import Donation, DonationItem, Upload, User, DonationStatus, DonationItemConditionRating, Order, OrderPayment, OrderStatus, PaymentStatus, DonationDeliveryMethod, UserRole, InventoryLedger, MatchPrediction
 from ..serializers.donations import DonationCreateSerializer, DonorDonationUpdateSerializer, AdminDonationUpdateSerializer
 from .lalamove_service import cancel_lalamove_order, reverse_or_refund_payment, update_lalamove_order
 from .location_service import get_city_and_barangay
@@ -498,7 +498,7 @@ def cancel_donation(*, user, donation, ip_address=None):
         current_donation = Donation.objects.get(pk=donation.pk)
         if current_donation.status == DonationStatus.CLAIMED and current_donation.delivery_method == DonationDeliveryMethod.DELIVERY:
             # Retrieve the active delivery order associated with this donation before the external cancellation call.
-            order = Order.objects.filter(donation=current_donation).exclude(status=OrderStatus.CANCELLED).first()
+            order = Order.objects.filter(donation=current_donation).exclude(status__in=[OrderStatus.CANCELLED, OrderStatus.FAILED]).exclude(lalamove_order_id__isnull=True).first()
             if not order or not order.lalamove_order_id:
                 raise NotFound("Could not find an active delivery order associated with this donation.")
 
@@ -816,7 +816,7 @@ def claim_donation(user, donation, claim_params, ip_address=None):
     lalamove_error_msg = "Unknown logistics error"
     lalamove_order_id = None
     try:
-        l_resp = requests.post("https://rest.sandbox.lalamove.com/v3/orders", data=l_body, headers={"Authorization": f"hmac {settings.LALAMOVE_API_KEY}:{l_ts}:{l_sig}", "Market": "PH", "Request-ID": str(uuid.uuid4()), "Content-Type": "application/json", "Accept": "application/json"}, timeout=30)
+        l_resp = requests.post(f"{settings.LALAMOVE_BASE_URL}/v3/orders", data=l_body, headers={"Authorization": f"hmac {settings.LALAMOVE_API_KEY}:{l_ts}:{l_sig}", "Market": "PH", "Request-ID": str(uuid.uuid4()), "Content-Type": "application/json", "Accept": "application/json"}, timeout=30)
         if l_resp.status_code in [200, 201]:
             lalamove_order_id = l_resp.json().get("data", {}).get("orderId")
             lalamove_success = True
@@ -852,27 +852,31 @@ def claim_donation(user, donation, claim_params, ip_address=None):
         exc.status_code = 502
         raise exc
 
-    with transaction.atomic():
-        donation = Donation.objects.select_for_update().get(pk=donation.pk)
-        order_record = Order.objects.select_for_update().get(pk=order_record.pk)
-        payment_record = OrderPayment.objects.select_for_update().get(pk=payment_record.pk)
+    try:
+        with transaction.atomic():
+            donation = Donation.objects.select_for_update().get(pk=donation.pk)
+            order_record = Order.objects.select_for_update().get(pk=order_record.pk)
+            payment_record = OrderPayment.objects.select_for_update().get(pk=payment_record.pk)
 
-        if donation.claimed_by_tuab_id != user.pk or donation.delivery_method != DonationDeliveryMethod.DELIVERY or order_record.status != OrderStatus.FAILED:
-            exc = APIException("Donation claim could not be finalized because its state changed during delivery scheduling.")
-            exc.status_code = 409
-            raise exc
+            if donation.claimed_by_tuab_id != user.pk or donation.delivery_method != DonationDeliveryMethod.DELIVERY or order_record.status != OrderStatus.FAILED:
+                exc = APIException("Donation claim could not be finalized because its state changed during delivery scheduling.")
+                exc.status_code = 409
+                raise exc
 
-        order_record.lalamove_order_id = lalamove_order_id
-        order_record.status = OrderStatus.ASSIGNING_DRIVER
-        order_record.updated_at = timezone.now()
-        order_record.save(update_fields=["lalamove_order_id", "status", "updated_at"])
+            order_record.lalamove_order_id = lalamove_order_id
+            order_record.status = OrderStatus.ASSIGNING_DRIVER
+            order_record.updated_at = timezone.now()
+            order_record.save(update_fields=["lalamove_order_id", "status", "updated_at"])
 
-        payment_record.payment_reference = maya_payment_id
-        payment_record.status = PaymentStatus.SUCCESS
-        payment_record.updated_at = timezone.now()
-        payment_record.save(update_fields=["payment_reference", "status", "updated_at"])
+            payment_record.payment_reference = maya_payment_id
+            payment_record.status = PaymentStatus.SUCCESS
+            payment_record.updated_at = timezone.now()
+            payment_record.save(update_fields=["payment_reference", "status", "updated_at"])
 
-        log_audit(user, 'donations', 'STATUS_CHANGE', ip_address, ['status', 'claimed_by_tuab', 'delivery_method'])
+            log_audit(user, 'donations', 'STATUS_CHANGE', ip_address, ['status', 'claimed_by_tuab', 'delivery_method'])
+    except Exception:
+        cancel_lalamove_order(lalamove_order_id)
+        raise
 
     return {"detail": "Donation successfully claimed and delivery scheduled.", "lalamove_order_id": lalamove_order_id}
 

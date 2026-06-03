@@ -220,12 +220,16 @@ class MatchRecommendationViewSet(viewsets.GenericViewSet, PaginatedResponseMixin
                 return Response({'detail': 'Recommendation not found or no longer pending'},
                                 status=status.HTTP_404_NOT_FOUND)
 
+            donation = match_pred.item.donation
+            if donation.status != 'PENDING':
+                return Response({'detail': 'This donation is no longer available.'},
+                                status=status.HTTP_409_CONFLICT)
+
             match_pred.recommendation_status = MatchRecommendationStatus.ACCEPTED
             match_pred.save(update_fields=['recommendation_status'])
             log_audit(actor=request.user, entity_type='MatchPrediction', action='ACCEPT_RECOMMENDATION',
                       fields_modified='recommendation_status', ip_address=get_client_ip(request))
 
-            donation = match_pred.item.donation
             donor = donation.donor
             already_notified = MatchPrediction.objects.filter(
                 tuab=request.user,
@@ -278,6 +282,11 @@ class MatchRecommendationViewSet(viewsets.GenericViewSet, PaginatedResponseMixin
                 return Response({'detail': 'Recommendation not found or no longer pending'},
                                 status=status.HTTP_404_NOT_FOUND)
 
+            donation = match_pred.item.donation
+            if donation.status != 'PENDING':
+                return Response({'detail': 'This donation is no longer available.'},
+                                status=status.HTTP_409_CONFLICT)
+
             reason = serializer.validated_data.get('reason')
             match_pred.recommendation_status = MatchRecommendationStatus.REJECTED
             match_pred.tuab_rejection_reason = reason if reason and reason.strip() else None
@@ -285,7 +294,6 @@ class MatchRecommendationViewSet(viewsets.GenericViewSet, PaginatedResponseMixin
             log_audit(actor=request.user, entity_type='MatchPrediction', action='REJECT_RECOMMENDATION',
                       fields_modified='recommendation_status,tuab_rejection_reason', ip_address=get_client_ip(request))
 
-            donation = match_pred.item.donation
             donor = donation.donor
             already_notified = MatchPrediction.objects.filter(
                 tuab=request.user,

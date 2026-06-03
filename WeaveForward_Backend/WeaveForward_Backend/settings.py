@@ -55,6 +55,7 @@ IS_PRODUCTION = ENVIRONMENT == "production"
 # - RESEND_API_KEY
 # - LALAMOVE_API_KEY
 # - LALAMOVE_API_SECRET
+# - LALAMOVE_BASE_URL
 # - MAYA_API_SECRET_KEY
 # - MAYA_API_PUBLIC_KEY
 # - MAYA_SANDBOX_BASE_URL
@@ -93,6 +94,11 @@ CATALOG_CSV_PATH = _get_env("CATALOG_CSV_PATH", "backend/data/webscraped_data/we
 RESEND_API_KEY = _get_env("RESEND_API_KEY", default=None, required=IS_PRODUCTION)
 LALAMOVE_API_KEY = _get_env("LALAMOVE_API_KEY", default=None, required=IS_PRODUCTION)
 LALAMOVE_API_SECRET = _get_env("LALAMOVE_API_SECRET", default=None, required=IS_PRODUCTION)
+LALAMOVE_BASE_URL = _get_env(
+    "LALAMOVE_BASE_URL",
+    default="https://rest.sandbox.lalamove.com" if not IS_PRODUCTION else None,
+    required=IS_PRODUCTION,
+).rstrip("/")
 MAYA_API_SECRET_KEY = _get_env("MAYA_API_SECRET_KEY", default=None, required=IS_PRODUCTION)
 MAYA_API_PUBLIC_KEY = _get_env("MAYA_API_PUBLIC_KEY", default=None, required=IS_PRODUCTION)
 MAYA_SANDBOX_BASE_URL = _get_env(

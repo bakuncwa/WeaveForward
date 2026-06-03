@@ -140,24 +140,27 @@ class DonationDetailSerializer(serializers.ModelSerializer):
     def get_upload(self, obj):
         return build_upload_url(obj.upload, self.context)
 
+    def _get_active_order(self, obj):
+        return obj.orders.filter(status__in=['ASSIGNING_DRIVER', 'ON_GOING', 'PICKED_UP']).first() or obj.orders.exclude(status__in=['CANCELLED', 'FAILED']).first()
+
     def get_dropoff_display_address(self, obj):
         request = self.context.get('request')
         if request and request.user and request.user.role == 'Admin':
-            order = obj.orders.first()
+            order = self._get_active_order(obj)
             return order.dropoff_display_address if order else None
         return None
 
     def get_dropoff_latitude(self, obj):
         request = self.context.get('request')
         if request and request.user and request.user.role == 'Admin':
-            order = obj.orders.first()
+            order = self._get_active_order(obj)
             return order.dropoff_latitude if order else None
         return None
 
     def get_dropoff_longitude(self, obj):
         request = self.context.get('request')
         if request and request.user and request.user.role == 'Admin':
-            order = obj.orders.first()
+            order = self._get_active_order(obj)
             return order.dropoff_longitude if order else None
         return None
 
@@ -544,12 +547,7 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
     items = serializers.CharField(required=False)  # JSON string
     donation_image = serializers.ImageField(required=False, allow_null=True)
 
-    preferred_pickup_date = serializers.CharField(required=False, allow_null=True, allow_blank=True)
-    preferred_pickup_window_start = serializers.CharField(required=False, allow_null=True, allow_blank=True)
-    preferred_pickup_window_end = serializers.CharField(required=False, allow_null=True, allow_blank=True)
-    pickup_latitude = serializers.CharField(required=False, allow_null=True, allow_blank=True)
-    pickup_longitude = serializers.CharField(required=False, allow_null=True, allow_blank=True)
-    pickup_display_address = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    pickup_display_address = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     class Meta:
         model = Donation
@@ -603,22 +601,18 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
                 errors['pickup_display_address'] = "This field may not be blank."
 
         # 3. Location Validation
-        if 'pickup_latitude' in data or 'pickup_longitude' in data:
+        if 'pickup_latitude' in self.initial_data or 'pickup_longitude' in self.initial_data:
+            if 'pickup_latitude' not in self.initial_data:
+                errors['pickup_latitude'] = "Both pickup_latitude and pickup_longitude are required to update coordinates."
+            if 'pickup_longitude' not in self.initial_data:
+                errors['pickup_longitude'] = "Both pickup_latitude and pickup_longitude are required to update coordinates."
             if 'pickup_display_address' not in errors and ('pickup_display_address' not in data or not (data.get('pickup_display_address') or '').strip()):
                 errors['pickup_display_address'] = "This field is required when updating coordinates."
 
-            raw_lat = str(self.initial_data.get('pickup_latitude') or '').strip()
-            raw_lng = str(self.initial_data.get('pickup_longitude') or '').strip()
+            if 'pickup_latitude' not in errors:
+                raw_lat = str(self.initial_data.get('pickup_latitude') or '').strip()
+                raw_lng = str(self.initial_data.get('pickup_longitude') or '').strip()
 
-            if 'pickup_latitude' in errors or 'pickup_longitude' in errors:
-                if (not raw_lat or raw_lat == 'None') and 'pickup_latitude' not in errors:
-                    errors['pickup_latitude'] = "This field may not be null."
-                if (not raw_lng or raw_lng == 'None') and 'pickup_longitude' not in errors:
-                    errors['pickup_longitude'] = "This field may not be null."
-            elif not raw_lat or not raw_lng or raw_lat == 'None' or raw_lng == 'None':
-                errors['pickup_latitude'] = "This field may not be null."
-                errors['pickup_longitude'] = "This field may not be null."
-            else:
                 coord_error = False
                 if not re.match(r'^-?\d+\.\d{7}$', raw_lat):
                     errors['pickup_latitude'] = "Must have exactly 7 decimal places (e.g., 14.1234567)."
@@ -635,73 +629,12 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
                         if not loc:
                             errors['pickup_latitude'] = "Pickup location must be within the National Capital Region (NCR)."
                         else:
-                            data['pickup_latitude'] = lat_dec
-                            data['pickup_longitude'] = lng_dec
                             data['pickup_barangay'] = loc['barangay']
                             data['pickup_city'] = loc['city']
                     except (ValueError, TypeError, ArithmeticError):
                         errors['pickup_latitude'] = "Invalid coordinate format."
 
-        # 4. Required Field Null / Format Checks on Dates & Times
-        if 'preferred_pickup_date' in data:
-            raw_date = data.get('preferred_pickup_date')
-            val_date = str(raw_date or '').strip()
-            if 'preferred_pickup_date' in errors:
-                pass
-            elif not val_date or val_date == 'None':
-                errors['preferred_pickup_date'] = "This field may not be null."
-            else:
-                try:
-                    parsed_date = parse_datetime(val_date)
-                    if parsed_date is not None and timezone.is_naive(parsed_date):
-                        parsed_date = timezone.make_aware(parsed_date)
-                    if parsed_date is None:
-                        d = parse_date(val_date)
-                        if d:
-                            parsed_date = timezone.make_aware(timezone.datetime.combine(d, timezone.datetime.min.time()))
-                    
-                    if parsed_date is None:
-                        errors['preferred_pickup_date'] = "Datetime has wrong format."
-                    else:
-                        data['preferred_pickup_date'] = parsed_date
-                except Exception:
-                    errors['preferred_pickup_date'] = "Datetime has wrong format."
-
-        if 'preferred_pickup_window_start' in data:
-            raw_start = data.get('preferred_pickup_window_start')
-            val_start = str(raw_start or '').strip()
-            if 'preferred_pickup_window_start' in errors:
-                pass
-            elif not val_start or val_start == 'None':
-                errors['preferred_pickup_window_start'] = "This field may not be null."
-            else:
-                try:
-                    parsed_start = parse_time(val_start)
-                    if parsed_start is None:
-                        errors['preferred_pickup_window_start'] = "Time has wrong format."
-                    else:
-                        data['preferred_pickup_window_start'] = parsed_start
-                except Exception:
-                    errors['preferred_pickup_window_start'] = "Time has wrong format."
-
-        if 'preferred_pickup_window_end' in data:
-            raw_end = data.get('preferred_pickup_window_end')
-            val_end = str(raw_end or '').strip()
-            if 'preferred_pickup_window_end' in errors:
-                pass
-            elif not val_end or val_end == 'None':
-                errors['preferred_pickup_window_end'] = "This field may not be null."
-            else:
-                try:
-                    parsed_end = parse_time(val_end)
-                    if parsed_end is None:
-                        errors['preferred_pickup_window_end'] = "Time has wrong format."
-                    else:
-                        data['preferred_pickup_window_end'] = parsed_end
-                except Exception:
-                    errors['preferred_pickup_window_end'] = "Time has wrong format."
-
-        # 5. Date & Time Validation
+        # 4. Date & Time Validation
         now_local = timezone.localtime(timezone.now())
         pick_date = data.get('preferred_pickup_date') if 'preferred_pickup_date' in data else self.instance.preferred_pickup_date
         win_start = data.get('preferred_pickup_window_start') if 'preferred_pickup_window_start' in data else self.instance.preferred_pickup_window_start
@@ -724,13 +657,13 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
             if win_start and win_end and win_start >= win_end:
                 errors['preferred_pickup_window_start'] = "Start time must be before end time."
 
-        # 6. Cross-check: auto_archive_at must be after preferred_pickup_date
+        # 5. Cross-check: auto_archive_at must be after preferred_pickup_date
         if is_updating_schedule or 'auto_archive_at' in data:
             archive = data.get('auto_archive_at') if 'auto_archive_at' in data else self.instance.auto_archive_at
             if archive and pick_date and timezone.localtime(archive).date() <= timezone.localtime(pick_date).date():
                 errors['auto_archive_at'] = f"The preferred pickup date must be before the auto-archive/expiry date ({timezone.localtime(archive).strftime('%B %d, %Y')})."
 
-        # 7. Items Parsing & Validation (Simplified via nested serializer)
+        # 6. Items Parsing & Validation (Simplified via nested serializer)
         items_json = data.get('items')
         if 'items' in errors:
             pass
@@ -908,9 +841,11 @@ class AdminDonationUpdateSerializer(serializers.ModelSerializer):
 
 
         # 2. Coordinate & Location Validation (only if they aren't blocked by state lock)
-        if ('pickup_latitude' in data or 'pickup_longitude' in data) and 'pickup_latitude' not in errors and 'pickup_longitude' not in errors:
-            if 'pickup_latitude' not in self.initial_data or 'pickup_longitude' not in self.initial_data:
+        if 'pickup_latitude' in self.initial_data or 'pickup_longitude' in self.initial_data:
+            if 'pickup_latitude' not in self.initial_data:
                 errors['pickup_latitude'] = "Both pickup_latitude and pickup_longitude are required to update coordinates."
+            if 'pickup_longitude' not in self.initial_data:
+                errors['pickup_longitude'] = "Both pickup_latitude and pickup_longitude are required to update coordinates."
             if 'pickup_display_address' not in errors and ('pickup_display_address' not in data or not (data.get('pickup_display_address') or '').strip()):
                 errors['pickup_display_address'] = "This field is required when updating coordinates."
 
@@ -944,9 +879,11 @@ class AdminDonationUpdateSerializer(serializers.ModelSerializer):
             for field in ['dropoff_display_address', 'dropoff_latitude', 'dropoff_longitude']:
                 if field in data:
                     errors[field] = "Dropoff details are not allowed for PICKUP donations."
-        elif ('dropoff_latitude' in data or 'dropoff_longitude' in data) and 'dropoff_latitude' not in errors and 'dropoff_longitude' not in errors:
-            if 'dropoff_latitude' not in self.initial_data or 'dropoff_longitude' not in self.initial_data:
+        elif 'dropoff_latitude' in self.initial_data or 'dropoff_longitude' in self.initial_data:
+            if 'dropoff_latitude' not in self.initial_data:
                 errors['dropoff_latitude'] = "Both dropoff_latitude and dropoff_longitude are required to update coordinates."
+            if 'dropoff_longitude' not in self.initial_data:
+                errors['dropoff_longitude'] = "Both dropoff_latitude and dropoff_longitude are required to update coordinates."
             if 'dropoff_display_address' not in errors and ('dropoff_display_address' not in data or not (data.get('dropoff_display_address') or '').strip()):
                 errors['dropoff_display_address'] = "This field is required when updating coordinates."
 

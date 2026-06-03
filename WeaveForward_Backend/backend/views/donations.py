@@ -1,4 +1,3 @@
-from django.db import transaction
 from django.db.models import Prefetch, Q
 from rest_framework import filters, mixins, viewsets, serializers, status
 from rest_framework.decorators import action
@@ -231,49 +230,43 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
             response['ETag'] = build_updated_at_etag(updated_donation)
             return response
 
-        with transaction.atomic():
-            # 0. Fetch with Pessimistic Locking
-            donation = Donation.objects.select_for_update().filter(pk=kwargs.get('pk')).first()
-            if not donation:
-                raise NotFound("Donation not found.")
+        donation = Donation.objects.filter(pk=kwargs.get('pk')).first()
+        if not donation:
+            raise NotFound("Donation not found.")
 
-            # 1. ETag Verification (Consistency)
-            if_match = request.headers.get('If-Match')
-            if not if_match:
-                exc = APIException("If-Match header is required.")
-                exc.status_code = 428
-                raise exc
-            if not matches_if_match(build_updated_at_etag(donation), if_match):
-                exc = APIException("ETag does not match the current resource version.")
-                exc.status_code = 412
-                raise exc
+        if_match = request.headers.get('If-Match')
+        if not if_match:
+            exc = APIException("If-Match header is required.")
+            exc.status_code = 428
+            raise exc
+        if not matches_if_match(build_updated_at_etag(donation), if_match):
+            exc = APIException("ETag does not match the current resource version.")
+            exc.status_code = 412
+            raise exc
 
-            # 2. Donor Path
-            if user.role == 'Donor':
-                # Identity Check
-                if donation.donor != user:
-                    raise PermissionDenied("You can only edit donations that you created.")
-                # Status-Specific Logic
-                if donation.status == 'PENDING':
-                    try:
-                        updated_donation = donor_update_donation(request=request, donation=donation)
-                    except (ValueError, serializers.ValidationError) as e:
-                        if isinstance(e, serializers.ValidationError):
-                            raise
-                        exc = APIException(str(e))
-                        exc.status_code = 400
-                        raise exc
-
-                    serializer = DonationDetailSerializer(updated_donation, context={'request': request})
-                    response = Response(serializer.data)
-                    response['ETag'] = build_updated_at_etag(updated_donation)
-                    return response
-                elif donation.status in ['CLAIMED', 'IN_TRANSIT', 'RECEIVED', 'REJECTED', 'ARCHIVED']:
-                    exc = APIException(f"This donation cannot be modified because its current status is {donation.status.lower().replace('_', ' ')}.")
-                    exc.status_code = 409
+        if user.role == 'Donor':
+            if donation.donor != user:
+                raise PermissionDenied("You can only edit donations that you created.")
+            if donation.status == 'PENDING':
+                try:
+                    updated_donation = donor_update_donation(request=request, donation=donation)
+                except (ValueError, serializers.ValidationError) as e:
+                    if isinstance(e, serializers.ValidationError):
+                        raise
+                    exc = APIException(str(e))
+                    exc.status_code = 400
                     raise exc
 
-            raise PermissionDenied("You are not authorized to edit this donation.")
+                serializer = DonationDetailSerializer(updated_donation, context={'request': request})
+                response = Response(serializer.data)
+                response['ETag'] = build_updated_at_etag(updated_donation)
+                return response
+            elif donation.status in ['CLAIMED', 'IN_TRANSIT', 'RECEIVED', 'REJECTED', 'ARCHIVED']:
+                exc = APIException(f"This donation cannot be modified because its current status is {donation.status.lower().replace('_', ' ')}.")
+                exc.status_code = 409
+                raise exc
+
+        raise PermissionDenied("You are not authorized to edit this donation.")
 
     @action(detail=True, methods=['post'])
     def quotation(self, request, pk=None):

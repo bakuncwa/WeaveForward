@@ -28,7 +28,7 @@ from ..serializers import (
     TUABRegisterSerializer
 )
 from ..services.audit_service import get_client_ip, log_audit
-from ..services.auth_service import get_request_base_url, generate_api_key
+from ..services.auth_service import create_tuab_documentation_upload, get_request_base_url, generate_api_key
 from ..services.etag_service import build_updated_at_etag, matches_if_match
 from ..services.two_factor_service import disable_two_factor, enable_two_factor
 from ..services.user_archive_service import archive_user
@@ -493,7 +493,13 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
                 return Response({"error": "Invalid role specified."}, status=status.HTTP_400_BAD_REQUEST)
 
         if serializer.is_valid():
-            serializer.save()
+            if role == UserRole.TUAB:
+                documentation = serializer.validated_data.pop('documentation', None)
+                with transaction.atomic():
+                    documentation_upload = create_tuab_documentation_upload(documentation)
+                    serializer.save(documentation=documentation_upload)
+            else:
+                serializer.save()
             return Response({"message": "Registration successful."}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

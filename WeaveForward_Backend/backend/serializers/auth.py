@@ -1,26 +1,19 @@
-import io
 import os
 import re
 from decimal import Decimal
 
 import pyotp
-import uuid
 from django.contrib.auth import authenticate
-from django.core.files.base import ContentFile
-from django.core.files.storage import default_storage
-from PIL import Image
 from rest_framework import exceptions, serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.settings import api_settings
 
 from ..constants import (
-    ALLOWED_IMAGE_EXTENSIONS,
-    IMAGE_COMPRESSION_QUALITY,
     TEXT_FIELD_MAX_LENGTH,
     TUAB_REG_ALLOWED_EXTENSIONS,
     TUAB_REG_MAX_SIZE,
 )
-from ..models import Upload, User, UserAccountStatus, UserOperationalStatus
+from ..models import User, UserAccountStatus, UserOperationalStatus
 from ..services.auth_service import reset_user_password, validate_reset_token, generate_api_key
 from ..services.location_service import get_city_and_barangay
 from ..services.brand_fiber_lookup_service import get_allowed_fibers
@@ -304,26 +297,9 @@ class TUABRegisterSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        documentation = validated_data.pop('documentation', None)
         role, password = validated_data.pop('role', 'TUAB'), validated_data.pop('password')
         validated_data['role'], validated_data['status'] = role, 'UNDER_REVIEW'
         validated_data['operational_status'] = UserOperationalStatus.ACTIVE
-
-        # Process and Minify image files
-        if documentation:
-            ext = os.path.splitext(documentation.name)[1].lower()
-            if ext in ALLOWED_IMAGE_EXTENSIONS:
-                img = Image.open(documentation)
-                if img.mode != 'RGB':
-                    img = img.convert('RGB')
-                buffer = io.BytesIO()
-                img.save(buffer, format="JPEG", quality=IMAGE_COMPRESSION_QUALITY, optimize=True)
-                documentation = ContentFile(buffer.getvalue(), name=os.path.splitext(documentation.name)[0] + ".jpg")
-
-            safe_name = f"{uuid.uuid4().hex}{os.path.splitext(documentation.name)[1]}"
-            path = default_storage.save(f'documentation/{safe_name}', documentation)
-            validated_data['documentation'] = Upload.objects.create(file_path=path, name=os.path.basename(safe_name))
-
         return User.objects.create_user(password=password, **validated_data)
 
 
