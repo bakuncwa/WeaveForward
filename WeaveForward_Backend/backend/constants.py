@@ -13,5 +13,3 @@ TUAB_REG_MAX_SIZE = 50 * 1024 * 1024  # 50MB
 ALLOWED_IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png'}
 IMAGE_COMPRESSION_QUALITY = 70
 
-# API validation cap for database TextField-backed user input.
-TEXT_FIELD_MAX_LENGTH = 15000

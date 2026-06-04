@@ -1,6 +1,5 @@
 import json
 from rest_framework import serializers
-from ..constants import TEXT_FIELD_MAX_LENGTH
 from ..models import MatchPrediction, Donation, DonationItem, User, BrandFiberLookup
 from ..services.prediction_service import BIO_FIBERS, MatchPredictionService
 
@@ -151,7 +150,7 @@ class MatchRecommendationDetailSerializer(serializers.ModelSerializer):
 
 
 class MatchRecommendationActionSerializer(serializers.Serializer):
-    reason = serializers.CharField(max_length=TEXT_FIELD_MAX_LENGTH, required=False, allow_blank=True)
+    reason = serializers.CharField(required=False, allow_blank=True)
 
     def validate_reason(self, value):
         if not value or not value.strip():

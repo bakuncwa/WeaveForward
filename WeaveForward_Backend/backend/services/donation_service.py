@@ -314,30 +314,25 @@ def donor_update_donation(*, request, donation):
 
 
 def admin_update_donation(*, request, donation) -> Donation:
-    """
-    Orchestrates the donation update process for an Admin:
-    1. Validates via AdminDonationUpdateSerializer.
-    2. Updates header fields (including image handling if provided).
-    3. Handles atomic item updates (Add, Update, Archive).
-    4. Handles associated Order updates if dropoff location is supplied.
-    5. Runs side effects (Audit log, AI prediction trigger on items change).
-    """
     serializer = AdminDonationUpdateSerializer(donation, data=request.data, context={'request': request}, partial=True)
     serializer.is_valid(raise_exception=True)
     v_data = serializer.validated_data
     items_data = v_data.pop('items', None)
-    v_data.pop('donation_image', None)  # Ensure it doesn't get set directly
+    v_data.pop('donation_image', None)
     image_file = request.FILES.get('donation_image')
+    if_match = request.headers.get('If-Match')
 
-    dropoff_address = v_data.pop('dropoff_display_address', None)
-    dropoff_lat = v_data.pop('dropoff_latitude', None)
-    dropoff_lng = v_data.pop('dropoff_longitude', None)
+    dropoff_data = {
+        'dropoff_display_address': v_data.pop('dropoff_display_address', None),
+        'dropoff_latitude': v_data.pop('dropoff_latitude', None),
+        'dropoff_longitude': v_data.pop('dropoff_longitude', None),
+    }
+    has_dropoff_update = any(value is not None for value in dropoff_data.values())
 
-    lalamove_update_payload = None
     lalamove_update_order_id = None
     lalamove_update_lalamove_order_id = None
 
-    if dropoff_address is not None or dropoff_lat is not None or dropoff_lng is not None:
+    if has_dropoff_update:
         donation = Donation.objects.get(pk=donation.pk)
 
         if donation.status == DonationStatus.ARCHIVED:
@@ -345,7 +340,6 @@ def admin_update_donation(*, request, donation) -> Donation:
             exc.status_code = 409
             raise exc
 
-        if_match = request.headers.get('If-Match')
         if if_match and not matches_if_match(build_updated_at_etag(donation), if_match):
             exc = APIException("ETag does not match the current resource version.")
             exc.status_code = 412
@@ -355,14 +349,14 @@ def admin_update_donation(*, request, donation) -> Donation:
         if order and order.lalamove_order_id:
             lalamove_update_order_id = order.pk
             lalamove_update_lalamove_order_id = order.lalamove_order_id
-            lalamove_update_payload = {
+            res = update_lalamove_order(**{
                 "lalamove_order_id": order.lalamove_order_id,
                 "pickup_lat": v_data.get('pickup_latitude', donation.pickup_latitude),
                 "pickup_lng": v_data.get('pickup_longitude', donation.pickup_longitude),
                 "pickup_address": v_data.get('pickup_display_address', donation.pickup_display_address) or "N/A",
-                "dropoff_lat": dropoff_lat if dropoff_lat is not None else order.dropoff_latitude,
-                "dropoff_lng": dropoff_lng if dropoff_lng is not None else order.dropoff_longitude,
-                "dropoff_address": dropoff_address if dropoff_address is not None else order.dropoff_display_address,
+                "dropoff_lat": dropoff_data['dropoff_latitude'] if dropoff_data['dropoff_latitude'] is not None else order.dropoff_latitude,
+                "dropoff_lng": dropoff_data['dropoff_longitude'] if dropoff_data['dropoff_longitude'] is not None else order.dropoff_longitude,
+                "dropoff_address": dropoff_data['dropoff_display_address'] if dropoff_data['dropoff_display_address'] is not None else order.dropoff_display_address,
                 "pickup_name": f"{donation.donor.first_name or ''} {donation.donor.last_name or ''}".strip(),
                 "pickup_phone": donation.donor.contact_no,
                 "dropoff_name": (
@@ -370,10 +364,7 @@ def admin_update_donation(*, request, donation) -> Donation:
                     f"{(donation.claimed_by_tuab.last_name if donation.claimed_by_tuab else '') or ''}"
                 ).strip() or (donation.claimed_by_tuab.business_name if donation.claimed_by_tuab else ""),
                 "dropoff_phone": donation.claimed_by_tuab.contact_no if donation.claimed_by_tuab else None,
-            }
-
-        if lalamove_update_payload:
-            res = update_lalamove_order(**lalamove_update_payload)
+            })
             if "error" in res:
                 _raise_external_api_error("Failed to update dropoff with Lalamove", res)
 
@@ -386,41 +377,35 @@ def admin_update_donation(*, request, donation) -> Donation:
             exc.status_code = 409
             raise exc
 
-        if_match = request.headers.get('If-Match')
         if if_match and not matches_if_match(build_updated_at_etag(donation), if_match):
             exc = APIException("ETag does not match the current resource version.")
             exc.status_code = 412
             raise exc
 
-        # 1. Handle Image update
         if image_file:
             img = PILImage.open(image_file)
-            if img.mode != 'RGB': 
+            if img.mode != 'RGB':
                 img = img.convert('RGB')
             img.thumbnail((1024, 1024), PILImage.Resampling.LANCZOS)
             buffer = BytesIO()
             img.save(buffer, format='JPEG', quality=65, optimize=True)
             buffer.seek(0)
-            filename = f"don_{donation.donor_id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.jpg"
             hashed_filename = f"{uuid.uuid4().hex}.jpg"
             path = default_storage.save(f"donations/{hashed_filename}", ContentFile(buffer.read(), name=hashed_filename))
             donation.upload = Upload.objects.create(file_path=path, name=hashed_filename)
 
-        # 2. Update Donation model fields
         if 'is_flagged' in v_data and not v_data['is_flagged']:
             v_data['flag_reason'] = None
-        for k, v in v_data.items():
-            setattr(donation, k, v)
+        for attr, value in v_data.items():
+            setattr(donation, attr, value)
         donation.save()
 
-        # 3. Handle Items (Atomic updates)
         if items_data is not None:
             for item_patch in items_data:
                 item_id = item_patch.get('item_id')
                 is_archived = item_patch.get('is_archived', False)
 
                 if item_id:
-                    # Update or Archive
                     try:
                         item_obj = DonationItem.objects.select_for_update().get(pk=item_id, donation=donation)
                     except DonationItem.DoesNotExist:
@@ -437,7 +422,6 @@ def admin_update_donation(*, request, donation) -> Donation:
                             item_obj.condition_rating = item_patch['condition_rating'].upper().replace(" ", "_")
                     item_obj.save()
                 elif not is_archived:
-                    # Create New
                     DonationItem.objects.create(
                         donation=donation,
                         lookup=item_patch['lookup'],
@@ -445,8 +429,7 @@ def admin_update_donation(*, request, donation) -> Donation:
                         condition_rating=item_patch['condition_rating'].upper().replace(" ", "_")
                     )
 
-        # 4. Update associated Order dropoff fields if present
-        if dropoff_address is not None or dropoff_lat is not None or dropoff_lng is not None:
+        if has_dropoff_update:
             if lalamove_update_order_id:
                 order = donation.orders.select_for_update().filter(pk=lalamove_update_order_id).first()
                 if (
@@ -460,15 +443,11 @@ def admin_update_donation(*, request, donation) -> Donation:
             else:
                 order = donation.orders.select_for_update().filter(status__in=['ASSIGNING_DRIVER', 'ON_GOING', 'PICKED_UP']).first()
             if order:
-                if dropoff_address is not None:
-                    order.dropoff_display_address = dropoff_address
-                if dropoff_lat is not None:
-                    order.dropoff_latitude = dropoff_lat
-                if dropoff_lng is not None:
-                    order.dropoff_longitude = dropoff_lng
+                for field, value in dropoff_data.items():
+                    if value is not None:
+                        setattr(order, field, value)
                 order.save()
 
-        # 5. Audit Logging
         log_audit(
             actor=request.user,
             entity_type="donations",
@@ -477,7 +456,6 @@ def admin_update_donation(*, request, donation) -> Donation:
             fields_modified=list(request.data.keys())
         )
 
-        # 6. AI Prediction Trigger
         if (items_data is not None) or ('pickup_latitude' in v_data) or ('pickup_longitude' in v_data):
             try:
                 run_predictions_for_donation(donation.donation_id)
@@ -690,11 +668,8 @@ def sign_quotation_data(data):
 
 
 def claim_donation(user, donation, claim_params, ip_address=None):
-    """
-    Orchestrates the donation claiming process while keeping external API calls
-    outside database transactions.
-    """
     delivery_method = claim_params.get('delivery_method')
+    active_statuses = [DonationStatus.CLAIMED, DonationStatus.IN_TRANSIT]
 
     if delivery_method == 'PICKUP':
         with transaction.atomic():
@@ -707,7 +682,7 @@ def claim_donation(user, donation, claim_params, ip_address=None):
                 exc = APIException("This donation is no longer available to be claimed.")
                 exc.status_code = 409
                 raise exc
-            if Donation.objects.filter(claimed_by_tuab=user, status__in=[DonationStatus.CLAIMED, DonationStatus.IN_TRANSIT]).count() >= user.max_active_claims:
+            if Donation.objects.filter(claimed_by_tuab=user, status__in=active_statuses).count() >= user.max_active_claims:
                 exc = APIException(f"You have reached your active claim limit of {user.max_active_claims} active claims. Please complete or cancel your existing claims first.")
                 exc.status_code = 409
                 raise exc
@@ -736,11 +711,13 @@ def claim_donation(user, donation, claim_params, ip_address=None):
             exc.status_code = 400
             raise exc
 
-        charge_amount = float(token_data['amount'])
-        lalamove_quotation_id = token_data['quotationId']
-        pickup_stop_id = token_data['stopId_1']
-        dropoff_stop_id = token_data['stopId_2']
-        order_scheduled_at = parse_datetime(token_data.get('schedule_at')) if token_data.get('schedule_at') else timezone.now()
+        quote = {
+            'amount': float(token_data['amount']),
+            'quotation_id': token_data['quotationId'],
+            'pickup_stop_id': token_data['stopId_1'],
+            'dropoff_stop_id': token_data['stopId_2'],
+            'scheduled_at': parse_datetime(token_data.get('schedule_at')) if token_data.get('schedule_at') else timezone.now(),
+        }
     except APIException:
         raise
     except Exception:
@@ -748,7 +725,7 @@ def claim_donation(user, donation, claim_params, ip_address=None):
         exc.status_code = 400
         raise exc
 
-    if order_scheduled_at < timezone.now():
+    if quote['scheduled_at'] < timezone.now():
         exc = APIException("The selected delivery schedule is in the past. Please request a new quotation with a later time within the pickup window.")
         exc.status_code = 409
         raise exc
@@ -763,7 +740,7 @@ def claim_donation(user, donation, claim_params, ip_address=None):
             exc = APIException("This donation is no longer available to be claimed.")
             exc.status_code = 409
             raise exc
-        if Donation.objects.filter(claimed_by_tuab=user, status__in=[DonationStatus.CLAIMED, DonationStatus.IN_TRANSIT]).count() >= user.max_active_claims:
+        if Donation.objects.filter(claimed_by_tuab=user, status__in=active_statuses).count() >= user.max_active_claims:
             exc = APIException(f"You have reached your active claim limit of {user.max_active_claims} active claims. Please complete or cancel your existing claims first.")
             exc.status_code = 409
             raise exc
@@ -772,26 +749,54 @@ def claim_donation(user, donation, claim_params, ip_address=None):
             exc.status_code = 400
             raise exc
 
-        quoted_dropoff_address = token_data.get('dropoff_address') or user.display_address or "N/A"
-        quoted_dropoff_lat = Decimal(str(token_data.get('dropoff_latitude') if token_data.get('dropoff_latitude') is not None else user.latitude or 0))
-        quoted_dropoff_lng = Decimal(str(token_data.get('dropoff_longitude') if token_data.get('dropoff_longitude') is not None else user.longitude or 0))
+        dropoff_data = {
+            'dropoff_display_address': token_data.get('dropoff_address') or user.display_address or "N/A",
+            'dropoff_latitude': Decimal(str(token_data.get('dropoff_latitude') if token_data.get('dropoff_latitude') is not None else user.latitude or 0)),
+            'dropoff_longitude': Decimal(str(token_data.get('dropoff_longitude') if token_data.get('dropoff_longitude') is not None else user.longitude or 0)),
+        }
 
         donation.status, donation.claimed_by_tuab, donation.delivery_method = DonationStatus.CLAIMED, user, DonationDeliveryMethod.DELIVERY
         donation.save(update_fields=["status", "claimed_by_tuab", "delivery_method", "updated_at"])
 
-        order_record = Order.objects.create(donation=donation, status=OrderStatus.FAILED, dropoff_display_address=quoted_dropoff_address, dropoff_latitude=quoted_dropoff_lat, dropoff_longitude=quoted_dropoff_lng, scheduled_at=order_scheduled_at, expires_at=order_scheduled_at + timedelta(hours=2))
-        payment_record = OrderPayment.objects.create(order=order_record, amount=Decimal(str(charge_amount)), status=PaymentStatus.FAILED, payment_reference=f"claim-{donation.donation_id}-{int(timezone.now().timestamp())}")
+        order_record = Order.objects.create(
+            donation=donation,
+            status=OrderStatus.FAILED,
+            scheduled_at=quote['scheduled_at'],
+            expires_at=quote['scheduled_at'] + timedelta(hours=2),
+            **dropoff_data,
+        )
+        payment_record = OrderPayment.objects.create(
+            order=order_record,
+            amount=Decimal(str(quote['amount'])),
+            status=PaymentStatus.FAILED,
+            payment_reference=f"claim-{donation.donation_id}-{int(timezone.now().timestamp())}",
+        )
 
         maya_url = f"{settings.MAYA_SANDBOX_BASE_URL.rstrip('/')}/customers/{user.maya_customer_id}/cards/{user.maya_card_id}/payments"
-        maya_card_id = user.maya_card_id
-        donor_name = f"{donation.donor.first_name} {donation.donor.last_name}".strip()
-        donor_phone = donation.donor.contact_no
-        tuab_name = f"{user.first_name} {user.last_name}".strip()
-        tuab_phone = user.contact_no
+        maya_payload = {
+            'totalAmount': {'amount': quote['amount'], 'currency': 'PHP'},
+            'cardId': user.maya_card_id,
+            'requestReferenceNumber': payment_record.payment_reference,
+        }
+        delivery_people = {
+            'pickup_name': f"{donation.donor.first_name} {donation.donor.last_name}".strip(),
+            'pickup_phone': donation.donor.contact_no,
+            'dropoff_name': f"{user.first_name} {user.last_name}".strip(),
+            'dropoff_phone': user.contact_no,
+        }
 
     maya_payment_id = None
     try:
-        maya_resp = requests.post(maya_url, json={'totalAmount': {'amount': charge_amount, 'currency': 'PHP'}, 'cardId': maya_card_id, 'requestReferenceNumber': payment_record.payment_reference}, headers={'Authorization': settings.MAYA_SANDBOX_SECRET_BASIC_AUTH, 'Content-Type': 'application/json', 'Accept': 'application/json'}, timeout=30)
+        maya_resp = requests.post(
+            maya_url,
+            json=maya_payload,
+            headers={
+                'Authorization': settings.MAYA_SANDBOX_SECRET_BASIC_AUTH,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            },
+            timeout=30,
+        )
         maya_json = maya_resp.json()
         if maya_resp.status_code == 200 and maya_json.get('status') == 'PAYMENT_SUCCESS':
             maya_payment_id = maya_json.get('id')
@@ -808,24 +813,48 @@ def claim_donation(user, donation, claim_params, ip_address=None):
         exc.status_code = 502
         raise exc
 
-    l_payload = {"data": {"quotationId": lalamove_quotation_id, "sender": {"stopId": pickup_stop_id, "name": donor_name, "phone": donor_phone}, "recipients": [{"stopId": dropoff_stop_id, "name": tuab_name, "phone": tuab_phone}], "metadata": {"notes": "Fragile items"}}}
+    l_payload = {
+        "data": {
+            "quotationId": quote['quotation_id'],
+            "sender": {
+                "stopId": quote['pickup_stop_id'],
+                "name": delivery_people['pickup_name'],
+                "phone": delivery_people['pickup_phone'],
+            },
+            "recipients": [{
+                "stopId": quote['dropoff_stop_id'],
+                "name": delivery_people['dropoff_name'],
+                "phone": delivery_people['dropoff_phone'],
+            }],
+            "metadata": {"notes": "Fragile items"},
+        }
+    }
     l_ts, l_body = str(int(time.time() * 1000)), json.dumps(l_payload, separators=(',', ':'))
     l_sig = hmac.new(settings.LALAMOVE_API_SECRET.encode(), f"{l_ts}\r\nPOST\r\n/v3/orders\r\n\r\n{l_body}".encode(), hashlib.sha256).hexdigest()
 
-    lalamove_success = False
-    lalamove_error_msg = "Unknown logistics error"
     lalamove_order_id = None
+    lalamove_error_msg = "Unknown logistics error"
     try:
-        l_resp = requests.post(f"{settings.LALAMOVE_BASE_URL}/v3/orders", data=l_body, headers={"Authorization": f"hmac {settings.LALAMOVE_API_KEY}:{l_ts}:{l_sig}", "Market": "PH", "Request-ID": str(uuid.uuid4()), "Content-Type": "application/json", "Accept": "application/json"}, timeout=30)
+        l_resp = requests.post(
+            f"{settings.LALAMOVE_BASE_URL}/v3/orders",
+            data=l_body,
+            headers={
+                "Authorization": f"hmac {settings.LALAMOVE_API_KEY}:{l_ts}:{l_sig}",
+                "Market": "PH",
+                "Request-ID": str(uuid.uuid4()),
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            timeout=30,
+        )
         if l_resp.status_code in [200, 201]:
             lalamove_order_id = l_resp.json().get("data", {}).get("orderId")
-            lalamove_success = True
         else:
             lalamove_error_msg = l_resp.text
     except Exception as e:
         lalamove_error_msg = str(e)
 
-    if not lalamove_success:
+    if not lalamove_order_id:
         void_success = False
         try:
             void_resp = requests.delete(

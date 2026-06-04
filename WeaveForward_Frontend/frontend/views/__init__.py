@@ -89,12 +89,12 @@ async def login_view(request):
         password = request.POST.get('password')
         otp_code = request.POST.get('otp_code')
         
+        payload = {'email': email, 'password': password}
+        if otp_code:
+            payload['otp_code'] = otp_code
+        
         try:
-            response = await api_call(request, 'POST', 'auth/token', json={
-                'email': email,
-                'password': password,
-                'otp_code': otp_code
-            })
+            response = await api_call(request, 'POST', 'auth/token', json=payload)
             
             if response.status_code == 200:
                 data = response.json()

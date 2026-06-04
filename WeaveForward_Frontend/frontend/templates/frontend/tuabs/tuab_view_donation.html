@@ -490,9 +490,9 @@
                 id="delivery-scheduled-time"
                 class="in"
                 type="time"
-                value="{{ donation.preferred_pickup_window_start|slice:':5' }}"
-                min="{{ donation.preferred_pickup_window_start|slice:':5' }}"
-                max="{{ donation.preferred_pickup_window_end|slice:':5' }}"
+                value="{{ donation.preferred_pickup_window_start|time:'H:i' }}"
+                min="{{ donation.preferred_pickup_window_start|time:'H:i' }}"
+                max="{{ donation.preferred_pickup_window_end|time:'H:i' }}"
               >
             </div>
 

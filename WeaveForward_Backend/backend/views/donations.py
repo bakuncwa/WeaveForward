@@ -22,7 +22,6 @@ from ..services.lalamove_service import get_lalamove_quotation
 from ..services.audit_service import get_client_ip, log_audit
 from ..services.email_service import send_flag_notification
 from ..services.location_service import get_city_and_barangay
-from ..constants import TEXT_FIELD_MAX_LENGTH
 
 
 class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin, PaginatedResponseMixin):
@@ -195,22 +194,17 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
         # - If predictions are rerun, the dominant cost is O(i * t).
         # - Overall worst case: O(m + i * t).
         user = request.user
+        donation = Donation.objects.filter(pk=kwargs.get('pk')).first()
+        if not donation:
+            raise NotFound("Donation not found.")
+
+        if_match = request.headers.get('If-Match')
+        if not if_match or not matches_if_match(build_updated_at_etag(donation), if_match):
+            exc = APIException("Invalid or missing ETag.")
+            exc.status_code = 412
+            raise exc
 
         if user.role == 'Admin':
-            donation = Donation.objects.filter(pk=kwargs.get('pk')).first()
-            if not donation:
-                raise NotFound("Donation not found.")
-
-            if_match = request.headers.get('If-Match')
-            if not if_match:
-                exc = APIException("If-Match header is required.")
-                exc.status_code = 428
-                raise exc
-            if not matches_if_match(build_updated_at_etag(donation), if_match):
-                exc = APIException("ETag does not match the current resource version.")
-                exc.status_code = 412
-                raise exc
-
             if donation.status == 'ARCHIVED':
                 exc = APIException("Donations in archived status are immutable.")
                 exc.status_code = 409
@@ -224,49 +218,28 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
                 exc = APIException(str(e))
                 exc.status_code = 400
                 raise exc
-
-            serializer = DonationDetailSerializer(updated_donation, context={'request': request})
-            response = Response(serializer.data)
-            response['ETag'] = build_updated_at_etag(updated_donation)
-            return response
-
-        donation = Donation.objects.filter(pk=kwargs.get('pk')).first()
-        if not donation:
-            raise NotFound("Donation not found.")
-
-        if_match = request.headers.get('If-Match')
-        if not if_match:
-            exc = APIException("If-Match header is required.")
-            exc.status_code = 428
-            raise exc
-        if not matches_if_match(build_updated_at_etag(donation), if_match):
-            exc = APIException("ETag does not match the current resource version.")
-            exc.status_code = 412
-            raise exc
-
-        if user.role == 'Donor':
+        elif user.role == 'Donor':
             if donation.donor != user:
                 raise PermissionDenied("You can only edit donations that you created.")
-            if donation.status == 'PENDING':
-                try:
-                    updated_donation = donor_update_donation(request=request, donation=donation)
-                except (ValueError, serializers.ValidationError) as e:
-                    if isinstance(e, serializers.ValidationError):
-                        raise
-                    exc = APIException(str(e))
-                    exc.status_code = 400
-                    raise exc
-
-                serializer = DonationDetailSerializer(updated_donation, context={'request': request})
-                response = Response(serializer.data)
-                response['ETag'] = build_updated_at_etag(updated_donation)
-                return response
-            elif donation.status in ['CLAIMED', 'IN_TRANSIT', 'RECEIVED', 'REJECTED', 'ARCHIVED']:
+            if donation.status != 'PENDING':
                 exc = APIException(f"This donation cannot be modified because its current status is {donation.status.lower().replace('_', ' ')}.")
                 exc.status_code = 409
                 raise exc
+            try:
+                updated_donation = donor_update_donation(request=request, donation=donation)
+            except (ValueError, serializers.ValidationError) as e:
+                if isinstance(e, serializers.ValidationError):
+                    raise
+                exc = APIException(str(e))
+                exc.status_code = 400
+                raise exc
+        else:
+            raise PermissionDenied("You are not authorized to edit this donation.")
 
-        raise PermissionDenied("You are not authorized to edit this donation.")
+        serializer = DonationDetailSerializer(updated_donation, context={'request': request})
+        response = Response(serializer.data)
+        response['ETag'] = build_updated_at_etag(updated_donation)
+        return response
 
     @action(detail=True, methods=['post'])
     def quotation(self, request, pk=None):
@@ -274,19 +247,14 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
         donation = self.get_object()
         user = request.user
 
-        # ETag Verification
+        # Request freshness
         if_match = request.headers.get('If-Match')
-        current_etag = build_updated_at_etag(donation)
-        if if_match is None:
-            exc = APIException("If-Match header is required.")
-            exc.status_code = 428
-            raise exc
-        if not matches_if_match(current_etag, if_match):
-            exc = APIException("ETag does not match the current resource version.")
+        if not if_match or not matches_if_match(build_updated_at_etag(donation), if_match):
+            exc = APIException("Invalid or missing ETag.")
             exc.status_code = 412
             raise exc
 
-        # 1. Authorization: Role check
+        # Caller eligibility
         if user.role != 'TUAB':
             raise PermissionDenied("Only registered businesses can request a delivery quotation.")
 
@@ -309,7 +277,7 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
             exc.status_code = 409
             raise exc
 
-        # 4. Donation Availability Check
+        # Donation eligibility
         if donation.status != 'PENDING':
             exc = APIException({
                 "error": "DONATION_UNAVAILABLE",
@@ -331,116 +299,65 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
             exc.status_code = 409
             raise exc
 
-        # 5. Request Validation using Serializer
+        # Request validation
         serializer = QuotationRequestSerializer(data=request.data, context={'request': request, 'donation': donation})
         serializer.is_valid(raise_exception=True)
-        
-        v_data = serializer.validated_data
-        dropoff_lat = "{:.7f}".format(v_data['dropoff_latitude'])
-        dropoff_lng = "{:.7f}".format(v_data['dropoff_longitude'])
-        dropoff_address = v_data['dropoff_display_address']
-        scheduled_time = v_data['scheduled_time']
-        schedule_at = timezone.localtime(donation.preferred_pickup_date).replace(
-            hour=scheduled_time.hour,
-            minute=scheduled_time.minute,
-            second=scheduled_time.second,
-            microsecond=0,
-        )
-        
-        # Lalamove requires ISO 8601 with Z for UTC, so we convert it back
-        schedule_at_str = schedule_at.astimezone(dt_timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
-        # 6. Call Lalamove Service
+        v_data = serializer.validated_data
+        quote_request = {
+            "dropoff_lat": "{:.7f}".format(v_data['dropoff_latitude']),
+            "dropoff_lng": "{:.7f}".format(v_data['dropoff_longitude']),
+            "dropoff_address": v_data['dropoff_display_address'],
+            "schedule_at": timezone.localtime(donation.preferred_pickup_date).replace(
+                hour=v_data['scheduled_time'].hour,
+                minute=v_data['scheduled_time'].minute,
+                second=v_data['scheduled_time'].second,
+                microsecond=0,
+            ),
+        }
+        quote_request["schedule_at_str"] = quote_request["schedule_at"].astimezone(dt_timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
         result = get_lalamove_quotation(
             pickup_lat=donation.pickup_latitude,
             pickup_lng=donation.pickup_longitude,
             pickup_address=donation.pickup_display_address or "N/A",
-            dropoff_lat=dropoff_lat,
-            dropoff_lng=dropoff_lng,
-            dropoff_address=dropoff_address,
-            schedule_at=schedule_at_str
+            dropoff_lat=quote_request["dropoff_lat"],
+            dropoff_lng=quote_request["dropoff_lng"],
+            dropoff_address=quote_request["dropoff_address"],
+            schedule_at=quote_request["schedule_at_str"],
         )
 
         if "error" in result:
-            # If Lalamove returns an error (e.g. out of service area), pass it along
-            lalamove_error = result["error"]
-            if isinstance(lalamove_error, dict) and lalamove_error.get('errors'):
-                detail = ' '.join(
-                    item.get('message') or item.get('detail')
-                    for item in lalamove_error['errors']
-                    if isinstance(item, dict) and (item.get('message') or item.get('detail'))
-                ) or "Lalamove rejected the quotation request."
-            elif isinstance(lalamove_error, list):
-                detail = ' '.join(str(item) for item in lalamove_error) or "Lalamove rejected the quotation request."
-            else:
-                detail = str(lalamove_error)
-
-            if "scheduleAt" in detail and "past date or more than 30 days in advance" in detail:
-                detail = "The donation's scheduled pickup time is no longer valid for delivery quotations. Choose a donation with a future pickup schedule within the next 30 days."
-
             exc = APIException({
                 "error": "LALAMOVE_API_ERROR",
-                "detail": detail
+                "detail": str(result["error"])
             })
             exc.status_code = result.get("status_code", 400)
             raise exc
 
-        # 7. Format and return response
-        data = result.get("data") or {}
-        stops = data.get("stops") or []
-        price_breakdown = data.get("priceBreakdown") or {}
-        total_price = price_breakdown.get("total")
-        quotation_id = data.get("quotationId")
-
-        if len(stops) < 2:
-            exc = APIException("Lalamove quotation did not return the required delivery stops. Please check your address details.")
-            exc.status_code = 502
-            raise exc
-
-        if not total_price or not quotation_id:
-            exc = APIException("Lalamove quotation returned incomplete pricing or reference data.")
-            exc.status_code = 502
-            raise exc
-
-        stop_id_1 = stops[0].get("stopId")
-        stop_id_2 = stops[1].get("stopId")
-
-        expires_at_str = data.get("expiresAt")
-        if not expires_at_str:
-            exc = APIException("Lalamove quotation response is missing the expiration timestamp.")
-            exc.status_code = 502
-            raise exc
-
-        parsed_dt = parse_datetime(expires_at_str)
-        if not parsed_dt:
-            exc = APIException("Lalamove quotation returned an invalid expiration timestamp format.")
-            exc.status_code = 502
-            raise exc
-
-        expires_at = int(parsed_dt.timestamp())
-
-        # Generate a signed token (Source of Truth)
-        quotation_token = sign_quotation_data({
-            "amount": total_price,
-            "quotationId": quotation_id,
-            "stopId_1": stop_id_1,
-            "stopId_2": stop_id_2,
-            "dropoff_address": dropoff_address,
-            "dropoff_latitude": dropoff_lat,
-            "dropoff_longitude": dropoff_lng,
-            "schedule_at": schedule_at_str,
-            "expires_at": expires_at
+        quote_data = result.get("data") or {}
+        stops = quote_data["stops"]
+        response_data = {
+            "total_price": quote_data["priceBreakdown"]["total"],
+            "quotationId": quote_data["quotationId"],
+            "stopId_1": stops[0]["stopId"],
+            "stopId_2": stops[1]["stopId"],
+            "schedule_at": quote_request["schedule_at_str"],
+            "expires_at": int(parse_datetime(quote_data["expiresAt"]).timestamp()),
+        }
+        response_data["quotation_token"] = sign_quotation_data({
+            "amount": response_data["total_price"],
+            "quotationId": response_data["quotationId"],
+            "stopId_1": response_data["stopId_1"],
+            "stopId_2": response_data["stopId_2"],
+            "dropoff_address": quote_request["dropoff_address"],
+            "dropoff_latitude": quote_request["dropoff_lat"],
+            "dropoff_longitude": quote_request["dropoff_lng"],
+            "schedule_at": response_data["schedule_at"],
+            "expires_at": response_data["expires_at"],
         })
-        
-        return Response({
-            "total_price": total_price,
-            "quotationId": quotation_id,
-            "stopId_1": stop_id_1,
-            "stopId_2": stop_id_2,
-            "schedule_at": schedule_at_str,
-            "expires_at": expires_at,
-            "quotation_token": quotation_token
-        })
+
+        return Response(response_data)
 
     @action(detail=True, methods=['post'])
     def claim(self, request, pk=None):
@@ -454,22 +371,13 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
 
         # 2. ETag Verification
         if_match = request.headers.get('If-Match')
-        current_etag = build_updated_at_etag(donation)
-        if if_match is None:
-            exc = APIException("If-Match header is required.")
-            exc.status_code = 428
-            raise exc
-        if not matches_if_match(current_etag, if_match):
-            exc = APIException("ETag does not match the current resource version.")
+        if not if_match or not matches_if_match(build_updated_at_etag(donation), if_match):
+            exc = APIException("Invalid or missing ETag.")
             exc.status_code = 412
             raise exc
 
         # 3. Request Data
         delivery_method = request.data.get('delivery_method')
-        if delivery_method is not None and len(str(delivery_method)) > TEXT_FIELD_MAX_LENGTH:
-            exc = APIException(f"delivery_method is too long (max {TEXT_FIELD_MAX_LENGTH} characters).")
-            exc.status_code = 400
-            raise exc
         if delivery_method not in ['PICKUP', 'DELIVERY']:
             exc = APIException("Invalid delivery_method. Must be 'PICKUP' or 'DELIVERY'.")
             exc.status_code = 400
@@ -486,10 +394,6 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
                 })
 
         quotation_token = request.data.get('quotation_token')
-        if quotation_token is not None and len(str(quotation_token)) > TEXT_FIELD_MAX_LENGTH:
-            exc = APIException(f"quotation_token is too long (max {TEXT_FIELD_MAX_LENGTH} characters).")
-            exc.status_code = 400
-            raise exc
 
         claim_params = {
             'delivery_method': delivery_method,
@@ -599,15 +503,10 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
             exc = APIException("A flag reason is required.")
             exc.status_code = 400
             raise exc
-        if len(reason) > TEXT_FIELD_MAX_LENGTH:
-            exc = APIException(f"Ensure this field has no more than {TEXT_FIELD_MAX_LENGTH} characters.")
-            exc.status_code = 400
-            raise exc
-
         was_already_flagged = donation.is_flagged
         donation.is_flagged = True
         donation.flag_reason = reason
-        donation.save(update_fields=['is_flagged', 'flag_reason'])
+        donation.save(update_fields=['is_flagged', 'flag_reason', 'updated_at'])
         log_audit(actor=user, entity_type='Donation', action='FLAG_DONATION',
                   fields_modified='is_flagged,flag_reason', ip_address=get_client_ip(request))
 

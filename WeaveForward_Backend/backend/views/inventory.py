@@ -17,7 +17,6 @@ from ..models import InventoryLedger, InventoryLifecycleStatus, InventoryExitSta
 from ..serializers.inventory import InventoryLedgerSerializer
 from ..utils.view_mixins import PaginatedResponseMixin
 from ..services.audit_service import get_client_ip, log_audit
-from ..constants import TEXT_FIELD_MAX_LENGTH
 
 
 class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, PaginatedResponseMixin):
@@ -144,9 +143,6 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
             return Response({'error': 'Item is not in active inventory.'}, status=status.HTTP_400_BAD_REQUEST)
 
         raw_usage = request.data.get('usage_amount_kg', 0)
-        if raw_usage is not None and len(str(raw_usage)) > TEXT_FIELD_MAX_LENGTH:
-            return Response({'error': f'usage_amount_kg is too long (max {TEXT_FIELD_MAX_LENGTH} characters).'}, status=status.HTTP_400_BAD_REQUEST)
-
         try:
             usage = Decimal(str(raw_usage))
         except (InvalidOperation, TypeError):
@@ -158,12 +154,6 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
             return Response({'error': 'Negative stock not allowed. Usage exceeds current stock.'}, status=status.HTTP_400_BAD_REQUEST)
 
         notes = request.data.get('notes')
-        if notes is not None and len(str(notes)) > TEXT_FIELD_MAX_LENGTH:
-            return Response(
-                {'notes': f'Ensure this field has no more than {TEXT_FIELD_MAX_LENGTH} characters.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
         instance.usage_amount_kg += usage
         instance.current_weight_kg -= usage
         instance.notes = notes or instance.notes
@@ -195,8 +185,6 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
             return Response({'error': 'Item is already archived.'}, status=status.HTTP_400_BAD_REQUEST)
 
         exit_state_raw = (request.data.get('exit_state') or '').upper()
-        if len(exit_state_raw) > TEXT_FIELD_MAX_LENGTH:
-            return Response({'error': f'exit_state is too long (max {TEXT_FIELD_MAX_LENGTH} characters).'}, status=status.HTTP_400_BAD_REQUEST)
         valid_exit_states = [c[0] for c in InventoryExitState.choices]
         if exit_state_raw not in valid_exit_states:
             return Response({'error': f'Invalid exit state. Choose from: {", ".join(valid_exit_states)}'}, status=status.HTTP_400_BAD_REQUEST)

@@ -8,9 +8,7 @@ import uuid
 import re
 from rest_framework import serializers
 
-from ..constants import TEXT_FIELD_MAX_LENGTH
 from ..models import Donation, DonationStatus, SubscriptionStatus, Upload, User, UserRole
-from ..services.etag_service import build_updated_at_etag
 from ..services.upload_service import build_upload_url
 from ..services.location_service import get_city_and_barangay
 from ..services.brand_fiber_lookup_service import get_allowed_fibers
@@ -20,7 +18,6 @@ class AdminUserDetailSerializer(serializers.ModelSerializer):
     """Full user profile serializer used exclusively by Admins for viewing details."""
     is_subscribed = serializers.SerializerMethodField(read_only=True)
     total_donations = serializers.SerializerMethodField(read_only=True)
-    etag = serializers.SerializerMethodField(read_only=True)
     latitude = serializers.DecimalField(max_digits=9, decimal_places=7, required=False, allow_null=True)
     longitude = serializers.DecimalField(max_digits=10, decimal_places=7, required=False, allow_null=True)
     upload = serializers.FileField(write_only=True, required=False, allow_null=True)
@@ -40,7 +37,7 @@ class AdminUserDetailSerializer(serializers.ModelSerializer):
             'min_biodeg_score', 'max_distance_km', 'operational_status', 'contact_no',
             'barangay', 'city', 'latitude', 'longitude', 'display_address',
             'status', 'is_2fa_enabled', 'is_subscribed', 'total_donations', 'upload', 'documentation',
-            'created_at', 'updated_at', 'etag', 'distance_km'
+            'created_at', 'updated_at', 'distance_km'
         ]
 
     def get_is_subscribed(self, obj):
@@ -54,9 +51,6 @@ class AdminUserDetailSerializer(serializers.ModelSerializer):
             claimed_by_tuab_id=obj.user_id,
             status=DonationStatus.RECEIVED,
         ).count()
-
-    def get_etag(self, obj):
-        return build_updated_at_etag(obj)
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -86,7 +80,6 @@ class AdminUserDetailSerializer(serializers.ModelSerializer):
 
 class DonorSelfSerializer(serializers.ModelSerializer):
     """Dedicated serializer for donor self-profile pages."""
-    etag = serializers.SerializerMethodField(read_only=True)
     upload = serializers.SerializerMethodField()
     latitude = serializers.DecimalField(max_digits=9, decimal_places=7, required=False, allow_null=True)
     longitude = serializers.DecimalField(max_digits=10, decimal_places=7, required=False, allow_null=True)
@@ -97,11 +90,8 @@ class DonorSelfSerializer(serializers.ModelSerializer):
             'user_id', 'email', 'role', 'first_name', 'last_name', 'middle_name',
             'contact_no', 'barangay', 'city', 'latitude', 'longitude',
             'display_address', 'is_2fa_enabled', 'upload', 'created_at',
-            'updated_at', 'etag'
+            'updated_at'
         ]
-
-    def get_etag(self, obj):
-        return build_updated_at_etag(obj)
 
     def get_upload(self, obj):
         return build_upload_url(obj.upload, self.context)
@@ -109,10 +99,7 @@ class DonorSelfSerializer(serializers.ModelSerializer):
 
 class DonorUpdateSerializer(serializers.ModelSerializer):
     """Dedicated serializer for donor profile updates."""
-    latitude = serializers.DecimalField(max_digits=9, decimal_places=7, required=False, allow_null=True)
-    longitude = serializers.DecimalField(max_digits=10, decimal_places=7, required=False, allow_null=True)
     upload = serializers.FileField(write_only=True, required=False, allow_null=True)
-    password = serializers.CharField(write_only=True, required=False, allow_blank=False, max_length=User._meta.get_field('password').max_length)
 
     class Meta:
         model = User
@@ -122,75 +109,29 @@ class DonorUpdateSerializer(serializers.ModelSerializer):
             'city', 'barangay'
         ]
         read_only_fields = ['city', 'barangay']
-        extra_kwargs = {
-            'display_address': {'max_length': TEXT_FIELD_MAX_LENGTH},
-        }
-
-
-
-    def validate_password(self, value):
-        if len(value) < 8 or not any(c.isalpha() for c in value) or not any(c.isdigit() for c in value):
-            raise serializers.ValidationError(
-                "Password must be at least 8 characters and contain both letters and numbers."
-            )
-        return value
-
-    def validate_upload(self, v):
-        if v:
-            if v.size > 5242880: raise serializers.ValidationError("Image too large (max 5MB).")
-            if not v.name.lower().endswith(('.jpg', '.jpeg', '.png')):
-                raise serializers.ValidationError("Invalid format (only JPG, JPEG, PNG allowed).")
-        return v
-
-    def validate_first_name(self, value):
-        if value is None or not str(value).strip():
-            raise serializers.ValidationError("This field may not be blank.")
-        return value
-
-    def validate_last_name(self, value):
-        if value is None or not str(value).strip():
-            raise serializers.ValidationError("This field may not be blank.")
-        return value
-
-    def validate_display_address(self, value):
-        if value is None or not str(value).strip():
-            raise serializers.ValidationError("This field may not be blank.")
-        return value
-
-    def validate_contact_no(self, value):
-        if value is None or not str(value).strip():
-            raise serializers.ValidationError("This field may not be blank.")
-        if not re.match(r'^\+63\d{10}$', value):
-            raise serializers.ValidationError("Phone must be +63 followed by 10 digits.")
-        return value
-
-    def validate_latitude(self, value):
-        if value is None:
-            raise serializers.ValidationError("This field may not be blank.")
-        return round(float(value), 7)
-
-    def validate_longitude(self, value):
-        if value is None:
-            raise serializers.ValidationError("This field may not be blank.")
-        return round(float(value), 7)
 
     def validate(self, data):
-        errors = {}
+        # 1. Password
+        pw = data.get('password')
+        if pw and (len(pw) < 8 or not any(c.isalpha() for c in pw) or not any(c.isdigit() for c in pw)):
+            raise serializers.ValidationError({'password': "Password must be at least 8 characters with letters and numbers."})
 
-        # Location formatting and checking (Cross-field validation)
+        # 2. Upload
+        if data.get('upload') and (data['upload'].size > 5242880 or not data['upload'].name.lower().endswith(('.jpg', '.jpeg', '.png'))):
+            raise serializers.ValidationError({'upload': "Invalid image."})
+
+        # 3. Contact No
+        contact_no = data.get('contact_no')
+        if contact_no and not re.match(r'^\+63\d{10}$', contact_no):
+            raise serializers.ValidationError({'contact_no': "Phone must be +63 followed by 10 digits."})
+
+        # 4. Location
         lat, lng = data.get('latitude'), data.get('longitude')
-        instance = getattr(self, 'instance', None)
-        if lat is not None or lng is not None:
-            latitude = lat if lat is not None else (instance.latitude if instance else None)
-            longitude = lng if lng is not None else (instance.longitude if instance else None)
-
-            if not (loc := get_city_and_barangay(latitude, longitude)):
-                errors["location"] = "Location must be within Metro Manila (NCR)."
-            else:
-                data.update({'city': loc['city'], 'barangay': loc['barangay']})
-
-        if errors:
-            raise serializers.ValidationError(errors)
+        if lat is not None and lng is not None:
+            loc = get_city_and_barangay(lat, lng)
+            if not loc:
+                raise serializers.ValidationError({'location': "Location must be within Metro Manila."})
+            data.update({'city': loc['city'], 'barangay': loc['barangay']})
 
         return data
 
@@ -208,16 +149,12 @@ class DonorUpdateSerializer(serializers.ModelSerializer):
             img = Image.open(upload_file)
             if img.mode != 'RGB':
                 img = img.convert('RGB')
-            
             img.thumbnail((300, 300), Image.Resampling.LANCZOS)
-            
             buffer = BytesIO()
             img.save(buffer, format='JPEG', quality=85, optimize=True)
             buffer.seek(0)
-            
             optimized_filename = f"{uuid.uuid4().hex}.jpg"
             optimized_file = ContentFile(buffer.read(), name=optimized_filename)
-            
             stored_path = default_storage.save(f"profile_photos/{optimized_filename}", optimized_file)
             instance.upload = Upload.objects.create(
                 file_path=stored_path,
@@ -237,10 +174,7 @@ class DonorUpdateSerializer(serializers.ModelSerializer):
 
 class TuabUpdateSerializer(serializers.ModelSerializer):
     """Dedicated serializer for TUAB profile updates."""
-    latitude = serializers.DecimalField(max_digits=9, decimal_places=7, required=False, allow_null=True)
-    longitude = serializers.DecimalField(max_digits=10, decimal_places=7, required=False, allow_null=True)
     upload = serializers.FileField(write_only=True, required=False, allow_null=True)
-    password = serializers.CharField(write_only=True, required=False, allow_blank=False, max_length=User._meta.get_field('password').max_length)
 
     class Meta:
         model = User
@@ -251,105 +185,40 @@ class TuabUpdateSerializer(serializers.ModelSerializer):
             'display_address', 'password', 'upload', 'city', 'barangay'
         ]
         read_only_fields = ['city', 'barangay']
-        extra_kwargs = {
-            'description': {'max_length': TEXT_FIELD_MAX_LENGTH},
-            'social_link': {'max_length': TEXT_FIELD_MAX_LENGTH},
-            'target_fibers': {'max_length': TEXT_FIELD_MAX_LENGTH},
-            'display_address': {'max_length': TEXT_FIELD_MAX_LENGTH},
-        }
-
-    def validate_password(self, value):
-        if len(value) < 8 or not any(c.isalpha() for c in value) or not any(c.isdigit() for c in value):
-            raise serializers.ValidationError("Password must be at least 8 characters and contain both letters and numbers.")
-        return value
-
-    def validate_upload(self, v):
-        if v:
-            if v.size > 5242880: raise serializers.ValidationError("Image too large (max 5MB).")
-            if not v.name.lower().endswith(('.jpg', '.jpeg', '.png')):
-                raise serializers.ValidationError("Invalid format (only JPG, JPEG, PNG allowed).")
-        return v
-
-    def validate_business_name(self, value):
-        if value is None or not str(value).strip():
-            raise serializers.ValidationError("This field may not be blank.")
-        return value
-
-    def validate_description(self, value):
-        if value is None or not str(value).strip():
-            raise serializers.ValidationError("This field may not be blank.")
-        return value
-
-    def validate_social_link(self, value):
-        if value is None or not str(value).strip():
-            raise serializers.ValidationError("This field may not be blank.")
-        return value
-
-    def validate_contact_no(self, value):
-        if value is None or not str(value).strip():
-            raise serializers.ValidationError("This field may not be blank.")
-        if not re.match(r'^\+63\d{10}$', value):
-            raise serializers.ValidationError("Phone must be +63 followed by 10 digits.")
-        return value
-
-    def validate_display_address(self, value):
-        if value is None or not str(value).strip():
-            raise serializers.ValidationError("This field may not be blank.")
-        return value
-
-    def validate_max_active_claims(self, value):
-        if value is None:
-            raise serializers.ValidationError("This field may not be blank.")
-        return value
-
-    def validate_max_distance_km(self, value):
-        if value is None:
-            raise serializers.ValidationError("This field may not be blank.")
-        return value
-
-    def validate_min_biodeg_score(self, value):
-        if value is None:
-            raise serializers.ValidationError("This field may not be blank.")
-        return value
-
-    def validate_target_fibers(self, value):
-        if value is None or not str(value).strip():
-            raise serializers.ValidationError("This field may not be blank.")
-        
-        fibers = [f.strip().lower() for f in value.split(',') if f.strip()]
-        db_fibers = get_allowed_fibers()
-        invalid = [f for f in fibers if f not in db_fibers]
-        if invalid:
-            raise serializers.ValidationError(f"Invalid fibers (not in our database): {', '.join(invalid)}")
-        return ','.join(fibers)
-
-    def validate_latitude(self, value):
-        if value is None:
-            raise serializers.ValidationError("This field may not be blank.")
-        return round(float(value), 7)
-
-    def validate_longitude(self, value):
-        if value is None:
-            raise serializers.ValidationError("This field may not be blank.")
-        return round(float(value), 7)
 
     def validate(self, data):
-        errors = {}
+        # 1. Password
+        pw = data.get('password')
+        if pw and (len(pw) < 8 or not any(c.isalpha() for c in pw) or not any(c.isdigit() for c in pw)):
+            raise serializers.ValidationError({'password': "Password must be at least 8 characters with letters and numbers."})
 
-        # Location formatting and checking (Cross-field validation)
+        # 2. Upload
+        if data.get('upload') and (data['upload'].size > 5242880 or not data['upload'].name.lower().endswith(('.jpg', '.jpeg', '.png'))):
+            raise serializers.ValidationError({'upload': "Invalid image."})
+
+        # 3. Contact No
+        contact_no = data.get('contact_no')
+        if contact_no and not re.match(r'^\+63\d{10}$', contact_no):
+            raise serializers.ValidationError({'contact_no': "Phone must be +63 followed by 10 digits."})
+
+        # 4. Target Fibers
+        if 'target_fibers' in data:
+            fibers = data.get('target_fibers')
+            input_fibers = [f for f in (fibers or '').split(',') if f]
+            if not input_fibers:
+                raise serializers.ValidationError({'target_fibers': "At least one target fiber is required."})
+            for f in input_fibers:
+                if f not in get_allowed_fibers():
+                    raise serializers.ValidationError({'target_fibers': f"Invalid fiber: {f}"})
+            data['target_fibers'] = ','.join(input_fibers)
+
+        # 5. Location
         lat, lng = data.get('latitude'), data.get('longitude')
-        instance = getattr(self, 'instance', None)
-        if lat is not None or lng is not None:
-            latitude = lat if lat is not None else (instance.latitude if instance else None)
-            longitude = lng if lng is not None else (instance.longitude if instance else None)
-
-            if not (loc := get_city_and_barangay(latitude, longitude)):
-                errors["location"] = "Location must be within Metro Manila (NCR)."
-            else:
-                data.update({'city': loc['city'], 'barangay': loc['barangay']})
-
-        if errors:
-            raise serializers.ValidationError(errors)
+        if lat is not None and lng is not None:
+            loc = get_city_and_barangay(lat, lng)
+            if not loc:
+                raise serializers.ValidationError({'location': "Location must be within Metro Manila."})
+            data.update({'city': loc['city'], 'barangay': loc['barangay']})
 
         return data
 
@@ -364,31 +233,20 @@ class TuabUpdateSerializer(serializers.ModelSerializer):
             instance.set_password(password)
 
         if upload_file:
-            try:
-                img = Image.open(upload_file)
-                if img.mode != 'RGB':
-                    img = img.convert('RGB')
-                
-                img.thumbnail((300, 300), Image.Resampling.LANCZOS)
-                
-                buffer = BytesIO()
-                img.save(buffer, format='JPEG', quality=85, optimize=True)
-                buffer.seek(0)
-                
-                optimized_filename = f"{os.path.splitext(upload_file.name)[0]}.jpg"
-                optimized_file = ContentFile(buffer.read(), name=optimized_filename)
-                
-                stored_path = default_storage.save(f"profile_photos/{optimized_filename}", optimized_file)
-                instance.upload = Upload.objects.create(
-                    file_path=stored_path,
-                    name=os.path.basename(optimized_filename)[:50]
-                )
-            except Exception as e:
-                stored_path = default_storage.save(f"profile_photos/{upload_file.name}", upload_file)
-                instance.upload = Upload.objects.create(
-                    file_path=stored_path,
-                    name=os.path.basename(upload_file.name)[:50]
-                )
+            img = Image.open(upload_file)
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            img.thumbnail((300, 300), Image.Resampling.LANCZOS)
+            buffer = BytesIO()
+            img.save(buffer, format='JPEG', quality=85, optimize=True)
+            buffer.seek(0)
+            optimized_filename = f"{uuid.uuid4().hex}.jpg"
+            optimized_file = ContentFile(buffer.read(), name=optimized_filename)
+            stored_path = default_storage.save(f"profile_photos/{optimized_filename}", optimized_file)
+            instance.upload = Upload.objects.create(
+                file_path=stored_path,
+                name=os.path.basename(optimized_filename)
+            )
 
         instance.save()
         return instance
@@ -403,7 +261,6 @@ class TuabUpdateSerializer(serializers.ModelSerializer):
 
 class TuabSelfSerializer(serializers.ModelSerializer):
     """Dedicated serializer for TUAB self-profile/session usage."""
-    etag = serializers.SerializerMethodField(read_only=True)
     is_subscribed = serializers.SerializerMethodField(read_only=True)
     total_donations = serializers.SerializerMethodField(read_only=True)
     upload = serializers.SerializerMethodField()
@@ -418,11 +275,8 @@ class TuabSelfSerializer(serializers.ModelSerializer):
             'min_biodeg_score', 'max_distance_km', 'operational_status',
             'contact_no', 'barangay', 'city', 'latitude', 'longitude',
             'display_address', 'is_2fa_enabled', 'is_subscribed', 'total_donations', 'upload',
-            'created_at', 'etag'
+            'created_at'
         ]
-
-    def get_etag(self, obj):
-        return build_updated_at_etag(obj)
 
     def get_is_subscribed(self, obj):
         annotated_value = getattr(obj, 'is_subscribed', None)
@@ -512,7 +366,7 @@ class TuabDetailSerializer(serializers.ModelSerializer):
 
 class TwoFactorSerializer(serializers.Serializer):
     secret = serializers.CharField(min_length=32, max_length=32)
-    otp_code = serializers.CharField(max_length=TEXT_FIELD_MAX_LENGTH)
+    otp_code = serializers.CharField()
 
     default_error_messages = {
         'invalid_otp': 'Invalid 2FA code.',
@@ -532,24 +386,21 @@ class TwoFactorSerializer(serializers.Serializer):
 
 
 class MayaCardSerializer(serializers.Serializer):
-    number = serializers.CharField(max_length=TEXT_FIELD_MAX_LENGTH)
-    expMonth = serializers.CharField(max_length=TEXT_FIELD_MAX_LENGTH)
-    expYear = serializers.CharField(max_length=TEXT_FIELD_MAX_LENGTH)
-    cvc = serializers.CharField(max_length=TEXT_FIELD_MAX_LENGTH)
+    number = serializers.CharField()
+    expMonth = serializers.CharField()
+    expYear = serializers.CharField()
+    cvc = serializers.CharField()
 
 
 class SubscribeSetupSerializer(serializers.Serializer):
-    firstName = serializers.CharField(max_length=TEXT_FIELD_MAX_LENGTH)
-    lastName = serializers.CharField(max_length=TEXT_FIELD_MAX_LENGTH)
+    firstName = serializers.CharField()
+    lastName = serializers.CharField()
     card = MayaCardSerializer()
 
 
 class DonorUpdateSelfSerializer(serializers.ModelSerializer):
     """Dedicated serializer for donor profile updates."""
-    latitude = serializers.DecimalField(max_digits=9, decimal_places=7, required=False, allow_null=True)
-    longitude = serializers.DecimalField(max_digits=10, decimal_places=7, required=False, allow_null=True)
     upload = serializers.FileField(write_only=True, required=False, allow_null=True)
-    password = serializers.CharField(write_only=True, required=False, allow_blank=False, max_length=User._meta.get_field('password').max_length)
 
     class Meta:
         model = User
@@ -559,75 +410,29 @@ class DonorUpdateSelfSerializer(serializers.ModelSerializer):
             'city', 'barangay'
         ]
         read_only_fields = ['city', 'barangay']
-        extra_kwargs = {
-            'display_address': {'max_length': TEXT_FIELD_MAX_LENGTH},
-        }
-
-
-
-    def validate_password(self, value):
-        if len(value) < 8 or not any(c.isalpha() for c in value) or not any(c.isdigit() for c in value):
-            raise serializers.ValidationError(
-                "Password must be at least 8 characters and contain both letters and numbers."
-            )
-        return value
-
-    def validate_upload(self, v):
-        if v:
-            if v.size > 5242880: raise serializers.ValidationError("Image too large (max 5MB).")
-            if not v.name.lower().endswith(('.jpg', '.jpeg', '.png')):
-                raise serializers.ValidationError("Invalid format (only JPG, JPEG, PNG allowed).")
-        return v
-
-    def validate_first_name(self, value):
-        if value is None or not str(value).strip():
-            raise serializers.ValidationError("This field may not be blank.")
-        return value
-
-    def validate_last_name(self, value):
-        if value is None or not str(value).strip():
-            raise serializers.ValidationError("This field may not be blank.")
-        return value
-
-    def validate_display_address(self, value):
-        if value is None or not str(value).strip():
-            raise serializers.ValidationError("This field may not be blank.")
-        return value
-
-    def validate_contact_no(self, value):
-        if value is None or not str(value).strip():
-            raise serializers.ValidationError("This field may not be blank.")
-        if not re.match(r'^\+63\d{10}$', value):
-            raise serializers.ValidationError("Phone must be +63 followed by 10 digits.")
-        return value
-
-    def validate_latitude(self, value):
-        if value is None:
-            raise serializers.ValidationError("This field may not be blank.")
-        return round(float(value), 7)
-
-    def validate_longitude(self, value):
-        if value is None:
-            raise serializers.ValidationError("This field may not be blank.")
-        return round(float(value), 7)
 
     def validate(self, data):
-        errors = {}
+        # 1. Password
+        pw = data.get('password')
+        if pw and (len(pw) < 8 or not any(c.isalpha() for c in pw) or not any(c.isdigit() for c in pw)):
+            raise serializers.ValidationError({'password': "Password must be at least 8 characters with letters and numbers."})
 
-        # Location formatting and checking (Cross-field validation)
+        # 2. Upload
+        if data.get('upload') and (data['upload'].size > 5242880 or not data['upload'].name.lower().endswith(('.jpg', '.jpeg', '.png'))):
+            raise serializers.ValidationError({'upload': "Invalid image."})
+
+        # 3. Contact No
+        contact_no = data.get('contact_no')
+        if contact_no and not re.match(r'^\+63\d{10}$', contact_no):
+            raise serializers.ValidationError({'contact_no': "Phone must be +63 followed by 10 digits."})
+
+        # 4. Location
         lat, lng = data.get('latitude'), data.get('longitude')
-        instance = getattr(self, 'instance', None)
-        if lat is not None or lng is not None:
-            latitude = lat if lat is not None else (instance.latitude if instance else None)
-            longitude = lng if lng is not None else (instance.longitude if instance else None)
-
-            if not (loc := get_city_and_barangay(latitude, longitude)):
-                errors["location"] = "Location must be within Metro Manila (NCR)."
-            else:
-                data.update({'city': loc['city'], 'barangay': loc['barangay']})
-
-        if errors:
-            raise serializers.ValidationError(errors)
+        if lat is not None and lng is not None:
+            loc = get_city_and_barangay(lat, lng)
+            if not loc:
+                raise serializers.ValidationError({'location': "Location must be within Metro Manila."})
+            data.update({'city': loc['city'], 'barangay': loc['barangay']})
 
         return data
 
@@ -642,31 +447,20 @@ class DonorUpdateSelfSerializer(serializers.ModelSerializer):
             instance.set_password(password)
 
         if upload_file:
-            try:
-                img = Image.open(upload_file)
-                if img.mode != 'RGB':
-                    img = img.convert('RGB')
-                
-                img.thumbnail((300, 300), Image.Resampling.LANCZOS)
-                
-                buffer = BytesIO()
-                img.save(buffer, format='JPEG', quality=85, optimize=True)
-                buffer.seek(0)
-                
-                optimized_filename = f"{os.path.splitext(upload_file.name)[0]}.jpg"
-                optimized_file = ContentFile(buffer.read(), name=optimized_filename)
-                
-                stored_path = default_storage.save(f"profile_photos/{optimized_filename}", optimized_file)
-                instance.upload = Upload.objects.create(
-                    file_path=stored_path,
-                    name=os.path.basename(optimized_filename)[:50]
-                )
-            except Exception as e:
-                stored_path = default_storage.save(f"profile_photos/{upload_file.name}", upload_file)
-                instance.upload = Upload.objects.create(
-                    file_path=stored_path,
-                    name=os.path.basename(upload_file.name)[:50]
-                )
+            img = Image.open(upload_file)
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            img.thumbnail((300, 300), Image.Resampling.LANCZOS)
+            buffer = BytesIO()
+            img.save(buffer, format='JPEG', quality=85, optimize=True)
+            buffer.seek(0)
+            optimized_filename = f"{uuid.uuid4().hex}.jpg"
+            optimized_file = ContentFile(buffer.read(), name=optimized_filename)
+            stored_path = default_storage.save(f"profile_photos/{optimized_filename}", optimized_file)
+            instance.upload = Upload.objects.create(
+                file_path=stored_path,
+                name=os.path.basename(optimized_filename)
+            )
 
         instance.save()
         return instance
@@ -683,10 +477,7 @@ class DonorUpdateSelfSerializer(serializers.ModelSerializer):
 
 class TuabUpdateSelfSerializer(serializers.ModelSerializer):
     """Dedicated serializer for TUAB profile updates."""
-    latitude = serializers.DecimalField(max_digits=9, decimal_places=7, required=False, allow_null=True)
-    longitude = serializers.DecimalField(max_digits=10, decimal_places=7, required=False, allow_null=True)
     upload = serializers.FileField(write_only=True, required=False, allow_null=True)
-    password = serializers.CharField(write_only=True, required=False, allow_blank=False, max_length=User._meta.get_field('password').max_length)
 
     class Meta:
         model = User
@@ -697,100 +488,40 @@ class TuabUpdateSelfSerializer(serializers.ModelSerializer):
             'display_address', 'password', 'upload', 'city', 'barangay'
         ]
         read_only_fields = ['city', 'barangay']
-        extra_kwargs = {
-            'description': {'max_length': TEXT_FIELD_MAX_LENGTH},
-            'social_link': {'max_length': TEXT_FIELD_MAX_LENGTH},
-            'target_fibers': {'max_length': TEXT_FIELD_MAX_LENGTH},
-            'display_address': {'max_length': TEXT_FIELD_MAX_LENGTH},
-        }
-
-    def validate_password(self, value):
-        if len(value) < 8 or not any(c.isalpha() for c in value) or not any(c.isdigit() for c in value):
-            raise serializers.ValidationError("Password must be at least 8 characters and contain both letters and numbers.")
-        return value
-
-    def validate_upload(self, v):
-        if v:
-            if v.size > 5242880: raise serializers.ValidationError("Image too large (max 5MB).")
-            if not v.name.lower().endswith(('.jpg', '.jpeg', '.png')):
-                raise serializers.ValidationError("Invalid format (only JPG, JPEG, PNG allowed).")
-        return v
-
-    def validate_business_name(self, value):
-        if value is None or not str(value).strip():
-            raise serializers.ValidationError("This field may not be blank.")
-        return value
-
-    def validate_description(self, value):
-        if value is None or not str(value).strip():
-            raise serializers.ValidationError("This field may not be blank.")
-        return value
-
-    def validate_social_link(self, value):
-        if value is None or not str(value).strip():
-            raise serializers.ValidationError("This field may not be blank.")
-        return value
-
-    def validate_contact_no(self, value):
-        if value is None or not str(value).strip():
-            raise serializers.ValidationError("This field may not be blank.")
-        if not re.match(r'^\+63\d{10}$', value):
-            raise serializers.ValidationError("Phone must be +63 followed by 10 digits.")
-        return value
-
-    def validate_display_address(self, value):
-        if value is None or not str(value).strip():
-            raise serializers.ValidationError("This field may not be blank.")
-        return value
-
-    def validate_max_distance_km(self, value):
-        if value is None:
-            raise serializers.ValidationError("This field may not be blank.")
-        return value
-
-    def validate_min_biodeg_score(self, value):
-        if value is None:
-            raise serializers.ValidationError("This field may not be blank.")
-        return value
-
-    def validate_target_fibers(self, value):
-        if value is None or not str(value).strip():
-            raise serializers.ValidationError("This field may not be blank.")
-        
-        fibers = [f.strip().lower() for f in value.split(',') if f.strip()]
-        db_fibers = get_allowed_fibers()
-        invalid = [f for f in fibers if f not in db_fibers]
-        if invalid:
-            raise serializers.ValidationError(f"Invalid fibers (not in our database): {', '.join(invalid)}")
-        return ','.join(fibers)
-
-    def validate_latitude(self, value):
-        if value is None:
-            raise serializers.ValidationError("This field may not be blank.")
-        return round(float(value), 7)
-
-    def validate_longitude(self, value):
-        if value is None:
-            raise serializers.ValidationError("This field may not be blank.")
-        return round(float(value), 7)
 
     def validate(self, data):
-        errors = {}
+        # 1. Password
+        pw = data.get('password')
+        if pw and (len(pw) < 8 or not any(c.isalpha() for c in pw) or not any(c.isdigit() for c in pw)):
+            raise serializers.ValidationError({'password': "Password must be at least 8 characters with letters and numbers."})
 
-        # Location formatting and checking (Cross-field validation)
+        # 2. Upload
+        if data.get('upload') and (data['upload'].size > 5242880 or not data['upload'].name.lower().endswith(('.jpg', '.jpeg', '.png'))):
+            raise serializers.ValidationError({'upload': "Invalid image."})
+
+        # 3. Contact No
+        contact_no = data.get('contact_no')
+        if contact_no and not re.match(r'^\+63\d{10}$', contact_no):
+            raise serializers.ValidationError({'contact_no': "Phone must be +63 followed by 10 digits."})
+
+        # 4. Target Fibers
+        if 'target_fibers' in data:
+            fibers = data.get('target_fibers')
+            input_fibers = [f for f in (fibers or '').split(',') if f]
+            if not input_fibers:
+                raise serializers.ValidationError({'target_fibers': "At least one target fiber is required."})
+            for f in input_fibers:
+                if f not in get_allowed_fibers():
+                    raise serializers.ValidationError({'target_fibers': f"Invalid fiber: {f}"})
+            data['target_fibers'] = ','.join(input_fibers)
+
+        # 5. Location
         lat, lng = data.get('latitude'), data.get('longitude')
-        instance = getattr(self, 'instance', None)
-        if lat is not None or lng is not None:
-            latitude = lat if lat is not None else (instance.latitude if instance else None)
-            longitude = lng if lng is not None else (instance.longitude if instance else None)
-
-            if not (loc := get_city_and_barangay(latitude, longitude)):
-                errors["location"] = "Location must be within Metro Manila (NCR)."
-            else:
-                data.update({'city': loc['city'], 'barangay': loc['barangay']})
-
-        if errors:
-            raise serializers.ValidationError(errors)
+        if lat is not None and lng is not None:
+            loc = get_city_and_barangay(lat, lng)
+            if not loc:
+                raise serializers.ValidationError({'location': "Location must be within Metro Manila."})
+            data.update({'city': loc['city'], 'barangay': loc['barangay']})
 
         return data
 
@@ -805,31 +536,20 @@ class TuabUpdateSelfSerializer(serializers.ModelSerializer):
             instance.set_password(password)
 
         if upload_file:
-            try:
-                img = Image.open(upload_file)
-                if img.mode != 'RGB':
-                    img = img.convert('RGB')
-                
-                img.thumbnail((300, 300), Image.Resampling.LANCZOS)
-                
-                buffer = BytesIO()
-                img.save(buffer, format='JPEG', quality=85, optimize=True)
-                buffer.seek(0)
-                
-                optimized_filename = f"{os.path.splitext(upload_file.name)[0]}.jpg"
-                optimized_file = ContentFile(buffer.read(), name=optimized_filename)
-                
-                stored_path = default_storage.save(f"profile_photos/{optimized_filename}", optimized_file)
-                instance.upload = Upload.objects.create(
-                    file_path=stored_path,
-                    name=os.path.basename(optimized_filename)[:50]
-                )
-            except Exception as e:
-                stored_path = default_storage.save(f"profile_photos/{upload_file.name}", upload_file)
-                instance.upload = Upload.objects.create(
-                    file_path=stored_path,
-                    name=os.path.basename(upload_file.name)[:50]
-                )
+            img = Image.open(upload_file)
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            img.thumbnail((300, 300), Image.Resampling.LANCZOS)
+            buffer = BytesIO()
+            img.save(buffer, format='JPEG', quality=85, optimize=True)
+            buffer.seek(0)
+            optimized_filename = f"{uuid.uuid4().hex}.jpg"
+            optimized_file = ContentFile(buffer.read(), name=optimized_filename)
+            stored_path = default_storage.save(f"profile_photos/{optimized_filename}", optimized_file)
+            instance.upload = Upload.objects.create(
+                file_path=stored_path,
+                name=os.path.basename(optimized_filename)
+            )
 
         instance.save()
         return instance

@@ -33,7 +33,6 @@ from ..services.etag_service import build_updated_at_etag, matches_if_match
 from ..services.two_factor_service import disable_two_factor, enable_two_factor
 from ..services.user_archive_service import archive_user
 from ..services.subscription_service import subscribe_user, unsubscribe_user
-from ..constants import TEXT_FIELD_MAX_LENGTH
 
 
 
@@ -93,7 +92,7 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
     def get_queryset(self):
         return (
             User.objects.select_related('upload', 'documentation')
-            .order_by('-created_at', '-user_id')
+            .order_by('-updated_at', '-user_id')
         )
 
     def list(self, request, *args, **kwargs):
@@ -163,10 +162,8 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
 
         if_match = request.headers.get('If-Match')
         current_etag = build_updated_at_etag(instance)
-        if if_match is None:
-            return Response({"detail": "If-Match header is required."}, status=status.HTTP_428_PRECONDITION_REQUIRED)
-        if not matches_if_match(current_etag, if_match):
-            return Response({"detail": "ETag does not match the current resource version."}, status=status.HTTP_412_PRECONDITION_FAILED)
+        if not if_match or not matches_if_match(current_etag, if_match):
+            return Response({"detail": "Invalid or missing ETag."}, status=status.HTTP_412_PRECONDITION_FAILED)
 
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -214,9 +211,6 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
 
         status_input = request.data.get('status')
         rejection_reason = request.data.get('rejection_reason')
-        if status_input is not None and len(str(status_input)) > TEXT_FIELD_MAX_LENGTH:
-            return Response({"detail": f"Status is too long (max {TEXT_FIELD_MAX_LENGTH} characters)."}, status=status.HTTP_400_BAD_REQUEST)
-
         if status_input not in [UserAccountStatus.ACTIVE, UserAccountStatus.REJECTED]:
             return Response({"detail": "Invalid status. Must be ACTIVE or REJECTED."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -474,8 +468,6 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
                 return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
 
             role = request.data.get('role')
-            if role is not None and len(str(role)) > TEXT_FIELD_MAX_LENGTH:
-                return Response({"error": f"Role is too long (max {TEXT_FIELD_MAX_LENGTH} characters)."}, status=status.HTTP_400_BAD_REQUEST)
             if role == UserRole.DONOR:
                 serializer = DonorRegisterSerializer(data=request.data)
             else:
@@ -483,8 +475,6 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
         else:
             # Public registration flow
             role = request.data.get('role')
-            if role is not None and len(str(role)) > TEXT_FIELD_MAX_LENGTH:
-                return Response({"error": f"Role is too long (max {TEXT_FIELD_MAX_LENGTH} characters)."}, status=status.HTTP_400_BAD_REQUEST)
             if role == UserRole.DONOR:
                 serializer = DonorRegisterSerializer(data=request.data)
             elif role == UserRole.TUAB:
