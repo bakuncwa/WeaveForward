@@ -374,6 +374,163 @@ System testing and user acceptance testing:
 
 ---
 
+## GCP Deployment Instructions
+
+This section covers deploying WeaveForward to Google Cloud Platform using Cloud Run (backend + frontend), Cloud SQL (MySQL), Cloud Storage (media/static files), and Cloud Scheduler (scheduled jobs).
+
+### Prerequisites
+
+- `gcloud` CLI installed and authenticated
+- A GCP project with billing enabled
+- Enable required APIs:
+
+```bash
+gcloud services enable run.googleapis.com sqladmin.googleapis.com \
+  cloudbuild.googleapis.com storage.googleapis.com cloudscheduler.googleapis.com
+```
+
+---
+
+### Step 1 — Cloud SQL (MySQL)
+
+```bash
+gcloud sql instances create weaveforward-db \
+  --database-version=MYSQL_8_0 \
+  --tier=db-f1-micro \
+  --region=asia-southeast1
+
+gcloud sql databases create weaveforward_db --instance=weaveforward-db
+
+gcloud sql users set-password root --instance=weaveforward-db --password=YOUR_DB_PASSWORD
+```
+
+Note the connection name for use in later steps: `YOUR_PROJECT:asia-southeast1:weaveforward-db`
+
+---
+
+### Step 2 — Cloud Storage Bucket (Media & Static Files)
+
+```bash
+gcloud storage buckets create gs://weaveforward-media \
+  --location=asia-southeast1 \
+  --uniform-bucket-level-access
+
+gcloud storage buckets add-iam-policy-binding gs://weaveforward-media \
+  --member=allUsers --role=roles/storage.objectViewer
+```
+
+---
+
+### Step 3 — Create Dockerfiles
+
+Neither project ships with a Dockerfile. Create one in each directory before building.
+
+**`WeaveForward_Backend/Dockerfile`:**
+```dockerfile
+FROM python:3.12-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+CMD exec sh -c "python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 0 WeaveForward_Backend.wsgi:application"
+```
+
+**`WeaveForward_Frontend/Dockerfile`:**
+```dockerfile
+FROM python:3.12-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+CMD exec sh -c "python manage.py collectstatic --noinput && daphne -b 0.0.0.0 -p $PORT WeaveForward_Frontend.asgi:application"
+```
+
+---
+
+### Step 4 — Build and Push Images
+
+```bash
+cd WeaveForward_Backend
+gcloud builds submit --tag gcr.io/YOUR_PROJECT/weaveforward-backend
+
+cd ../WeaveForward_Frontend
+gcloud builds submit --tag gcr.io/YOUR_PROJECT/weaveforward-frontend
+```
+
+---
+
+### Step 5 — Deploy Backend to Cloud Run
+
+```bash
+gcloud run deploy weaveforward-backend \
+  --image gcr.io/YOUR_PROJECT/weaveforward-backend \
+  --region asia-southeast1 \
+  --platform managed \
+  --allow-unauthenticated \
+  --add-cloudsql-instances YOUR_PROJECT:asia-southeast1:weaveforward-db \
+  --set-env-vars "ENVIRONMENT=production,DEBUG=False,SECRET_KEY=YOUR_SECRET_KEY,\
+DB_NAME=weaveforward_db,DB_USER=root,DB_PASSWORD=YOUR_DB_PASSWORD,\
+CLOUD_SQL_CONNECTION_NAME=YOUR_PROJECT:asia-southeast1:weaveforward-db,\
+GS_BUCKET_NAME=weaveforward-media,GS_PROJECT_ID=YOUR_PROJECT,\
+ALLOWED_HOSTS=*.run.app,AUTH_COOKIE_SECURE=True,\
+RESEND_API_KEY=...,LALAMOVE_API_KEY=...,LALAMOVE_API_SECRET=...,\
+LALAMOVE_BASE_URL=https://rest.sandbox.lalamove.com,\
+MAYA_API_SECRET_KEY=...,MAYA_API_PUBLIC_KEY=...,\
+MAYA_SANDBOX_BASE_URL=https://pg-sandbox.paymaya.com/payments/v1,\
+SCHEDULER_SECRET=...,ADMIN_EMAIL=admin@weaveforward.com,ADMIN_PASSWORD=..."
+```
+
+Note the deployed backend URL (e.g. `https://weaveforward-backend-xxxx-as.a.run.app`).
+
+---
+
+### Step 6 — Deploy Frontend to Cloud Run
+
+```bash
+gcloud run deploy weaveforward-frontend \
+  --image gcr.io/YOUR_PROJECT/weaveforward-frontend \
+  --region asia-southeast1 \
+  --platform managed \
+  --allow-unauthenticated \
+  --set-env-vars "BACKEND_BASE_URL=https://weaveforward-backend-xxxx-as.a.run.app/api/,\
+ENVIRONMENT=production,SECRET_KEY=YOUR_FRONTEND_SECRET_KEY,\
+ALLOWED_HOSTS=*.run.app,AUTH_COOKIE_SECURE=True"
+```
+
+---
+
+### Step 7 — Cloud Scheduler (Subscription Auto-Renewal)
+
+```bash
+gcloud scheduler jobs create http weaveforward-renewal \
+  --schedule="0 0 * * *" \
+  --uri="https://weaveforward-backend-xxxx-as.a.run.app/api/scheduler/renew-subscriptions/" \
+  --http-method=POST \
+  --headers="X-Scheduler-Secret=YOUR_SCHEDULER_SECRET" \
+  --location=asia-southeast1
+```
+
+---
+
+### Step 8 — Update ALLOWED_HOSTS
+
+Once both services are deployed, update `ALLOWED_HOSTS` in each Cloud Run service's environment variables to include the actual `.run.app` URLs, then redeploy.
+
+---
+
+### Deployment Summary
+
+| Component | GCP Service |
+|---|---|
+| Backend API (Django/Gunicorn) | Cloud Run |
+| Frontend (Django/Daphne ASGI) | Cloud Run |
+| MySQL database | Cloud SQL |
+| Media & static files | Cloud Storage |
+| Scheduled jobs (auto-renewal) | Cloud Scheduler |
+| Container images | Container Registry (`gcr.io`) |
+
+---
+
 ## Troubleshooting and Maintenance
 
 ### Database Connection Issues (Backend)
