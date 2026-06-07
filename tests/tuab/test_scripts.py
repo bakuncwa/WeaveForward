@@ -236,6 +236,48 @@ class TC11TUABRegisterAccountTest(unittest.TestCase):
         self.assertIn("/register/tuab/", driver.current_url,
                       "System allowed duplicate email TUAB registration")
 
+    def test_tc11_005_weak_password_blocked(self):
+        """Verify That Weak Password Is Rejected by Password Strength Validation"""
+        driver, wait = self.driver, self.wait
+        driver.get(f"{BASE_URL}/register/tuab/")
+        wait.until(EC.visibility_of_element_located((By.NAME, "email"))).send_keys(_random_email())
+        try:
+            driver.find_element(By.NAME, "business_name").send_keys("Test Biz")
+            driver.find_element(By.NAME, "contact_no").send_keys(str(random.randint(9000000000, 9999999999)))
+        except Exception:
+            pass
+        driver.find_element(By.ID, "pw").send_keys("weakpassword")
+        driver.find_element(By.ID, "cp").send_keys("weakpassword")
+        driver.find_element(By.XPATH, "//button[contains(@onclick, 'go(1)')]").click()
+        time.sleep(0.5)
+        rules_el = driver.find_element(By.ID, "pw-rules")
+        self.assertIn("visible", rules_el.get_attribute("class"),
+                      "Password strength checklist was not shown for a weak password")
+        st2_class = driver.find_element(By.ID, "st2").get_attribute("class")
+        self.assertIn("hidden", st2_class,
+                      "Form advanced past step 1 despite a weak password")
+
+    def test_tc11_006_password_mismatch_blocked(self):
+        """Verify That Mismatched Passwords Are Rejected"""
+        driver, wait = self.driver, self.wait
+        driver.get(f"{BASE_URL}/register/tuab/")
+        wait.until(EC.visibility_of_element_located((By.NAME, "email"))).send_keys(_random_email())
+        try:
+            driver.find_element(By.NAME, "business_name").send_keys("Test Biz")
+            driver.find_element(By.NAME, "contact_no").send_keys(str(random.randint(9000000000, 9999999999)))
+        except Exception:
+            pass
+        driver.find_element(By.ID, "pw").send_keys("ValidPass1!")
+        driver.find_element(By.ID, "cp").send_keys("DifferentPass1!")
+        driver.find_element(By.XPATH, "//button[contains(@onclick, 'go(1)')]").click()
+        time.sleep(0.5)
+        mismatch_err = driver.find_element(By.ID, "pw-match-err")
+        self.assertNotIn("hidden", mismatch_err.get_attribute("class"),
+                         "Password mismatch error was not displayed")
+        st2_class = driver.find_element(By.ID, "st2").get_attribute("class")
+        self.assertIn("hidden", st2_class,
+                      "Form advanced past step 1 despite mismatched passwords")
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  TC12 — TUAB Login

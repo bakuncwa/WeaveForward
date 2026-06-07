@@ -260,6 +260,52 @@ def test_tc1_004_duplicate_email(driver: webdriver.Chrome) -> dict:
     _execute(action, r, "Duplicate email registration blocked.")
     return _finish(r, t0)
 
+def test_tc1_005_weak_password_blocked(driver: webdriver.Chrome) -> dict:
+    r = _build_result("TC1-005", "Verify That Weak Password Is Rejected by Password Strength Validation")
+    wait = WebDriverWait(driver, DEFAULT_WAIT)
+    t0 = time.time()
+    driver.get(f"{BASE_URL}/register/donor/")
+    def action():
+        wait.until(EC.visibility_of_element_located((By.NAME, "email"))).send_keys(random_email())
+        driver.find_element(By.NAME, "first_name").send_keys("John")
+        driver.find_element(By.NAME, "last_name").send_keys("Doe")
+        driver.find_element(By.NAME, "contact_no").send_keys(str(random.randint(9000000000, 9999999999)))
+        driver.find_element(By.ID, "donor-pw").send_keys("weakpassword")
+        driver.find_element(By.ID, "donor-cp").send_keys("weakpassword")
+        driver.find_element(By.ID, "next-btn").click()
+        time.sleep(0.5)
+        rules_el = driver.find_element(By.ID, "pw-rules")
+        if "visible" not in rules_el.get_attribute("class"):
+            raise Exception("Strictly Authentic: Password strength checklist was not shown for a weak password")
+        step2_class = driver.find_element(By.ID, "step2").get_attribute("class")
+        if "hidden" not in step2_class:
+            raise Exception("Strictly Authentic: Form advanced past step 1 despite a weak password")
+    _execute(action, r, "Weak password correctly blocked by strength validation.")
+    return _finish(r, t0)
+
+def test_tc1_006_password_mismatch_blocked(driver: webdriver.Chrome) -> dict:
+    r = _build_result("TC1-006", "Verify That Mismatched Passwords Are Rejected")
+    wait = WebDriverWait(driver, DEFAULT_WAIT)
+    t0 = time.time()
+    driver.get(f"{BASE_URL}/register/donor/")
+    def action():
+        wait.until(EC.visibility_of_element_located((By.NAME, "email"))).send_keys(random_email())
+        driver.find_element(By.NAME, "first_name").send_keys("John")
+        driver.find_element(By.NAME, "last_name").send_keys("Doe")
+        driver.find_element(By.NAME, "contact_no").send_keys(str(random.randint(9000000000, 9999999999)))
+        driver.find_element(By.ID, "donor-pw").send_keys("ValidPass1!")
+        driver.find_element(By.ID, "donor-cp").send_keys("DifferentPass1!")
+        driver.find_element(By.ID, "next-btn").click()
+        time.sleep(0.5)
+        mismatch_err = driver.find_element(By.ID, "pw-match-err")
+        if "hidden" in mismatch_err.get_attribute("class"):
+            raise Exception("Strictly Authentic: Password mismatch error was not displayed")
+        step2_class = driver.find_element(By.ID, "step2").get_attribute("class")
+        if "hidden" not in step2_class:
+            raise Exception("Strictly Authentic: Form advanced past step 1 despite mismatched passwords")
+    _execute(action, r, "Password mismatch correctly blocked.")
+    return _finish(r, t0)
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  MODULE 2 — Donor Login
 # ══════════════════════════════════════════════════════════════════════════════

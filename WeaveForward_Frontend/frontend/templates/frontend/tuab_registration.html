@@ -464,6 +464,12 @@
         gap: 10px
       }
     }
+    .pw-rules { display: none; flex-direction: column; gap: 4px; padding: 10px 12px; background: #faf8f5; border: 1px solid #e0dbd4; border-radius: 8px; margin-top: -8px; margin-bottom: 10px; }
+    .pw-rules.visible { display: flex; }
+    .pw-rule { font-size: 11px; font-family: 'Poppins', sans-serif; color: #aaa; transition: color 0.2s; }
+    .pw-rule.met { color: #2d7a4f; }
+    .pw-match-err { font-size: 11px; font-family: 'Poppins', sans-serif; color: #c0392b; margin-top: -6px; margin-bottom: 8px; }
+    .pw-match-err.hidden { display: none; }
   </style>
 </head>
 
@@ -503,8 +509,16 @@
             </div>
             <div class="group"><label class="cap-lbl">Password</label><input class="in" type="password" name="password"
                 id="pw" autocomplete="new-password"></div>
+            <div class="pw-rules" id="pw-rules">
+              <div class="pw-rule" id="r-len">&#x25CF; At least 8 characters</div>
+              <div class="pw-rule" id="r-upper">&#x25CF; At least 1 uppercase letter (A–Z)</div>
+              <div class="pw-rule" id="r-lower">&#x25CF; At least 1 lowercase letter (a–z)</div>
+              <div class="pw-rule" id="r-digit">&#x25CF; At least 1 number (0–9)</div>
+              <div class="pw-rule" id="r-special">&#x25CF; At least 1 special character (!@#$%...)</div>
+            </div>
             <div class="group"><label class="cap-lbl">Confirm Password</label><input class="in" type="password"
                 name="confirm_password" id="cp" autocomplete="new-password"></div>
+            <div class="pw-match-err hidden" id="pw-match-err">Passwords do not match.</div>
           </div>
 
           <!-- Step 2 -->
@@ -645,6 +659,24 @@
     const hAc = id => setTimeout(() => gE(id)?.classList.add('hidden'), 200);
     let cS = {% if errors %}3{% else %} 1{% endif %}, aT, aR = [], m, mk, tLt, tLg, tgs = gE('fibs')?.value ? gE('fibs').value.split(',').filter(x => x) : [];
 
+    const PW_RULES = [
+      { id: 'r-len',     test: v => v.length >= 8 },
+      { id: 'r-upper',   test: v => /[A-Z]/.test(v) },
+      { id: 'r-lower',   test: v => /[a-z]/.test(v) },
+      { id: 'r-digit',   test: v => /\d/.test(v) },
+      { id: 'r-special', test: v => /[!@#$%^&*()\-_=+\[\]{}|;:'",.<>?/`~\\]/.test(v) },
+    ];
+    function checkPw(v) {
+      const rules = gE('pw-rules');
+      if (v) rules.classList.add('visible'); else rules.classList.remove('visible');
+      return PW_RULES.map(r => { const ok = r.test(v); gE(r.id).classList.toggle('met', ok); return ok; }).every(Boolean);
+    }
+    gE('pw')?.addEventListener('input', () => checkPw(gE('pw').value));
+    gE('cp')?.addEventListener('input', () => {
+      const match = gE('pw').value === gE('cp').value;
+      gE('pw-match-err').classList.toggle('hidden', match);
+    });
+
 
     const fiberLookup = JSON.parse(document.getElementById('fibers-data').textContent);
 
@@ -677,6 +709,10 @@
       if (cS === 1 && d === -1) {
         window.location.href = "{% url 'role_select' %}";
         return;
+      }
+      if (cS === 1 && d === 1) {
+        if (!checkPw(gE('pw').value)) { gE('pw-rules').classList.add('visible'); gE('pw').focus(); return; }
+        if (gE('pw').value !== gE('cp').value) { gE('pw-match-err').classList.remove('hidden'); gE('cp').focus(); return; }
       }
       cS = Math.min(3, Math.max(1, cS + d));
       steps.forEach((st, i) => {

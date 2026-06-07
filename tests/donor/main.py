@@ -30,6 +30,8 @@ from test_scripts import (
     test_tc1_002_cancel_registration,
     test_tc1_003_invalid_registration,
     test_tc1_004_duplicate_email,
+    test_tc1_005_weak_password_blocked,
+    test_tc1_006_password_mismatch_blocked,
     # MODULE 10: Update Account Information
     test_tc10_001_update_account_valid,
     test_tc10_002_cancel_update_account,
@@ -82,6 +84,8 @@ TEST_SUITE = [
     {"fn": test_tc1_002_cancel_registration, "tc_id": "TC1-002", "workflow": "Donor Register Account", "needs_driver": True},
     {"fn": test_tc1_003_invalid_registration, "tc_id": "TC1-003", "workflow": "Donor Register Account", "needs_driver": True},
     {"fn": test_tc1_004_duplicate_email, "tc_id": "TC1-004", "workflow": "Donor Register Account", "needs_driver": True},
+    {"fn": test_tc1_005_weak_password_blocked, "tc_id": "TC1-005", "workflow": "Donor Register Account", "needs_driver": True},
+    {"fn": test_tc1_006_password_mismatch_blocked, "tc_id": "TC1-006", "workflow": "Donor Register Account", "needs_driver": True},
     # ── MODULE 10 ───────────────────────────────────────────────────────────
     {"fn": test_tc10_001_update_account_valid, "tc_id": "TC10-001", "workflow": "Donor Update Account Information", "needs_driver": True},
     {"fn": test_tc10_002_cancel_update_account, "tc_id": "TC10-002", "workflow": "Donor Update Account Information", "needs_driver": True},
