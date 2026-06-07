@@ -82,6 +82,8 @@ CSRF_TRUSTED_ORIGINS = []
 
 AUTH_COOKIE_SECURE = _get_bool_env("AUTH_COOKIE_SECURE", default=IS_PRODUCTION)
 AUTH_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_SECURE = IS_PRODUCTION
+CSRF_COOKIE_SECURE = IS_PRODUCTION
 
 DB_NAME = _get_env("DB_NAME", default="weaveforward_db" if not IS_PRODUCTION else None, required=IS_PRODUCTION)
 DB_USER = _get_env("DB_USER", default="root" if not IS_PRODUCTION else None, required=IS_PRODUCTION)
@@ -224,10 +226,28 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # Reject oversized non-file request bodies before serializer/parser work.
 DATA_UPLOAD_MAX_MEMORY_SIZE = 1 * 1024 * 1024
 
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
+
 if USE_GCS:
-    DEFAULT_FILE_STORAGE = 'storages.backends.gcloud.GoogleCloudStorage'
-    GS_DEFAULT_ACL = None
-    GS_QUERYSTRING_AUTH = False
+    gcs_options = {
+        "bucket_name": GS_BUCKET_NAME,
+        "default_acl": None,
+        "querystring_auth": False,
+    }
+    if GS_PROJECT_ID:
+        gcs_options["project_id"] = GS_PROJECT_ID
+
+    STORAGES["default"] = {
+        "BACKEND": "storages.backends.gcloud.GoogleCloudStorage",
+        "OPTIONS": gcs_options,
+    }
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
