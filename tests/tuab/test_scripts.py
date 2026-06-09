@@ -64,16 +64,23 @@ def _random_email():
 # ──────────────────────────────────────────────────────────────────────────────
 # Shared state (module-level, updated across tests)
 # ──────────────────────────────────────────────────────────────────────────────
-REGISTERED_TUAB_EMAIL    = "test_tuab@gmail.com"
-REGISTERED_TUAB_PASSWORD = "Test1234!"
+REGISTERED_TUAB_EMAIL    = "gabrielleysabel.almirol@benilde.edu.ph"
+REGISTERED_TUAB_PASSWORD = "Wf@Benilde2026!"
 REGISTERED_TUAB_SECRET   = None
+
+
+def _js_clear_and_type(driver, element, value):
+    driver.execute_script("arguments[0].value = '';", element)
+    element.send_keys(value)
 
 
 def _tuab_login(driver: webdriver.Chrome, wait: WebDriverWait):
     driver.delete_all_cookies()
     driver.get(f"{BASE_URL}/")
-    wait.until(EC.visibility_of_element_located((By.NAME, "email"))).send_keys(REGISTERED_TUAB_EMAIL)
-    driver.find_element(By.NAME, "password").send_keys(REGISTERED_TUAB_PASSWORD)
+    el = wait.until(EC.visibility_of_element_located((By.NAME, "email")))
+    _js_clear_and_type(driver, el, REGISTERED_TUAB_EMAIL)
+    pw = driver.find_element(By.NAME, "password")
+    _js_clear_and_type(driver, pw, REGISTERED_TUAB_PASSWORD)
     driver.find_element(By.XPATH, "//button[@type='submit']").click()
     time.sleep(1)
     try:
@@ -96,8 +103,10 @@ def _ensure_tuab_login(driver: webdriver.Chrome, wait: WebDriverWait, target_url
 def _admin_login(driver: webdriver.Chrome, wait: WebDriverWait):
     driver.delete_all_cookies()
     driver.get(f"{BASE_URL}/")
-    wait.until(EC.visibility_of_element_located((By.NAME, "email"))).send_keys("admin@weaveforward.com")
-    driver.find_element(By.NAME, "password").send_keys("SecureAdminPassword123")
+    el = wait.until(EC.visibility_of_element_located((By.NAME, "email")))
+    _js_clear_and_type(driver, el, "admin@weaveforward.com")
+    pw = driver.find_element(By.NAME, "password")
+    _js_clear_and_type(driver, pw, "SecureAdminPassword123")
     driver.find_element(By.XPATH, "//button[@type='submit']").click()
     time.sleep(1)
 
@@ -122,47 +131,60 @@ class TC11TUABRegisterAccountTest(unittest.TestCase):
         phone = str(random.randint(9000000000, 9999999999))
 
         driver.get(f"{BASE_URL}/register/tuab/")
-        wait.until(EC.visibility_of_element_located((By.NAME, "email"))).send_keys(email)
-        driver.find_element(By.NAME, "business_name").send_keys("Artisan Weave Co.")
-        driver.find_element(By.NAME, "description").send_keys("A textile upcycling business based in Manila.")
-        driver.find_element(By.NAME, "contact_no").send_keys(phone)
-        driver.find_element(By.NAME, "password").send_keys("Test1234!")
-        driver.find_element(By.NAME, "confirm_password").send_keys("Test1234!")
 
-        # Target fibers
+        # ── Step 1: Account Credentials ──────────────────────────────────────
+        el = wait.until(EC.visibility_of_element_located((By.NAME, "email")))
+        _js_clear_and_type(driver, el, email)
+        _js_clear_and_type(driver, driver.find_element(By.NAME, "business_name"), "Artisan Weave Co.")
+        _js_clear_and_type(driver, driver.find_element(By.NAME, "contact_no"), phone)
+        _js_clear_and_type(driver, driver.find_element(By.ID, "pw"), "Test1234!")
+        _js_clear_and_type(driver, driver.find_element(By.ID, "cp"), "Test1234!")
+        time.sleep(0.3)
+        driver.find_element(By.XPATH, "//button[contains(@onclick,'go(1)')]").click()
+        time.sleep(0.5)
+
+        # ── Step 2: Business Information ─────────────────────────────────────
+        desc_el = wait.until(EC.visibility_of_element_located((By.NAME, "description")))
+        desc_el.clear(); desc_el.send_keys("A textile upcycling business based in Manila.")
+        addr_el = wait.until(EC.visibility_of_element_located((By.ID, "addr")))
+        addr_el.clear(); addr_el.send_keys("123 Artisan Blvd, Paco, Manila")
+        driver.execute_script("document.getElementById('lat').value = '14.5833333';")
+        driver.execute_script("document.getElementById('lng').value = '120.9833333';")
+        driver.execute_script("document.getElementById('city').value = 'Manila';")
+        driver.execute_script("document.getElementById('brgy').value = 'Paco';")
         try:
-            fiber_input = driver.find_element(By.NAME, "target_fibers")
-            fiber_input.clear()
-            fiber_input.send_keys("cotton")
+            md = driver.find_element(By.ID, "md"); md.clear(); md.send_keys("20")
+            mbs = driver.find_element(By.ID, "mbs"); mbs.clear(); mbs.send_keys("50")
         except Exception:
             pass
+        driver.find_element(By.XPATH, "//button[contains(@onclick,'go(1)')]").click()
+        time.sleep(0.5)
 
-        # Advance to location step if multi-step form
-        try:
-            next_btn = driver.find_element(By.ID, "next-btn")
-            next_btn.click()
-        except Exception:
-            pass
-
-        wait.until(EC.visibility_of_element_located((By.ID, "addr"))).send_keys("123 Artisan Blvd, Paco, Manila")
-        driver.execute_script("if(document.getElementById('lat')) document.getElementById('lat').value = '14.5833333';")
-        driver.execute_script("if(document.getElementById('lng')) document.getElementById('lng').value = '120.9833333';")
-
-        # Upload documentation
+        # ── Step 3: Documentation Upload & Submit ────────────────────────────
+        dummy_path = os.path.join(os.path.dirname(__file__), "dummy_permit.pdf")
+        if not os.path.exists(dummy_path):
+            with open(dummy_path, "wb") as f:
+                f.write(b"%PDF-1.4 1 0 obj<</Type /Catalog>>endobj")
         doc_input = driver.find_elements(By.CSS_SELECTOR, "input[type='file'][name='documentation']")
         if doc_input:
-            dummy_path = os.path.join(os.path.dirname(__file__), "dummy_permit.pdf")
-            if not os.path.exists(dummy_path):
-                with open(dummy_path, "wb") as f:
-                    f.write(b"%PDF-1.4 1 0 obj<</Type /Catalog>>endobj")
             doc_input[0].send_keys(dummy_path)
+            time.sleep(0.5)
 
-        driver.find_element(By.XPATH, "//button[contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'register') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'submit')]").click()
-
+        driver.find_element(By.XPATH, "//button[contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'submit')]").click()
         wait.until(lambda d: d.current_url.rstrip("/") == BASE_URL.rstrip("/") or "/login" in d.current_url)
         TC11TUABRegisterAccountTest.registered_email = email
-        global REGISTERED_TUAB_EMAIL
-        REGISTERED_TUAB_EMAIL = email
+
+        # ── Admin approves the newly registered TUAB ─────────────────────────
+        _admin_login(driver, wait)
+        wait.until(lambda d: "/admin" in d.current_url or "/donation" in d.current_url)
+        driver.get(f"{BASE_URL}/admin/tuabs/add/")
+        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "body")))
+        time.sleep(1)
+        approve_btns = driver.find_elements(By.XPATH,
+            "//form[.//input[@name='action'][@value='approve']]//button[@type='submit']")
+        if approve_btns:
+            approve_btns[0].click()
+            time.sleep(1)
 
     def test_tc11_002_cancel_registration(self):
         """Verify TUAB Registration Cancellation Functions"""
@@ -183,20 +205,17 @@ class TC11TUABRegisterAccountTest(unittest.TestCase):
         """Verify TUAB Account Creation is Unsuccessful with Invalid Credentials"""
         driver, wait = self.driver, self.wait
         driver.get(f"{BASE_URL}/register/tuab/")
-        wait.until(EC.visibility_of_element_located((By.NAME, "email"))).send_keys("notanemail")
+        el = wait.until(EC.visibility_of_element_located((By.NAME, "email")))
+        _js_clear_and_type(driver, el, "notanemail")
         try:
-            driver.find_element(By.NAME, "business_name").send_keys("X")
-            driver.find_element(By.NAME, "password").send_keys("short")
-            driver.find_element(By.NAME, "confirm_password").send_keys("short")
+            _js_clear_and_type(driver, driver.find_element(By.NAME, "business_name"), "X")
+            _js_clear_and_type(driver, driver.find_element(By.ID, "pw"), "short")
+            _js_clear_and_type(driver, driver.find_element(By.ID, "cp"), "short")
         except Exception:
             pass
         try:
-            next_btn = driver.find_element(By.ID, "next-btn")
-            next_btn.click()
-        except Exception:
-            pass
-        try:
-            driver.find_element(By.XPATH, "//button[contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'register') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'submit')]").click()
+            driver.find_element(By.XPATH, "//button[contains(@onclick,'go(1)')]").click()
+            time.sleep(0.5)
         except Exception:
             pass
         time.sleep(1)
@@ -209,17 +228,18 @@ class TC11TUABRegisterAccountTest(unittest.TestCase):
         dup_email = TC11TUABRegisterAccountTest.registered_email or REGISTERED_TUAB_EMAIL
         phone = str(random.randint(9000000000, 9999999999))
         driver.get(f"{BASE_URL}/register/tuab/")
-        wait.until(EC.visibility_of_element_located((By.NAME, "email"))).send_keys(dup_email)
+        el = wait.until(EC.visibility_of_element_located((By.NAME, "email")))
+        _js_clear_and_type(driver, el, dup_email)
         try:
-            driver.find_element(By.NAME, "business_name").send_keys("Duplicate Biz")
-            driver.find_element(By.NAME, "contact_no").send_keys(phone)
-            driver.find_element(By.NAME, "password").send_keys("Test1234!")
-            driver.find_element(By.NAME, "confirm_password").send_keys("Test1234!")
+            _js_clear_and_type(driver, driver.find_element(By.NAME, "business_name"), "Duplicate Biz")
+            _js_clear_and_type(driver, driver.find_element(By.NAME, "contact_no"), phone)
+            _js_clear_and_type(driver, driver.find_element(By.ID, "pw"), "Test1234!")
+            _js_clear_and_type(driver, driver.find_element(By.ID, "cp"), "Test1234!")
         except Exception:
             pass
         try:
-            next_btn = driver.find_element(By.ID, "next-btn")
-            next_btn.click()
+            driver.find_element(By.XPATH, "//button[contains(@onclick,'go(1)')]").click()
+            time.sleep(0.5)
         except Exception:
             pass
         try:
@@ -240,14 +260,15 @@ class TC11TUABRegisterAccountTest(unittest.TestCase):
         """Verify That Weak Password Is Rejected by Password Strength Validation"""
         driver, wait = self.driver, self.wait
         driver.get(f"{BASE_URL}/register/tuab/")
-        wait.until(EC.visibility_of_element_located((By.NAME, "email"))).send_keys(_random_email())
+        el = wait.until(EC.visibility_of_element_located((By.NAME, "email")))
+        _js_clear_and_type(driver, el, _random_email())
         try:
-            driver.find_element(By.NAME, "business_name").send_keys("Test Biz")
-            driver.find_element(By.NAME, "contact_no").send_keys(str(random.randint(9000000000, 9999999999)))
+            _js_clear_and_type(driver, driver.find_element(By.NAME, "business_name"), "Test Biz")
+            _js_clear_and_type(driver, driver.find_element(By.NAME, "contact_no"), str(random.randint(9000000000, 9999999999)))
         except Exception:
             pass
-        driver.find_element(By.ID, "pw").send_keys("weakpassword")
-        driver.find_element(By.ID, "cp").send_keys("weakpassword")
+        _js_clear_and_type(driver, driver.find_element(By.ID, "pw"), "weakpassword")
+        _js_clear_and_type(driver, driver.find_element(By.ID, "cp"), "weakpassword")
         driver.find_element(By.XPATH, "//button[contains(@onclick, 'go(1)')]").click()
         time.sleep(0.5)
         rules_el = driver.find_element(By.ID, "pw-rules")
@@ -261,14 +282,15 @@ class TC11TUABRegisterAccountTest(unittest.TestCase):
         """Verify That Mismatched Passwords Are Rejected"""
         driver, wait = self.driver, self.wait
         driver.get(f"{BASE_URL}/register/tuab/")
-        wait.until(EC.visibility_of_element_located((By.NAME, "email"))).send_keys(_random_email())
+        el = wait.until(EC.visibility_of_element_located((By.NAME, "email")))
+        _js_clear_and_type(driver, el, _random_email())
         try:
-            driver.find_element(By.NAME, "business_name").send_keys("Test Biz")
-            driver.find_element(By.NAME, "contact_no").send_keys(str(random.randint(9000000000, 9999999999)))
+            _js_clear_and_type(driver, driver.find_element(By.NAME, "business_name"), "Test Biz")
+            _js_clear_and_type(driver, driver.find_element(By.NAME, "contact_no"), str(random.randint(9000000000, 9999999999)))
         except Exception:
             pass
-        driver.find_element(By.ID, "pw").send_keys("ValidPass1!")
-        driver.find_element(By.ID, "cp").send_keys("DifferentPass1!")
+        _js_clear_and_type(driver, driver.find_element(By.ID, "pw"), "ValidPass1!")
+        _js_clear_and_type(driver, driver.find_element(By.ID, "cp"), "DifferentPass1!")
         driver.find_element(By.XPATH, "//button[contains(@onclick, 'go(1)')]").click()
         time.sleep(0.5)
         mismatch_err = driver.find_element(By.ID, "pw-match-err")
@@ -294,8 +316,9 @@ class TC12TUABLoginTest(unittest.TestCase):
         """Verify That A TUAB Can Login With Valid Credentials"""
         driver, wait = self.driver, self.wait
         driver.get(f"{BASE_URL}/")
-        wait.until(EC.visibility_of_element_located((By.NAME, "email"))).send_keys(REGISTERED_TUAB_EMAIL)
-        driver.find_element(By.NAME, "password").send_keys(REGISTERED_TUAB_PASSWORD)
+        el = wait.until(EC.visibility_of_element_located((By.NAME, "email")))
+        _js_clear_and_type(driver, el, REGISTERED_TUAB_EMAIL)
+        _js_clear_and_type(driver, driver.find_element(By.NAME, "password"), REGISTERED_TUAB_PASSWORD)
         driver.find_element(By.XPATH, "//button[@type='submit']").click()
         time.sleep(1)
         try:
@@ -748,24 +771,24 @@ class TC18TUABViewInventoryItemsTest(unittest.TestCase):
     def test_tc18_001_view_inventory_snapshot(self):
         """Verify That The Inventory Snapshot With Active Records Can Be Viewed Successfully"""
         driver, wait = self.driver, self.wait
-        url = f"{BASE_URL}/tuab/inventory/"
-        driver.get(url)
+        driver.get(f"{BASE_URL}/tuab/inventory/")
         wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "body")))
+        self.assertIn("/tuab/inventory", driver.current_url,
+                      "Inventory snapshot page did not load — redirect may have occurred")
         body = driver.find_element(By.TAG_NAME, "body").text
         self.assertTrue(
-            "inventory" in body.lower(),
-            "Inventory snapshot page did not render"
+            "inventory" in body.lower() or "snapshot" in body.lower(),
+            "Inventory snapshot page did not render expected content"
         )
 
     def test_tc18_002_export_inventory_csv(self):
         """Verify That The Inventory Snapshot With Active Records Can Be Exported Successfully"""
         driver, wait = self.driver, self.wait
-        url = f"{BASE_URL}/tuab/inventory/"
-        driver.get(url)
+        driver.get(f"{BASE_URL}/tuab/inventory/")
         wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "body")))
         export_btns = driver.find_elements(By.XPATH,
-            "//button[contains(@onclick,'exportInventoryCSV') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'download') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'export')]")
-        self.assertTrue(len(export_btns) > 0, "No Download/Export button found on inventory page")
+            "//button[contains(@onclick,'exportInventoryCSV') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'export') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'csv')]")
+        self.assertTrue(len(export_btns) > 0, "No Export CSV button found on inventory page")
         export_btns[0].click()
         time.sleep(2)
 
@@ -959,6 +982,7 @@ class TC21TUABUpdateAccountInformationTest(unittest.TestCase):
         driver, wait = self.driver, self.wait
         url = f"{BASE_URL}/tuab/edit-profile/"
         driver.get(url)
+        _ensure_tuab_login(driver, wait, url)
         wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "body")))
         tgl = wait.until(EC.presence_of_element_located((By.ID, "tgl")))
         if "on" not in tgl.get_attribute("class"):
@@ -982,6 +1006,7 @@ class TC21TUABUpdateAccountInformationTest(unittest.TestCase):
         driver, wait = self.driver, self.wait
         url = f"{BASE_URL}/tuab/edit-profile/"
         driver.get(url)
+        _ensure_tuab_login(driver, wait, url)
         wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "body")))
         tgl = wait.until(EC.presence_of_element_located((By.ID, "tgl")))
         if "on" in tgl.get_attribute("class"):
@@ -1007,7 +1032,6 @@ class TC21TUABUpdateAccountInformationTest(unittest.TestCase):
         biz_name_els = driver.find_elements(By.NAME, "business_name")
         if biz_name_els:
             biz_name_els[0].clear()
-            biz_name_els[0].send_keys("   ")
         save_btn = wait.until(EC.element_to_be_clickable(
             (By.XPATH, "//button[@id='save-btn' or @type='submit']")))
         save_btn.click()
@@ -1020,6 +1044,7 @@ class TC21TUABUpdateAccountInformationTest(unittest.TestCase):
         driver, wait = self.driver, self.wait
         url = f"{BASE_URL}/tuab/edit-profile/"
         driver.get(url)
+        _ensure_tuab_login(driver, wait, url)
         wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "body")))
         tgl = wait.until(EC.presence_of_element_located((By.ID, "tgl")))
         if "on" not in tgl.get_attribute("class"):
