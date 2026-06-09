@@ -336,7 +336,8 @@ async def tuab_registration(request):
 
         if password != confirm_password:
             return render(request, 'frontend/tuab_registration.html', {
-                'errors': {'password': ["Passwords do not match."]}, 
+                'errors': {'password': ["Passwords do not match."]},
+                'error_step': 1,
                 'form_data': raw_data,
                 'fibers': fibers
             })
@@ -391,8 +392,20 @@ async def tuab_registration(request):
                     logging.warning(f"TUAB_REG_DEBUG status={response.status_code} body={json.dumps(resp_json)}")
                 except Exception as e:
                     logging.warning(f"TUAB_REG_DEBUG status={response.status_code} body_unparseable={e} text={response.text[:500]}")
+                errors = format_errors(response.json())
+                _step1 = {'email', 'password', 'contact_no', 'business_name'}
+                _step2 = {'display_address', 'latitude', 'longitude', 'city', 'barangay',
+                          'target_fibers', 'max_distance_km', 'min_biodeg_score', 'description', 'social_link'}
+                err_keys = set(errors.keys())
+                if err_keys & _step1:
+                    error_step = 1
+                elif err_keys & _step2:
+                    error_step = 2
+                else:
+                    error_step = 3
                 return render(request, 'frontend/tuab_registration.html', {
-                    'errors': format_errors(response.json()),
+                    'errors': errors,
+                    'error_step': error_step,
                     'form_data': raw_data,
                     'fibers': fibers
                 })

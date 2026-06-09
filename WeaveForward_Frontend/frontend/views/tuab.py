@@ -397,8 +397,8 @@ async def tuab_subscribe(request):
     except Exception:
         pass
             
-    # 1. Check if already subscribed (Success state)
-    if profile.get('is_subscribed'):
+    # 1. Check if already subscribed or redirected back from successful Maya 3DS
+    if profile.get('is_subscribed') or request.GET.get('status') == 'success':
         return render(request, 'frontend/tuabs/tuab_subscribe_to_premium_success.html', {
             'page_title': 'Subscribe for Premium Features',
             'user': profile
@@ -803,7 +803,10 @@ async def tuab_circular_economy(request):
             except Exception:
                 error_message = "Invalid date range filter."
         elif res and not isinstance(res, Exception) and res.status_code == 403:
-            error_message = "Access denied. Only TUABs can view this dashboard."
+            try:
+                error_message = res.json().get('detail', 'Access denied.')
+            except Exception:
+                error_message = "Access denied."
         else:
             error_message = "Unable to load dashboard data. Please try again later."
     except Exception:
