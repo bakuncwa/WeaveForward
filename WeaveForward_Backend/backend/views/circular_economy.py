@@ -16,6 +16,20 @@ class TuabCircularEconomyViewSet(viewsets.GenericViewSet):
     permission_classes = [IsAuthenticated]
 
     def list(self, request, *args, **kwargs):
+        # Overall complexity by dashboard section:
+        # 1. Biodegradability distribution: O(d + i + 10)
+        # 2. City/fiber volume: O(d + i + g log g + g)
+        # 3. Top 20 brands: O(d + i + b log b + 20)
+        # 4. Decisions by city: O(d + c log c + c)
+        # Overall: O((d + i + 10) + (d + i + g log g + g) +
+        #            (d + i + b log b + 20) + (d + c log c + c))
+        # Combined overall: O(d + i + g log g + g + b log b + c log c + c)
+        # Simplified overall: O(d + i + g log g + b log b + c log c)
+        # where d = matching donations, i = matching donation items,
+        # g = grouped city/fiber rows, b = grouped brand rows, and
+        # c = grouped city decision rows.
+        # SQL query count inside this method: 4 for admins, 5 for TUAB users
+        # because TUAB users also run the active subscription exists() check.
         user = request.user
         if user.role == UserRole.ADMIN:
             if user.status != UserAccountStatus.ACTIVE:
@@ -28,7 +42,7 @@ class TuabCircularEconomyViewSet(viewsets.GenericViewSet):
         else:
             raise PermissionDenied("Only active admins or active TUABs with an active subscription can access this dashboard.")
 
-        donation_filters = {"status__in": [DonationStatus.RECEIVED, DonationStatus.REJECTED, DonationStatus.PENDING]}
+        donation_filters = {"status__in": [DonationStatus.RECEIVED, DonationStatus.REJECTED]}
         errors = {}
 
         if settings.USE_TZ:
@@ -92,6 +106,19 @@ class TuabCircularEconomyViewSet(viewsets.GenericViewSet):
         ]
 
         # 2. Donation volume by city stacked by dominant fiber
+        # Rough SQL:
+        # SELECT donations.pickup_city, brand_fiber_lookups.dominant_fiber,
+        #        SUM(donation_items.weight_kg) AS weight_kg,
+        #        COUNT(donation_items.item_id) AS item_count
+        # FROM donation_items
+        # JOIN donations ON donation_items.donation_id = donations.donation_id
+        # JOIN brand_fiber_lookups ON donation_items.lookup_id = brand_fiber_lookups.lookup_id
+        # WHERE donation_items.donation_id IN (...filtered donation ids...)
+        # GROUP BY donations.pickup_city, brand_fiber_lookups.dominant_fiber
+        # ORDER BY donations.pickup_city, brand_fiber_lookups.dominant_fiber;
+        # Complexity: O(d + i + g log g + g), where d is the number of
+        # matching donations, i is the number of matching donation items, and
+        # g is the number of grouped city/fiber rows.
         city_fiber_rows = (
             items_qs
             .values("donation__pickup_city", "lookup__dominant_fiber")
@@ -109,6 +136,20 @@ class TuabCircularEconomyViewSet(viewsets.GenericViewSet):
         ]
 
         # 3. Top 20 brands by donation weight
+        # Rough SQL:
+        # SELECT brand_fiber_lookups.brand,
+        #        SUM(donation_items.weight_kg) AS weight_kg,
+        #        COUNT(donation_items.item_id) AS item_count
+        # FROM donation_items
+        # JOIN brand_fiber_lookups ON donation_items.lookup_id = brand_fiber_lookups.lookup_id
+        # WHERE donation_items.donation_id IN (...filtered donation ids...)
+        # GROUP BY brand_fiber_lookups.brand
+        # ORDER BY weight_kg DESC
+        # LIMIT 20;
+        # Complexity: O(d + i + b log b + 20), where d is the number of
+        # matching RECEIVED/REJECTED donations, i is the number of matching
+        # donation items, and b is the number of grouped brand rows. The final
+        # list formatting handles at most 20 rows because of [:20].
         top_brands_rows = (
             items_qs
             .values("lookup__brand")
@@ -124,7 +165,17 @@ class TuabCircularEconomyViewSet(viewsets.GenericViewSet):
             for r in top_brands_rows
         ]
 
-        # 4. Donation decisions by city (RECEIVED = accepted, REJECTED = rejected, PENDING = pending)
+        # 4. Donation decisions by city (RECEIVED = accepted, REJECTED = rejected)
+        # Rough SQL:
+        # SELECT donations.pickup_city,
+        #        COUNT(donation_id) FILTER (WHERE status = RECEIVED) AS accepted,
+        #        COUNT(donation_id) FILTER (WHERE status = REJECTED) AS rejected,
+        # FROM donations
+        # WHERE ...donation_filters...
+        # GROUP BY donations.pickup_city
+        # ORDER BY donations.pickup_city;
+        # Complexity: O(d + c log c + c), where d is the number of matching
+        # donations and c is the number of grouped city rows.
         decision_rows = (
             donations_qs
             .values("pickup_city")

@@ -120,14 +120,23 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
             queryset = queryset.filter(target_fibers=request.query_params.get('category'))
 
         # 5. Distance Calculation & Sorting (Database Level)
-        if request.query_params.get('lat') and request.query_params.get('lng'):
+        lat = request.query_params.get('lat')
+        lng = request.query_params.get('lng')
+        if lat and lng:
+            lat = float(lat)
+            lng = float(lng)
+
+            artisan_point = Func(F('longitude'), F('latitude'), function='POINT')
+            user_point = Func(lng, lat, function='POINT')
+            distance_meters = Func(
+                artisan_point,
+                user_point,
+                function='ST_Distance_Sphere'
+            )
+
             queryset = queryset.annotate(
                 distance_km=ExpressionWrapper(
-                    Func(
-                        Func(F('longitude'), F('latitude'), function='POINT'),
-                        Func(float(request.query_params.get('lng')), float(request.query_params.get('lat')), function='POINT'),
-                        function='ST_Distance_Sphere'
-                    ) / 1000.0,
+                    distance_meters / 1000.0,
                     output_field=FloatField()
                 )
             ).order_by('distance_km')

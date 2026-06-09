@@ -227,6 +227,8 @@ def test_tc25_002_add_donor_invalid(driver: webdriver.Chrome) -> dict:
     def action():
         _admin_login(driver, wait)
         driver.get(f"{BASE_URL}/admin/donors/add/")
+        wait.until(lambda d: "/admin/donors/add/" in d.current_url)
+        wait.until(EC.presence_of_element_located((By.ID, "frm")))
         wait.until(EC.visibility_of_element_located((By.NAME, "first_name"))).send_keys("Jane")
         driver.find_element(By.NAME, "last_name").send_keys("Doe")
         driver.find_element(By.NAME, "email").send_keys("not-an-email")
@@ -288,9 +290,10 @@ def test_tc24_001_view_donor(driver: webdriver.Chrome) -> dict:
         if not CREATED_DONOR_EMAIL:
             raise Exception("Strictly Authentic: No donor email available — TC25-001 must run first")
         _admin_login(driver, wait)
-        driver.get(f"{BASE_URL}/admin/donors/")
-        wait.until(EC.presence_of_element_located((By.XPATH, "//tr")))
-        row = driver.find_element(By.XPATH, f"//tr[.//*[contains(text(), '{CREATED_DONOR_EMAIL}')]]")
+        driver.get(f"{BASE_URL}/admin/donors/?q={CREATED_DONOR_EMAIL}")
+        wait.until(lambda d: "/admin/donors/" in d.current_url)
+        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#donor-tbody tr")))
+        row = driver.find_element(By.XPATH, f"//tbody[@id='donor-tbody']//tr[.//*[contains(text(), '{CREATED_DONOR_EMAIL}')]]")
         view_link = row.find_element(By.XPATH, ".//a[contains(text(), 'View')]")
         href = view_link.get_attribute("href")
         driver.get(href)

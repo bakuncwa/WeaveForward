@@ -26,10 +26,11 @@ class BrandFiberLookupViewset(viewsets.ReadOnlyModelViewSet):
         """Returns a unique list of fiber types found in the fiber_json column."""
         # Complexity notes:
         # - Let n = number of active BrandFiberLookup rows scanned.
+        # - Let m = average size/number of fiber entries in each fiber_json value.
         # - Let f = number of unique fiber names found.
-        # - Scanning and collecting unique fibers is O(n).
+        # - Parsing and collecting fibers is O(n * m).
         # - Sorting the unique fiber list is O(f log f).
-        # - Overall: O(n + f log f).
+        # - Overall: O(n * m + f log f).
         fibers_set = set()
         # Fetching only the fiber_json column for efficiency
         raw_jsons = BrandFiberLookup.objects.filter(is_active=True).values_list('fiber_json', flat=True)
@@ -72,5 +73,7 @@ class BrandFiberLookupViewset(viewsets.ReadOnlyModelViewSet):
         return Response(list(brands))
 
     def get_queryset(self):
+        # Complexity: O(n log n), where n is the number of active rows,
+        # because order_by sorts by brand, then clothing_type.
         return BrandFiberLookup.objects.filter(is_active=True).order_by('brand', 'clothing_type')
 
