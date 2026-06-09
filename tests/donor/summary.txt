@@ -1,13 +1,13 @@
 ==============================================================
   WEAVEFORWARD AUTOMATION SUITE | Test Summary
 ==============================================================
-  Run         : 2026-06-07 21:28:52
+  Run         : 2026-06-08 20:15:33
   AUT         : WeaveForward
-  Total TCs   : 36
-  Passed      : 36
+  Total TCs   : 38
+  Passed      : 38
   Failed      : 0
   Pass Rate   : 100.0%
-  Duration    : 70.8s
+  Duration    : 68.2s
 --------------------------------------------------------------
   TC        Result  Description
 --------------------------------------------------------------
@@ -15,6 +15,8 @@
   TC1-002   PASS    Verify That Donor Can Cancel Registration Before Submission
   TC1-003   PASS    Verify That Invalid Registration Details Are Rejected
   TC1-004   PASS    Verify That Registration Is Blocked If The Email Is Already In Use
+  TC1-005   PASS    Verify That Weak Password Is Rejected by Password Strength Validation
+  TC1-006   PASS    Verify That Mismatched Passwords Are Rejected
   TC10-001  PASS    Verify That Donor Account Is Updated Successfully Without Changing Location or 2FA
   TC10-002  PASS    Verify That Cancellation aborts Edit Successfully
   TC10-003  PASS    Verify That Account Location Edits Without Enabling TOTP Are Successful
@@ -48,5 +50,5 @@
   TC9-002   PASS    Verify That The Dashboard Can Be Viewed Without Applying Filters
   TC9-003   PASS    Verify That Viewing The Dashboard With Invalid Filters Is Not Allowed
 ==============================================================
-  SELENIUM VERDICT: 36 PASSED  |  0 FAILED
+  SELENIUM VERDICT: 38 PASSED  |  0 FAILED
 ==============================================================

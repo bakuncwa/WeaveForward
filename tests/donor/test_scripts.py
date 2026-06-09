@@ -228,8 +228,15 @@ def test_tc1_003_invalid_registration(driver: webdriver.Chrome) -> dict:
     driver.get(f"{BASE_URL}/register/donor/")
     def action():
         wait.until(EC.visibility_of_element_located((By.NAME, "email"))).send_keys("invalidemail")
+        driver.find_element(By.NAME, "first_name").send_keys("John")
+        driver.find_element(By.NAME, "last_name").send_keys("Doe")
+        driver.find_element(By.NAME, "contact_no").send_keys("9123456789")
+        driver.find_element(By.NAME, "password").send_keys("Test1234!")
+        driver.find_element(By.NAME, "confirm_password").send_keys("Test1234!")
         driver.find_element(By.ID, "next-btn").click()
         wait.until(EC.visibility_of_element_located((By.ID, "addr"))).send_keys("123 Test St")
+        driver.execute_script("if(document.getElementById('lat')) document.getElementById('lat').value = '14.5995';")
+        driver.execute_script("if(document.getElementById('lng')) document.getElementById('lng').value = '120.9842';")
         driver.find_element(By.XPATH, "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'register')]").click()
         # Should stay on register
         time.sleep(1)

@@ -165,7 +165,7 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
         # - Let n = number of submitted donation items.
         # - Let i = number of active items used by prediction inference.
         # - Let t = number of eligible TUAB users.
-        # - Dominant cost is O(i * t) because prediction generation builds
+        # - Cost is O(n + i * t) because prediction generation builds
         #   every active-item / TUAB pair.
         if request.user.status != 'ACTIVE' or request.user.role not in ['Admin', 'Donor']:
             raise PermissionDenied("Only active admins and donors can create donations.")
