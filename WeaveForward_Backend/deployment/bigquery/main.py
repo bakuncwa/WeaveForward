@@ -13,7 +13,7 @@ Run locally:
   GCP_PROJECT=weaveforward-system \
   BQ_DATASET=weaveforward_dw \
   GCS_BUCKET=weaveforward-etl \
-  python deployment/main.py
+  python deployment/bigquery/main.py
 """
 
 import os
@@ -22,7 +22,11 @@ import datetime
 import traceback
 
 # ── 1. Bootstrap Django ──────────────────────────────────────────────────────
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_here       = os.path.dirname(os.path.abspath(__file__))   # deployment/bigquery/
+_deploy_dir = os.path.dirname(_here)                        # deployment/
+_repo_dir   = os.path.dirname(_deploy_dir)                 # WeaveForward_Backend/
+sys.path.insert(0, _repo_dir)   # Django + backend models
+sys.path.insert(0, _here)       # local extractors/ loaders/
 os.environ.setdefault(
     "DJANGO_SETTINGS_MODULE",
     os.environ.get("DJANGO_SETTINGS_MODULE", "WeaveForward_Backend.settings"),

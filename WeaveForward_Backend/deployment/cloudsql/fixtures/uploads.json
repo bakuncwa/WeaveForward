@@ -1,0 +1,58 @@
+[
+{
+  "model": "backend.upload",
+  "pk": 1,
+  "fields": {
+    "file_path": "documentation/a332884866f847c5a795f8f6df4a9cc0.jpg",
+    "name": "a332884866f847c5a795f8f6df4a9cc0.jpg"
+  }
+},
+{
+  "model": "backend.upload",
+  "pk": 2,
+  "fields": {
+    "file_path": "documentation/7aafba75c0424e5095535a7a49f86dcf.pdf",
+    "name": "7aafba75c0424e5095535a7a49f86dcf.pdf"
+  }
+},
+{
+  "model": "backend.upload",
+  "pk": 3,
+  "fields": {
+    "file_path": "documentation/6c1a7296abf546cd952fddafda8d9144.pdf",
+    "name": "6c1a7296abf546cd952fddafda8d9144.pdf"
+  }
+},
+{
+  "model": "backend.upload",
+  "pk": 4,
+  "fields": {
+    "file_path": "documentation/c9b631cdfee34f77b79d43b395f62357.pdf",
+    "name": "c9b631cdfee34f77b79d43b395f62357.pdf"
+  }
+},
+{
+  "model": "backend.upload",
+  "pk": 5,
+  "fields": {
+    "file_path": "documentation/e53b711020fb4e56ad7cc00cb07ae0b4.pdf",
+    "name": "e53b711020fb4e56ad7cc00cb07ae0b4.pdf"
+  }
+},
+{
+  "model": "backend.upload",
+  "pk": 6,
+  "fields": {
+    "file_path": "donations/cbeb85c7df40467b91e71864b229a4f4.jpg",
+    "name": "cbeb85c7df40467b91e71864b229a4f4.jpg"
+  }
+},
+{
+  "model": "backend.upload",
+  "pk": 7,
+  "fields": {
+    "file_path": "profile_photos/952bd83af76848aabb87c12ab0f7cb06.jpg",
+    "name": "952bd83af76848aabb87c12ab0f7cb06.jpg"
+  }
+}
+]

@@ -1,0 +1,90 @@
+[
+{
+  "model": "backend.donationitem",
+  "pk": 51,
+  "fields": {
+    "donation": 31,
+    "lookup": 10067,
+    "condition_rating": "LIKE_NEW",
+    "weight_kg": "0.500",
+    "is_archived": false
+  }
+},
+{
+  "model": "backend.donationitem",
+  "pk": 52,
+  "fields": {
+    "donation": 32,
+    "lookup": 21,
+    "condition_rating": "GOOD",
+    "weight_kg": "1.500",
+    "is_archived": false
+  }
+},
+{
+  "model": "backend.donationitem",
+  "pk": 53,
+  "fields": {
+    "donation": 33,
+    "lookup": 191,
+    "condition_rating": "NEW",
+    "weight_kg": "0.800",
+    "is_archived": false
+  }
+},
+{
+  "model": "backend.donationitem",
+  "pk": 54,
+  "fields": {
+    "donation": 34,
+    "lookup": 392,
+    "condition_rating": "GOOD",
+    "weight_kg": "1.200",
+    "is_archived": false
+  }
+},
+{
+  "model": "backend.donationitem",
+  "pk": 55,
+  "fields": {
+    "donation": 35,
+    "lookup": 5934,
+    "condition_rating": "GOOD",
+    "weight_kg": "1.200",
+    "is_archived": false
+  }
+},
+{
+  "model": "backend.donationitem",
+  "pk": 56,
+  "fields": {
+    "donation": 36,
+    "lookup": 10384,
+    "condition_rating": "LIKE_NEW",
+    "weight_kg": "0.900",
+    "is_archived": false
+  }
+},
+{
+  "model": "backend.donationitem",
+  "pk": 57,
+  "fields": {
+    "donation": 37,
+    "lookup": 9198,
+    "condition_rating": "NEW",
+    "weight_kg": "0.700",
+    "is_archived": false
+  }
+},
+{
+  "model": "backend.donationitem",
+  "pk": 58,
+  "fields": {
+    "donation": 38,
+    "lookup": 21,
+    "condition_rating": "GOOD",
+    "weight_kg": "1.500",
+    "is_archived": false
+  }
+}
+]
