@@ -47,6 +47,7 @@
     .badge-claimed  { background: var(--blue); }
     .badge-pending  { background: var(--gold); }
     .badge-received { background: var(--green); }
+    .badge-rejected { background: #c94c4c; }
     .badge-cancelled { background: #8c8c8c; }
 
     .action-btns { display: flex; flex-direction: column; gap: 6px; width: 88px; }
@@ -171,6 +172,7 @@
                 {% if donation.status == 'IN_TRANSIT' or donation.status == 'CLAIMED' %}badge-claimed
                 {% elif donation.status == 'PENDING' %}badge-pending
                 {% elif donation.status == 'RECEIVED' %}badge-received
+                {% elif donation.status == 'REJECTED' %}badge-rejected
                 {% elif donation.status == 'CANCELLED' %}badge-cancelled
                 {% endif %}">
                 {{ donation.status }}
