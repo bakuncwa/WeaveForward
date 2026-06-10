@@ -1,0 +1,15 @@
+[
+  {"name": "order_id",                "field_type": "INTEGER",   "mode": "REQUIRED"},
+  {"name": "donation_id",             "field_type": "INTEGER",   "mode": "REQUIRED"},
+  {"name": "lalamove_order_id",       "field_type": "STRING",    "mode": "NULLABLE"},
+  {"name": "status",                  "field_type": "STRING",    "mode": "REQUIRED"},
+  {"name": "dropoff_display_address", "field_type": "STRING",    "mode": "REQUIRED"},
+  {"name": "dropoff_latitude",        "field_type": "FLOAT64",   "mode": "REQUIRED"},
+  {"name": "dropoff_longitude",       "field_type": "FLOAT64",   "mode": "REQUIRED"},
+  {"name": "has_been_edited",         "field_type": "BOOL",      "mode": "REQUIRED"},
+  {"name": "no_reassigned",           "field_type": "INTEGER",   "mode": "REQUIRED"},
+  {"name": "scheduled_at",            "field_type": "TIMESTAMP", "mode": "NULLABLE"},
+  {"name": "expires_at",              "field_type": "TIMESTAMP", "mode": "NULLABLE"},
+  {"name": "created_at",              "field_type": "TIMESTAMP", "mode": "REQUIRED"},
+  {"name": "updated_at",              "field_type": "TIMESTAMP", "mode": "REQUIRED"}
+]

@@ -1,0 +1,19 @@
+[
+  {"name": "inventory_id",        "field_type": "INTEGER",   "mode": "REQUIRED"},
+  {"name": "source_donation_id",  "field_type": "INTEGER",   "mode": "REQUIRED"},
+  {"name": "usage_amount_kg",     "field_type": "NUMERIC",   "mode": "REQUIRED"},
+  {"name": "weight_before_kg",    "field_type": "NUMERIC",   "mode": "REQUIRED"},
+  {"name": "current_weight_kg",   "field_type": "NUMERIC",   "mode": "REQUIRED"},
+  {"name": "lifecycle_status",    "field_type": "STRING",    "mode": "REQUIRED"},
+  {"name": "exit_state",          "field_type": "STRING",    "mode": "NULLABLE"},
+  {"name": "is_upcyclable",       "field_type": "BOOL",      "mode": "REQUIRED"},
+  {"name": "low_stock_threshold", "field_type": "NUMERIC",   "mode": "REQUIRED"},
+  {"name": "was_forced_archived", "field_type": "BOOL",      "mode": "REQUIRED"},
+  {"name": "material_category",   "field_type": "STRING",    "mode": "NULLABLE"},
+  {"name": "audit_required",      "field_type": "BOOL",      "mode": "NULLABLE"},
+  {"name": "days_since_audit",    "field_type": "INTEGER",   "mode": "NULLABLE"},
+  {"name": "ingested_at",         "field_type": "TIMESTAMP", "mode": "REQUIRED"},
+  {"name": "updated_at",          "field_type": "TIMESTAMP", "mode": "REQUIRED"},
+  {"name": "archived_at",         "field_type": "TIMESTAMP", "mode": "NULLABLE"},
+  {"name": "notes",               "field_type": "STRING",    "mode": "NULLABLE"}
+]

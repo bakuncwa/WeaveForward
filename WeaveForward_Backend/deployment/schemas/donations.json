@@ -1,0 +1,21 @@
+[
+  {"name": "donation_id",                   "field_type": "INTEGER",   "mode": "REQUIRED"},
+  {"name": "donor_id",                      "field_type": "INTEGER",   "mode": "REQUIRED"},
+  {"name": "claimed_by_tuab_id",            "field_type": "INTEGER",   "mode": "NULLABLE"},
+  {"name": "status",                        "field_type": "STRING",    "mode": "REQUIRED"},
+  {"name": "is_flagged",                    "field_type": "BOOL",      "mode": "REQUIRED"},
+  {"name": "flag_reason",                   "field_type": "STRING",    "mode": "NULLABLE"},
+  {"name": "delivery_method",               "field_type": "STRING",    "mode": "NULLABLE"},
+  {"name": "rejection_reason",              "field_type": "STRING",    "mode": "NULLABLE"},
+  {"name": "pickup_city",                   "field_type": "STRING",    "mode": "REQUIRED"},
+  {"name": "pickup_barangay",               "field_type": "STRING",    "mode": "REQUIRED"},
+  {"name": "pickup_display_address",        "field_type": "STRING",    "mode": "REQUIRED"},
+  {"name": "pickup_latitude",               "field_type": "FLOAT64",   "mode": "REQUIRED"},
+  {"name": "pickup_longitude",              "field_type": "FLOAT64",   "mode": "REQUIRED"},
+  {"name": "preferred_pickup_date",         "field_type": "TIMESTAMP", "mode": "REQUIRED"},
+  {"name": "preferred_pickup_window_start", "field_type": "STRING",    "mode": "REQUIRED"},
+  {"name": "preferred_pickup_window_end",   "field_type": "STRING",    "mode": "REQUIRED"},
+  {"name": "auto_archive_at",              "field_type": "TIMESTAMP", "mode": "NULLABLE"},
+  {"name": "submitted_at",                  "field_type": "TIMESTAMP", "mode": "REQUIRED"},
+  {"name": "updated_at",                    "field_type": "TIMESTAMP", "mode": "REQUIRED"}
+]

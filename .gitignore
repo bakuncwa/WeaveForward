@@ -26,3 +26,7 @@ WeaveForward_Backend/media/
 *err.txt
 *out.txt
 diagnostic*.txt
+
+# Environment variables
+.env
+**/.env

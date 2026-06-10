@@ -1,0 +1,10 @@
+[
+  {"name": "audit_id",        "field_type": "INTEGER",   "mode": "REQUIRED"},
+  {"name": "actor_id",        "field_type": "INTEGER",   "mode": "REQUIRED"},
+  {"name": "actor_role",      "field_type": "STRING",    "mode": "NULLABLE"},
+  {"name": "entity_type",     "field_type": "STRING",    "mode": "REQUIRED"},
+  {"name": "action",          "field_type": "STRING",    "mode": "REQUIRED"},
+  {"name": "fields_modified", "field_type": "STRING",    "mode": "NULLABLE"},
+  {"name": "ip_address",      "field_type": "STRING",    "mode": "NULLABLE"},
+  {"name": "occurred_at",     "field_type": "TIMESTAMP", "mode": "REQUIRED"}
+]
