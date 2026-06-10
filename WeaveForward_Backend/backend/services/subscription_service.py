@@ -193,7 +193,7 @@ def _activate_subscription_from_maya_verification(payload):
 
     failed_verification = (
         payload.get('status') in ['AUTH_FAILED', 'PAYMENT_FAILED']
-        and Decimal(str(payload.get('amount'))) == Decimal('499.00')
+        and Decimal(str(payload.get('amount'))) == Decimal('10.00')
     )
 
     if failed_verification and maya_card_token_id:
@@ -205,7 +205,7 @@ def _activate_subscription_from_maya_verification(payload):
     verified = (
         payload.get('status') == 'PAYMENT_SUCCESS'
         and payload.get('isPaid') is True
-        and Decimal(str(payload.get('amount'))) == Decimal('499.00')
+        and Decimal(str(payload.get('amount'))) == Decimal('10.00')
     )
     if not verified:
         return {"status_code": 200, "detail": "Maya webhook acknowledged with no subscription action taken."}

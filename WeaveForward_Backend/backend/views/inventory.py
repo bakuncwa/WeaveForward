@@ -48,15 +48,34 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
             'source_donation__items__lookup'
         ).order_by('-ingested_at')
 
+    # Overall time complexity:
+    # O((n log n) + (p * k) + (n * k) + (n * k * f) + c)
+    # Simplified: O((n log n) + (n * k * f))
+    # n = matching inventory ledger rows, p = page size,
+    # k = average donation items per inventory entry,
+    # f = average fiber components per item,
+    # c = unique fiber categories.
     def list(self, request, *args, **kwargs):
         if request.user.role != 'TUAB':
             raise PermissionDenied("Only TUABs can view inventory.")
 
+        # Big-O variables:
+        # n = matching inventory ledger rows
+        # p = paginated inventory rows returned in this response
+        # k = average donation items per inventory entry
+        # f = average fiber components per donation item
+        # c = unique fiber categories in the summary
+
+        # O(n log n) if the database must sort for order_by('-ingested_at');
+        # closer to O(n) if a useful index satisfies the ordering.
         base_qs = self.get_queryset()
         queryset = self.filter_queryset(base_qs)
+
+        # O(p * k): serializes the current page, including each source donation's items.
         response = self.get_paginated_response_data(queryset)
         
         # Calculate summary using optimized .values() query to avoid DRF serialization
+        # O(n * k): produces one joined row per inventory entry and donation item.
         rows = base_qs.values(
             'inventory_id',
             'current_weight_kg',
@@ -64,42 +83,50 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
             'source_donation__items__lookup__fiber_json'
         )
         
-        inv_data = defaultdict(lambda: {'current': 0.0, 'total_orig': 0.0, 'items': []})
+        # O(n * k): groups joined item rows by inventory_id and totals original item weights.
+        inv_data = {}
         for row in rows:
-            i_id = row['inventory_id']
-            inv_data[i_id]['current'] = float(row['current_weight_kg'] or 0)
-            orig_w = float(row['source_donation__items__weight_kg'] or 0)
-            inv_data[i_id]['total_orig'] += orig_w
+            inventory_id = row['inventory_id']
+            current_inventory_weight = float(row['current_weight_kg'])
+            item_original_weight = float(row['source_donation__items__weight_kg'])
+            item_fiber_json = row['source_donation__items__lookup__fiber_json']
+
+            if inventory_id not in inv_data:
+                inv_data[inventory_id] = {
+                    'current': 0.0,
+                    'total_orig': 0.0,
+                    'items': [],
+                }
+
+            inventory_data = inv_data[inventory_id]
+            inventory_data['current'] = current_inventory_weight
+            inventory_data['total_orig'] += item_original_weight
             
-            f_json = row['source_donation__items__lookup__fiber_json'] or ''
-            inv_data[i_id]['items'].append((orig_w, f_json))
+            inventory_data['items'].append((item_original_weight, item_fiber_json))
             
         fiber_weights = defaultdict(float)
-        # Time Complexity: O(N * I * F) where:
-        # N = number of inventory ledger rows
-        # I = number of donation items per inventory entry
-        # F = number of fiber components per item
-        for data in inv_data.values():
-            if data['total_orig'] <= 0: continue
-            for w, fiber_str in data['items']:
-                item_current_weight = data['current'] * (w / data['total_orig'])
-                
-                if fiber_str:
-                    try:
-                        parsed_json = json.loads(fiber_str)
-                        if isinstance(parsed_json, dict):
-                            for name, pct in parsed_json.items():
-                                try:
-                                    fiber_weights[str(name).strip().capitalize()] += item_current_weight * (float(pct) / 100.0)
-                                except (ValueError, TypeError):
-                                    pass
-                    except Exception:
-                        pass
+        # O(n * k * f): visits every inventory entry, each item, and each fiber component.
+        for inventory_entry in inv_data.values():
+            current_inventory_weight = inventory_entry['current']
+            original_total_weight = inventory_entry['total_orig']
+
+            for item_original_weight, item_fiber_json in inventory_entry['items']:
+                item_share = item_original_weight / original_total_weight
+                item_current_weight = current_inventory_weight * item_share
+
+                item_fibers = json.loads(item_fiber_json)
+
+                for fiber_name, fiber_percent in item_fibers.items():
+                    fiber_weight = item_current_weight * (float(fiber_percent) / 100.0)
+                    fiber_weights[fiber_name] += fiber_weight
                             
-        category_summary = [
-            {'category': f, 'total_weight_kg': round(w, 2)}
-            for f, w in sorted(fiber_weights.items(), key=lambda x: x[1], reverse=True)
-        ]
+        # O(c): converts the category totals dictionary into response objects.
+        category_summary = []
+        for fiber_name, total_weight in fiber_weights.items():
+            category_summary.append({
+                'category': fiber_name,
+                'total_weight_kg': round(total_weight, 2),
+            })
         
         if isinstance(response.data, dict):
             response.data['category_summary'] = category_summary
