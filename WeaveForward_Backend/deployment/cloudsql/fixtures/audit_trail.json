@@ -1,0 +1,254 @@
+[
+{
+  "model": "backend.audittrail",
+  "pk": 11,
+  "fields": {
+    "actor": 16,
+    "entity_type": "users",
+    "action": "STATUS_CHANGE",
+    "fields_modified": "[\"status\"]",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-09T08:15:51.999Z"
+  }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 14,
+  "fields": {
+    "actor": 16,
+    "entity_type": "users",
+    "action": "STATUS_CHANGE",
+    "fields_modified": "[\"status\"]",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-09T18:26:36.907Z"
+  }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 15,
+  "fields": {
+    "actor": 16,
+    "entity_type": "users",
+    "action": "STATUS_CHANGE",
+    "fields_modified": "[\"status\"]",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-09T19:10:41.662Z"
+  }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 16,
+  "fields": {
+    "actor": 22,
+    "entity_type": "donations",
+    "action": "STATUS_CHANGE",
+    "fields_modified": "{\"donation_id\":31,\"donor_id\":22,\"upload_id\":6,\"status\":\"PENDING\",\"auto_archive_at\":\"2026-07-10T06...",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-10T06:33:47.262Z"
+  }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 17,
+  "fields": {
+    "actor": 19,
+    "entity_type": "users",
+    "action": "CREDENTIAL_UPDATE",
+    "fields_modified": "[\"maya_customer_id\",\"maya_card_id\"]",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-10T06:37:02.407Z"
+  }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 18,
+  "fields": {
+    "actor": 19,
+    "entity_type": "users",
+    "action": "CREDENTIAL_UPDATE",
+    "fields_modified": "[\"maya_customer_id\",\"maya_card_id\"]",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-10T06:46:28.367Z"
+  }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 19,
+  "fields": {
+    "actor": 19,
+    "entity_type": "users",
+    "action": "CREDENTIAL_UPDATE",
+    "fields_modified": "[\"maya_customer_id\",\"maya_card_id\"]",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-10T08:05:12.955Z"
+  }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 20,
+  "fields": {
+    "actor": 19,
+    "entity_type": "donations",
+    "action": "STATUS_CHANGE",
+    "fields_modified": "[\"status\",\"claimed_by_tuab\",\"delivery_method\"]",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-10T08:27:09.871Z"
+  }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 21,
+  "fields": {
+    "actor": 19,
+    "entity_type": "inventory_ledger",
+    "action": "CONSUMPTION_LOG",
+    "fields_modified": "[\"source_donation\",\"usage_amount_kg\",\"weight_before_kg\",\"current_weight_kg\"]",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-10T08:41:27.484Z"
+  }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 22,
+  "fields": {
+    "actor": 19,
+    "entity_type": "donations",
+    "action": "STATUS_CHANGE",
+    "fields_modified": "[\"status\"]",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-10T08:41:27.485Z"
+  }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 23,
+  "fields": {
+    "actor": 19,
+    "entity_type": "users",
+    "action": "CREDENTIAL_UPDATE",
+    "fields_modified": "[\"max_distance_km\",\"min_biodeg_score\",\"target_fibers\",\"latitude\",\"longitude\",\"display_address\",\"u...",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-10T08:49:07.872Z"
+  }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 24,
+  "fields": {
+    "actor": 22,
+    "entity_type": "donations",
+    "action": "STATUS_CHANGE",
+    "fields_modified": "{\"donation_id\":32,\"donor_id\":22,\"upload_id\":null,\"status\":\"PENDING\",\"auto_archive_at\":\"2026-07-10...",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-10T08:55:32.465Z"
+  }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 25,
+  "fields": {
+    "actor": 22,
+    "entity_type": "donations",
+    "action": "STATUS_CHANGE",
+    "fields_modified": "{\"donation_id\":33,\"donor_id\":22,\"upload_id\":null,\"status\":\"PENDING\",\"auto_archive_at\":\"2026-07-10...",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-10T08:55:41.623Z"
+  }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 26,
+  "fields": {
+    "actor": 22,
+    "entity_type": "donations",
+    "action": "STATUS_CHANGE",
+    "fields_modified": "{\"donation_id\":34,\"donor_id\":22,\"upload_id\":null,\"status\":\"PENDING\",\"auto_archive_at\":\"2026-07-10...",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-10T08:55:50.792Z"
+  }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 27,
+  "fields": {
+    "actor": 16,
+    "entity_type": "donations",
+    "action": "STATUS_CHANGE",
+    "fields_modified": "{\"donation_id\":35,\"donor_id\":22,\"upload_id\":null,\"status\":\"PENDING\",\"auto_archive_at\":\"2026-07-10...",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-10T09:11:34.895Z"
+  }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 28,
+  "fields": {
+    "actor": 16,
+    "entity_type": "donations",
+    "action": "STATUS_CHANGE",
+    "fields_modified": "{\"donation_id\":36,\"donor_id\":22,\"upload_id\":null,\"status\":\"PENDING\",\"auto_archive_at\":\"2026-07-10...",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-10T09:11:45.346Z"
+  }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 29,
+  "fields": {
+    "actor": 16,
+    "entity_type": "donations",
+    "action": "STATUS_CHANGE",
+    "fields_modified": "{\"donation_id\":37,\"donor_id\":22,\"upload_id\":null,\"status\":\"PENDING\",\"auto_archive_at\":\"2026-07-10...",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-10T09:11:45.382Z"
+  }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 30,
+  "fields": {
+    "actor": 16,
+    "entity_type": "donations",
+    "action": "STATUS_CHANGE",
+    "fields_modified": "[\"status\"]",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-10T09:16:50.199Z"
+  }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 31,
+  "fields": {
+    "actor": 16,
+    "entity_type": "donations",
+    "action": "STATUS_CHANGE",
+    "fields_modified": "{\"donation_id\":38,\"donor_id\":22,\"upload_id\":null,\"status\":\"PENDING\",\"auto_archive_at\":\"2026-07-10...",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-10T09:17:19.783Z"
+  }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 32,
+  "fields": {
+    "actor": 19,
+    "entity_type": "MatchPrediction",
+    "action": "ACCEPT_RECOMMENDATION",
+    "fields_modified": "recommendation_status",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-10T09:18:28.131Z"
+  }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 33,
+  "fields": {
+    "actor": 19,
+    "entity_type": "donations",
+    "action": "STATUS_CHANGE",
+    "fields_modified": "[\"status\",\"claimed_by_tuab\",\"delivery_method\"]",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-10T09:22:07.379Z"
+  }
+}
+]

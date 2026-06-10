@@ -1,0 +1,21 @@
+[
+{
+  "model": "backend.inventoryledger",
+  "pk": 7,
+  "fields": {
+    "source_donation": 31,
+    "usage_amount_kg": "0.000",
+    "weight_before_kg": "0.500",
+    "current_weight_kg": "0.500",
+    "lifecycle_status": "ACTIVE",
+    "exit_state": null,
+    "is_upcyclable": true,
+    "low_stock_threshold": "1.300",
+    "was_forced_archived": false,
+    "ingested_at": "2026-06-10T08:41:27.483Z",
+    "updated_at": "2026-06-10T08:41:27.483Z",
+    "archived_at": null,
+    "notes": null
+  }
+}
+]

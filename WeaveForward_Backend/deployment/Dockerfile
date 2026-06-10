@@ -28,4 +28,4 @@ COPY .. /app/
 # ── Entry point ──────────────────────────────────────────────────────────────
 WORKDIR /app
 ENV PYTHONUNBUFFERED=1
-CMD ["python", "deployment/main.py"]
+CMD ["python", "deployment/bigquery/main.py"]

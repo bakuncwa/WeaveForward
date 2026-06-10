@@ -1,0 +1,26 @@
+[
+{
+  "model": "backend.orderpayment",
+  "pk": 1,
+  "fields": {
+    "order": 1,
+    "amount": "386.00",
+    "status": "SUCCESS",
+    "payment_reference": "4841803b-5dd1-4867-a9ad-fddee8c16754",
+    "created_at": "2026-06-10T08:27:07.945Z",
+    "updated_at": "2026-06-10T08:27:09.869Z"
+  }
+},
+{
+  "model": "backend.orderpayment",
+  "pk": 2,
+  "fields": {
+    "order": 2,
+    "amount": "111.00",
+    "status": "SUCCESS",
+    "payment_reference": "d67d77fe-eaae-4871-b872-f79817e2ed4a",
+    "created_at": "2026-06-10T09:22:05.500Z",
+    "updated_at": "2026-06-10T09:22:07.378Z"
+  }
+}
+]
