@@ -16,7 +16,7 @@
   {"name": "barangay",           "field_type": "STRING",    "mode": "NULLABLE"},
   {"name": "latitude",           "field_type": "FLOAT64",   "mode": "NULLABLE"},
   {"name": "longitude",          "field_type": "FLOAT64",   "mode": "NULLABLE"},
-  {"name": "is_2fa_enabled",     "field_type": "BOOL",      "mode": "REQUIRED"},
+  {"name": "is_2fa_enabled",     "field_type": "BOOL",      "mode": "NULLABLE"},
   {"name": "has_active_sub",     "field_type": "BOOL",      "mode": "NULLABLE"},
   {"name": "active_sub_tier",    "field_type": "STRING",    "mode": "NULLABLE"},
   {"name": "created_at",         "field_type": "TIMESTAMP", "mode": "REQUIRED"},
