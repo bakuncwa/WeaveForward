@@ -7,13 +7,13 @@ import json
 from django.utils import timezone
 from rest_framework import viewsets, mixins, status, filters
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied, NotFound
 
 from decimal import Decimal, InvalidOperation
 from collections import defaultdict
 from ..models import InventoryLedger, InventoryLifecycleStatus, InventoryExitState
+from ..permissions import IsActiveTUAB
 from ..serializers.inventory import InventoryLedgerSerializer
 from ..utils.view_mixins import PaginatedResponseMixin
 from ..services.audit_service import get_client_ip, log_audit
@@ -26,16 +26,13 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
     Endpoints:
         GET /inventory/ - List all inventory items for authenticated TUAB
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsActiveTUAB]
     serializer_class = InventoryLedgerSerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ['=inventory_id', '=source_donation__donation_id', 'source_donation__donor__first_name', 'source_donation__donor__last_name']
 
     def get_queryset(self):
         user = self.request.user
-
-        if user.role != 'TUAB':
-            return InventoryLedger.objects.none()
 
         return InventoryLedger.objects.filter(
             source_donation__claimed_by_tuab=user,
@@ -56,9 +53,6 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
     # f = average fiber components per item,
     # c = unique fiber categories.
     def list(self, request, *args, **kwargs):
-        if request.user.role != 'TUAB':
-            raise PermissionDenied("Only TUABs can view inventory.")
-
         # Big-O variables:
         # n = matching inventory ledger rows
         # p = paginated inventory rows returned in this response
@@ -139,10 +133,15 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
         Generate downloadable inventory snapshot with location and metadata.
         Returns CSV/JSON format suitable for external processing.
         """
-        if request.user.role != 'TUAB':
-            raise PermissionDenied("Only TUABs can export inventory.")
-        
-        queryset = self.get_queryset()
+        queryset = InventoryLedger.objects.filter(
+            source_donation__claimed_by_tuab=request.user,
+        ).select_related(
+            'source_donation',
+            'source_donation__donor',
+            'source_donation__upload'
+        ).prefetch_related(
+            'source_donation__items__lookup'
+        ).order_by('-updated_at')
         serializer = self.get_serializer(queryset, many=True)
         
         return Response({
@@ -249,8 +248,8 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
         if instance.lifecycle_status != InventoryLifecycleStatus.ARCHIVED:
             return Response({'error': 'Item is not archived.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Allow restore only within 30 seconds of archiving
-        if instance.archived_at and (timezone.now() - instance.archived_at).total_seconds() > 30:
+        # Allow restore only within 10 seconds of archiving.
+        if instance.archived_at and (timezone.now() - instance.archived_at).total_seconds() > 10:
             return Response({'error': 'Undo window has expired.'}, status=status.HTTP_400_BAD_REQUEST)
 
         instance.lifecycle_status = InventoryLifecycleStatus.ACTIVE

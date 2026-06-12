@@ -160,7 +160,7 @@ async def tuab_view_donation(request, donation_id):
 
         if hasattr(response, 'status_code') and 200 <= response.status_code < 300:
             messages.success(request, data.get('detail') or 'Donation claim submitted successfully.')
-            return redirect('tuab_dashboard')
+            return redirect('/tuab/dashboard/?tab=claimed')
 
         messages.error(request, data.get('detail') or 'Unable to submit the donation claim.')
         return redirect('tuab_view_donation', donation_id=donation_id)
@@ -261,7 +261,7 @@ async def tuab_update_incoming_donation(request, donation_id):
             response = await api_call(request, 'POST', f'donations/{donation_id}/resolve', data=payload)
             if response.status_code == 200:
                 messages.success(request, "Donation resolved successfully!")
-                return JsonResponse({'redirect': '/tuab/dashboard/'})
+                return JsonResponse({'redirect': '/tuab/dashboard/?tab=claimed'})
             else:
                 try:
                     err_data = response.json()

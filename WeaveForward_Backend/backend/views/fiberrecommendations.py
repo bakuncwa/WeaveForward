@@ -1,21 +1,20 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.exceptions import PermissionDenied, NotFound, AuthenticationFailed
+from rest_framework.exceptions import NotFound, AuthenticationFailed
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.settings import api_settings
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils.dateparse import parse_datetime
 from django.db import transaction
 from django.db.models import Q
-from django.utils import timezone
 from decimal import Decimal
 import json
 import logging
 import hashlib
 
-from ..models import MatchPrediction, UserRole, MatchRecommendationStatus, Subscription, SubscriptionStatus, AuditTrail, ApiToken, DonationItem
+from ..models import MatchPrediction, MatchRecommendationStatus, AuditTrail, ApiToken, DonationItem
+from ..permissions import IsActiveTUABWithActiveSubscription
 from ..serializers.fiberrecommendations import (
     MatchRecommendationListSerializer,
     MatchRecommendationDetailSerializer,
@@ -51,29 +50,9 @@ class ApiKeyAuthentication(BaseAuthentication):
             raise AuthenticationFailed("Invalid API key.")
 
 
-class IsTUABWithSubscription(IsAuthenticated):
-    def has_permission(self, request, view):
-        if not super().has_permission(request, view):
-            return False
-        if request.user.role != UserRole.TUAB:
-            raise PermissionDenied("Only TUABs can access Donation Recommendations.")
-        try:
-            subscription = Subscription.objects.filter(
-                user=request.user,
-                status=SubscriptionStatus.ACTIVE
-            ).first()
-            if not subscription or (subscription.end_date and subscription.end_date < timezone.now()):
-                raise PermissionDenied("No active subscription found. Please upgrade to access Donation Recommendations.")
-        except Exception as e:
-            if isinstance(e, PermissionDenied):
-                raise
-            raise PermissionDenied("Unable to verify subscription status.")
-        return True
-
-
 class MatchRecommendationViewSet(viewsets.GenericViewSet, PaginatedResponseMixin):
     authentication_classes = [ApiKeyAuthentication] + list(api_settings.DEFAULT_AUTHENTICATION_CLASSES)
-    permission_classes = [IsTUABWithSubscription]
+    permission_classes = [IsActiveTUABWithActiveSubscription]
     serializer_class = MatchRecommendationDetailSerializer
 
     def get_serializer_class(self):

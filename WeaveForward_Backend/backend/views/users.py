@@ -11,6 +11,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from ..utils.view_mixins import PaginatedResponseMixin
 
 from ..models import User, UserRole, UserAccountStatus, UserOperationalStatus
+from ..permissions import IsActiveAdmin, IsActiveTUAB
 from ..serializers import (
     AdminUserListSerializer,
     AdminUserDetailSerializer,
@@ -47,6 +48,15 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
     def get_permissions(self):
         if self.action == 'create':
             return [AllowAny()]
+        permission_map = {
+            'approve': [IsActiveAdmin],
+            'destroy': [IsActiveAdmin],
+            'cancel_subscription': [IsActiveAdmin],
+            'create_subscription': [IsActiveTUAB],
+            'create_my_subscription': [IsActiveTUAB],
+        }
+        if self.action in permission_map:
+            return [permission() for permission in permission_map[self.action]]
         return super().get_permissions()
 
     def get_serializer_class(self):
@@ -215,9 +225,6 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
 
     @action(detail=True, methods=['post'], url_path='approve')
     def approve(self, request, pk=None):
-        if request.user.role != UserRole.ADMIN:
-            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
-
         status_input = request.data.get('status')
         rejection_reason = request.data.get('rejection_reason')
         if status_input not in [UserAccountStatus.ACTIVE, UserAccountStatus.REJECTED]:
@@ -365,9 +372,6 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
     @action(detail=True, methods=['delete'], url_path='subscription')
     def cancel_subscription(self, request, pk=None):
         """Admin only endpoint to unsubscribe any user."""
-        if request.user.role != UserRole.ADMIN:
-            return Response({"detail": "Only admins can unsubscribe other users."}, status=status.HTTP_403_FORBIDDEN)
-        
         ip_address = get_client_ip(request)
         result = unsubscribe_user(target_user_id=pk, actor=request.user, ip_address=ip_address)
 
@@ -380,9 +384,6 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
     def create_subscription(self, request, pk=None):
         if request.user.user_id != int(pk):
             return Response({"detail": "You may only subscribe your own account."}, status=status.HTTP_403_FORBIDDEN)
-
-        if request.user.role != UserRole.TUAB:
-            return Response({"detail": "Only TUAB users can subscribe themselves."}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = SubscribeSetupSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -421,9 +422,6 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
 
     @action(detail=False, methods=['post'], url_path='me/subscription')
     def create_my_subscription(self, request):
-        if request.user.role != UserRole.TUAB:
-            return Response({"detail": "Only TUAB users can subscribe themselves."}, status=status.HTTP_403_FORBIDDEN)
-
         serializer = SubscribeSetupSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -503,9 +501,6 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def destroy(self, request, *args, **kwargs):
-        if request.user.role != UserRole.ADMIN:
-            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
-
         # Complexity notes:
         # - The archive route is linear in the number of affected donations,
         #   inventory ledgers, subscriptions, and tokens processed.

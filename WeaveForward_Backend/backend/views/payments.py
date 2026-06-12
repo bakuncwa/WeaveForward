@@ -1,7 +1,8 @@
-from rest_framework import views, permissions, status
+from rest_framework import views
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
-from backend.models import UserRole, UserAccountStatus, SubscriptionPayment, OrderPayment
+from backend.models import UserRole, SubscriptionPayment, OrderPayment
+from backend.permissions import IsActiveAdminOrTUAB, IsActiveTUAB
 from backend.serializers.payments import SubscriptionPaymentSerializer, OrderPaymentSerializer
 
 class PaymentPagination(PageNumberPagination):
@@ -10,7 +11,7 @@ class PaymentPagination(PageNumberPagination):
     max_page_size = 100
 
 class PaymentListView(views.APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsActiveAdminOrTUAB]
     pagination_class = PaymentPagination
 
     def get(self, request):
@@ -22,9 +23,6 @@ class PaymentListView(views.APIView):
         # - Fetching and merging the two payment lists is O(m + n).
         # - Sorting the combined list by created_at is O((m + n) log(m + n)).
         # - Overall: O((m + n) log(m + n)).
-        if user.status != UserAccountStatus.ACTIVE or user.role not in [UserRole.ADMIN, UserRole.TUAB]:
-            return Response({'detail': 'You do not have permission to view this resource.'}, status=status.HTTP_403_FORBIDDEN)
-            
         if user.role == UserRole.ADMIN:
             subs_qs = SubscriptionPayment.objects.select_related(
                 'subscription', 'subscription__user'
@@ -72,7 +70,7 @@ class PaymentListView(views.APIView):
         return paginator.get_paginated_response(paginated_payments)
 
 class PaymentMeView(PaymentListView):
+    permission_classes = [IsActiveTUAB]
+
     def get(self, request):
-        if request.user.role != UserRole.TUAB:
-            return Response({'detail': 'You do not have permission to view this resource.'}, status=status.HTTP_403_FORBIDDEN)
         return super().get(request)

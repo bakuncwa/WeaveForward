@@ -70,7 +70,7 @@ def subscribe_user(*, target_user_id, first_name, last_name, card, frontend_base
     except User.DoesNotExist:
         return {"status_code": 404, "detail": "User not found."}
 
-    if user.status != UserAccountStatus.ACTIVE:
+    if user.role != UserRole.TUAB or user.status != UserAccountStatus.ACTIVE:
         return {"status_code": 409, "detail": "Only active TUAB users can subscribe."}
 
     active_subscriptions = get_active_subscriptions_for_user(user=user, for_update=False)
@@ -157,7 +157,7 @@ def subscribe_user(*, target_user_id, first_name, last_name, card, frontend_base
     with transaction.atomic():
         user = User.objects.select_for_update().get(pk=target_user_id)
 
-        if user.status != UserAccountStatus.ACTIVE:
+        if user.role != UserRole.TUAB or user.status != UserAccountStatus.ACTIVE:
             return {
                 "status_code": 409,
                 "detail": "Only active TUAB users can subscribe.",

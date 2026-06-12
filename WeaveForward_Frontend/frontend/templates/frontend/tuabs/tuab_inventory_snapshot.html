@@ -374,6 +374,7 @@
   let activeInventoryId = null;
   let undoTimer = null;
   let lastArchivedId = null;
+  const UNDO_WINDOW_MS = 10000;
 
   /* ── Update Modal ── */
   function openUpdateModal(id, currentKg, threshold) {
@@ -435,37 +436,23 @@
       const data = await res.json();
       if (!res.ok) { errEl.textContent = data.error || 'Archive failed.'; errEl.style.display = 'block'; return; }
 
-      lastArchivedId = activeInventoryId;
       closeArchiveModal();
-      hideRow(lastArchivedId);
-      showUndoToast();
+      window.location.reload();
     } catch { errEl.textContent = 'Network error. Please try again.'; errEl.style.display = 'block'; }
   }
 
   /* ── Undo ── */
-  function hideRow(id) {
-    const row = document.getElementById(`row-${id}`);
-    if (row) row.classList.add('hidden');
-    updateFooterCount();
+  function getRestoreUrl(id) {
+    return PROXY_URLS[id]?.restore || `/api/tuab/inventory/${id}/restore/`;
   }
-  function showRow(id) {
-    const row = document.getElementById(`row-${id}`);
-    if (row) row.classList.remove('hidden');
-    updateFooterCount();
-  }
-  function updateFooterCount() {
-    const visible = document.querySelectorAll('#inv-tbody tr:not(.hidden)').length;
-    const total = document.querySelectorAll('#inv-tbody tr').length;
-    document.getElementById('inv-footer').textContent = `Showing ${visible} of ${total} items`;
-    document.getElementById('item-count').textContent = `${visible} items`;
-  }
-  function showUndoToast() {
+  function showUndoToast(id, durationMs = UNDO_WINDOW_MS) {
+    if (id) lastArchivedId = id;
     clearTimeout(undoTimer);
     document.getElementById('undo-toast').classList.remove('hidden');
     undoTimer = setTimeout(() => {
       document.getElementById('undo-toast').classList.add('hidden');
       lastArchivedId = null;
-    }, 10000);
+    }, Math.max(0, durationMs));
   }
   async function undoArchive() {
     if (!lastArchivedId) return;
@@ -473,14 +460,14 @@
     document.getElementById('undo-toast').classList.add('hidden');
 
     try {
-      const res = await fetch(PROXY_URLS[lastArchivedId].restore, {
+      const res = await fetch(getRestoreUrl(lastArchivedId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf(), 'X-Requested-With': 'XMLHttpRequest' },
         body: '{}'
       });
       if (res.ok) {
-        showRow(lastArchivedId);
         wfToast('Item restored successfully.', 'success');
+        window.location.reload();
       } else {
         const d = await res.json();
         wfToast(d.error || 'Restore failed.', 'error');
@@ -499,12 +486,16 @@
   }
 
   /* ── Export ── */
-  async function fetchExportData() {
+  async function fetchExportPayload() {
     const response = await fetch('/api/tuab/inventory/export/', {
       headers: { 'X-Requested-With': 'XMLHttpRequest' }
     });
     if (!response.ok) throw new Error('Failed to fetch inventory export data.');
-    const data = await response.json();
+    return await response.json();
+  }
+
+  async function fetchExportData() {
+    const data = await fetchExportPayload();
     return data.inventory_items || [];
   }
 
@@ -584,12 +575,29 @@
     })));
   }
 
+  function getRecentArchivedEntry(items) {
+    const now = Date.now();
+    return (items || [])
+      .filter(item => item.lifecycle_status === 'ARCHIVED' && item.archived_at)
+      .map(item => ({ item, archivedAt: new Date(item.archived_at).getTime() }))
+      .filter(entry => Number.isFinite(entry.archivedAt) && now - entry.archivedAt <= UNDO_WINDOW_MS)
+      .map(entry => ({ item: entry.item, remainingMs: UNDO_WINDOW_MS - (now - entry.archivedAt) }))
+      .sort((a, b) => b.remainingMs - a.remainingMs)[0] || null;
+  }
+
   async function pollInventoryChanges() {
-    if (document.hidden || inventoryPollingInFlight || lastArchivedId) return;
+    if (document.hidden || inventoryPollingInFlight) return;
     inventoryPollingInFlight = true;
 
     try {
-      const items = await fetchExportData();
+      const data = await fetchExportPayload();
+      const items = data.inventory_items || [];
+      const recentArchivedEntry = getRecentArchivedEntry(items);
+
+      if (recentArchivedEntry) {
+        showUndoToast(recentArchivedEntry.item.inventory_id, recentArchivedEntry.remainingMs);
+      }
+
       const nextFingerprint = getInventoryFingerprint(items);
 
       if (inventorySnapshotFingerprint === null) {

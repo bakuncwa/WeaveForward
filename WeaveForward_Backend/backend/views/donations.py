@@ -11,6 +11,12 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from ..utils.view_mixins import PaginatedResponseMixin
 from ..models import Donation, DonationItem, Subscription, User, UserRole
+from ..permissions import (
+    IsActiveAdmin,
+    IsActiveAdminOrDonor,
+    IsActiveAdminOrTUAB,
+    IsActiveTUAB,
+)
 from ..serializers import DonationDetailSerializer, DonationListSerializer, QuotationRequestSerializer, DonorDonationUpdateSerializer, DonationResolveSerializer
 from ..services.donation_service import (
     create_donation, mark_donation_in_transit, donor_update_donation,
@@ -40,6 +46,22 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
         'items__lookup__dominant_fiber',
         'items__condition_rating',
     ]
+
+    def get_permissions(self):
+        permission_map = {
+            'create': [IsActiveAdminOrDonor],
+            'partial_update': [IsActiveAdminOrDonor],
+            'quotation': [IsActiveTUAB],
+            'claim': [IsActiveTUAB],
+            'transit': [IsActiveTUAB],
+            'resolve': [IsActiveTUAB],
+            'cancel': [IsActiveAdminOrDonor],
+            'archive': [IsActiveAdmin],
+            'flag': [IsActiveAdminOrTUAB],
+        }
+        if self.action in permission_map:
+            return [permission() for permission in permission_map[self.action]]
+        return super().get_permissions()
 
     def get_serializer_class(self):
         if getattr(self, 'action', None) in ['list', 'me']:
@@ -167,9 +189,6 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
         # - Let t = number of eligible TUAB users.
         # - Cost is O(n + i * t) because prediction generation builds
         #   every active-item / TUAB pair.
-        if request.user.status != 'ACTIVE' or request.user.role not in ['Admin', 'Donor']:
-            raise PermissionDenied("Only active admins and donors can create donations.")
-
         try:
             donation = create_donation(request=request)
         except (ValueError, serializers.ValidationError) as e:
@@ -218,7 +237,7 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
                 exc = APIException(str(e))
                 exc.status_code = 400
                 raise exc
-        elif user.role == 'Donor':
+        else:
             if donation.donor != user:
                 raise PermissionDenied("You can only edit donations that you created.")
             if donation.status != 'PENDING':
@@ -233,8 +252,6 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
                 exc = APIException(str(e))
                 exc.status_code = 400
                 raise exc
-        else:
-            raise PermissionDenied("You are not authorized to edit this donation.")
 
         serializer = DonationDetailSerializer(updated_donation, context={'request': request})
         response = Response(serializer.data)
@@ -253,10 +270,6 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
             exc = APIException("Invalid or missing ETag.")
             exc.status_code = 412
             raise exc
-
-        # Caller eligibility
-        if user.role != 'TUAB':
-            raise PermissionDenied("Only registered businesses can request a delivery quotation.")
 
         # 2. Authorization: Active PRO Subscription check
         now = timezone.now()
@@ -365,10 +378,6 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
         donation = self.get_object()
         user = request.user
 
-        # 1. Role Check
-        if user.role != 'TUAB':
-            raise PermissionDenied("Only registered businesses can claim donations.")
-
         # 2. ETag Verification
         if_match = request.headers.get('If-Match')
         if not if_match or not matches_if_match(build_updated_at_etag(donation), if_match):
@@ -457,16 +466,11 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
     def resolve(self, request, pk=None):
         """Resolves a donation by marking it as RECEIVED or REJECTED."""
         user = request.user
-        if user.role != "TUAB":
-            raise PermissionDenied("You are not authorized to resolve this donation.")
-
         donation = self.get_object()
 
         # Authorization checks
         if donation.claimed_by_tuab != user:
             raise PermissionDenied("You can only resolve donations claimed by your own business.")
-        if user.status != "ACTIVE":
-            raise PermissionDenied("Your business account must be active to resolve donations.")
 
         (serializer := DonationResolveSerializer(data=request.data, context={'donation': donation})).is_valid(raise_exception=True)
         
@@ -484,9 +488,6 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
         """Flags a donation with a reason. Allowed for TUAB (claimed donations) and Admin."""
         user = request.user
         donation = self.get_object()
-
-        if user.role not in ('TUAB', 'Admin'):
-            raise PermissionDenied("Only businesses or admins can flag donations.")
 
         if donation.status == 'ARCHIVED':
             exc = APIException("Archived donations cannot be flagged.")

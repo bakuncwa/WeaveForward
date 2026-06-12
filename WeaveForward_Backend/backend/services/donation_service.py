@@ -173,18 +173,10 @@ def mark_donation_in_transit(*, user, donation, ip_address=None):
     """
     Marks a donation as IN_TRANSIT.
     Constraints:
-    - User role must be TUAB.
-    - User status must be ACTIVE.
     - User must be the one who claimed the donation.
     - Delivery method must be PICKUP.
     - Current status must be CLAIMED.
     """
-    if user.role != 'TUAB':
-        raise PermissionDenied("Only registered businesses can mark donations as in-transit.")
-    
-    if user.status != 'ACTIVE':
-        raise PermissionDenied("Your business account must be active to mark donations as in-transit.")
-
     if donation.claimed_by_tuab != user:
         raise PermissionDenied("You can only manage donations that have been claimed by your own business.")
 
@@ -466,10 +458,6 @@ def admin_update_donation(*, request, donation) -> Donation:
 
 
 def cancel_donation(*, user, donation, ip_address=None):
-    # Enforce global role restriction: Only admins and donors can initiate cancellation
-    if user.role not in ["Admin", "Donor"]:
-        raise PermissionDenied("You are not authorized to cancel this donation.")
-
     payment_ids_to_refund = []
 
     if user.role == "Admin":
@@ -568,10 +556,6 @@ def cancel_donation(*, user, donation, ip_address=None):
 
 
 def archive_donation(*, user, donation, ip_address=None):
-
-    if user.role != "Admin":
-        raise PermissionDenied("You are not authorized to archive this donation.")
-
     order_id = None
     lalamove_order_id = None
     payment_ids_to_refund = []

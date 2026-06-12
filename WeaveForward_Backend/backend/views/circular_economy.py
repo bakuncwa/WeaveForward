@@ -5,15 +5,15 @@ from django.db.models import Count, Q, Sum
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from rest_framework import viewsets
-from rest_framework.exceptions import PermissionDenied, ValidationError
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
-from ..models import Donation, DonationItem, DonationStatus, UserRole, UserAccountStatus, Subscription, SubscriptionStatus
+from ..models import Donation, DonationItem, DonationStatus
+from ..permissions import IsActiveAdminOrTUABWithActiveSubscription
 
 
 class TuabCircularEconomyViewSet(viewsets.GenericViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsActiveAdminOrTUABWithActiveSubscription]
 
     def list(self, request, *args, **kwargs):
         # Overall complexity by dashboard section:
@@ -28,19 +28,7 @@ class TuabCircularEconomyViewSet(viewsets.GenericViewSet):
         # where d = matching donations, i = matching donation items,
         # g = grouped city/fiber rows, b = grouped brand rows, and
         # c = grouped city decision rows.
-        # SQL query count inside this method: 4 for admins, 5 for TUAB users
-        # because TUAB users also run the active subscription exists() check.
-        user = request.user
-        if user.role == UserRole.ADMIN:
-            if user.status != UserAccountStatus.ACTIVE:
-                raise PermissionDenied("Active admin account required.")
-        elif user.role == UserRole.TUAB:
-            if user.status != UserAccountStatus.ACTIVE:
-                raise PermissionDenied("Active TUAB account required.")
-            if not Subscription.objects.filter(user=user, status=SubscriptionStatus.ACTIVE).exists():
-                raise PermissionDenied("Active subscription required.")
-        else:
-            raise PermissionDenied("Only active admins or active TUABs with an active subscription can access this dashboard.")
+        # SQL query count inside this method: 4. Permission checks run before this method.
 
         donation_filters = {"status__in": [DonationStatus.RECEIVED, DonationStatus.REJECTED]}
         errors = {}

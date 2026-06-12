@@ -4,23 +4,20 @@ from django.db.models import Count
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from rest_framework import viewsets
-from rest_framework.exceptions import PermissionDenied, ValidationError
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from ..models import Donation, DonationStatus, UserRole
+from ..permissions import IsActiveAdminOrDonor
 from ..serializers.impact_dashboard import ImpactDashboardSerializer
 from ..services.location_service import load_ncr_features
 
 
 class ImpactDashboardViewSet(viewsets.GenericViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsActiveAdminOrDonor]
     serializer_class = ImpactDashboardSerializer
 
     def list(self, request, *args, **kwargs):
-        if request.user.role not in ['Donor', 'Admin']:
-            raise PermissionDenied("Only donors and admins can access the impact dashboard.")
-
         # Query flow notes:
         # - This endpoint builds one filtered Donation queryset and reuses it
         #   for several dashboard summaries.

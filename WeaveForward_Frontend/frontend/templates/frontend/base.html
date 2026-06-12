@@ -671,34 +671,7 @@
           </button>
           
           {% if "View" in page_title or "Edit" in page_title or "Create" in page_title or "Update" in page_title or "Add" in page_title %}
-          {% spaceless %}
-            {# Donor #}
-            {% if "/donor/tuabs/" in request.path %}
-              {% url 'donor_browse_businesses' as back_fallback %}
-            {% elif "/donor/create-donation/" in request.path or "/donor/donations/" in request.path %}
-              {% url 'donor_my_donations' as back_fallback %}
-            {% elif "/donor/edit-profile/" in request.path %}
-              {% url 'donor_profile' as back_fallback %}
-            {% elif "/donor/" in request.path %}
-              {% url 'donor_my_donations' as back_fallback %}
-
-            {# TUAB #}
-            {% elif "/tuab/edit-profile/" in request.path %}
-              {% url 'tuab_profile' as back_fallback %}
-            {% elif "/tuab/donations/" in request.path %}
-              {% url 'tuab_dashboard' as back_fallback %}
-
-            {# Admin #}
-            {% elif "/admin/donations/" in request.path %}
-              {% url 'admin_view_donations' as back_fallback %}
-            {% elif "/admin/donors/" in request.path %}
-              {% url 'admin_view_donors' as back_fallback %}
-            {% elif "/admin/tuabs/" in request.path %}
-              {% url 'admin_view_tuabs' as back_fallback %}
-            {% endif %}
-          {% endspaceless %}
-          
-          <a href="{{ back_fallback|default:'javascript:history.back()' }}"
+          <a href="#"
             class="wf-back-btn" title="Go Back">
             <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
               <path d="M19 12H5M12 19l-7-7 7-7" />
@@ -790,6 +763,7 @@
           }, 400);
         });
       }, 5000);
+
     })();
   </script>
 
@@ -866,6 +840,7 @@
   <script>
     window.WF_TEXT_FIELD_MAX_LENGTH = {{ TEXT_FIELD_MAX_LENGTH }};
   </script>
+  <script src="{% static 'frontend/js/back-navigation.js' %}"></script>
   <script src="{% static 'frontend/js/input-length-limit.js' %}"></script>
 
 </body>
