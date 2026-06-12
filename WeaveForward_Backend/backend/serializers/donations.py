@@ -295,6 +295,11 @@ class QuotationRequestSerializer(serializers.ModelSerializer):
         scheduled_time = data.get('scheduled_time')
         donation = self.context.get('donation')
 
+        if donation:
+            total_weight = sum(item.weight_kg for item in donation.items.filter(is_archived=False))
+            if total_weight >= Decimal('200'):
+                raise serializers.ValidationError({"items": "Total donation items weight must be less than 200 kg."})
+
         # 1. Coordinate & Location Check
         request = self.context.get('request')
         if request:

@@ -117,7 +117,7 @@
               <div class="restored-row">
                 <div class="restored-group">
                   <label class="up-label">Clothing*</label>
-                  <select class="restored-sel type-sel" onchange="loadMaterials(this)" required>
+                  <select class="restored-sel type-sel" onchange="loadMaterials(this)">
                     <option value="">Choose...</option>
                     {% for t in clothing_types %}
                     <option value="{{ t }}" {% if t|lower == item.lookup_details.clothing_type|lower %}selected{% endif %}>{{ t|capfirst }}</option>
@@ -142,7 +142,7 @@
               <div class="restored-row" style="margin-bottom:0">
                 <div class="restored-group">
                   <label class="up-label">Brand</label>
-                  <select class="restored-sel brand-sel" onchange="loadMaterials(this)" required>
+                  <select class="restored-sel brand-sel" onchange="loadMaterials(this)">
                     <option value="">Select...</option>
                     {% for b in all_brands %}
                     <option value="{{ b }}" {% if b == item.lookup_details.brand %}selected{% endif %}>{{ b }}</option>
@@ -236,7 +236,7 @@
       <div class="restored-row">
         <div class="restored-group">
           <label class="up-label">Clothing*</label>
-          <select class="restored-sel type-sel" onchange="loadMaterials(this)" required>
+          <select class="restored-sel type-sel" onchange="loadMaterials(this)">
             <option value="">Choose...</option>
             {% for t in clothing_types %}<option value="{{ t }}">{{ t|capfirst }}</option>{% endfor %}
           </select>
@@ -252,7 +252,7 @@
       <div class="restored-row" style="margin-bottom:0">
         <div class="restored-group">
           <label class="up-label">Brand</label>
-          <select class="restored-sel brand-sel" onchange="loadMaterials(this)" required>
+          <select class="restored-sel brand-sel" onchange="loadMaterials(this)">
             <option value="">Select...</option>
             {% for b in all_brands %}<option value="{{ b }}">{{ b }}</option>{% endfor %}
           </select>

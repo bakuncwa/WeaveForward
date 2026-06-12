@@ -6,7 +6,6 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
-from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 
 from ..models import User, UserRole
@@ -142,12 +141,6 @@ class TokenViewSet(viewsets.ViewSet):
                 response = Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
                 clear_auth_cookies(response)
                 return response
-
-            try:
-                token = RefreshToken(refresh_cookie)
-                token.blacklist()
-            except Exception:
-                pass
 
         response = Response({"message": "Successfully logged out"}, status=status.HTTP_205_RESET_CONTENT)
         clear_auth_cookies(response)

@@ -43,6 +43,7 @@ class MatchPredictionService:
 
     @classmethod
     def _compute_biodeg_score(cls, fiber_json):
+        cls.load_model()
         total = sum(fiber_json.values())
         if total <= 0:
             return 30.0
@@ -67,6 +68,7 @@ class MatchPredictionService:
 
     @classmethod
     def _normalize_item_payload(cls, item):
+        cls.load_model()
         fiber_json = json.loads(item["lookup__fiber_json"]) if item["lookup__fiber_json"] else {}
         normalized_fibers = {
             cls._clean_text(k, "unknown"): min(cls._safe_float(v), 100.0)
@@ -98,6 +100,7 @@ class MatchPredictionService:
 
     @classmethod
     def _normalize_tuab_payload(cls, tuab):
+        cls.load_model()
         targets = [t.strip().lower() for t in (tuab["target_fibers"] or "").split(",") if t.strip()]
         return {
             "tuab_id": tuab["user_id"],
@@ -113,6 +116,7 @@ class MatchPredictionService:
 
     @classmethod
     def _build_pair_features(cls, item, tuab):
+        cls.load_model()
         meta = cls._metadata
         fiber_json = item["fiber_json"]
         targets = [fiber for fiber in tuab["target_fibers"] if fiber in meta["fiber_vocab"]]
@@ -202,6 +206,7 @@ class MatchPredictionService:
         return cls._build_pair_features(normalized_item, normalized_tuab)
 
 def run_predictions_for_donation(donation_id):
+    MatchPredictionService.load_model()
     donation = Donation.objects.get(pk=donation_id)
 
     if donation.status != DonationStatus.PENDING:
@@ -297,6 +302,7 @@ def run_predictions_for_donation(donation_id):
 
 
 def run_predictions_for_donation_for_one_tuab(tuab):
+    MatchPredictionService.load_model()
     items = [
         MatchPredictionService._normalize_item_payload(item)
         for item in DonationItem.objects.filter(

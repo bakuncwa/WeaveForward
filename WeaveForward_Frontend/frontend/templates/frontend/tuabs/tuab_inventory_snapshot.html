@@ -569,6 +569,47 @@
     }
   }
 
+  /* Auto-refresh inventory snapshot */
+  let inventorySnapshotFingerprint = null;
+  let inventoryPollingInFlight = false;
+
+  function getInventoryFingerprint(items) {
+    return JSON.stringify((items || []).map(item => ({
+      id: item.inventory_id,
+      current: item.current_weight_kg,
+      usage: item.usage_amount_kg,
+      status: item.lifecycle_status,
+      updated: item.updated_at,
+      archived: item.archived_at
+    })));
+  }
+
+  async function pollInventoryChanges() {
+    if (document.hidden || inventoryPollingInFlight || lastArchivedId) return;
+    inventoryPollingInFlight = true;
+
+    try {
+      const items = await fetchExportData();
+      const nextFingerprint = getInventoryFingerprint(items);
+
+      if (inventorySnapshotFingerprint === null) {
+        inventorySnapshotFingerprint = nextFingerprint;
+        return;
+      }
+
+      if (nextFingerprint !== inventorySnapshotFingerprint) {
+        window.location.reload();
+      }
+    } catch (err) {
+      console.warn('Inventory polling failed.', err);
+    } finally {
+      inventoryPollingInFlight = false;
+    }
+  }
+
+  pollInventoryChanges();
+  setInterval(pollInventoryChanges, 5000);
+
   /* Close modals on backdrop click */
   document.getElementById('update-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeUpdateModal(); });
   document.getElementById('archive-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeArchiveModal(); });

@@ -50,7 +50,7 @@
           <div class="field"><label>Last Name</label><input name="last_name" class="wf-in" value="{{ user.last_name }}" required/></div>
           <div class="field"><label>Contact Number</label>
             <div style="display:grid;grid-template-columns:60px 1fr;gap:8px">
-              <input value="+63" class="wf-in" style="pointer-events:none; background:#f9f9f9" tabindex="-1" /><input name="contact_no" class="wf-in" value="{{ user.contact_no|default:'' }}" />
+              <input value="+63" class="wf-in" style="pointer-events:none; background:#f9f9f9" tabindex="-1" /><input name="contact_no" class="wf-in" value="{{ user.contact_no|default:'' }}" required />
             </div>
           </div>
         </div>
@@ -158,6 +158,7 @@
     }
 
     async function onSave() {
+        if (!$('ep-form').reportValidity()) return;
         const btn = $('save-btn');
         const np = document.querySelector('[name=new_password]'), cp = document.querySelector('[name=confirm_password]');
         

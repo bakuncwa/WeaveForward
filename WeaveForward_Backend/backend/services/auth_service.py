@@ -22,6 +22,30 @@ ACCESS_COOKIE_NAME = "access_token"
 REFRESH_COOKIE_NAME = "refresh_token"
 
 
+class EmailPasswordBackend:
+    def authenticate(self, request, email=None, password=None, **kwargs):
+        if email is None:
+            email = kwargs.get(User.USERNAME_FIELD)
+        if email is None or password is None:
+            return None
+
+        try:
+            user = User.objects.get(email__iexact=email)
+        except User.DoesNotExist:
+            return None
+
+        if user.check_password(password) and user.is_active:
+            return user
+        return None
+
+    def get_user(self, user_id):
+        try:
+            user = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return None
+        return user if user.is_active else None
+
+
 def enforce_csrf(request):
     check = CSRFCheck(lambda request: None)
     check.process_request(request)

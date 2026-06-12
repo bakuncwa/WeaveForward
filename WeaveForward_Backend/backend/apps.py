@@ -4,6 +4,17 @@ from django.apps import AppConfig
 class BackendConfig(AppConfig):
     name = 'backend'
 
-    def ready(self):
-        from .services.prediction_service import MatchPredictionService
-        MatchPredictionService.load_model()
+
+class FrameworkTableBlocker:
+    blocked_app_labels = {
+        "admin",
+        "auth",
+        "contenttypes",
+        "sessions",
+        "token_blacklist",
+    }
+
+    def allow_migrate(self, db, app_label, model_name=None, **hints):
+        if app_label in self.blocked_app_labels:
+            return False
+        return None
