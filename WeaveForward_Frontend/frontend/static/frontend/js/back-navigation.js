@@ -38,6 +38,18 @@
       detailPrefixes: ['/admin/tuabs/'],
       fallbackPath: '/admin/tuabs/',
     },
+    {
+      key: 'wfBack:tuab:profile',
+      listPaths: ['/tuab/profile/'],
+      detailPrefixes: ['/tuab/edit-profile/'],
+      fallbackPath: '/tuab/profile/',
+    },
+    {
+      key: 'wfBack:donor:profile',
+      listPaths: ['/donor/profile/'],
+      detailPrefixes: ['/donor/edit-profile/'],
+      fallbackPath: '/donor/profile/',
+    },
   ];
 
   function isSameOriginPath(value) {

@@ -110,7 +110,7 @@ class TokenRefreshMiddleware:
 
                 if payload:
                     request.user_profile = {
-                        'user_id': payload.get('user_id'),
+                        'user_id': int(payload.get('user_id')) if payload.get('user_id') is not None else None,
                         'role': payload.get('role'),
                         'status': payload.get('status'),
                         'upload': payload.get('upload'),

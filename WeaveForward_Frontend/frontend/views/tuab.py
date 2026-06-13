@@ -300,7 +300,7 @@ async def tuab_update_incoming_donation(request, donation_id):
         or (donation.get('claimed_by_tuab') or {}).get('user_id') != profile.get('user_id')
     ):
         messages.error(request, "You are not authorized to resolve this donation.")
-        return redirect('tuab_view_donation', donation_id=donation_id)
+        return redirect('tuab_dashboard')
 
     # Parse date and times
     if donation.get('submitted_at'):
