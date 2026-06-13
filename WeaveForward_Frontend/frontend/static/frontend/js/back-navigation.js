@@ -41,13 +41,13 @@
     {
       key: 'wfBack:tuab:profile',
       listPaths: ['/tuab/profile/'],
-      detailPrefixes: ['/tuab/edit-profile/'],
+      detailPrefixes: ['/tuab/profile/edit/'],
       fallbackPath: '/tuab/profile/',
     },
     {
       key: 'wfBack:donor:profile',
       listPaths: ['/donor/profile/'],
-      detailPrefixes: ['/donor/edit-profile/'],
+      detailPrefixes: ['/donor/profile/edit/'],
       fallbackPath: '/donor/profile/',
     },
   ];

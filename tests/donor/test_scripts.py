@@ -1018,8 +1018,8 @@ def test_tc10_001_update_account_valid(driver: webdriver.Chrome) -> dict:
     r = _build_result("TC10-001", "Verify That Donor Account Is Updated Successfully Without Changing Location or 2FA")
     wait = WebDriverWait(driver, DEFAULT_WAIT)
     t0 = time.time()
-    driver.get(f"{BASE_URL}/donor/edit-profile/")
-    _ensure_login(driver, wait, f"{BASE_URL}/donor/edit-profile/")
+    driver.get(f"{BASE_URL}/donor/profile/edit/")
+    _ensure_login(driver, wait, f"{BASE_URL}/donor/profile/edit/")
     def action():
         el = wait.until(EC.visibility_of_element_located((By.NAME, "first_name")))
         el.clear()
@@ -1033,8 +1033,8 @@ def test_tc10_002_cancel_update_account(driver: webdriver.Chrome) -> dict:
     r = _build_result("TC10-002", "Verify That Cancellation aborts Edit Successfully")
     wait = WebDriverWait(driver, DEFAULT_WAIT)
     t0 = time.time()
-    driver.get(f"{BASE_URL}/donor/edit-profile/")
-    _ensure_login(driver, wait, f"{BASE_URL}/donor/edit-profile/")
+    driver.get(f"{BASE_URL}/donor/profile/edit/")
+    _ensure_login(driver, wait, f"{BASE_URL}/donor/profile/edit/")
     def action():
         wait.until(EC.element_to_be_clickable((By.XPATH, "//a[contains(@href, '/donor/profile')]"))).click()
         wait.until(lambda d: "/donor/profile" in d.current_url)
@@ -1045,8 +1045,8 @@ def test_tc10_003_update_account_location(driver: webdriver.Chrome) -> dict:
     r = _build_result("TC10-003", "Verify That Account Location Edits Without Enabling TOTP Are Successful")
     wait = WebDriverWait(driver, DEFAULT_WAIT)
     t0 = time.time()
-    driver.get(f"{BASE_URL}/donor/edit-profile/")
-    _ensure_login(driver, wait, f"{BASE_URL}/donor/edit-profile/")
+    driver.get(f"{BASE_URL}/donor/profile/edit/")
+    _ensure_login(driver, wait, f"{BASE_URL}/donor/profile/edit/")
     def action():
         wait.until(EC.visibility_of_element_located((By.ID, "addr"))).clear()
         driver.find_element(By.ID, "addr").send_keys("123 New Address")
@@ -1061,8 +1061,8 @@ def test_tc10_004_disable_2fa(driver: webdriver.Chrome) -> dict:
     r = _build_result("TC10-004", "Verify That The System Can Disable 2FA successfully")
     wait = WebDriverWait(driver, DEFAULT_WAIT)
     t0 = time.time()
-    driver.get(f"{BASE_URL}/donor/edit-profile/")
-    _ensure_login(driver, wait, f"{BASE_URL}/donor/edit-profile/")
+    driver.get(f"{BASE_URL}/donor/profile/edit/")
+    _ensure_login(driver, wait, f"{BASE_URL}/donor/profile/edit/")
     def action():
         tgl = wait.until(EC.presence_of_element_located((By.ID, "tgl")))
         cls = tgl.get_attribute("class")
@@ -1071,7 +1071,7 @@ def test_tc10_004_disable_2fa(driver: webdriver.Chrome) -> dict:
             driver.find_element(By.ID, "save-btn").click()
             wait.until(lambda d: "/donor/profile" in d.current_url)
             time.sleep(1)
-            driver.get(f"{BASE_URL}/donor/edit-profile/")
+            driver.get(f"{BASE_URL}/donor/profile/edit/")
             wait.until(EC.presence_of_element_located((By.ID, "tgl")))
             tgl2 = driver.find_element(By.ID, "tgl")
             if "on" in tgl2.get_attribute("class"):
@@ -1086,8 +1086,8 @@ def test_tc10_005_enable_2fa(driver: webdriver.Chrome) -> dict:
     r = _build_result("TC10-005", "Verify That Enabling 2FA During Updating Account Information Is Successful")
     wait = WebDriverWait(driver, DEFAULT_WAIT)
     t0 = time.time()
-    driver.get(f"{BASE_URL}/donor/edit-profile/")
-    _ensure_login(driver, wait, f"{BASE_URL}/donor/edit-profile/")
+    driver.get(f"{BASE_URL}/donor/profile/edit/")
+    _ensure_login(driver, wait, f"{BASE_URL}/donor/profile/edit/")
     def action():
         tgl = wait.until(EC.presence_of_element_located((By.ID, "tgl")))
         if "on" not in tgl.get_attribute("class"):
@@ -1116,15 +1116,15 @@ def test_tc10_006_update_account_invalid(driver: webdriver.Chrome) -> dict:
     r = _build_result("TC10-006", "Verify That Invalid Fields Prevent Editing Donor Account Successfully")
     wait = WebDriverWait(driver, DEFAULT_WAIT)
     t0 = time.time()
-    driver.get(f"{BASE_URL}/donor/edit-profile/")
-    _ensure_login(driver, wait, f"{BASE_URL}/donor/edit-profile/")
+    driver.get(f"{BASE_URL}/donor/profile/edit/")
+    _ensure_login(driver, wait, f"{BASE_URL}/donor/profile/edit/")
     def action():
         el = wait.until(EC.visibility_of_element_located((By.NAME, "first_name")))
         el.clear()
         el.send_keys("   ")
         driver.find_element(By.ID, "save-btn").click()
         time.sleep(1)
-        if "/donor/edit-profile" not in driver.current_url:
+        if "/donor/profile/edit" not in driver.current_url:
              raise Exception("Strictly Authentic: System allowed invalid profile update")
     _execute(action, r, "Invalid account edit rejected.")
     return _finish(r, t0)
@@ -1133,8 +1133,8 @@ def test_tc10_007_update_account_invalid_totp(driver: webdriver.Chrome) -> dict:
     r = _build_result("TC10-007", "Verify That Invalid TOTP Prevents Editing Donor Account Successfully")
     wait = WebDriverWait(driver, DEFAULT_WAIT)
     t0 = time.time()
-    driver.get(f"{BASE_URL}/donor/edit-profile/")
-    _ensure_login(driver, wait, f"{BASE_URL}/donor/edit-profile/")
+    driver.get(f"{BASE_URL}/donor/profile/edit/")
+    _ensure_login(driver, wait, f"{BASE_URL}/donor/profile/edit/")
     def action():
         tgl = wait.until(EC.presence_of_element_located((By.ID, "tgl")))
         # Note: If it's already ON, clicking it turns it OFF.
@@ -1148,7 +1148,7 @@ def test_tc10_007_update_account_invalid_totp(driver: webdriver.Chrome) -> dict:
             driver.find_element(By.ID, "totp-in").send_keys("000000")
             driver.find_element(By.XPATH, "//button[contains(text(), 'Verify & Save')]").click()
             time.sleep(1)
-            if "/donor/edit-profile" not in driver.current_url:
+            if "/donor/profile/edit" not in driver.current_url:
                  raise Exception("Strictly Authentic: System allowed invalid TOTP profile update")
         except TimeoutException:
             # If the modal doesn't appear, maybe 2FA is already enabled and we just disabled it!

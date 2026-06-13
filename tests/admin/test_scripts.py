@@ -405,7 +405,7 @@ def test_tc26_004_disable_2fa(driver: webdriver.Chrome) -> dict:
         if not CREATED_DONOR_EMAIL:
             raise Exception("Strictly Authentic: No donor email available")
         _donor_login(driver, wait, CREATED_DONOR_EMAIL)
-        driver.get(f"{BASE_URL}/donor/edit-profile/")
+        driver.get(f"{BASE_URL}/donor/profile/edit/")
         time.sleep(0.5)
         tgl = wait.until(EC.presence_of_element_located((By.ID, "tgl")))
         tgl_class = tgl.get_attribute("class")
@@ -935,7 +935,7 @@ def test_tc30_005_disable_tuab_2fa(driver: webdriver.Chrome) -> dict:
         _tuab_login(driver, wait, _approved_tuab_email)
         if "/login" in driver.current_url or "/" == driver.current_url.rstrip("/"):
             raise Exception(f"Strictly Authentic: TUAB login failed, still on login page")
-        driver.get(f"{BASE_URL}/tuab/edit-profile/")
+        driver.get(f"{BASE_URL}/tuab/profile/edit/")
         time.sleep(1)
         if "/login" in driver.current_url:
             raise Exception(f"Strictly Authentic: TUAB not authenticated, redirected to login")
