@@ -20,4 +20,9 @@ async def api_call(request, method, endpoint, **kwargs):
 
     url = f"{BACKEND_BASE_URL.rstrip('/')}/{endpoint.lstrip('/')}"
     cookies = dict(request.COOKIES.items())
-    return await async_client.request(method, url, cookies=cookies, **kwargs)
+    response = await async_client.request(method, url, cookies=cookies, **kwargs)
+
+    if response.status_code == 401:
+        request._session_expired = True
+
+    return response

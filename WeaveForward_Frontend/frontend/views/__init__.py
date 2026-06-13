@@ -40,43 +40,31 @@ from .tuab import (
 
 async def two_factor_setup_proxy(request):
     """Proxy to generate 2FA secret for the logged-in user."""
-    try:
-        response = await api_call(request, 'POST', 'users/me/2fa/setup')
-        return JsonResponse(response.json(), status=response.status_code)
-    except Exception as e:
-        return JsonResponse({'error': f'Backend service unreachable: {str(e)}'}, status=503)
+    response = await api_call(request, 'POST', 'users/me/2fa/setup')
+    return JsonResponse(response.json(), status=response.status_code)
 
 async def two_factor_verify_proxy(request):
     """Proxy to verify and enable 2FA for the logged-in user."""
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
-    try:
-        data = json.loads(request.body)
-        response = await api_call(request, 'POST', 'users/me/2fa', json=data)
-        return JsonResponse(response.json(), status=response.status_code)
-    except Exception as e:
-        return JsonResponse({'error': f'Backend service unreachable: {str(e)}'}, status=503)
+    data = json.loads(request.body)
+    response = await api_call(request, 'POST', 'users/me/2fa', json=data)
+    return JsonResponse(response.json(), status=response.status_code)
 
 async def tuab_unsubscribe_proxy(request):
     """Proxy to unsubscribe the logged-in TUAB from premium."""
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
-    try:
-        response = await api_call(request, 'DELETE', 'users/me/subscription')
-        return JsonResponse(response.json(), status=response.status_code)
-    except Exception as e:
-        return JsonResponse({'error': f'Backend service unreachable: {str(e)}'}, status=503)
+    response = await api_call(request, 'DELETE', 'users/me/subscription')
+    return JsonResponse(response.json(), status=response.status_code)
 
 
 async def two_factor_disable_proxy(request):
     """Proxy to disable 2FA for the logged-in user."""
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
-    try:
-        response = await api_call(request, 'DELETE', 'users/me/2fa')
-        return JsonResponse(response.json(), status=response.status_code)
-    except Exception as e:
-        return JsonResponse({'error': f'Backend service unreachable: {str(e)}'}, status=503)
+    response = await api_call(request, 'DELETE', 'users/me/2fa')
+    return JsonResponse(response.json(), status=response.status_code)
 
 async def role_select(request):
     return render(request, 'frontend/role_select.html')
@@ -177,46 +165,31 @@ async def location_lookup_proxy(request):
     """SSR Proxy for location lookup."""
     lat = request.GET.get('lat')
     lng = request.GET.get('lng')
-    try:
-        response = await api_call(request, 'GET', 'location/lookup', params={'lat': lat, 'lng': lng})
-        return JsonResponse(response.json(), status=response.status_code)
-    except Exception:
-        return JsonResponse({'error': 'Backend location service unreachable'}, status=503)
+    response = await api_call(request, 'GET', 'location/lookup', params={'lat': lat, 'lng': lng})
+    return JsonResponse(response.json(), status=response.status_code)
 
 async def material_clothing_types_proxy(request):
     """SSR Proxy for fetching unique clothing types."""
-    try:
-        response = await api_call(request, 'GET', 'clothing-types')
-        return JsonResponse(response.json(), status=response.status_code, safe=False)
-    except Exception:
-        return JsonResponse({'error': 'Backend service unreachable'}, status=503)
+    response = await api_call(request, 'GET', 'clothing-types')
+    return JsonResponse(response.json(), status=response.status_code, safe=False)
 
 async def material_brands_proxy(request):
     """SSR Proxy for fetching brands by clothing type."""
     clothing_type = request.GET.get('clothing_type')
-    try:
-        response = await api_call(request, 'GET', 'brands', params={'clothing_type': clothing_type})
-        return JsonResponse(response.json(), status=response.status_code, safe=False)
-    except Exception:
-        return JsonResponse({'error': 'Backend service unreachable'}, status=503)
+    response = await api_call(request, 'GET', 'brands', params={'clothing_type': clothing_type})
+    return JsonResponse(response.json(), status=response.status_code, safe=False)
 
 async def material_search_proxy(request):
     """SSR Proxy for searching materials/items."""
-    try:
-        response = await api_call(request, 'GET', 'brandfiberlookups', params=request.GET.dict())
-        return JsonResponse(response.json(), status=response.status_code, safe=False)
-    except Exception:
-        return JsonResponse({'error': 'Backend service unreachable'}, status=503)
+    response = await api_call(request, 'GET', 'brandfiberlookups', params=request.GET.dict())
+    return JsonResponse(response.json(), status=response.status_code, safe=False)
 
 async def donor_search_proxy(request):
     """SSR Proxy for searching active donors only."""
-    try:
-        params = request.GET.dict()
-        params.update({'role': 'Donor', 'status': 'ACTIVE'})
-        response = await api_call(request, 'GET', 'users', params=params)
-        return JsonResponse(response.json(), status=response.status_code, safe=False)
-    except Exception:
-        return JsonResponse({'error': 'Backend service unreachable'}, status=503)
+    params = request.GET.dict()
+    params.update({'role': 'Donor', 'status': 'ACTIVE'})
+    response = await api_call(request, 'GET', 'users', params=params)
+    return JsonResponse(response.json(), status=response.status_code, safe=False)
 
 async def forgot_password(request):
     if request.method == 'POST':

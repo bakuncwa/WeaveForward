@@ -627,8 +627,8 @@ def test_tc28_001_view_tuab(driver: webdriver.Chrome) -> dict:
         for c in checks:
             if c not in body:
                 raise Exception(f"Strictly Authentic: Expected text '{c}' not found on TUAB detail page")
-        if "Back to TUAB List" not in body:
-            raise Exception("Strictly Authentic: 'Back to TUAB List' link not found")
+        if not driver.find_elements(By.CSS_SELECTOR, ".wf-back-btn"):
+            raise Exception("Strictly Authentic: 'Back' button (wf-back-btn) not found on TUAB detail page")
     _execute(action, r, "TUAB details displayed successfully.")
     return _finish(r, t0)
 
@@ -1362,8 +1362,8 @@ def test_tc32_001_view_donation(driver: webdriver.Chrome) -> dict:
         # Verify Edit and Back to List buttons
         if "Edit Donation" not in body:
             raise Exception("Strictly Authentic: 'Edit Donation' link not found on donation detail page")
-        if "Back to List" not in body:
-            raise Exception("Strictly Authentic: 'Back to List' link not found on donation detail page")
+        if not driver.find_elements(By.CSS_SELECTOR, ".wf-back-btn"):
+            raise Exception("Strictly Authentic: 'Back' button (wf-back-btn) not found on donation detail page")
 
     _execute(action, r, "Donation details displayed successfully.")
     return _finish(r, t0)

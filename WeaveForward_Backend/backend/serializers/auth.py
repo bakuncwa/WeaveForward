@@ -12,6 +12,7 @@ from ..models import User, UserAccountStatus, UserOperationalStatus
 from ..services.auth_service import reset_user_password, validate_reset_token
 from ..services.location_service import get_city_and_barangay
 from ..services.brand_fiber_lookup_service import get_allowed_fibers
+from ..services.upload_service import build_upload_url
 
 
 class DonorRegisterSerializer(serializers.ModelSerializer):
@@ -130,6 +131,13 @@ class TUABRegisterSerializer(serializers.ModelSerializer):
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     otp_code = serializers.CharField(required=False)
 
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        token['role'] = user.role
+        token['status'] = user.status
+        return token
+
     default_error_messages = {
         'no_active_account': 'Invalid email or password.',
         'invalid_otp': 'Invalid 2FA code.'
@@ -168,9 +176,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         # Token
         refresh = self.get_token(self.user)
+        access = refresh.access_token
+        access['upload'] = build_upload_url(self.user.upload, self.context)
         return {
             'refresh': str(refresh),
-            'access': str(refresh.access_token),
+            'access': str(access),
             'user_id': self.user.user_id,
             'role': self.user.role,
         }

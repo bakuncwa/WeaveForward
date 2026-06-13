@@ -433,36 +433,33 @@ async def admin_add_donation(request):
         for k in ['csrfmiddlewaretoken']:
             payload.pop(k, None)
 
-        try:
-            response = await api_call(request, 'POST', 'donations', data=payload, files=files)
-            if response.status_code == 201:
-                messages.success(request, "Donation created successfully!")
-                return JsonResponse({'redirect': '/admin/donations/'})
-            else:
-                try:
-                    err_data = response.json()
-                except:
-                    err_data = {'detail': 'Unknown backend error.'}
+        response = await api_call(request, 'POST', 'donations', data=payload, files=files)
+        if response.status_code == 201:
+            messages.success(request, "Donation created successfully!")
+            return JsonResponse({'redirect': '/admin/donations/'})
+        else:
+            try:
+                err_data = response.json()
+            except:
+                err_data = {'detail': 'Unknown backend error.'}
 
-                if isinstance(err_data, dict):
-                    detail_msg = err_data.get('detail')
-                    if detail_msg:
-                        return JsonResponse({'error': detail_msg}, status=response.status_code)
+            if isinstance(err_data, dict):
+                detail_msg = err_data.get('detail')
+                if detail_msg:
+                    return JsonResponse({'error': detail_msg}, status=response.status_code)
 
-                    formatted = format_errors(err_data)
-                    error_list = []
-                    for field, msgs in formatted.items():
-                        if isinstance(msgs, list):
-                            error_list.extend(f"{field}: {msg}" for msg in msgs)
-                        else:
-                            error_list.append(f"{field}: {msgs}")
+                formatted = format_errors(err_data)
+                error_list = []
+                for field, msgs in formatted.items():
+                    if isinstance(msgs, list):
+                        error_list.extend(f"{field}: {msg}" for msg in msgs)
+                    else:
+                        error_list.append(f"{field}: {msgs}")
 
-                    if error_list:
-                        return JsonResponse({'errors': error_list}, status=response.status_code)
+                if error_list:
+                    return JsonResponse({'errors': error_list}, status=response.status_code)
 
-                return JsonResponse({'error': "Failed to create donation."}, status=response.status_code)
-        except Exception as e:
-            return JsonResponse({'error': f"System Error: {str(e)}"}, status=500)
+            return JsonResponse({'error': "Failed to create donation."}, status=response.status_code)
 
     types_res, brands_res = await asyncio.gather(
         api_call(request, 'GET', 'clothing-types'),
@@ -526,40 +523,37 @@ async def admin_edit_donation(request, donation_id):
         if files:
             patch_kwargs['files'] = files
 
-        try:
-            response = await api_call(request, 'PATCH', f'donations/{donation_id}', **patch_kwargs)
-            if 200 <= response.status_code < 300:
-                messages.success(request, "Donation updated successfully!")
-                return JsonResponse({'redirect': f'/admin/donations/{donation_id}/'})
-            elif response.status_code == 412:
-                return JsonResponse({'error': 'This donation was updated by someone else. Please refresh and try again.'}, status=412)
-            elif response.status_code == 428:
-                return JsonResponse({'error': "We couldn't verify the donation's latest version. Please refresh and try again."}, status=428)
-            else:
-                try:
-                    err_data = response.json()
-                except Exception:
-                    err_data = {'detail': 'Unknown backend error.'}
+        response = await api_call(request, 'PATCH', f'donations/{donation_id}', **patch_kwargs)
+        if 200 <= response.status_code < 300:
+            messages.success(request, "Donation updated successfully!")
+            return JsonResponse({'redirect': f'/admin/donations/{donation_id}/'})
+        elif response.status_code == 412:
+            return JsonResponse({'error': 'This donation was updated by someone else. Please refresh and try again.'}, status=412)
+        elif response.status_code == 428:
+            return JsonResponse({'error': "We couldn't verify the donation's latest version. Please refresh and try again."}, status=428)
+        else:
+            try:
+                err_data = response.json()
+            except Exception:
+                err_data = {'detail': 'Unknown backend error.'}
 
-                if isinstance(err_data, dict):
-                    detail_msg = err_data.get('detail')
-                    if detail_msg:
-                        return JsonResponse({'error': detail_msg}, status=response.status_code)
+            if isinstance(err_data, dict):
+                detail_msg = err_data.get('detail')
+                if detail_msg:
+                    return JsonResponse({'error': detail_msg}, status=response.status_code)
 
-                    formatted = format_errors(err_data)
-                    error_list = []
-                    for field, msgs in formatted.items():
-                        if isinstance(msgs, list):
-                            error_list.extend(f"{field}: {msg}" for msg in msgs)
-                        else:
-                            error_list.append(f"{field}: {msgs}")
+                formatted = format_errors(err_data)
+                error_list = []
+                for field, msgs in formatted.items():
+                    if isinstance(msgs, list):
+                        error_list.extend(f"{field}: {msg}" for msg in msgs)
+                    else:
+                        error_list.append(f"{field}: {msgs}")
 
-                    if error_list:
-                        return JsonResponse({'errors': error_list}, status=response.status_code)
+                if error_list:
+                    return JsonResponse({'errors': error_list}, status=response.status_code)
 
-                return JsonResponse({'error': "Failed to update donation."}, status=response.status_code)
-        except Exception as e:
-            return JsonResponse({'error': f"System Error: {str(e)}"}, status=400)
+            return JsonResponse({'error': "Failed to update donation."}, status=response.status_code)
 
     response = await api_call(request, 'GET', f'donations/{donation_id}')
     if response.status_code != 200:
@@ -601,22 +595,19 @@ async def admin_cancel_donation(request, donation_id):
     if request.method != 'POST':
         return HttpResponseNotAllowed(['POST'])
 
-    try:
-        response = await api_call(request, 'POST', f'donations/{donation_id}/cancel')
-        if response.status_code == 200:
-            return JsonResponse({'redirect': reverse('admin_view_donations')})
+    response = await api_call(request, 'POST', f'donations/{donation_id}/cancel')
+    if response.status_code == 200:
+        return JsonResponse({'redirect': reverse('admin_view_donations')})
 
-        try:
-            err_data = response.json()
-        except Exception:
-            err_data = {}
-        error_msg = err_data.get('detail') if isinstance(err_data, dict) else None
-        return JsonResponse(
-            {'error': error_msg or "Failed to cancel donation."},
-            status=response.status_code,
-        )
-    except Exception as e:
-        return JsonResponse({'error': f"System Error: {str(e)}"}, status=500)
+    try:
+        err_data = response.json()
+    except Exception:
+        err_data = {}
+    error_msg = err_data.get('detail') if isinstance(err_data, dict) else None
+    return JsonResponse(
+        {'error': error_msg or "Failed to cancel donation."},
+        status=response.status_code,
+    )
 
 
 async def admin_archive_donation(request, donation_id):
@@ -624,24 +615,21 @@ async def admin_archive_donation(request, donation_id):
     if request.method != 'POST':
         return HttpResponseNotAllowed(['POST'])
 
+    response = await api_call(request, 'POST', f'donations/{donation_id}/archive')
+    if response.status_code == 200:
+        messages.success(request, "Donation archived successfully.")
+        return JsonResponse({'redirect': reverse('admin_view_donations')})
+
     try:
-        response = await api_call(request, 'POST', f'donations/{donation_id}/archive')
-        if response.status_code == 200:
-            messages.success(request, "Donation archived successfully.")
-            return JsonResponse({'redirect': reverse('admin_view_donations')})
+        err_data = response.json()
+    except Exception:
+        err_data = {}
 
-        try:
-            err_data = response.json()
-        except Exception:
-            err_data = {}
-
-        error_msg = err_data.get('detail') if isinstance(err_data, dict) else None
-        return JsonResponse(
-            {'error': error_msg or "Failed to archive donation."},
-            status=response.status_code,
-        )
-    except Exception as e:
-        return JsonResponse({'error': f"System Error: {str(e)}"}, status=500)
+    error_msg = err_data.get('detail') if isinstance(err_data, dict) else None
+    return JsonResponse(
+        {'error': error_msg or "Failed to archive donation."},
+        status=response.status_code,
+    )
 
 
 async def admin_impact_dashboard(request):

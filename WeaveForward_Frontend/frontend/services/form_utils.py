@@ -3,7 +3,13 @@ from .api_service import api_call
 
 def format_errors(errors):
     """Convert snake_case error keys to Title Case for display (e.g. business_name -> Business Name)."""
-    return {k.replace('_', ' ').title(): v for k, v in errors.items()}
+    result = {}
+    for k, v in errors.items():
+        if k == 'non_field_errors':
+            result['Error'] = v
+        else:
+            result[k.replace('_', ' ').title()] = v
+    return result
 
 async def get_paginated_data(request, endpoint, params=None, page_size=10):
     """Fetch and parse paginated data from the API, including search support."""

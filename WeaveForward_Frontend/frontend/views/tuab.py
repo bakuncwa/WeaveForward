@@ -5,8 +5,6 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.utils.dateparse import parse_datetime, parse_time
-import httpx
-
 from ..services import api_call, format_errors, get_paginated_data, get_fiber_choices
 
 
@@ -42,14 +40,11 @@ async def tuab_dashboard(request):
     claimed_params.update(common_params)
 
     # 1 & 2. Fetch Available and Claimed Donations in parallel
-    try:
-        avail_res, claimed_res = await asyncio.gather(
-            api_call(request, 'GET', 'donations', params=avail_params),
-            api_call(request, 'GET', 'users/me/donations', params=claimed_params),
-            return_exceptions=True
-        )
-    except Exception:
-        avail_res, claimed_res = None, None
+    avail_res, claimed_res = await asyncio.gather(
+        api_call(request, 'GET', 'donations', params=avail_params),
+        api_call(request, 'GET', 'users/me/donations', params=claimed_params),
+        return_exceptions=True
+    )
 
     # Process Available Donations response
     if avail_res and not isinstance(avail_res, Exception) and avail_res.status_code == 200:
@@ -122,33 +117,28 @@ async def tuab_view_donation(request, donation_id):
         headers = {'If-Match': payload.get('current_etag')} if payload.get('current_etag') else {}
         action = payload.get('action')
 
-        try:
-            if action == 'transit':
-                response = await api_call(
-                    request,
-                    'POST',
-                    f'donations/{donation_id}/transit',
-                    headers=headers,
-                )
+        if action == 'transit':
+            response = await api_call(
+                request,
+                'POST',
+                f'donations/{donation_id}/transit',
+                headers=headers,
+            )
 
-            elif action == 'claim' or action is None:
-                response = await api_call(
-                    request,
-                    'POST',
-                    f'donations/{donation_id}/claim',
-                    json={
-                        'delivery_method': payload.get('delivery_method'),
-                        'quotation_token': payload.get('quotation_token'),
-                    },
-                    headers=headers,
-                )
+        elif action == 'claim' or action is None:
+            response = await api_call(
+                request,
+                'POST',
+                f'donations/{donation_id}/claim',
+                json={
+                    'delivery_method': payload.get('delivery_method'),
+                    'quotation_token': payload.get('quotation_token'),
+                },
+                headers=headers,
+            )
 
-            else:
-                response = JsonResponse({'detail': 'Unsupported action.'}, status=400)
-        except httpx.RequestError:
-            if is_json_request:
-                return JsonResponse({'detail': 'Backend service unreachable.'}, status=503)
-            raise
+        else:
+            response = JsonResponse({'detail': 'Unsupported action.'}, status=400)
 
         try:
             data = response.json() if hasattr(response, 'json') else json.loads(response.content)
@@ -257,36 +247,33 @@ async def tuab_update_incoming_donation(request, donation_id):
         payload.pop('csrfmiddlewaretoken', None)
         payload.pop('current_etag', None)
 
-        try:
-            response = await api_call(request, 'POST', f'donations/{donation_id}/resolve', data=payload)
-            if response.status_code == 200:
-                messages.success(request, "Donation resolved successfully!")
-                return JsonResponse({'redirect': '/tuab/dashboard/?tab=claimed'})
-            else:
-                try:
-                    err_data = response.json()
-                except:
-                    err_data = {'detail': 'Unknown backend error.'}
-                
-                error_msg = err_data.get('detail')
-                errors = []
-                if error_msg:
-                    errors.append(error_msg)
-                elif isinstance(err_data, dict):
-                    formatted = format_errors(err_data)
-                    for field, msgs in formatted.items():
-                        if isinstance(msgs, list):
-                            for msg in msgs:
-                                errors.append(f"{field}: {msg}")
-                        else:
-                            errors.append(f"{field}: {msgs}")
-                
-                if not errors:
-                    errors.append("Resolution failed.")
+        response = await api_call(request, 'POST', f'donations/{donation_id}/resolve', data=payload)
+        if response.status_code == 200:
+            messages.success(request, "Donation resolved successfully!")
+            return JsonResponse({'redirect': '/tuab/dashboard/?tab=claimed'})
+        else:
+            try:
+                err_data = response.json()
+            except:
+                err_data = {'detail': 'Unknown backend error.'}
+            
+            error_msg = err_data.get('detail')
+            errors = []
+            if error_msg:
+                errors.append(error_msg)
+            elif isinstance(err_data, dict):
+                formatted = format_errors(err_data)
+                for field, msgs in formatted.items():
+                    if isinstance(msgs, list):
+                        for msg in msgs:
+                            errors.append(f"{field}: {msg}")
+                    else:
+                        errors.append(f"{field}: {msgs}")
+            
+            if not errors:
+                errors.append("Resolution failed.")
 
-                return JsonResponse({'errors': errors}, status=400)
-        except Exception as e:
-            return JsonResponse({'errors': [f"System Error: {str(e)}"]}, status=503)
+            return JsonResponse({'errors': errors}, status=400)
 
     # =========================
     # GET: Render Resolve Form
@@ -363,22 +350,19 @@ async def tuab_quotation_proxy(request, donation_id):
     payload = json.loads(request.body or '{}')
 
     headers = {'If-Match': payload.get('current_etag')} if payload.get('current_etag') else {}
-    try:
-        response = await api_call(
-            request,
-            'POST',
-            f'donations/{donation_id}/quotation',
-            json={
-                'dropoff_address': payload.get('dropoff_address'),
-                'dropoff_lat': payload.get('dropoff_lat'),
-                'dropoff_lng': payload.get('dropoff_lng'),
-                'scheduled_time': payload.get('scheduled_time'),
-            },
-            headers=headers,
-        )
-        return JsonResponse(response.json(), status=response.status_code)
-    except httpx.RequestError:
-        return JsonResponse({'detail': 'Backend service unreachable.'}, status=503)
+    response = await api_call(
+        request,
+        'POST',
+        f'donations/{donation_id}/quotation',
+        json={
+            'dropoff_address': payload.get('dropoff_address'),
+            'dropoff_lat': payload.get('dropoff_lat'),
+            'dropoff_lng': payload.get('dropoff_lng'),
+            'scheduled_time': payload.get('scheduled_time'),
+        },
+        headers=headers,
+    )
+    return JsonResponse(response.json(), status=response.status_code)
 
 
 async def tuab_subscribe(request):
@@ -386,16 +370,13 @@ async def tuab_subscribe(request):
     profile = request.user_profile
 
     # Always force fetch the latest profile directly from the backend to guarantee fresh subscription status
-    try:
-        response = await api_call(request, 'GET', 'users/me')
-        if response.status_code == 200:
-            profile = response.json()
-            if hasattr(request, 'session'):
-                request.session['user_profile'] = profile
-                import time
-                request.session['user_profile_verified_at'] = time.time()
-    except Exception:
-        pass
+    response = await api_call(request, 'GET', 'users/me')
+    if response.status_code == 200:
+        profile = response.json()
+        if hasattr(request, 'session'):
+            request.session['user_profile'] = profile
+            import time
+            request.session['user_profile_verified_at'] = time.time()
             
     # 1. Check if already subscribed or redirected back from successful Maya 3DS
     if profile.get('is_subscribed') or request.GET.get('status') == 'success':
@@ -424,30 +405,26 @@ async def tuab_subscribe(request):
             }
         }
 
-        try:
-            response = await api_call(
-                request,
-                'POST',
-                'users/me/subscription',
-                json=payload,
-                headers={
-                    'X-Frontend-Redirect-Url': request.build_absolute_uri('/').rstrip('/'),
-                },
-            )
+        response = await api_call(
+            request,
+            'POST',
+            'users/me/subscription',
+            json=payload,
+            headers={
+                'X-Frontend-Redirect-Url': request.build_absolute_uri('/').rstrip('/'),
+            },
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            verification_url = data.get('verificationUrl')
+            if verification_url:
+                return redirect(verification_url)
             
-            if response.status_code == 200:
-                data = response.json()
-                verification_url = data.get('verificationUrl')
-                if verification_url:
-                    return redirect(verification_url)
-                
-                messages.success(request, "Successfully subscribed to Premium!")
-                return redirect('tuab_subscribe') # Redirect to itself to show success template
-            else:
-                # Redirect to failed state for any backend rejection
-                return redirect('/tuab/subscribe/?status=failed')
-        except Exception as e:
-            messages.error(request, f"Error communicating with backend: {str(e)}")
+            messages.success(request, "Successfully subscribed to Premium!")
+            return redirect('tuab_subscribe') # Redirect to itself to show success template
+        else:
+            # Redirect to failed state for any backend rejection
             return redirect('/tuab/subscribe/?status=failed')
 
     return render(request, 'frontend/tuabs/tuab_subscribe_to_premium.html', {
@@ -505,49 +482,44 @@ async def tuab_edit_profile(request):
             files['upload'] = request.FILES['upload']
 
         headers = {'If-Match': submitted_etag} if submitted_etag else {}
-        try:
-            response = await api_call(request, 'PATCH', 'users/me?validate_only=true', data=payload, files=files, headers=headers)
+        response = await api_call(request, 'PATCH', 'users/me?validate_only=true', data=payload, files=files, headers=headers)
+        
+        if response.status_code == 200:
+            etag_changed = False
+            if request.POST.get('otp_code'):
+                res = await api_call(request, 'POST', 'users/me/2fa', json={'otp_code': request.POST['otp_code'], 'secret': request.POST.get('secret')})
+                if res.status_code != 200: return JsonResponse({'error': res.json().get('detail', 'Invalid 2FA code.')}, status=400)
+                etag_changed = True
             
-            if response.status_code == 200:
-                etag_changed = False
-                if request.POST.get('otp_code'):
-                    res = await api_call(request, 'POST', 'users/me/2fa', json={'otp_code': request.POST['otp_code'], 'secret': request.POST.get('secret')})
-                    if res.status_code != 200: return JsonResponse({'error': res.json().get('detail', 'Invalid 2FA code.')}, status=400)
-                    etag_changed = True
+            if request.POST.get('disable_2fa') == '1':
+                await api_call(request, 'DELETE', 'users/me/2fa'); etag_changed = True
                 
-                if request.POST.get('disable_2fa') == '1':
-                    try: await api_call(request, 'DELETE', 'users/me/2fa'); etag_changed = True
-                    except: pass
-                    
-                if request.POST.get('remove_payment_method') == '1':
-                    try: await api_call(request, 'DELETE', 'users/me/subscription'); etag_changed = True
-                    except: pass
-                    
-                if etag_changed:
-                    get_res = await api_call(request, 'GET', 'users/me')
-                    if get_res.status_code == 200: headers['If-Match'] = get_res.headers.get('ETag')
-                    
-                response = await api_call(request, 'PATCH', 'users/me', data=payload, files=files, headers=headers)
+            if request.POST.get('remove_payment_method') == '1':
+                await api_call(request, 'DELETE', 'users/me/subscription'); etag_changed = True
+                
+            if etag_changed:
+                get_res = await api_call(request, 'GET', 'users/me')
+                if get_res.status_code == 200: headers['If-Match'] = get_res.headers.get('ETag')
+                
+            response = await api_call(request, 'PATCH', 'users/me', data=payload, files=files, headers=headers)
 
-            if response.status_code == 200:
-                messages.success(request, "Profile updated successfully.")
-                return JsonResponse({'message': 'Success'}, status=200)
-            else:
-                try:
-                    err_data = response.json()
-                except:
-                    err_data = {'detail': 'Unknown backend error.'}
+        if response.status_code == 200:
+            messages.success(request, "Profile updated successfully.")
+            return JsonResponse({'message': 'Success'}, status=200)
+        else:
+            try:
+                err_data = response.json()
+            except:
+                err_data = {'detail': 'Unknown backend error.'}
 
-                if response.status_code == 412:
-                    return JsonResponse({'error': 'The profile was updated by someone else. Please refresh and try again.'}, status=412)
+            if response.status_code == 412:
+                return JsonResponse({'error': 'The profile was updated by someone else. Please refresh and try again.'}, status=412)
 
-                detail_message = err_data.get('detail') if isinstance(err_data, dict) and isinstance(err_data.get('detail'), str) else None
-                if detail_message:
-                    return JsonResponse({'detail': detail_message}, status=response.status_code)
+            detail_message = err_data.get('detail') if isinstance(err_data, dict) and isinstance(err_data.get('detail'), str) else None
+            if detail_message:
+                return JsonResponse({'detail': detail_message}, status=response.status_code)
 
-                return JsonResponse({'errors': format_errors(err_data)}, status=response.status_code)
-        except Exception as e:
-            return JsonResponse({'error': f"System Error: {str(e)}"}, status=503)
+            return JsonResponse({'errors': format_errors(err_data)}, status=response.status_code)
 
     fibers, response = await asyncio.gather(
         get_fiber_choices(request),
@@ -687,69 +659,51 @@ async def tuab_inventory_update_usage_proxy(request, inventory_id):
     """Proxy: POST usage amount for an inventory item."""
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
-    try:
-        body = json.loads(request.body)
-        res = await api_call(request, 'POST', f'inventory/{inventory_id}/update-usage', json=body)
-        return JsonResponse(res.json(), status=res.status_code)
-    except httpx.RequestError:
-        return JsonResponse({'error': 'Service unavailable.'}, status=503)
+    body = json.loads(request.body)
+    res = await api_call(request, 'POST', f'inventory/{inventory_id}/update-usage', json=body)
+    return JsonResponse(res.json(), status=res.status_code)
 
 
 async def tuab_inventory_archive_proxy(request, inventory_id):
     """Proxy: Archive an inventory item with an exit state."""
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
-    try:
-        body = json.loads(request.body)
-        res = await api_call(request, 'POST', f'inventory/{inventory_id}/archive', json=body)
-        return JsonResponse(res.json(), status=res.status_code)
-    except httpx.RequestError:
-        return JsonResponse({'error': 'Service unavailable.'}, status=503)
+    body = json.loads(request.body)
+    res = await api_call(request, 'POST', f'inventory/{inventory_id}/archive', json=body)
+    return JsonResponse(res.json(), status=res.status_code)
 
 
 async def tuab_inventory_restore_proxy(request, inventory_id):
     """Proxy: Restore (undo) a recently archived inventory item."""
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
-    try:
-        res = await api_call(request, 'POST', f'inventory/{inventory_id}/restore', json={})
-        return JsonResponse(res.json(), status=res.status_code)
-    except httpx.RequestError:
-        return JsonResponse({'error': 'Service unavailable.'}, status=503)
+    res = await api_call(request, 'POST', f'inventory/{inventory_id}/restore', json={})
+    return JsonResponse(res.json(), status=res.status_code)
 
 
 async def tuab_inventory_export_proxy(request):
     """Proxy: GET unpaginated inventory export for CSV/JSON."""
     if request.method != 'GET':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
-    try:
-        res = await api_call(request, 'GET', 'inventory/export')
-        return JsonResponse(res.json(), status=res.status_code)
-    except httpx.RequestError:
-        return JsonResponse({'error': 'Service unavailable.'}, status=503)
+    res = await api_call(request, 'GET', 'inventory/export')
+    return JsonResponse(res.json(), status=res.status_code)
 
 
 async def tuab_match_recommendation_accept_proxy(request, pair_id):
     """Proxy: Accept a fiber-match recommendation."""
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
-    try:
-        res = await api_call(request, 'POST', f'match-predict/{pair_id}/accept', json={})
-        return JsonResponse(res.json(), status=res.status_code)
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=503)
+    res = await api_call(request, 'POST', f'match-predict/{pair_id}/accept', json={})
+    return JsonResponse(res.json(), status=res.status_code)
 
 
 async def tuab_match_recommendation_reject_proxy(request, pair_id):
     """Proxy: Reject a fiber-match recommendation with optional reason."""
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
-    try:
-        body = json.loads(request.body)
-        res = await api_call(request, 'POST', f'match-predict/{pair_id}/reject', json=body)
-        return JsonResponse(res.json(), status=res.status_code)
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=503)
+    body = json.loads(request.body)
+    res = await api_call(request, 'POST', f'match-predict/{pair_id}/reject', json=body)
+    return JsonResponse(res.json(), status=res.status_code)
 
 
 
@@ -757,12 +711,9 @@ async def tuab_donation_flag_proxy(request, donation_id):
     """Proxy: Flag a donation with a reason (TUAB or Admin)."""
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
-    try:
-        body = json.loads(request.body)
-        res = await api_call(request, 'POST', f'donations/{donation_id}/flag', json={'flag_reason': body.get('flag_reason', '')})
-        return JsonResponse(res.json(), status=res.status_code)
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=503)
+    body = json.loads(request.body)
+    res = await api_call(request, 'POST', f'donations/{donation_id}/flag', json={'flag_reason': body.get('flag_reason', '')})
+    return JsonResponse(res.json(), status=res.status_code)
 
 
 async def tuab_circular_economy(request):
@@ -786,31 +737,28 @@ async def tuab_circular_economy(request):
     }
     error_message = None
 
-    try:
-        res = await api_call(request, 'GET', 'tuab-circular-economy', params=params)
-        if res and not isinstance(res, Exception) and res.status_code == 200:
-            dashboard_data = res.json()
-        elif res and not isinstance(res, Exception) and res.status_code in (400, 422):
-            try:
-                err_data = res.json()
-                if isinstance(err_data, dict):
-                    parts = []
-                    for v in err_data.values():
-                        parts.append(', '.join(v) if isinstance(v, list) else str(v))
-                    error_message = ' '.join(parts) or "Invalid date range filter."
-                else:
-                    error_message = "Invalid date range filter."
-            except Exception:
+    res = await api_call(request, 'GET', 'tuab-circular-economy', params=params)
+    if res and not isinstance(res, Exception) and res.status_code == 200:
+        dashboard_data = res.json()
+    elif res and not isinstance(res, Exception) and res.status_code in (400, 422):
+        try:
+            err_data = res.json()
+            if isinstance(err_data, dict):
+                parts = []
+                for v in err_data.values():
+                    parts.append(', '.join(v) if isinstance(v, list) else str(v))
+                error_message = ' '.join(parts) or "Invalid date range filter."
+            else:
                 error_message = "Invalid date range filter."
-        elif res and not isinstance(res, Exception) and res.status_code == 403:
-            try:
-                error_message = res.json().get('detail', 'Access denied.')
-            except Exception:
-                error_message = "Access denied."
-        else:
-            error_message = "Unable to load dashboard data. Please try again later."
-    except Exception:
-        error_message = "An error occurred while loading the dashboard."
+        except Exception:
+            error_message = "Invalid date range filter."
+    elif res and not isinstance(res, Exception) and res.status_code == 403:
+        try:
+            error_message = res.json().get('detail', 'Access denied.')
+        except Exception:
+            error_message = "Access denied."
+    else:
+        error_message = "Unable to load dashboard data. Please try again later."
 
     return render(request, 'frontend/tuabs/tuab_circular_economy.html', {
         'page_title': 'Circular Economy Impact Dashboard',
@@ -840,50 +788,44 @@ async def tuab_view_fiber_match_recommendations(request):
     recommendations = []
     error_message = None
 
-    try:
-        params = {'unpaginated': 'true'}
-        for key, value in filters_param.items():
-            if value:
-                if key == 'confidence_min':
-                    try:
-                        params['confidence_min'] = float(value)
-                    except (ValueError, TypeError):
-                        pass
-                elif key == 'confidence_max':
-                    try:
-                        params['confidence_max'] = float(value)
-                    except (ValueError, TypeError):
-                        pass
-                elif key != 'biodeg_tier':
-                    params[key] = value
+    params = {'unpaginated': 'true'}
+    for key, value in filters_param.items():
+        if value:
+            if key == 'confidence_min':
+                try:
+                    params['confidence_min'] = float(value)
+                except (ValueError, TypeError):
+                    pass
+            elif key == 'confidence_max':
+                try:
+                    params['confidence_max'] = float(value)
+                except (ValueError, TypeError):
+                    pass
+            elif key != 'biodeg_tier':
+                params[key] = value
 
-        res = await api_call(request, 'GET', 'match-predict', params=params)
+    res = await api_call(request, 'GET', 'match-predict', params=params)
 
 
-        if res and not isinstance(res, Exception) and res.status_code == 200:
-            data = res.json()
-            if isinstance(data, list):
-                recommendations = data
-            else:
-                recommendations = data.get('results', [])
-        elif res and not isinstance(res, Exception) and res.status_code == 403:
-            error_message = "You don't have an active subscription to access Donation Recommendations. Please upgrade."
+    if res and not isinstance(res, Exception) and res.status_code == 200:
+        data = res.json()
+        if isinstance(data, list):
+            recommendations = data
         else:
-            error_message = "Unable to load recommendations. Please try again later."
-    except Exception:
-        error_message = "An error occurred while loading recommendations."
+            recommendations = data.get('results', [])
+    elif res and not isinstance(res, Exception) and res.status_code == 403:
+        error_message = "You don't have an active subscription to access Donation Recommendations. Please upgrade."
+    else:
+        error_message = "Unable to load recommendations. Please try again later."
 
     available_fibers = []
     available_cities = set()
 
 
-    try:
-        fibers_res = await api_call(request, 'GET', 'fibers')
-        if fibers_res and not isinstance(fibers_res, Exception) and fibers_res.status_code == 200:
-            data = fibers_res.json()
-            available_fibers = data.get('results', []) if isinstance(data, dict) else data
-    except Exception:
-        pass
+    fibers_res = await api_call(request, 'GET', 'fibers')
+    if fibers_res and not isinstance(fibers_res, Exception) and fibers_res.status_code == 200:
+        data = fibers_res.json()
+        available_fibers = data.get('results', []) if isinstance(data, dict) else data
 
     for rec in recommendations:
         city = rec.get('donation', {}).get('pickup_city', '')

@@ -4,7 +4,6 @@ from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.contrib import messages
 from django.utils.dateparse import parse_datetime, parse_time
-import httpx
 from ..services import api_call, format_errors, get_paginated_data, get_fiber_choices
 
 
@@ -58,13 +57,9 @@ async def donor_browse_businesses(request):
         has_error = True
         data = {}
     else:
-        try:
-            response = await api_call(request, 'GET', 'users', params=api_params)
-            has_error = response.status_code != 200
-            data = response.json() if not has_error else {}
-        except httpx.RequestError:
-            has_error = True
-            data = {}
+        response = await api_call(request, 'GET', 'users', params=api_params)
+        has_error = response.status_code != 200
+        data = response.json() if not has_error else {}
     
     businesses = data.get('results', [])
     count = data.get('count', 0)
@@ -186,36 +181,33 @@ async def donor_create_donation(request):
         for k in ['csrfmiddlewaretoken']:
             payload.pop(k, None)
 
-        try:
-            response = await api_call(request, 'POST', 'donations', data=payload, files=files)
-            if response.status_code == 201:
-                messages.success(request, "Donation created successfully!")
-                return JsonResponse({'redirect': '/donor/my-donations/'})
-            else:
-                try:
-                    err_data = response.json()
-                except:
-                    err_data = {'detail': 'Unknown backend error.'}
+        response = await api_call(request, 'POST', 'donations', data=payload, files=files)
+        if response.status_code == 201:
+            messages.success(request, "Donation created successfully!")
+            return JsonResponse({'redirect': '/donor/my-donations/'})
+        else:
+            try:
+                err_data = response.json()
+            except:
+                err_data = {'detail': 'Unknown backend error.'}
 
-                if isinstance(err_data, dict):
-                    detail_msg = err_data.get('detail')
-                    if detail_msg:
-                        return JsonResponse({'error': detail_msg}, status=response.status_code)
+            if isinstance(err_data, dict):
+                detail_msg = err_data.get('detail')
+                if detail_msg:
+                    return JsonResponse({'error': detail_msg}, status=response.status_code)
 
-                    formatted = format_errors(err_data)
-                    error_list = []
-                    for field, msgs in formatted.items():
-                        if isinstance(msgs, list):
-                            error_list.extend(f"{field}: {msg}" for msg in msgs)
-                        else:
-                            error_list.append(f"{field}: {msgs}")
+                formatted = format_errors(err_data)
+                error_list = []
+                for field, msgs in formatted.items():
+                    if isinstance(msgs, list):
+                        error_list.extend(f"{field}: {msg}" for msg in msgs)
+                    else:
+                        error_list.append(f"{field}: {msgs}")
 
-                    if error_list:
-                        return JsonResponse({'errors': error_list}, status=response.status_code)
+                if error_list:
+                    return JsonResponse({'errors': error_list}, status=response.status_code)
 
-                return JsonResponse({'error': "Failed to create donation."}, status=response.status_code)
-        except Exception as e:
-            return JsonResponse({'error': f"System Error: {str(e)}"}, status=500)
+            return JsonResponse({'error': "Failed to create donation."}, status=response.status_code)
 
     # Fetch choices for the dropdowns (matching edit logic) in parallel
     types_res, brands_res = await asyncio.gather(
@@ -291,45 +283,41 @@ async def donor_edit_profile(request):
 
         # 6. Proxy PATCH to backend
         headers = {'If-Match': submitted_etag} if submitted_etag else {}
-        try:
-            response = await api_call(request, 'PATCH', 'users/me?validate_only=true', data=payload, files=files, headers=headers)
+        response = await api_call(request, 'PATCH', 'users/me?validate_only=true', data=payload, files=files, headers=headers)
+        
+        if response.status_code == 200:
+            etag_changed = False
+            if request.POST.get('otp_code'):
+                res = await api_call(request, 'POST', 'users/me/2fa', json={'otp_code': request.POST['otp_code'], 'secret': request.POST.get('secret')})
+                if res.status_code != 200: return JsonResponse({'error': res.json().get('detail', 'Invalid 2FA code.')}, status=400)
+                etag_changed = True
             
-            if response.status_code == 200:
-                etag_changed = False
-                if request.POST.get('otp_code'):
-                    res = await api_call(request, 'POST', 'users/me/2fa', json={'otp_code': request.POST['otp_code'], 'secret': request.POST.get('secret')})
-                    if res.status_code != 200: return JsonResponse({'error': res.json().get('detail', 'Invalid 2FA code.')}, status=400)
-                    etag_changed = True
+            if request.POST.get('disable_2fa') == '1':
+                await api_call(request, 'DELETE', 'users/me/2fa'); etag_changed = True
                 
-                if request.POST.get('disable_2fa') == '1':
-                    try: await api_call(request, 'DELETE', 'users/me/2fa'); etag_changed = True
-                    except: pass
-                    
-                if etag_changed:
-                    get_res = await api_call(request, 'GET', 'users/me')
-                    if get_res.status_code == 200: headers['If-Match'] = get_res.headers.get('ETag')
-                    
-                response = await api_call(request, 'PATCH', 'users/me', data=payload, files=files, headers=headers)
-
-            if response.status_code == 200:
-                messages.success(request, "Profile updated successfully.")
-                return JsonResponse({'message': 'Success'}, status=200)
-            else:
-                try:
-                    err_data = response.json()
-                except:
-                    err_data = {'detail': 'Unknown backend error.'}
+            if etag_changed:
+                get_res = await api_call(request, 'GET', 'users/me')
+                if get_res.status_code == 200: headers['If-Match'] = get_res.headers.get('ETag')
                 
-                if response.status_code == 412:
-                    return JsonResponse({'error': 'The profile was updated by someone else. Please refresh and try again.'}, status=412)
+            response = await api_call(request, 'PATCH', 'users/me', data=payload, files=files, headers=headers)
 
-                detail_message = err_data.get('detail') if isinstance(err_data, dict) and isinstance(err_data.get('detail'), str) else None
-                if detail_message:
-                    return JsonResponse({'detail': detail_message}, status=response.status_code)
+        if response.status_code == 200:
+            messages.success(request, "Profile updated successfully.")
+            return JsonResponse({'message': 'Success'}, status=200)
+        else:
+            try:
+                err_data = response.json()
+            except:
+                err_data = {'detail': 'Unknown backend error.'}
+            
+            if response.status_code == 412:
+                return JsonResponse({'error': 'The profile was updated by someone else. Please refresh and try again.'}, status=412)
 
-                return JsonResponse({'errors': format_errors(err_data)}, status=response.status_code)
-        except Exception as e:
-            return JsonResponse({'error': f"System Error: {str(e)}"}, status=503)
+            detail_message = err_data.get('detail') if isinstance(err_data, dict) and isinstance(err_data.get('detail'), str) else None
+            if detail_message:
+                return JsonResponse({'detail': detail_message}, status=response.status_code)
+
+            return JsonResponse({'errors': format_errors(err_data)}, status=response.status_code)
 
 
     # GET Request: Fetch fresh data and ETag
@@ -373,38 +361,35 @@ async def donor_edit_donation(request, donation_id):
 
         # 4. Proxy PATCH to backend
         headers = {'If-Match': submitted_etag} if submitted_etag else {}
-        try:
-            response = await api_call(request, 'PATCH', f'donations/{donation_id}', data=payload, files=files, headers=headers)
-            if response.status_code == 200:
-                messages.success(request, "Donation updated successfully!")
-                return JsonResponse({'redirect': f'/donor/my-donations/{donation_id}/'})
-            elif response.status_code == 412:
-                return JsonResponse({'error': "This donation was updated somewhere else. Please refresh."}, status=412)
-            else:
-                try:
-                    err_data = response.json()
-                except:
-                    err_data = {'detail': 'Unknown backend error.'}
+        response = await api_call(request, 'PATCH', f'donations/{donation_id}', data=payload, files=files, headers=headers)
+        if response.status_code == 200:
+            messages.success(request, "Donation updated successfully!")
+            return JsonResponse({'redirect': f'/donor/my-donations/{donation_id}/'})
+        elif response.status_code == 412:
+            return JsonResponse({'error': "This donation was updated somewhere else. Please refresh."}, status=412)
+        else:
+            try:
+                err_data = response.json()
+            except:
+                err_data = {'detail': 'Unknown backend error.'}
 
-                if isinstance(err_data, dict):
-                    detail_msg = err_data.get('detail')
-                    if detail_msg:
-                        return JsonResponse({'error': detail_msg}, status=response.status_code)
+            if isinstance(err_data, dict):
+                detail_msg = err_data.get('detail')
+                if detail_msg:
+                    return JsonResponse({'error': detail_msg}, status=response.status_code)
 
-                    formatted = format_errors(err_data)
-                    error_list = []
-                    for field, msgs in formatted.items():
-                        if isinstance(msgs, list):
-                            error_list.extend(f"{field}: {msg}" for msg in msgs)
-                        else:
-                            error_list.append(f"{field}: {msgs}")
+                formatted = format_errors(err_data)
+                error_list = []
+                for field, msgs in formatted.items():
+                    if isinstance(msgs, list):
+                        error_list.extend(f"{field}: {msg}" for msg in msgs)
+                    else:
+                        error_list.append(f"{field}: {msgs}")
 
-                    if error_list:
-                        return JsonResponse({'errors': error_list}, status=response.status_code)
+                if error_list:
+                    return JsonResponse({'errors': error_list}, status=response.status_code)
 
-                return JsonResponse({'error': "Update failed."}, status=response.status_code)
-        except Exception as e:
-            return JsonResponse({'error': f"System Error: {str(e)}"}, status=503)
+            return JsonResponse({'error': "Update failed."}, status=response.status_code)
 
     # GET Request: Fetch donation, clothing types, and all brands in parallel
     donation_res, types_res, brands_res = await asyncio.gather(
@@ -480,42 +465,39 @@ async def donor_impact_dashboard(request):
     # Fetch backend impact-dashboard metrics and clothing types concurrently
     dashboard_data = {}
     clothing_types = []
-    try:
-        response, types_res = await asyncio.gather(
-            api_call(request, 'GET', 'impact-dashboard', params=api_params),
-            api_call(request, 'GET', 'clothing-types')
-        )
-        if response.status_code == 200:
-            dashboard_data = response.json()
+    response, types_res = await asyncio.gather(
+        api_call(request, 'GET', 'impact-dashboard', params=api_params),
+        api_call(request, 'GET', 'clothing-types')
+    )
+    if response.status_code == 200:
+        dashboard_data = response.json()
+    else:
+        try:
+            response_data = response.json()
+        except Exception:
+            response_data = {}
+
+        detail_message = response_data.get('detail') if isinstance(response_data, dict) else None
+        error_messages = None
+        if isinstance(response_data, dict):
+            formatted = format_errors(response_data)
+            error_messages = [
+                f"{field}: {', '.join(map(str, value if isinstance(value, list) else [value]))}"
+                if isinstance(value, (list, tuple))
+                else f"{field}: {value}"
+                for field, value in formatted.items()
+            ]
+
+        if detail_message:
+            messages.error(request, detail_message)
+        elif error_messages:
+            for message in error_messages:
+                messages.error(request, message)
         else:
-            try:
-                response_data = response.json()
-            except Exception:
-                response_data = {}
-
-            detail_message = response_data.get('detail') if isinstance(response_data, dict) else None
-            error_messages = None
-            if isinstance(response_data, dict):
-                formatted = format_errors(response_data)
-                error_messages = [
-                    f"{field}: {', '.join(map(str, value if isinstance(value, list) else [value]))}"
-                    if isinstance(value, (list, tuple))
-                    else f"{field}: {value}"
-                    for field, value in formatted.items()
-                ]
-
-            if detail_message:
-                messages.error(request, detail_message)
-            elif error_messages:
-                for message in error_messages:
-                    messages.error(request, message)
-            else:
-                messages.error(request, "Failed to load donation metrics from the backend.")
-        
-        if types_res.status_code == 200:
-            clothing_types = types_res.json()
-    except Exception as e:
-        messages.error(request, f"Backend service unreachable: {str(e)}")
+            messages.error(request, "Failed to load donation metrics from the backend.")
+    
+    if types_res.status_code == 200:
+        clothing_types = types_res.json()
 
     # Static list of cities matching the templates
     cities = [

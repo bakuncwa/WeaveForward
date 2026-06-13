@@ -1,4 +1,5 @@
 import time
+import jwt
 import httpx
 from asgiref.sync import iscoroutinefunction, markcoroutinefunction
 from django.http import JsonResponse
@@ -59,15 +60,24 @@ class TokenRefreshMiddleware:
             apply_backend_auth_cookies(response, request._pending_refresh_response)
         return response
 
+    @staticmethod
+    def _decode_token(token):
+        try:
+            return jwt.decode(token, options={"verify_signature": False, "verify_exp": False})
+        except jwt.DecodeError:
+            return None
+
     async def _process_request(self, request):
         path = request.path
         request.user_profile = None
+        request._session_expired = False
 
         if path in PUBLIC_PASSTHROUGH_PATHS:
             return await self.get_response(request)
 
         # 1. Block protected routes for unauthenticated users immediately
-        if any(path.startswith(prefix) for prefix in PROTECTED_PREFIXES) and not request.COOKIES.get("access_token") and not request.COOKIES.get("refresh_token"):
+        has_token = request.COOKIES.get("access_token") or request.COOKIES.get("refresh_token")
+        if any(path.startswith(prefix) for prefix in PROTECTED_PREFIXES) and not has_token:
             if request.headers.get("X-Requested-With") == "XMLHttpRequest":
                 return JsonResponse(
                     {"error": "Your session has expired or your account is no longer active. Please log in again."},
@@ -76,24 +86,35 @@ class TokenRefreshMiddleware:
             return redirect("login")
 
         # 2. Verify credentials if cookies are present
-        if request.COOKIES.get("access_token") or request.COOKIES.get("refresh_token"):
+        if has_token:
             try:
-                profile_response = await api_call(request, "GET", "users/me")
-                if profile_response.status_code == 401 and request.COOKIES.get("refresh_token"):
+                payload = None
+                access_token = request.COOKIES.get("access_token")
+
+                if access_token:
+                    payload = self._decode_token(access_token)
+
+                # Token expired or missing — try refresh
+                if (not payload or (payload and payload.get("exp", 0) < time.time())) and request.COOKIES.get("refresh_token"):
                     refresh_res = await api_call(request, "POST", "auth/token/refresh")
                     if refresh_res.status_code == 200:
                         for token_name in ("access_token", "refresh_token"):
                             if token_val := refresh_res.cookies.get(token_name):
                                 request.COOKIES[token_name] = token_val
                         request._pending_refresh_response = refresh_res
-                        profile_response = await api_call(request, "GET", "users/me")
+                        new_token = request.COOKIES.get("access_token")
+                        payload = self._decode_token(new_token) if new_token else None
                     elif hasattr(request, "session") and "user_profile" in request.session:
                         del request.session["user_profile"]
 
-                if profile_response.status_code == 200:
-                    request.user_profile = profile_response.json()
-                    request.session["user_profile"] = request.user_profile
-                elif profile_response.status_code in {401, 403}:
+                if payload:
+                    request.user_profile = {
+                        'user_id': payload.get('user_id'),
+                        'role': payload.get('role'),
+                        'status': payload.get('status'),
+                        'upload': payload.get('upload'),
+                    }
+                else:
                     request.session.pop("user_profile", None)
                     if any(path.startswith(prefix) for prefix in PROTECTED_PREFIXES):
                         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
@@ -110,8 +131,6 @@ class TokenRefreshMiddleware:
                     for c in AUTH_COOKIE_NAMES:
                         response.delete_cookie(c, path="/")
                     return response
-                elif any(path.startswith(prefix) for prefix in PROTECTED_PREFIXES) or path in GUEST_ONLY_PATHS:
-                    return JsonResponse({"error": "Service unavailable."}, status=503) if request.headers.get("X-Requested-With") == "XMLHttpRequest" else render(request, "frontend/503.html", status=503)
             except httpx.RequestError:
                 if any(path.startswith(prefix) for prefix in PROTECTED_PREFIXES) or path in GUEST_ONLY_PATHS:
                     return JsonResponse({"error": "Service unavailable."}, status=503) if request.headers.get("X-Requested-With") == "XMLHttpRequest" else render(request, "frontend/503.html", status=503)
@@ -120,16 +139,41 @@ class TokenRefreshMiddleware:
         # 3. Redirect authenticated users away from guest pages or unauthorized role prefixes
         if request.user_profile:
             role = request.user_profile.get("role")
-            if (path in GUEST_ONLY_PATHS) or \
-               (path.startswith("/admin/") and role != "Admin") or \
-               (path.startswith("/tuab/") and role != "TUAB") or \
-               (path.startswith("/donor/") and role != "Donor"):
+            if role is None:
+                response = redirect("login")
+                for c in AUTH_COOKIE_NAMES:
+                    response.delete_cookie(c, path="/")
+                return response
+            elif (path in GUEST_ONLY_PATHS) or \
+                 (path.startswith("/admin/") and role != "Admin") or \
+                 (path.startswith("/tuab/") and role != "TUAB") or \
+                 (path.startswith("/donor/") and role != "Donor"):
                 return redirect("/admin/donors/" if role == "Admin" else "tuab_dashboard" if role == "TUAB" else "donor_browse_businesses")
 
-        try:
-            return await self.get_response(request)
-        except httpx.RequestError:
+        response = await self.get_response(request)
+
+        # 4. Post-view archive check
+        if getattr(request, '_session_expired', False):
+            if any(path.startswith(prefix) for prefix in PROTECTED_PREFIXES):
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    new_response = JsonResponse(
+                        {"error": "Your session has expired or your account is no longer active. Please log in again."},
+                        status=401,
+                    )
+                else:
+                    new_response = redirect("login")
+                for c in AUTH_COOKIE_NAMES:
+                    new_response.delete_cookie(c, path="/")
+                return new_response
+            for c in AUTH_COOKIE_NAMES:
+                response.delete_cookie(c, path="/")
+
+        return response
+
+    def process_exception(self, request, exception):
+        if isinstance(exception, httpx.RequestError):
             return JsonResponse({"error": "Service unavailable."}, status=503) if request.headers.get("X-Requested-With") == "XMLHttpRequest" else render(request, "frontend/503.html", status=503)
+        return None
 
 
 def apply_backend_auth_cookies(frontend_response, backend_response):
@@ -146,4 +190,3 @@ def apply_backend_auth_cookies(frontend_response, backend_response):
                 path="/",
                 max_age=max_age,
             )
-
