@@ -187,13 +187,9 @@ async def tuab_view_donation(request, donation_id):
         donation['preferred_pickup_window_end'] = parse_time(donation['preferred_pickup_window_end'])
 
     # =========================
-    # Show: Special Page for Owned Claimed Donation
+    # Show: Mark-as-Transit Page for Claimed Donations
     # =========================
-    if (
-        donation.get('status') == 'CLAIMED'
-        and donation.get('delivery_method') in {'PICKUP', 'DELIVERY'}
-        and (donation.get('claimed_by_tuab') or {}).get('user_id') == profile.get('user_id')
-    ):
+    if donation.get('status') == 'CLAIMED' and donation.get('delivery_method') in {'PICKUP', 'DELIVERY'}:
         return render(request, 'frontend/tuabs/tuab_mark_claimed_donation_as_IN_TRANSIT.html', {
             'page_title': 'View Donation',
             'user': profile,
@@ -207,12 +203,9 @@ async def tuab_view_donation(request, donation_id):
         })
 
     # =========================
-    # Redirect: Owned In-Transit Donation
+    # Redirect: In-Transit Donation to Resolve Page
     # =========================
-    if (
-        donation.get('status') == 'IN_TRANSIT'
-        and (donation.get('claimed_by_tuab') or {}).get('user_id') == profile.get('user_id')
-    ):
+    if donation.get('status') == 'IN_TRANSIT':
         return redirect('tuab_update_incoming_donation', donation_id=donation_id)
 
     # =========================
@@ -294,14 +287,6 @@ async def tuab_update_incoming_donation(request, donation_id):
 
     donation = donation_res.json()
 
-    # Validate that status is IN_TRANSIT and owned by this TUAB
-    if (
-        donation.get('status') != 'IN_TRANSIT'
-        or (donation.get('claimed_by_tuab') or {}).get('user_id') != profile.get('user_id')
-    ):
-        messages.error(request, "You are not authorized to resolve this donation.")
-        return redirect('tuab_dashboard')
-
     # Parse date and times
     if donation.get('submitted_at'):
         dt = parse_datetime(donation['submitted_at'])
@@ -339,14 +324,8 @@ async def tuab_update_incoming_donation(request, donation_id):
 
 async def tuab_quotation_proxy(request, donation_id):
     """Proxy quotation requests for authenticated TUABs only."""
-    profile = request.user_profile
     if request.method != 'POST':
         return JsonResponse({'detail': 'Method not allowed.'}, status=405)
-    if not profile or profile.get('role') != 'TUAB':
-        return JsonResponse(
-            {'detail': 'Only authenticated TUABs can use this endpoint.'},
-            status=403 if profile else 401,
-        )
 
     payload = json.loads(request.body or '{}')
 
