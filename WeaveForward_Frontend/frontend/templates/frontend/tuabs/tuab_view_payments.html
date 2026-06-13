@@ -10,8 +10,8 @@
 
   /* ── Table ── */
   .tbl-wrap { background: #fff; border-radius: 14px; overflow: hidden; }
-  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .pay-table { width: 100%; border-collapse: collapse; }
+  .table-scroll { width: 100%; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .pay-table { width: max-content; min-width: 100%; border-collapse: collapse; }
   .pay-table th { font-family: 'Poppins', sans-serif; font-size: 12px; font-weight: 600; color: #888; text-align: left; padding: 13px 14px; border-bottom: 1.5px solid #ece8e2; background: #faf8f5; white-space: nowrap; }
   .pay-table td { font-family: 'Poppins', sans-serif; font-size: 13px; color: #333; padding: 15px 14px; border-bottom: 1px solid #f0ede8; white-space: nowrap; }
   .pay-table tr:last-child td { border-bottom: none; }
@@ -25,6 +25,12 @@
   .btn-outline { background: #f4f4f4; color: #666; border: 1px solid #e2e2e2; border-radius: 6px; padding: 5px 10px; font-size: 11px; width: 100%; text-align: center; }
   .btn-outline:hover { border-color: #cfcfcf; color: #333; }
   .pg-btns .btn-outline { width: auto; padding: 8px 16px; border-radius: 8px; font-weight: 500; }
+
+  @media (max-width: 768px), (max-aspect-ratio: 1/1) {
+    .pay-table { min-width: 560px; }
+    .pagination-wrap { flex-wrap: wrap; gap: 12px; }
+    .pg-btns { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
+  }
 </style>
 
 <!-- Search -->

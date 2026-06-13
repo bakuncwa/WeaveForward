@@ -106,7 +106,7 @@
     .info-val { font-size: 15px; font-weight: 400; color: var(--text); margin-top: 2px; }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
 
-    @media (max-width: 768px) {
+    @media (max-width: 768px), (max-aspect-ratio: 1/1) {
       .profile-hero { gap: 16px; }
       .grid-2 { grid-template-columns: 1fr; gap: 16px; }
       .btn-primary { width: 100%; }

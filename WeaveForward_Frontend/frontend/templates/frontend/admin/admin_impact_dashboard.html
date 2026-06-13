@@ -109,16 +109,28 @@
       flex-direction: column;
       min-height: 0;
       border: 1px solid var(--border);
+      position: relative;
+      z-index: 0;
     }
     #dash-map {
       flex: 1;
       min-height: 0;
       width: 100%;
       height: 100%;
+      position: relative;
+      z-index: 0;
+    }
+    #dash-map .leaflet-pane,
+    #dash-map .leaflet-top,
+    #dash-map .leaflet-bottom {
+      z-index: 1 !important;
+    }
+    #dash-map .leaflet-popup-pane {
+      z-index: 2 !important;
     }
 
     /* MOBILE (≤ 768px) */
-    @media (max-width: 768px) {
+    @media (max-width: 768px), (max-aspect-ratio: 1/1) {
       .dash-layout {
         flex-direction: column;
         height: auto;

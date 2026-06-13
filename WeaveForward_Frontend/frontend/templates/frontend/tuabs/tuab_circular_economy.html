@@ -67,6 +67,8 @@
         box-sizing: border-box;
         cursor: pointer;
         transition: border-color 0.15s;
+        word-break: normal;
+        overflow-wrap: normal;
     }
     .ce-filter-input:focus { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(232,160,32,0.15); }
 
@@ -88,6 +90,9 @@
         cursor: pointer;
         width: 100%;
         transition: background 0.15s;
+        white-space: nowrap;
+        word-break: normal;
+        overflow-wrap: normal;
     }
     .ce-btn-apply:hover, .ce-export-btn:hover { background: #d18c18; }
 
@@ -134,6 +139,8 @@
         color: var(--navy);
         margin: 0;
         letter-spacing: 0.01em;
+        word-break: normal;
+        overflow-wrap: normal;
     }
 
     .ce-chart-subtitle {
@@ -232,9 +239,24 @@
     .ce-empty-icon { font-size: 28px; opacity: 0.4; }
     .ce-empty-text { font-size: 12px; }
 
-    @media (max-width: 860px) {
+    @media (max-width: 860px), (max-aspect-ratio: 1/1) {
         .ce-chart-grid { grid-template-columns: 1fr; }
         .ce-page { padding: 0; }
+    }
+
+    @media (max-width: 520px), (max-aspect-ratio: 1/1) {
+        .ce-filter-row,
+        .ce-filter-actions {
+            grid-template-columns: 1fr;
+        }
+
+        .ce-chart-card {
+            padding: 16px;
+        }
+
+        .ce-chart-header {
+            flex-wrap: wrap;
+        }
     }
 
     @media print {
@@ -261,12 +283,16 @@
 
         .wf-content {
             padding: 0 !important;
+            width: 100% !important;
+            max-width: none !important;
         }
 
         .ce-page {
             background: #fff !important;
             padding: 0 !important;
             gap: 0 !important;
+            width: 100% !important;
+            min-width: 190mm !important;
         }
 
         .ce-chart-grid {
@@ -281,6 +307,8 @@
             break-after: page;
             page-break-after: always;
             margin: 0 0 12mm 0 !important;
+            width: 100% !important;
+            min-width: 0 !important;
         }
 
         .ce-chart-card:last-child {
@@ -291,6 +319,7 @@
 
         .ce-chart-wrap {
             overflow: visible !important;
+            width: 100% !important;
         }
 
         .brand-list {
@@ -319,7 +348,7 @@
         </div>
         <div class="ce-filter-actions">
             <button class="ce-btn-apply" type="submit">Apply Filters</button>
-            <button type="button" class="ce-export-btn" onclick="window.print()">Export Report</button>
+            <button type="button" class="ce-export-btn" onclick="exportCircularReport()">Export Report</button>
         </div>
     </form>
 
@@ -419,6 +448,7 @@ const BIODEG_COLORS = [
     'rgba(39,174,96,0.85)',
     'rgba(22,160,133,0.85)',
 ];
+const CE_CHARTS = [];
 
 Chart.defaults.font = { family: "'Poppins', sans-serif", size: 11 };
 Chart.defaults.color = '#888';
@@ -435,7 +465,7 @@ function hideCanvas(chartId, emptyId) {
     const rows = DATA.biodeg_distribution || [];
     if (!rows.reduce((s, r) => s + r.count, 0)) { hideCanvas('chart-biodeg', 'empty-biodeg'); return; }
 
-    new Chart(document.getElementById('chart-biodeg'), {
+    CE_CHARTS.push(new Chart(document.getElementById('chart-biodeg'), {
         type: 'bar',
         data: {
             labels: rows.map(r => r.range),
@@ -464,7 +494,7 @@ function hideCanvas(chartId, emptyId) {
                 y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: '#f0ede6' } },
             }
         }
-    });
+    }));
 })();
 
 // ── Panel [0,1]: Donation Volume by NCR City (horizontal stacked) ─
@@ -493,7 +523,7 @@ function hideCanvas(chartId, emptyId) {
         stack: 'vol',
     }));
 
-    new Chart(document.getElementById('chart-volume'), {
+    CE_CHARTS.push(new Chart(document.getElementById('chart-volume'), {
         type: 'bar',
         data: { labels: citySet, datasets },
         options: {
@@ -516,7 +546,7 @@ function hideCanvas(chartId, emptyId) {
                 y: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 } } },
             }
         }
-    });
+    }));
 })();
 
 // ── Panel [1,0]: Top 20 Brands — ranked list ─────────────────────
@@ -561,7 +591,7 @@ function hideCanvas(chartId, emptyId) {
 
     const cities = rows.map(r => r.city);
 
-    new Chart(document.getElementById('chart-decisions'), {
+    CE_CHARTS.push(new Chart(document.getElementById('chart-decisions'), {
         type: 'bar',
         data: {
             labels: cities,
@@ -605,8 +635,40 @@ function hideCanvas(chartId, emptyId) {
                 y: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 } } },
             }
         }
-    });
+    }));
 })();
+
+let cePrintInProgress = false;
+
+function prepareCircularPrint() {
+    CE_CHARTS.forEach(chart => {
+        if (!chart) return;
+        const wrap = chart.canvas.closest('.ce-chart-wrap');
+        const exportHeight = (wrap && parseInt(wrap.style.height, 10)) || (wrap && wrap.clientHeight) || chart.height || 260;
+        chart.resize(1100, exportHeight);
+        chart.update('none');
+    });
+}
+
+function restoreCircularPrint() {
+    CE_CHARTS.forEach(chart => {
+        if (!chart) return;
+        chart.resize();
+        chart.update('none');
+    });
+    cePrintInProgress = false;
+}
+
+async function exportCircularReport() {
+    if (cePrintInProgress) return;
+    cePrintInProgress = true;
+    prepareCircularPrint();
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    window.print();
+}
+
+window.addEventListener('beforeprint', prepareCircularPrint);
+window.addEventListener('afterprint', restoreCircularPrint);
 </script>
 
 {% endblock %}

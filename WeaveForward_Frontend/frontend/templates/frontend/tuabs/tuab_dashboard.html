@@ -36,9 +36,9 @@
     .tab-btn.active { border-bottom-color: #e8a020; }
 
     /* ── Table ── */
-    .dash-table { width: 100%; border-collapse: collapse; }
-    .dash-table th { font-family: 'Poppins', sans-serif; font-size: 11px; font-weight: 600; color: #1a1a1a; text-align: left; padding: 10px 12px; border-bottom: 1.5px solid #ede8e2; background: #faf8f5; letter-spacing: .4px; }
-    .dash-table td { font-family: 'Poppins', sans-serif; font-size: 13px; color: #333; font-weight: 600; padding: 13px 12px; border-bottom: 1px solid #f0ede8; vertical-align: middle; }
+    .dash-table { width: 100%; min-width: 760px; border-collapse: collapse; table-layout: auto; }
+    .dash-table th { font-family: 'Poppins', sans-serif; font-size: 11px; font-weight: 600; color: #1a1a1a; text-align: left; padding: 10px 12px; border-bottom: 1.5px solid #ede8e2; background: #faf8f5; letter-spacing: .4px; white-space: nowrap; word-break: normal; overflow-wrap: normal; }
+    .dash-table td { font-family: 'Poppins', sans-serif; font-size: 13px; color: #333; font-weight: 600; padding: 13px 12px; border-bottom: 1px solid #f0ede8; vertical-align: middle; word-break: normal; overflow-wrap: normal; }
     .dash-table tr:last-child td { border-bottom: none; }
     .badge { display: inline-block; border-radius: 6px; padding: 4px 12px; font-size: 11px; font-family: 'Poppins', sans-serif; font-weight: 500; color: #fff; white-space: nowrap; }
     .badge-transit { background: var(--blue); }
@@ -63,17 +63,20 @@
 
     /* ── Table scroll wrapper (mobile) ── */
     .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    #dash-table-wrap { min-width: max-content; }
 
     /* ── Pagination ── */
     .pagination-wrap { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 20px; font-family: 'Poppins', sans-serif; }
     .btn-page { padding: 6px 16px; border: 1.5px solid var(--border); background: #fff; border-radius: 8px; color: var(--text); font-size: 13px; font-weight: 500; cursor: pointer; text-decoration: none; transition: all 0.2s; }
     .btn-page.disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
 
-    @media (max-width: 768px) {
+    @media (max-width: 768px), (max-aspect-ratio: 1/1) {
       .dash-card { padding: 14px 14px; }
       .tab-row { flex-wrap: wrap; gap: 8px; }
       .search-input { width: 160px; }
       #tuab-dash-map { height: 180px; }
+      .table-scroll { margin: 0 -14px; padding: 0 14px; }
+      .pagination-wrap { flex-wrap: wrap; justify-content: flex-start; }
     }
 </style>
 

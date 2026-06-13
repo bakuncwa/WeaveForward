@@ -30,8 +30,8 @@
     .btn-outline { background: #f4f4f4; color: #666; border: 1px solid #e2e2e2; border-radius: 6px; padding: 5px 10px; font-size: 11px; width: 100%; text-align: center; }
     .btn-outline:hover { border-color: #999; }
 
-    .table-wrap { background: #fff; border-radius: 14px; overflow-x: auto; border: 1.5px solid var(--border); }
-    table.dt { width: 100%; border-collapse: collapse; min-width: 700px; }
+    .table-wrap { background: #fff; border-radius: 14px; overflow: hidden; border: 1.5px solid var(--border); }
+    table.dt { width: max-content; min-width: 100%; border-collapse: collapse; }
     table.dt th {
       font-family: 'Poppins', sans-serif; font-size: 11px; font-weight: 600;
       color: var(--muted); text-align: left; padding: 12px 10px;
@@ -52,11 +52,20 @@
 
     .action-btns { display: flex; flex-direction: column; gap: 6px; width: 88px; }
     .thumb { width: 58px; height: 58px; object-fit: cover; border-radius: 8px; display: block; background: #f2efe9; }
-    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .table-scroll { width: 100%; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .pagination-wrap { display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding: 0 4px; }
     .pg-info { font-family:'Poppins',sans-serif; font-size:13px; color:#888; }
     .pg-btns { display: flex; gap: 8px; }
     .pg-btns .btn-outline { width: auto; padding: 8px 16px; border-radius: 8px; font-weight: 500; }
+
+    @media (max-width: 768px), (max-aspect-ratio: 1/1) {
+      .search-bar-row { align-items: stretch; }
+      .search-wrap { min-width: 0; width: 100%; }
+      .btn-primary { width: 100%; }
+      table.dt { min-width: 840px; }
+      .pagination-wrap { flex-wrap: wrap; gap: 12px; }
+      .pg-btns { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
+    }
 
     /* Modal Backdrop & Animation Styles matching Archive TUAB Modal */
     .modal-backdrop {
