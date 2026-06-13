@@ -4,7 +4,6 @@ from ..constants import BACKEND_BASE_URL
 
 logger = logging.getLogger(__name__)
 
-
 async_client = httpx.AsyncClient(
     timeout=httpx.Timeout(connect=5.0, read=30.0, write=30.0, pool=5.0),
     limits=httpx.Limits(max_connections=50, max_keepalive_connections=20),
@@ -22,7 +21,11 @@ async def api_call(request, method, endpoint, **kwargs):
     cookies = dict(request.COOKIES.items())
     response = await async_client.request(method, url, cookies=cookies, **kwargs)
 
-    if response.status_code == 401:
-        request._session_expired = True
+    if (
+        response.status_code == 401
+        and getattr(request, "user_profile", None)
+        and endpoint.lstrip("/").split("?", 1)[0] != "auth/token/refresh"
+    ):
+        raise PermissionError("Backend unauthorized.")
 
     return response

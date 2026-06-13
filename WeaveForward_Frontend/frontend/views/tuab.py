@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.utils.dateparse import parse_datetime, parse_time
-from ..services import api_call, format_errors, get_paginated_data, get_fiber_choices
+from ..services import api_call, format_errors, get_paginated_data, get_fiber_choices, get_user_profile
 
 
 async def tuab_dashboard(request):
@@ -168,6 +168,7 @@ async def tuab_view_donation(request, donation_id):
 
     donation = response.json()
     items = donation.get('items', [])
+    profile = await get_user_profile(request) or profile
 
     # Parse date and times for all templates
     if donation.get('submitted_at'):
@@ -367,16 +368,13 @@ async def tuab_quotation_proxy(request, donation_id):
 
 async def tuab_subscribe(request):
     """Handle TUAB Premium Subscription."""
-    profile = request.user_profile
+    profile = await get_user_profile(request) or request.user_profile
 
     # Always force fetch the latest profile directly from the backend to guarantee fresh subscription status
-    response = await api_call(request, 'GET', 'users/me')
-    if response.status_code == 200:
-        profile = response.json()
-        if hasattr(request, 'session'):
-            request.session['user_profile'] = profile
-            import time
-            request.session['user_profile_verified_at'] = time.time()
+    if hasattr(request, 'session') and profile:
+        request.session['user_profile'] = profile
+        import time
+        request.session['user_profile_verified_at'] = time.time()
             
     # 1. Check if already subscribed or redirected back from successful Maya 3DS
     if profile.get('is_subscribed') or request.GET.get('status') == 'success':

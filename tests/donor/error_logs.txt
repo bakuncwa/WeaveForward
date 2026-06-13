@@ -1,59 +1,59 @@
-2026-06-13 08:06:48  [INFO    ]  ========================================================================
-2026-06-13 08:06:48  [INFO    ]    WEAVEFORWARD | Automated Test Run Starting
-2026-06-13 08:06:48  [INFO    ]    Date/Time   : 2026-06-13 08:06:48
-2026-06-13 08:06:48  [INFO    ]    AUT         : WeaveForward
-2026-06-13 08:06:48  [INFO    ]    Browser     : Google Chrome (headless)
-2026-06-13 08:06:48  [INFO    ]    Selenium TC : 38
-2026-06-13 08:06:48  [INFO    ]  ========================================================================
-2026-06-13 08:06:51  [INFO    ]  [END]   TC1-001 – PASS | 1.61s
-2026-06-13 08:06:52  [INFO    ]  [END]   TC1-002 – PASS | 1.12s
-2026-06-13 08:06:53  [INFO    ]  [END]   TC1-003 – PASS | 1.29s
-2026-06-13 08:06:55  [INFO    ]  [END]   TC1-004 – PASS | 1.36s
-2026-06-13 08:06:55  [INFO    ]  [END]   TC1-005 – PASS | 0.77s
-2026-06-13 08:06:56  [INFO    ]  [END]   TC1-006 – PASS | 0.74s
-2026-06-13 08:06:58  [INFO    ]  [END]   TC10-001 – PASS | 1.85s
-2026-06-13 08:06:58  [INFO    ]  [END]   TC10-002 – PASS | 0.1s
-2026-06-13 08:06:59  [INFO    ]  [END]   TC10-003 – PASS | 0.62s
-2026-06-13 08:06:59  [INFO    ]  [END]   TC10-004 – PASS | 0.05s
-2026-06-13 08:07:01  [INFO    ]  [END]   TC10-005 – PASS | 2.19s
-2026-06-13 08:07:02  [INFO    ]  [END]   TC10-006 – PASS | 1.11s
-2026-06-13 08:07:07  [INFO    ]  [END]   TC10-007 – PASS | 5.13s
-2026-06-13 08:07:10  [INFO    ]  [END]   TC2-001 – PASS | 2.26s
-2026-06-13 08:07:12  [INFO    ]  [END]   TC2-002 – PASS | 2.24s
-2026-06-13 08:07:13  [INFO    ]  [END]   TC2-003 – PASS | 1.16s
-2026-06-13 08:07:15  [INFO    ]  [END]   TC2-004 – PASS | 2.23s
-2026-06-13 08:07:15  [INFO    ]    Disabling 2FA to speed up subsequent tests...
-2026-06-13 08:07:19  [INFO    ]  [END]   TC10-004 – PASS | 3.88s
-2026-06-13 08:07:21  [INFO    ]  [END]   TC2-005 – PASS | 1.66s
-2026-06-13 08:07:22  [INFO    ]  [END]   TC3-001 – PASS | 1.15s
-2026-06-13 08:07:22  [INFO    ]  [END]   TC3-002 – PASS | 0.1s
-2026-06-13 08:07:22  [INFO    ]  [END]   TC3-003 – PASS | 0.1s
-2026-06-13 08:07:22  [INFO    ]  [END]   TC3-004 – PASS | 0.2s
-2026-06-13 08:07:22  [INFO    ]  [END]   TC3-005 – PASS | 0.19s
-2026-06-13 08:07:23  [INFO    ]  [END]   TC4-001 – PASS | 0.14s
-2026-06-13 08:07:28  [INFO    ]  TC5-001 submit result: None
-2026-06-13 08:07:29  [INFO    ]  Captured CREATED_DONATION_ID: 701
-2026-06-13 08:07:29  [INFO    ]  [END]   TC5-001 – PASS | 6.22s
-2026-06-13 08:07:29  [INFO    ]  TC5-002 URL after submit: http://127.0.0.1:8001/donor/create-donation/
-2026-06-13 08:07:30  [INFO    ]  TC5-002 redirect to my-donations succeeded
-2026-06-13 08:07:30  [INFO    ]  [END]   TC5-002 – PASS | 1.14s
-2026-06-13 08:07:31  [INFO    ]  [END]   TC5-003 – PASS | 1.08s
-2026-06-13 08:07:32  [INFO    ]  [END]   TC6-001 – PASS | 1.21s
-2026-06-13 08:07:32  [INFO    ]  [END]   TC7-001 – PASS | 0.2s
-2026-06-13 08:07:34  [INFO    ]  [END]   TC7-002 – PASS | 1.82s
-2026-06-13 08:07:37  [INFO    ]  [END]   TC7-003 – PASS | 2.32s
-2026-06-13 08:07:43  [INFO    ]  [END]   TC7-004 – PASS | 6.46s
-2026-06-13 08:07:44  [INFO    ]  [END]   TC8-002 – PASS | 1.27s
-2026-06-13 08:07:45  [INFO    ]  [END]   TC8-001 – PASS | 0.63s
-2026-06-13 08:07:51  [INFO    ]  [END]   TC8-003 – PASS | 6.54s
-2026-06-13 08:07:52  [INFO    ]  [END]   TC9-001 – PASS | 0.15s
-2026-06-13 08:07:53  [INFO    ]  [END]   TC9-002 – PASS | 1.23s
-2026-06-13 08:07:53  [INFO    ]  [END]   TC9-003 – PASS | 0.12s
+2026-06-13 17:15:30  [INFO    ]  ========================================================================
+2026-06-13 17:15:30  [INFO    ]    WEAVEFORWARD | Automated Test Run Starting
+2026-06-13 17:15:30  [INFO    ]    Date/Time   : 2026-06-13 17:15:30
+2026-06-13 17:15:30  [INFO    ]    AUT         : WeaveForward
+2026-06-13 17:15:30  [INFO    ]    Browser     : Google Chrome (headless)
+2026-06-13 17:15:30  [INFO    ]    Selenium TC : 38
+2026-06-13 17:15:30  [INFO    ]  ========================================================================
+2026-06-13 17:15:33  [INFO    ]  [END]   TC1-001 – PASS | 1.0s
+2026-06-13 17:15:34  [INFO    ]  [END]   TC1-002 – PASS | 1.12s
+2026-06-13 17:15:35  [INFO    ]  [END]   TC1-003 – PASS | 1.3s
+2026-06-13 17:15:37  [INFO    ]  [END]   TC1-004 – PASS | 1.35s
+2026-06-13 17:15:37  [INFO    ]  [END]   TC1-005 – PASS | 0.77s
+2026-06-13 17:15:38  [INFO    ]  [END]   TC1-006 – PASS | 0.77s
+2026-06-13 17:15:40  [INFO    ]  [END]   TC10-001 – PASS | 1.85s
+2026-06-13 17:15:40  [INFO    ]  [END]   TC10-002 – PASS | 0.12s
+2026-06-13 17:15:41  [INFO    ]  [END]   TC10-003 – PASS | 0.68s
+2026-06-13 17:15:41  [INFO    ]  [END]   TC10-004 – PASS | 0.04s
+2026-06-13 17:15:43  [INFO    ]  [END]   TC10-005 – PASS | 2.2s
+2026-06-13 17:15:44  [INFO    ]  [END]   TC10-006 – PASS | 1.11s
+2026-06-13 17:15:49  [INFO    ]  [END]   TC10-007 – PASS | 5.15s
+2026-06-13 17:15:52  [INFO    ]  [END]   TC2-001 – PASS | 2.25s
+2026-06-13 17:15:54  [INFO    ]  [END]   TC2-002 – PASS | 2.24s
+2026-06-13 17:15:55  [INFO    ]  [END]   TC2-003 – PASS | 1.15s
+2026-06-13 17:15:57  [INFO    ]  [END]   TC2-004 – PASS | 2.23s
+2026-06-13 17:15:57  [INFO    ]    Disabling 2FA to speed up subsequent tests...
+2026-06-13 17:16:01  [INFO    ]  [END]   TC10-004 – PASS | 3.89s
+2026-06-13 17:16:02  [INFO    ]  [END]   TC2-005 – PASS | 1.12s
+2026-06-13 17:16:03  [INFO    ]  [END]   TC3-001 – PASS | 1.17s
+2026-06-13 17:16:04  [INFO    ]  [END]   TC3-002 – PASS | 0.11s
+2026-06-13 17:16:04  [INFO    ]  [END]   TC3-003 – PASS | 0.16s
+2026-06-13 17:16:04  [INFO    ]  [END]   TC3-004 – PASS | 0.27s
+2026-06-13 17:16:04  [INFO    ]  [END]   TC3-005 – PASS | 0.22s
+2026-06-13 17:16:04  [INFO    ]  [END]   TC4-001 – PASS | 0.17s
+2026-06-13 17:16:10  [INFO    ]  TC5-001 submit result: None
+2026-06-13 17:16:11  [INFO    ]  Captured CREATED_DONATION_ID: 731
+2026-06-13 17:16:11  [INFO    ]  [END]   TC5-001 – PASS | 6.29s
+2026-06-13 17:16:11  [INFO    ]  TC5-002 URL after submit: http://127.0.0.1:8001/donor/create-donation/
+2026-06-13 17:16:12  [INFO    ]  TC5-002 redirect to my-donations succeeded
+2026-06-13 17:16:12  [INFO    ]  [END]   TC5-002 – PASS | 1.21s
+2026-06-13 17:16:13  [INFO    ]  [END]   TC5-003 – PASS | 1.1s
+2026-06-13 17:16:14  [INFO    ]  [END]   TC6-001 – PASS | 1.23s
+2026-06-13 17:16:14  [INFO    ]  [END]   TC7-001 – PASS | 0.17s
+2026-06-13 17:16:16  [INFO    ]  [END]   TC7-002 – PASS | 1.33s
+2026-06-13 17:16:18  [INFO    ]  [END]   TC7-003 – PASS | 2.29s
+2026-06-13 17:16:24  [INFO    ]  [END]   TC7-004 – PASS | 6.46s
+2026-06-13 17:16:26  [INFO    ]  [END]   TC8-002 – PASS | 1.27s
+2026-06-13 17:16:26  [INFO    ]  [END]   TC8-001 – PASS | 0.63s
+2026-06-13 17:16:33  [INFO    ]  [END]   TC8-003 – PASS | 6.57s
+2026-06-13 17:16:33  [INFO    ]  [END]   TC9-001 – PASS | 0.16s
+2026-06-13 17:16:34  [INFO    ]  [END]   TC9-002 – PASS | 1.22s
+2026-06-13 17:16:34  [INFO    ]  [END]   TC9-003 – PASS | 0.12s
 
 ========================================================================
   WEAVEFORWARD AUTOMATION SUITE | COMPLETE TEST EXECUTION SUMMARY
 ========================================================================
-  Timestamp              : 2026-06-13 08:07:55
+  Timestamp              : 2026-06-13 17:16:37
   AUT                    : WeaveForward
   Automation Framework   : Selenium WebDriver (Python)
 ────────────────────────────────────────────────────────────────────────
@@ -62,57 +62,57 @@
   FAILED                 : 0
   ERRORS                 : 0
   Pass Rate              : 100.0%
-  Total Execution Time   : 66.99 s
+  Total Execution Time   : 66.14 s
 ────────────────────────────────────────────────────────────────────────
   DETAILED RESULTS BY WORKFLOW
 ────────────────────────────────────────────────────────────────────────
   ▸ Donor Register Account  (6/6 passed)
-    [✓] TC1-001  | PASS  |  1.61s | Verify That Donor Can Create Donor Account with Valid Registration Details
+    [✓] TC1-001  | PASS  |  1.00s | Verify That Donor Can Create Donor Account with Valid Registration Details
     [✓] TC1-002  | PASS  |  1.12s | Verify That Donor Can Cancel Registration Before Submission
-    [✓] TC1-003  | PASS  |  1.29s | Verify That Invalid Registration Details Are Rejected
-    [✓] TC1-004  | PASS  |  1.36s | Verify That Registration Is Blocked If The Email Is Already In Use
+    [✓] TC1-003  | PASS  |  1.30s | Verify That Invalid Registration Details Are Rejected
+    [✓] TC1-004  | PASS  |  1.35s | Verify That Registration Is Blocked If The Email Is Already In Use
     [✓] TC1-005  | PASS  |  0.77s | Verify That Weak Password Is Rejected by Password Strength Validation
-    [✓] TC1-006  | PASS  |  0.74s | Verify That Mismatched Passwords Are Rejected
+    [✓] TC1-006  | PASS  |  0.77s | Verify That Mismatched Passwords Are Rejected
   ▸ Donor Update Account Information  (7/7 passed)
     [✓] TC10-001 | PASS  |  1.85s | Verify That Donor Account Is Updated Successfully Without Changing Location or 2FA
-    [✓] TC10-002 | PASS  |  0.10s | Verify That Cancellation aborts Edit Successfully
-    [✓] TC10-003 | PASS  |  0.62s | Verify That Account Location Edits Without Enabling TOTP Are Successful
-    [✓] TC10-004 | PASS  |  0.05s | Verify That The System Can Disable 2FA successfully
-    [✓] TC10-005 | PASS  |  2.19s | Verify That Enabling 2FA During Updating Account Information Is Successful
+    [✓] TC10-002 | PASS  |  0.12s | Verify That Cancellation aborts Edit Successfully
+    [✓] TC10-003 | PASS  |  0.68s | Verify That Account Location Edits Without Enabling TOTP Are Successful
+    [✓] TC10-004 | PASS  |  0.04s | Verify That The System Can Disable 2FA successfully
+    [✓] TC10-005 | PASS  |  2.20s | Verify That Enabling 2FA During Updating Account Information Is Successful
     [✓] TC10-006 | PASS  |  1.11s | Verify That Invalid Fields Prevent Editing Donor Account Successfully
-    [✓] TC10-007 | PASS  |  5.13s | Verify That Invalid TOTP Prevents Editing Donor Account Successfully
+    [✓] TC10-007 | PASS  |  5.15s | Verify That Invalid TOTP Prevents Editing Donor Account Successfully
   ▸ Donor Login  (5/5 passed)
-    [✓] TC2-001  | PASS  |  2.26s | Verify That Donor Login Succeeds With Valid Credentials
+    [✓] TC2-001  | PASS  |  2.25s | Verify That Donor Login Succeeds With Valid Credentials
     [✓] TC2-002  | PASS  |  2.24s | Verify That Donor Login Requires Two-Factor Verification When Enabled
-    [✓] TC2-003  | PASS  |  1.16s | Verify That Login Is Rejected With Invalid Credentials
+    [✓] TC2-003  | PASS  |  1.15s | Verify That Login Is Rejected With Invalid Credentials
     [✓] TC2-004  | PASS  |  2.23s | Verify That Login Is Rejected With Invalid TOTP
-    [✓] TC2-005  | PASS  |  1.66s | Verify That Password Recovery Can Be Initiated Via Forgot Password
+    [✓] TC2-005  | PASS  |  1.12s | Verify That Password Recovery Can Be Initiated Via Forgot Password
   ▸ Donor Browse TUABs  (5/5 passed)
-    [✓] TC3-001  | PASS  |  1.15s | Verify That TUABs Are Displayed With Proximity Ordering And Valid Filters Applied
-    [✓] TC3-002  | PASS  |  0.10s | Verify That TUABs Are Displayed Without Ordering When Location Is Denied
-    [✓] TC3-003  | PASS  |  0.10s | Verify That TUABs Can be Displayed Without Filters
-    [✓] TC3-004  | PASS  |  0.20s | Verify That TUABs Can be Filtered Using User-Provided Location Filter
-    [✓] TC3-005  | PASS  |  0.19s | Verify That Filters are Rejected for Browsing TUABs when Invalid
+    [✓] TC3-001  | PASS  |  1.17s | Verify That TUABs Are Displayed With Proximity Ordering And Valid Filters Applied
+    [✓] TC3-002  | PASS  |  0.11s | Verify That TUABs Are Displayed Without Ordering When Location Is Denied
+    [✓] TC3-003  | PASS  |  0.16s | Verify That TUABs Can be Displayed Without Filters
+    [✓] TC3-004  | PASS  |  0.27s | Verify That TUABs Can be Filtered Using User-Provided Location Filter
+    [✓] TC3-005  | PASS  |  0.22s | Verify That Filters are Rejected for Browsing TUABs when Invalid
   ▸ Donor View TUAB  (1/1 passed)
-    [✓] TC4-001  | PASS  |  0.14s | Verify That The Selected Artisan Business Profile Is Displayed
+    [✓] TC4-001  | PASS  |  0.17s | Verify That The Selected Artisan Business Profile Is Displayed
   ▸ Donor Submit Donation  (3/3 passed)
-    [✓] TC5-001  | PASS  |  6.22s | Verify That A Donation Can Be Created After Giving Location Permission
-    [✓] TC5-002  | PASS  |  1.14s | Verify That A Donation Can Be Created After Denying Location Permission
-    [✓] TC5-003  | PASS  |  1.08s | Verify That Donation Creation Is Rejected With Invalid Information
+    [✓] TC5-001  | PASS  |  6.29s | Verify That A Donation Can Be Created After Giving Location Permission
+    [✓] TC5-002  | PASS  |  1.21s | Verify That A Donation Can Be Created After Denying Location Permission
+    [✓] TC5-003  | PASS  |  1.10s | Verify That Donation Creation Is Rejected With Invalid Information
   ▸ Donor View Donation  (1/1 passed)
-    [✓] TC6-001  | PASS  |  1.21s | Verify That A Donor Can View An Owned Donation Successfully
+    [✓] TC6-001  | PASS  |  1.23s | Verify That A Donor Can View An Owned Donation Successfully
   ▸ Donor Edit Donation  (4/4 passed)
-    [✓] TC7-001  | PASS  |  0.20s | Verify That A Pending Donation Can Be Edited Without Changing Location
-    [✓] TC7-002  | PASS  |  1.82s | Verify That A Pending Donation Can Be Edited By Changing Location
-    [✓] TC7-003  | PASS  |  2.32s | Verify That Editing Is Rejected When Invalid Information Is Supplied
+    [✓] TC7-001  | PASS  |  0.17s | Verify That A Pending Donation Can Be Edited Without Changing Location
+    [✓] TC7-002  | PASS  |  1.33s | Verify That A Pending Donation Can Be Edited By Changing Location
+    [✓] TC7-003  | PASS  |  2.29s | Verify That Editing Is Rejected When Invalid Information Is Supplied
     [✓] TC7-004  | PASS  |  6.46s | Verify That Editing Is Rejected When The Donation Is In An Uneditable State
   ▸ Donor Cancel Donation  (3/3 passed)
     [✓] TC8-002  | PASS  |  1.27s | Verify That Donor Can Abort Cancellation By Letting Countdown Expire
     [✓] TC8-001  | PASS  |  0.63s | Verify That An Eligible Donation Can be Successfully Cancelled
-    [✓] TC8-003  | PASS  |  6.54s | Verify That Cancellation Is Rejected For Non-Pending Donations
+    [✓] TC8-003  | PASS  |  6.57s | Verify That Cancellation Is Rejected For Non-Pending Donations
   ▸ Donor View Donation Impact Dashboard  (3/3 passed)
-    [✓] TC9-001  | PASS  |  0.15s | Verify That The Dashboard With Filters Works
-    [✓] TC9-002  | PASS  |  1.23s | Verify That The Dashboard Can Be Viewed Without Applying Filters
+    [✓] TC9-001  | PASS  |  0.16s | Verify That The Dashboard With Filters Works
+    [✓] TC9-002  | PASS  |  1.22s | Verify That The Dashboard Can Be Viewed Without Applying Filters
     [✓] TC9-003  | PASS  |  0.12s | Verify That Viewing The Dashboard With Invalid Filters Is Not Allowed
 ────────────────────────────────────────────────────────────────────────
   VERDICT  :  ALL SELENIUM TESTS PASSED

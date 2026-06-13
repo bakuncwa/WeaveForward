@@ -70,7 +70,6 @@ class TokenRefreshMiddleware:
     async def _process_request(self, request):
         path = request.path
         request.user_profile = None
-        request._session_expired = False
 
         if path in PUBLIC_PASSTHROUGH_PATHS:
             return await self.get_response(request)
@@ -93,9 +92,11 @@ class TokenRefreshMiddleware:
 
                 if access_token:
                     payload = self._decode_token(access_token)
+                    if payload and payload.get("exp", 0) < time.time():
+                        payload = None
 
                 # Token expired or missing — try refresh
-                if (not payload or (payload and payload.get("exp", 0) < time.time())) and request.COOKIES.get("refresh_token"):
+                if not payload and request.COOKIES.get("refresh_token"):
                     refresh_res = await api_call(request, "POST", "auth/token/refresh")
                     if refresh_res.status_code == 200:
                         for token_name in ("access_token", "refresh_token"):
@@ -150,23 +151,16 @@ class TokenRefreshMiddleware:
                  (path.startswith("/donor/") and role != "Donor"):
                 return redirect("/admin/donors/" if role == "Admin" else "tuab_dashboard" if role == "TUAB" else "donor_browse_businesses")
 
-        response = await self.get_response(request)
-
-        # 4. Post-view archive check
-        if getattr(request, '_session_expired', False):
-            if any(path.startswith(prefix) for prefix in PROTECTED_PREFIXES):
-                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                    new_response = JsonResponse(
-                        {"error": "Your session has expired or your account is no longer active. Please log in again."},
-                        status=401,
-                    )
-                else:
-                    new_response = redirect("login")
-                for c in AUTH_COOKIE_NAMES:
-                    new_response.delete_cookie(c, path="/")
-                return new_response
+        try:
+            response = await self.get_response(request)
+        except PermissionError:
+            response = JsonResponse(
+                {"error": "Your session has expired or your account is no longer active. Please log in again."},
+                status=401,
+            ) if request.headers.get("X-Requested-With") == "XMLHttpRequest" else redirect("login")
             for c in AUTH_COOKIE_NAMES:
                 response.delete_cookie(c, path="/")
+            return response
 
         return response
 

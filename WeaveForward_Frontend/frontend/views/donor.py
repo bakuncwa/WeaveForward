@@ -4,7 +4,7 @@ from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.contrib import messages
 from django.utils.dateparse import parse_datetime, parse_time
-from ..services import api_call, format_errors, get_paginated_data, get_fiber_choices
+from ..services import api_call, format_errors, get_paginated_data, get_fiber_choices, get_user_profile
 
 
 async def donor_browse_businesses(request):
@@ -171,7 +171,7 @@ async def donor_view_tuab(request, user_id):
 
 async def donor_create_donation(request):
     """View for donors to create a new donation. Supports the new SSR-based version2 template."""
-    profile = request.user_profile
+    profile = await get_user_profile(request) or request.user_profile
 
     if request.method == 'POST':
         payload = request.POST.dict()
@@ -431,6 +431,8 @@ async def donor_edit_donation(request, donation_id):
 
 
 async def donor_cancel_donation(request, donation_id):
+    await api_call(request, 'GET', 'users/me')
+
     if request.method == 'POST':
         response = await api_call(request, 'POST', f'donations/{donation_id}/cancel')
         if response.status_code == 200:

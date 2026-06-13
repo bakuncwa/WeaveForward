@@ -1,13 +1,13 @@
 ==============================================================
   WEAVEFORWARD AUTOMATION SUITE | Test Summary
 ==============================================================
-  Run         : 2026-06-13 07:55:29
+  Run         : 2026-06-13 17:18:00
   AUT         : WeaveForward
   Total TCs   : 41
-  Passed      : 39
-  Failed      : 2
-  Pass Rate   : 95.1%
-  Duration    : 146.7s
+  Passed      : 40
+  Failed      : 1
+  Pass Rate   : 97.6%
+  Duration    : 149.4s
 --------------------------------------------------------------
   TC        Result  Description
 --------------------------------------------------------------
@@ -34,7 +34,7 @@
   TC30-001  PASS    Verify That TUAB Account Is Updated Successfully With Validated Fields
   TC30-002  PASS    Verify That Cancellation aborts Edit Successfully
   TC30-003  PASS    Verify That The System Changes Location Fields Successfully When Location Is Updated
-  TC30-004  FAIL    Verify That The System Can Remove The TUAB's Payment Method Successfully
+  TC30-004  PASS    Verify That The System Can Remove The TUAB's Payment Method Successfully
   TC30-005  PASS    Verify That The System Can Disable 2FA Successfully
   TC30-006  PASS    Verify That Invalid Fields Prevent Editing TUAB Account Successfully
   TC33-001  PASS    Verify That A Donation Can Be Created When System is Granted Permission to Access User Agent's Geolocation Capabilities
@@ -53,5 +53,5 @@
   TC31-002  PASS    Verify That Archiving When Unconfirmed Successfully Aborts Archiving
   TC31-001  PASS    Verify That Archiving When Confirmed Successfully Archives A TUAB
 ==============================================================
-  SELENIUM VERDICT: 39 PASSED  |  2 FAILED
+  SELENIUM VERDICT: 40 PASSED  |  1 FAILED
 ==============================================================

@@ -259,6 +259,7 @@ async def admin_edit_donor(request, user_id):
 
 async def admin_add_donor(request):
     profile = request.user_profile
+    await api_call(request, 'GET', 'users/me')
     
     if request.method == 'POST':
         raw_data = request.POST
@@ -302,6 +303,7 @@ async def admin_add_donor(request):
 async def admin_archive_user_proxy(request, user_id):
     """Admin-only SSR Proxy for archiving/deleting a user."""
     profile = request.user_profile
+    await api_call(request, 'GET', 'users/me')
     
     if request.method == 'POST':
         response = await api_call(request, 'DELETE', f'users/{user_id}')
