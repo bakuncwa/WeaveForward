@@ -218,9 +218,9 @@
         <div class="field-value">
           {% if tuab.social_link %}
             {% if tuab.social_link|slice:":7" == "http://" or tuab.social_link|slice:":8" == "https://" %}
-            <a href="{{ tuab.social_link }}" target="_blank" rel="noopener noreferrer">{{ tuab.social_link }}</a>
+            <a href="{{ tuab.social_link }}" target="_blank" rel="noopener noreferrer">{{ tuab.social_link|truncatechars:50 }}</a>
             {% else %}
-            {{ tuab.social_link }}
+            {{ tuab.social_link|truncatechars:50 }}
             {% endif %}
           {% else %}
           -
@@ -229,7 +229,7 @@
       </div>
       <div class="field">
         <div class="field-label">Description</div>
-        <div class="field-value">{{ tuab.description|default:"-" }}</div>
+        <div class="field-value">{{ tuab.description|default:"-"|truncatewords:30 }}</div>
       </div>
     </div>
 

@@ -304,7 +304,11 @@ class AdminUserListSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'user_id', 'email', 'role', 'first_name', 'last_name', 'middle_name',
-            'business_name', 'contact_no', 'status', 'is_subscribed', 'documentation', 'upload'
+            'business_name', 'contact_no', 'display_address', 'barangay', 'city',
+            'latitude', 'longitude',
+            'target_fibers', 'max_distance_km', 'min_biodeg_score',
+            'social_link', 'description', 'operational_status',
+            'status', 'is_subscribed', 'documentation', 'upload'
         ]
 
     def get_is_subscribed(self, obj):
