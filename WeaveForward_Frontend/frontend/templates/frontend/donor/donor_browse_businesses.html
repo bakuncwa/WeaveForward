@@ -1,4 +1,9 @@
 {% extends 'frontend/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'frontend/css/pagination.css' %}" />
+{% endblock %}
 
 {% block content %}
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -315,20 +320,6 @@
     }
   }
 
-  /* --- Pagination --- */
-  .pagination {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 20px;
-    margin-top: 30px;
-    margin-bottom: 50px;
-  }
-
-  .page-info {
-    font-size: 14px;
-    color: #666;
-  }
 </style>
 
 <div class="wf-content-inner">
@@ -423,38 +414,39 @@
   </div>
 
   {% if total_pages > 1 %}
-  <div class="pagination">
-    {% if has_prev %}
-    <a href="?page={{ current_page|add:'-1' }}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.lat %}&lat={{ request.GET.lat }}{% endif %}{% if request.GET.lng %}&lng={{ request.GET.lng }}{% endif %}{% if request.GET.address %}&address={{ request.GET.address }}{% endif %}"
-      class="btn btn-outline">
-      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path d="M15 19l-7-7 7-7" />
-      </svg> Previous
-    </a>
-    {% else %}
-    <button class="btn btn-outline" disabled style="opacity:0.5;cursor:not-allowed">
-      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path d="M15 19l-7-7 7-7" />
-      </svg> Previous
-    </button>
-    {% endif %}
+  <div class="pagination-wrap">
+    <div class="pg-info">Page {{ current_page }} of {{ total_pages }}</div>
+    <div class="pg-btns">
+      {% if has_prev %}
+      <a href="?page={{ current_page|add:'-1' }}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.lat %}&lat={{ request.GET.lat }}{% endif %}{% if request.GET.lng %}&lng={{ request.GET.lng }}{% endif %}{% if request.GET.address %}&address={{ request.GET.address }}{% endif %}"
+        class="btn btn-outline">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M15 19l-7-7 7-7" />
+        </svg> Previous
+      </a>
+      {% else %}
+      <button class="btn btn-outline" disabled>
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M15 19l-7-7 7-7" />
+        </svg> Previous
+      </button>
+      {% endif %}
 
-    <span class="page-info">Page <strong>{{ current_page }}</strong> of {{ total_pages }}</span>
-
-    {% if has_next %}
-    <a href="?page={{ current_page|add:'1' }}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.lat %}&lat={{ request.GET.lat }}{% endif %}{% if request.GET.lng %}&lng={{ request.GET.lng }}{% endif %}{% if request.GET.address %}&address={{ request.GET.address }}{% endif %}"
-      class="btn btn-outline">
-      Next <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path d="M9 5l7 7-7 7" />
-      </svg>
-    </a>
-    {% else %}
-    <button class="btn btn-outline" disabled style="opacity:0.5;cursor:not-allowed">
-      Next <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path d="M9 5l7 7-7 7" />
-      </svg>
-    </button>
-    {% endif %}
+      {% if has_next %}
+      <a href="?page={{ current_page|add:'1' }}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.lat %}&lat={{ request.GET.lat }}{% endif %}{% if request.GET.lng %}&lng={{ request.GET.lng }}{% endif %}{% if request.GET.address %}&address={{ request.GET.address }}{% endif %}"
+        class="btn btn-outline">
+        Next <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M9 5l7 7-7 7" />
+        </svg>
+      </a>
+      {% else %}
+      <button class="btn btn-outline" disabled>
+        Next <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+      {% endif %}
+    </div>
   </div>
   {% endif %}
 </div>
@@ -531,3 +523,5 @@
   });
 </script>
 {% endblock %}
+
+

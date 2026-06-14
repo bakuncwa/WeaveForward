@@ -1,4 +1,11 @@
 {% extends 'frontend/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'frontend/css/tables.css' %}" />
+<link rel="stylesheet" href="{% static 'frontend/css/badges.css' %}" />
+<link rel="stylesheet" href="{% static 'frontend/css/pagination.css' %}" />
+{% endblock %}
 
 {% block content %}
 <style>
@@ -93,125 +100,6 @@
 
   .btn-primary:hover {
     background: var(--gold-dark);
-  }
-
-  .table-wrap {
-    background: #fff;
-    border-radius: 14px;
-    overflow: hidden;
-    border: 1.5px solid #ebe6df;
-  }
-
-  .table-scroll {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  table.dt {
-    width: 100%;
-    border-collapse: collapse;
-    min-width: 980px;
-  }
-
-  table.dt th {
-    font-family: Poppins, sans-serif;
-    font-size: 11px;
-    font-weight: 600;
-    color: #8d8d8d;
-    text-align: left;
-    padding: 12px 10px;
-    border-bottom: 1.5px solid var(--border);
-    background: #faf8f5;
-    white-space: nowrap;
-  }
-
-  table.dt td {
-    font-family: Poppins, sans-serif;
-    font-size: 12px;
-    color: var(--text);
-    padding: 14px 10px;
-    vertical-align: middle;
-    border-bottom: 1px solid #ece8e2;
-  }
-
-  table.dt tr:last-child td {
-    border-bottom: none;
-  }
-
-  .items-col {
-    max-width: 220px;
-    color: #555;
-    line-height: 1.45;
-  }
-
-  .badge {
-    display: inline-block;
-    border-radius: 6px;
-    padding: 4px 12px;
-    font-size: 11px;
-    font-family: Poppins, sans-serif;
-    font-weight: 500;
-    color: #fff;
-    white-space: nowrap;
-  }
-
-  .badge-transit {
-    background: var(--blue);
-  }
-
-  .badge-pending {
-    background: var(--gold);
-  }
-
-  .badge-received {
-    background: var(--green);
-  }
-
-  .badge-claimed {
-    background: #7b61ff;
-  }
-
-  .badge-rejected {
-    background: #8d8d8d;
-  }
-
-  .badge-cancelled {
-    background: #8c8c8c;
-  }
-
-  .badge-archived {
-    background: #c0392b;
-  }
-
-  .action-btns {
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
-    width: 88px;
-  }
-
-  .btn-outline {
-    background: #f4f4f4;
-    color: #666;
-    border: 1px solid #e2e2e2;
-    border-radius: 6px;
-    padding: 5px 10px;
-    font-size: 11px;
-    width: 100%;
-    text-align: center;
-  }
-
-  .btn-outline:hover {
-    border-color: #cfcfcf;
-  }
-
-  .thumb {
-    width: 62px;
-    height: 70px;
-    object-fit: cover;
-    border-radius: 9px;
-    display: block;
-    background: #f2efe9;
   }
 
   .modal-backdrop {
@@ -311,7 +199,7 @@
 
 <div class="table-wrap">
   <div class="table-scroll">
-    <table class="dt" id="don-table">
+    <table class="wf-table wf-table-donations" id="don-table">
       <thead>
         <tr>
           <th>ID</th>
@@ -330,7 +218,11 @@
           <td>{{ donation.is_flagged|default:"False" }}</td>
           <td class="items-col">
             {% for item in donation.items %}
-              {{ item.lookup_details.clothing_type }} - {{ item.lookup_details.brand }} {{ item.lookup_details.dominant_fiber|capfirst }}{% if not forloop.last %}, {% endif %}
+              {% with fiber=item.lookup_details.dominant_fiber|capfirst %}
+              {% with item_label=item.lookup_details.clothing_type|add:" - "|add:item.lookup_details.brand|add:" "|add:fiber %}
+              <span title="{{ item_label }}">{{ item_label|truncatechars:50 }}</span>{% if not forloop.last %}, {% endif %}
+              {% endwith %}
+              {% endwith %}
             {% empty %}
               No items
             {% endfor %}
@@ -356,7 +248,7 @@
               {% endif %}
             </span>
           </td>
-          <td>{{ donation.claimed_by_tuab.business_name|default:"-" }}</td>
+          <td title="{{ donation.claimed_by_tuab.business_name|default:'-' }}">{{ donation.claimed_by_tuab.business_name|default:"-"|truncatechars:50 }}</td>
           <td>
             <div class="action-btns">
               <a href="{% url 'admin_view_donation' donation.donation_id %}" class="btn btn-outline">View</a>
@@ -415,34 +307,6 @@
     </form>
   </div>
 </div>
-
-<style>
-  .pagination-wrap {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 24px;
-    padding: 0 4px;
-  }
-
-  .pg-info {
-    font-family: Poppins, sans-serif;
-    font-size: 13px;
-    color: #888;
-  }
-
-  .pg-btns {
-    display: flex;
-    gap: 8px;
-  }
-
-  .pg-btns .btn-outline {
-    width: auto;
-    padding: 8px 16px;
-    border-radius: 8px;
-    font-weight: 500;
-  }
-</style>
 
 <script>
   function showFlash(msg, type = 'info') {
@@ -530,3 +394,5 @@
   });
 </script>
 {% endblock %}
+
+

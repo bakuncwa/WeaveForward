@@ -1,11 +1,16 @@
 {% extends 'frontend/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'frontend/css/tuab-tables.css' %}" />
+<link rel="stylesheet" href="{% static 'frontend/css/pagination.css' %}" />
+{% endblock %}
 
 {% block content %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <style>
-    /* ── Design tokens (match navbar.html) ── */
     :root {
       --gold:      #e8a020;
       --gold-dark: #c8881a;
@@ -20,71 +25,38 @@
       --green:     #4a7c59;
     }
 
-    /* ── Buttons ── */
     .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: none; cursor: pointer; font-family: 'Poppins', sans-serif; font-weight: 500; transition: all .2s; text-decoration: none; }
-    .btn-tuab  { background: #e8a020;  color: #fff; border-radius: 20px; padding: 6px 16px; font-size: 12px; font-weight: 500; }
-    .btn-flag  { background: #fff1d8; color: #e8a020; border: none; border-radius: 20px; padding: 6px 16px; font-size: 12px; font-family: 'Poppins', sans-serif; cursor: pointer; font-weight: 500; }
+    .btn-tuab  { background: #e8a020;  color: #fff; border-radius: 999px; padding: 1px 28px; font-size: 10px; font-weight: 500; box-shadow: 0 3px 10px rgba(0,0,0,.2); }
+    .btn-flag  { background: #fff1d8; color: #e8a020; border: none; border-radius: 999px; padding: 1px 28px; font-size: 10px; font-family: 'Poppins', sans-serif; cursor: pointer; font-weight: 500; box-shadow: 0 3px 10px rgba(0,0,0,.2); }
 
-    /* ── Map ── */
     #tuab-dash-map { width: 100%; height: 220px; border-radius: 12px; margin-bottom: 20px; z-index: 1; }
 
-    /* ── Table card ── */
-    .dash-card { background: #fff; border-radius: 14px; padding: 20px 24px; margin-bottom: 10px; }
-
-    /* ── Tabs ── */
     .tab-btn { font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 600; padding: 8px 22px; border: none; border-bottom: 3px solid transparent; background: transparent; color: #e8a020; cursor: pointer; transition: all .2s; }
     .tab-btn.active { border-bottom-color: #e8a020; }
 
-    /* ── Table ── */
-    .dash-table { width: 100%; min-width: 760px; border-collapse: collapse; table-layout: auto; }
-    .dash-table th { font-family: 'Poppins', sans-serif; font-size: 11px; font-weight: 600; color: #1a1a1a; text-align: left; padding: 10px 12px; border-bottom: 1.5px solid #ede8e2; background: #faf8f5; letter-spacing: .4px; white-space: nowrap; word-break: normal; overflow-wrap: normal; }
-    .dash-table td { font-family: 'Poppins', sans-serif; font-size: 13px; color: #333; font-weight: 600; padding: 13px 12px; border-bottom: 1px solid #f0ede8; vertical-align: middle; word-break: normal; overflow-wrap: normal; }
-    .dash-table tr:last-child td { border-bottom: none; }
-    .badge { display: inline-block; border-radius: 6px; padding: 4px 12px; font-size: 11px; font-family: 'Poppins', sans-serif; font-weight: 500; color: #fff; white-space: nowrap; }
-    .badge-transit { background: var(--blue); }
-    .badge-pending { background: var(--gold); }
-    .badge-received { background: var(--green); }
-    .badge-claimed { background: #7b61ff; }
-    .badge-rejected { background: #8d8d8d; }
-    .badge-cancelled { background: #8c8c8c; }
-    .badge-archived { background: #c0392b; }
-
-    /* ── Search ── */
     .search-wrap { position: relative; flex-shrink: 0; }
     .search-input { padding: 9px 14px 9px 36px; width: 200px; border: 1.5px solid #fff1d8; border-radius: 8px; background: #fff1d8; color: #c0952a; font-family: 'Poppins', sans-serif; font-size: 13px; outline: none; }
     .search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); pointer-events: none; }
 
-    /* ── Flag modal ── */
     .modal-overlay { position: fixed; inset: 0; z-index: 9500; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.45); }
     .modal-box { background: #fff; border-radius: 16px; padding: 28px 32px; width: 420px; max-width: 95vw; box-shadow: 0 24px 80px rgba(0,0,0,.25); }
     .modal-input { width: 100%; border: 1.5px solid #e0dbd4; border-radius: 8px; padding: 10px 14px; font-family: 'Poppins', sans-serif; font-size: 14px; outline: none; margin-bottom: 16px; }
     .modal-input:focus { border-color: #e8a020; }
     .hidden { display: none !important; }
 
-    /* ── Table scroll wrapper (mobile) ── */
-    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    #dash-table-wrap { min-width: max-content; }
-
-    /* ── Pagination ── */
-    .pagination-wrap { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 20px; font-family: 'Poppins', sans-serif; }
-    .btn-page { padding: 6px 16px; border: 1.5px solid var(--border); background: #fff; border-radius: 8px; color: var(--text); font-size: 13px; font-weight: 500; cursor: pointer; text-decoration: none; transition: all 0.2s; }
-    .btn-page.disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
-
     @media (max-width: 768px), (max-aspect-ratio: 1/1) {
-      .dash-card { padding: 14px 14px; }
       .tab-row { flex-wrap: wrap; gap: 8px; }
-      .search-input { width: 160px; }
+      .search-wrap { width: 100%; }
+      .search-input { width: 100%; }
       #tuab-dash-map { height: 180px; }
-      .table-scroll { margin: 0 -14px; padding: 0 14px; }
-      .pagination-wrap { flex-wrap: wrap; justify-content: flex-start; }
     }
 </style>
 
 <div class="preview-shell">
   <div id="tuab-dash-map"></div>
 
-  <div class="dash-card">
-    <div class="tab-row" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px">
+  <div class="tuab-table-card">
+    <div class="tuab-table-head tab-row">
       <div style="display:flex;gap:0;flex-shrink:0">
         <button class="tab-btn {% if active_tab == 'available' %}active{% endif %}" id="tab-available" onclick="changeTab('available')">Available</button>
         <button class="tab-btn {% if active_tab == 'claimed' %}active{% endif %}" id="tab-claimed" onclick="changeTab('claimed')">Claimed</button>
@@ -99,16 +71,17 @@
       <div id="dash-table-wrap"></div>
     </div>
 
-    <div style="display:flex; justify-content: space-between; align-items: center; margin-top: 12px;">
-        <div id="dash-table-count" style="font-family:'Poppins',sans-serif;font-size:12px;color:#aaa;"></div>
-
-        <!-- Pagination Controls -->
-        <div class="pagination-wrap">
-            <a href="#" id="prev-btn" class="btn-page">Previous</a>
-            <span id="page-indicator" style="font-size: 13px; font-weight: 600;">Page 1</span>
-            <a href="#" id="next-btn" class="btn-page">Next</a>
-        </div>
+    <div class="tuab-table-footer">
+      <div id="dash-table-count" class="tuab-table-count"></div>
     </div>
+  </div>
+</div>
+
+<div class="pagination-wrap">
+  <div class="pg-info" id="page-indicator">Page 1</div>
+  <div class="pg-btns">
+    <a href="#" id="prev-btn" class="btn btn-outline">Previous</a>
+    <a href="#" id="next-btn" class="btn btn-outline">Next</a>
   </div>
 </div>
 
@@ -119,7 +92,7 @@
     <div style="margin-bottom:10px">
       <label style="font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;color:#444;display:block;margin-bottom:6px">Archiving Reason <span style="color:#c0392b">*</span></label>
       <select id="flag-reason-select" style="font-family:'Poppins',sans-serif;font-size:13px;width:100%;padding:9px 12px;border:1.5px solid #e0dbd4;border-radius:8px;outline:none;background:#fff;color:#222;cursor:pointer">
-        <option value="">— Select a reason —</option>
+        <option value="">Select a reason</option>
         <option value="Hazardous">Hazardous</option>
         <option value="Spam">Spam</option>
         <option value="Invalid Declaration">Invalid Declaration</option>
@@ -140,6 +113,10 @@
 {{ donations_json|json_script:"donations-data" }}
 <script>
   const escapeHTML = str => !str ? '' : str.replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c] || c));
+  const truncateText = (value, max = 50) => {
+    if (!value) return '';
+    return value.length > max ? `${value.slice(0, max - 3)}...` : value;
+  };
   const DONATIONS = JSON.parse(document.getElementById('donations-data').textContent);
   const META = {
       available: { current: {{ avail_meta.current|escapejs }}, has_next: {% if avail_meta.has_next %}true{% else %}false{% endif %}, has_prev: {% if avail_meta.has_prev %}true{% else %}false{% endif %}, total: {{ avail_meta.count|default:0|escapejs }} },
@@ -152,18 +129,18 @@
   let dashMap = null, dashMarkers = {};
 
   function renderTable(list, tab) {
-    if (!list.length) return `<p style="font-family:'Poppins',sans-serif;color:#bbb;padding:20px 0">No donations found on this page.</p>`;
+    if (!list.length) return `<p style="font-family:'Poppins',sans-serif;color:#bbb;padding:20px 24px">No donations found on this page.</p>`;
 
-    return `<table class="dash-table"><thead><tr>
-      <th>Donation ID</th><th>Donor</th><th>Address</th><th>Preffered Pick-Up Date</th><th>Items</th><th>ACTIONS</th>
+    return `<table class="wf-table tuab-dashboard-table"><thead><tr>
+      <th>Donation ID</th><th>Donor</th><th>Address</th><th>Preffered Pick-Up Date</th><th>Items</th><th>Actions</th>
     </tr></thead><tbody>
     ${list.map(d => `<tr onclick="zoomDonation(${escapeHTML(String(d.id))})" style="cursor:pointer">
       <td>${escapeHTML(String(d.id))}</td>
-      <td>${escapeHTML(d.donor)}</td>
-      <td style="max-width:160px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHTML(d.address)}</td>
-      <td style="white-space:nowrap">${escapeHTML(d.pickupDate)}</td>
-      <td>${escapeHTML(String(d.items))}</td>
-      <td><div style="display:flex;gap:6px">
+      <td title="${escapeHTML(d.donor)}">${escapeHTML(truncateText(d.donor))}</td>
+      <td title="${escapeHTML(d.address)}" style="color:#666">${escapeHTML(truncateText(d.address))}</td>
+      <td>${escapeHTML(d.pickupDate)}</td>
+      <td title="${escapeHTML(String(d.items))}">${escapeHTML(truncateText(String(d.items)))}</td>
+      <td><div class="tuab-dashboard-actions">
         <a href="${d.status === 'IN_TRANSIT' ? `/tuab/donations/${escapeHTML(String(d.id))}/edit/` : `/tuab/donations/${escapeHTML(String(d.id))}/`}" class="btn btn-tuab" onclick="event.stopPropagation()">Manage</a>
         ${(d.status === 'PENDING' || d.status === 'FLAGGED') ? `<button class="btn-flag" data-id="${escapeHTML(String(d.id))}" data-tab="${escapeHTML(tab)}" onclick="event.stopPropagation();openFlagModal(this.getAttribute('data-id'), this.getAttribute('data-tab'))">Flag</button>` : ''}
       </div></td>
@@ -257,10 +234,12 @@
     document.getElementById('flag-error').style.display = 'none';
     document.getElementById('flag-modal').classList.remove('hidden');
   }
+
   function closeFlagModal() {
     document.getElementById('flag-modal').classList.add('hidden');
     flagTarget = null;
   }
+
   async function submitFlag() {
     const category = document.getElementById('flag-reason-select').value.trim();
     const details  = document.getElementById('flag-reason-input').value.trim();
@@ -270,7 +249,7 @@
       return;
     }
     errEl.style.display = 'none';
-    const reason = details ? `${category} — ${details}` : category;
+    const reason = details ? `${category} - ${details}` : category;
     const id = flagTarget.id;
     closeFlagModal();
     try {
@@ -332,3 +311,5 @@
   });
 </script>
 {% endblock %}
+
+

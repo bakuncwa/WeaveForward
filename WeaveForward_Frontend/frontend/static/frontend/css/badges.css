@@ -1,0 +1,77 @@
+/* Shared status badges. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.badge.badge-active,
+.badge.badge-received {
+  background: var(--green, #4a7c59);
+}
+
+.badge.badge-pending,
+.badge.badge-under-review {
+  background: var(--gold, #e8a020);
+}
+
+.badge.badge-transit {
+  background: var(--blue, #0b77dc);
+}
+
+.badge.badge-claimed {
+  background: #7b61ff;
+}
+
+.badge.badge-rejected,
+.badge.badge-archived {
+  background: var(--red, #c0392b);
+}
+
+.badge.badge-cancelled,
+.badge.badge-muted {
+  background: #8c8c8c;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge-audit {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffd166;
+}
+
+.status-badge.badge-active {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.inv-count-badge {
+  background: #fef7ea;
+  color: var(--gold, #e8a020);
+  border: 1px solid #f5d898;
+  border-radius: 20px;
+  padding: 2px 10px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+}

@@ -1,4 +1,11 @@
 {% extends 'frontend/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'frontend/css/tables.css' %}" />
+<link rel="stylesheet" href="{% static 'frontend/css/badges.css' %}" />
+<link rel="stylesheet" href="{% static 'frontend/css/pagination.css' %}" />
+{% endblock %}
 
 {% block content %}
 <style>
@@ -82,72 +89,6 @@
 
   .btn-primary:hover {
     background: var(--gold-dark);
-  }
-
-  .table-wrap {
-    background: #fff;
-    border-radius: 14px;
-    overflow: hidden;
-    border: 1.5px solid #ebe6df;
-  }
-
-  .table-scroll {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  table.dt {
-    width: 100%;
-    border-collapse: collapse;
-    min-width: 640px;
-  }
-
-  table.dt th {
-    font-family: Poppins, sans-serif;
-    font-size: 11px;
-    font-weight: 600;
-    color: #8d8d8d;
-    text-align: left;
-    padding: 12px 16px;
-    border-bottom: 1.5px solid var(--border);
-    background: #faf8f5;
-    white-space: nowrap;
-  }
-
-  table.dt td {
-    font-family: Poppins, sans-serif;
-    font-size: 13px;
-    color: var(--text);
-    padding: 14px 16px;
-    vertical-align: middle;
-    border-bottom: 1px solid #ece8e2;
-  }
-
-  table.dt tr:last-child td {
-    border-bottom: none;
-  }
-
-  table.dt tbody tr:hover {
-    background: #fdf9f4;
-  }
-
-  .badge {
-    display: inline-block;
-    border-radius: 6px;
-    padding: 4px 14px;
-    font-size: 12px;
-    font-family: Poppins, sans-serif;
-    font-weight: 500;
-    color: #fff;
-    white-space: nowrap;
-  }
-
-  .badge-active {
-    background: var(--green);
-  }
-
-  .badge-archived {
-    background: var(--red);
   }
 
   .action-btns {
@@ -245,31 +186,6 @@
     border-color: var(--red);
   }
 
-  .pagination-wrap {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 16px;
-    padding: 0 4px;
-  }
-
-  .pg-info {
-    font-family: Poppins, sans-serif;
-    font-size: 13px;
-    color: #666;
-  }
-
-  .pg-btns {
-    display: flex;
-    gap: 8px;
-  }
-
-  .pg-btns .btn-outline {
-    text-decoration: none;
-    display: flex;
-    align-items: center;
-  }
-
   @media (max-width: 768px), (max-aspect-ratio: 1/1) {
     .btn-primary {
       width: 100%;
@@ -278,7 +194,6 @@
   }
 </style>
 
-<p class="count" id="donor-count">{{ count }} Total Donors</p>
 
 <div class="search-bar-row">
   <form method="GET" class="search-wrap">
@@ -295,7 +210,7 @@
 
 <div class="table-wrap">
   <div class="table-scroll">
-    <table class="dt" id="donor-table">
+    <table class="wf-table" id="donor-table">
       <thead>
         <tr>
           <th>ID</th>
@@ -318,7 +233,7 @@
             {% elif donor.status == 'ARCHIVED' %}
             <span class="badge badge-archived">Archived</span>
             {% else %}
-            <span class="badge" style="background: #888;">{{ donor.status|title }}</span>
+            <span class="badge badge-muted">{{ donor.status|title }}</span>
             {% endif %}
           </td>
           <td>
@@ -392,3 +307,5 @@
   });
 </script>
 {% endblock %}
+
+

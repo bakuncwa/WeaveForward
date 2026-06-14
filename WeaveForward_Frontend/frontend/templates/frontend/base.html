@@ -35,6 +35,7 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap"
     rel="stylesheet" />
+  {% block extra_css %}{% endblock %}
   <style>
     /* ── Design tokens ── */
     :root {
@@ -341,7 +342,7 @@
     }
 
     /* ══════════════════════════════
-       MOBILE  (≤ 768 px)
+       COLLAPSED SIDEBAR  (≤ 960 px)
     ══════════════════════════════ */
     @media (max-width: 768px), (max-aspect-ratio: 1/1) {
       .wf-sidebar {
@@ -365,6 +366,12 @@
 
       .wf-content {
         padding: 16px;
+      }
+
+      .btn-download-csv {
+        white-space: nowrap;
+        gap: 4px !important;
+        padding: 8px 16px 8px 8px !important;
       }
     }
   </style>
@@ -842,7 +849,9 @@
   </script>
   <script src="{% static 'frontend/js/back-navigation.js' %}"></script>
   <script src="{% static 'frontend/js/input-length-limit.js' %}"></script>
+  {% block extra_js %}{% endblock %}
 
 </body>
 
 </html>
+

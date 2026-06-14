@@ -1,4 +1,9 @@
 {% extends 'frontend/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'frontend/css/pagination.css' %}" />
+{% endblock %}
 
 {% block content %}
 <style>
@@ -157,27 +162,8 @@
     font-family: Poppins, sans-serif;
   }
 
-  .pagination-wrap {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 16px;
-    padding: 0 4px;
-    font-family: Poppins, sans-serif;
-  }
-
-  .pg-info {
-    font-size: 13px;
-    color: #666;
-  }
-
-  .pg-btns {
-    display: flex;
-    gap: 8px;
-  }
 </style>
 
-<p class="count">{{ count }} Pending TUAB Applications</p>
 
 <div class="search-bar-row">
   <form method="GET" class="search-wrap">

@@ -1,4 +1,11 @@
 {% extends 'frontend/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'frontend/css/tables.css' %}" />
+<link rel="stylesheet" href="{% static 'frontend/css/badges.css' %}" />
+<link rel="stylesheet" href="{% static 'frontend/css/pagination.css' %}" />
+{% endblock %}
 
 {% block content %}
 <style>
@@ -27,44 +34,10 @@
     .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: none; cursor: pointer; font-family: 'Poppins', sans-serif; font-weight: 500; transition: all .2s; text-decoration: none; }
     .btn-primary { background: var(--gold); color: #fff; border-radius: 8px; padding: 10px 20px; font-size: 14px; white-space: nowrap; }
     .btn-primary:hover { background: var(--gold-dark); }
-    .btn-outline { background: #f4f4f4; color: #666; border: 1px solid #e2e2e2; border-radius: 6px; padding: 5px 10px; font-size: 11px; width: 100%; text-align: center; }
-    .btn-outline:hover { border-color: #999; }
-
-    .table-wrap { background: #fff; border-radius: 14px; overflow: hidden; border: 1.5px solid var(--border); }
-    table.dt { width: max-content; min-width: 100%; border-collapse: collapse; }
-    table.dt th {
-      font-family: 'Poppins', sans-serif; font-size: 11px; font-weight: 600;
-      color: var(--muted); text-align: left; padding: 12px 10px;
-      border-bottom: 1.5px solid var(--border); background: #faf8f5; white-space: nowrap;
-    }
-    table.dt td {
-      font-family: 'Poppins', sans-serif; font-size: 12px; color: var(--text);
-      padding: 13px 10px; vertical-align: middle; border-bottom: 1px solid #ece8e2;
-    }
-    table.dt tr:last-child td { border-bottom: none; }
-
-    .badge { display: inline-block; border-radius: 6px; padding: 4px 12px; font-size: 11px; font-family: 'Poppins', sans-serif; font-weight: 500; color: #fff; }
-    .badge-claimed  { background: var(--blue); }
-    .badge-pending  { background: var(--gold); }
-    .badge-received { background: var(--green); }
-    .badge-rejected { background: #c94c4c; }
-    .badge-cancelled { background: #8c8c8c; }
-
-    .action-btns { display: flex; flex-direction: column; gap: 6px; width: 88px; }
-    .thumb { width: 58px; height: 58px; object-fit: cover; border-radius: 8px; display: block; background: #f2efe9; }
-    .table-scroll { width: 100%; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .pagination-wrap { display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding: 0 4px; }
-    .pg-info { font-family:'Poppins',sans-serif; font-size:13px; color:#888; }
-    .pg-btns { display: flex; gap: 8px; }
-    .pg-btns .btn-outline { width: auto; padding: 8px 16px; border-radius: 8px; font-weight: 500; }
-
     @media (max-width: 768px), (max-aspect-ratio: 1/1) {
       .search-bar-row { align-items: stretch; }
       .search-wrap { min-width: 0; width: 100%; }
       .btn-primary { width: 100%; }
-      table.dt { min-width: 840px; }
-      .pagination-wrap { flex-wrap: wrap; gap: 12px; }
-      .pg-btns { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
     }
 
     /* Modal Backdrop & Animation Styles matching Archive TUAB Modal */
@@ -150,7 +123,7 @@
 
 <div class="table-wrap">
   <div class="table-scroll">
-  <table class="dt" id="don-table">
+  <table class="wf-table wf-table-donations" id="don-table">
     <thead>
       <tr>
         <th>Pick-Up Date</th>
@@ -168,10 +141,14 @@
       <tr>
         <td style="white-space:nowrap">{{ donation.preferred_pickup_date|date:"m-d-Y" }}</td>
         <td style="white-space:nowrap">{{ donation.preferred_pickup_window_start|time:"g:i A" }} – {{ donation.preferred_pickup_window_end|time:"g:i A" }}</td>
-        <td style="max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ donation.pickup_display_address }}</td>
-        <td style="max-width:160px">
+        <td title="{{ donation.pickup_display_address }}">{{ donation.pickup_display_address|truncatechars:50 }}</td>
+        <td class="items-col">
             {% for item in donation.items %}
-                {{ item.lookup_details.clothing_type }} - {{ item.lookup_details.brand }} {{ item.lookup_details.dominant_fiber|capfirst }}{% if not forloop.last %}, {% endif %}
+                {% with fiber=item.lookup_details.dominant_fiber|capfirst %}
+                {% with item_label=item.lookup_details.clothing_type|add:" - "|add:item.lookup_details.brand|add:" "|add:fiber %}
+                <span title="{{ item_label }}">{{ item_label|truncatechars:50 }}</span>{% if not forloop.last %}, {% endif %}
+                {% endwith %}
+                {% endwith %}
             {% empty %}
                 -
             {% endfor %}
@@ -187,7 +164,7 @@
                 {{ donation.status }}
             </span>
         </td>
-        <td>{{ donation.claimed_by_tuab.business_name|default:"—" }}</td>
+        <td title="{{ donation.claimed_by_tuab.business_name|default:'—' }}">{{ donation.claimed_by_tuab.business_name|default:"—"|truncatechars:50 }}</td>
         <td>
           <div class="action-btns">
             <a href="{% url 'donor_view_donation' donation.donation_id %}" class="btn btn-outline">View</a>
@@ -327,3 +304,5 @@
   });
 </script>
 {% endblock %}
+
+

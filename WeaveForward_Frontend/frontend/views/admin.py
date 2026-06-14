@@ -8,6 +8,7 @@ from django.urls import reverse
 from django.utils.dateparse import parse_datetime
 from ..constants import BACKEND_BASE_URL
 from ..services import api_call, get_paginated_data, format_errors, get_fiber_choices
+from .donor import donor_impact_dashboard
 
 async def admin_view_donations(request):
     profile = request.user_profile
@@ -635,90 +636,8 @@ async def admin_archive_donation(request, donation_id):
 
 
 async def admin_impact_dashboard(request):
-    """View to display aggregate donation metrics and a Leaflet map of NCR barangays for Admin."""
-    profile = request.user_profile
-
-    # Extract filter parameters
-    date_from = request.GET.get('date_from', '')
-    date_to = request.GET.get('date_to', '')
-    pickup_city = request.GET.get('pickup_city', '')
-    clothing_type = request.GET.get('clothing_type', '')
-
-    api_params = {}
-    if date_from:
-        api_params['date_from'] = date_from
-    if date_to:
-        api_params['date_to'] = date_to
-    if pickup_city and pickup_city != 'All Cities':
-        api_params['pickup_city'] = pickup_city
-    if clothing_type and clothing_type != 'All Types':
-        api_params['clothing_type'] = clothing_type
-
-    # Fetch backend impact-dashboard metrics and clothing types concurrently
-    dashboard_data = {}
-    clothing_types = []
-    response, types_res = await asyncio.gather(
-        api_call(request, 'GET', 'impact-dashboard', params=api_params),
-        api_call(request, 'GET', 'clothing-types')
-    )
-    if response.status_code == 200:
-        dashboard_data = response.json()
-    else:
-        try:
-            response_data = response.json()
-        except Exception:
-            response_data = {}
-
-        detail_message = response_data.get('detail') if isinstance(response_data, dict) else None
-        error_messages = None
-        if isinstance(response_data, dict):
-            formatted = format_errors(response_data)
-            error_messages = [
-                f"{field}: {', '.join(map(str, value if isinstance(value, list) else [value]))}"
-                if isinstance(value, (list, tuple))
-                else f"{field}: {value}"
-                for field, value in formatted.items()
-            ]
-
-        if detail_message:
-            messages.error(request, detail_message)
-        elif error_messages:
-            for message in error_messages:
-                messages.error(request, message)
-        else:
-            messages.error(request, "Failed to load donation metrics from the backend.")
-    
-    if types_res.status_code == 200:
-        clothing_types = types_res.json()
-
-    # Static list of cities matching the templates
-    cities = [
-        "Manila", "Quezon City", "Caloocan", "Makati", "Pasig", "Taguig",
-        "Mandaluyong", "Pasay", "Parañaque", "Las Piñas", "Muntinlupa",
-        "Marikina", "San Juan", "Valenzuela", "Navotas", "Malabon", "Pateros"
-    ]
-
-    total_donations = dashboard_data.get('donations', 0)
-    claimed_count = dashboard_data.get('donors', 0)  # Map unique donors to the second stat slot
-    leaderboard = dashboard_data.get('top_donors', [])
-    donations_json = dashboard_data.get('barangay_breakdown', [])
-
-    return render(request, 'frontend/donor/donor_impact_dashboard.html', {
-        'page_title': 'Donation Impact Dashboard',
-        'user': profile,
-        'total_donations': total_donations,
-        'claimed_count': claimed_count,
-        'leaderboard': leaderboard,
-        'cities': cities,
-        'clothing_types': clothing_types,
-        'donations_json': donations_json,
-        'date_from': date_from,
-        'date_to': date_to,
-        'selected_city': pickup_city,
-        'selected_clothing_type': clothing_type,
-    })
-
-
+    """Admin uses the shared donation impact dashboard implementation."""
+    return await donor_impact_dashboard(request)
 
 async def admin_view_payments(request):
     """View Admin payment history."""

@@ -1,4 +1,11 @@
 {% extends 'frontend/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'frontend/css/tuab-tables.css' %}" />
+<link rel="stylesheet" href="{% static 'frontend/css/pagination.css' %}" />
+{% endblock %}
+
 {% block content %}
 <style>
   :root {
@@ -18,40 +25,34 @@
   /* Header */
   .inv-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
   .inv-title { font-family: 'Pixelify Sans', monospace; font-size: 32px; font-weight: 700; color: var(--text); }
-  .btn-download {
-    display: inline-flex; align-items: center; gap: 8px;
-    background: var(--green); color: #fff; border: none; border-radius: 8px;
-    padding: 10px 20px; font-family: 'Poppins', sans-serif; font-size: 13px;
-    font-weight: 600; cursor: pointer; text-decoration: none; transition: background .2s;
-  }
-  .btn-download:hover { background: #245f3d; }
-
   /* Category Summary */
-  .cat-section { background: var(--card); border-radius: 14px; padding: 16px 20px; margin-bottom: 20px; border: 1.5px solid var(--border); }
+  .cat-section { background: transparent; margin-bottom: 20px; border: none; }
   .cat-section-label { font-family: 'Poppins', sans-serif; font-size: 12px; font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: 6px; margin-bottom: 14px; }
   .cat-cards {
     display: flex;
     gap: 12px;
-    overflow-x: auto;
+    overflow-x: scroll;
     flex-wrap: nowrap;
-    padding-bottom: 10px;
+    padding-bottom: 14px;
+    scrollbar-width: auto;
   }
   .cat-cards::-webkit-scrollbar {
-    height: 6px;
+    height: 8px;
   }
   .cat-cards::-webkit-scrollbar-track {
-    background: #f5f4f0;
-    border-radius: 3px;
+    background: #ede8e2;
+    border-radius: 4px;
   }
   .cat-cards::-webkit-scrollbar-thumb {
     background: var(--gold);
-    border-radius: 3px;
+    border-radius: 4px;
+    min-width: 40px;
   }
   .cat-cards::-webkit-scrollbar-thumb:hover {
     background: var(--gold-dark);
   }
   .cat-card {
-    border: 1.5px solid var(--border); border-radius: 10px; padding: 14px 18px;
+    background: #fff; border: 1.5px solid var(--border); border-radius: 10px; padding: 14px 18px;
     min-width: 180px; flex: 1; flex-shrink: 0;
   }
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
@@ -62,18 +63,12 @@
   .cat-bar { height: 4px; border-radius: 2px; margin-top: 10px; }
 
   /* Inventory Grid */
-  .inv-section { background: var(--card); border-radius: 14px; border: 1.5px solid var(--border); overflow: hidden; }
   .inv-section-head {
     padding: 16px 20px; border-bottom: 1.5px solid var(--border);
     display: flex; justify-content: space-between; align-items: center; gap: 12px;
   }
   .inv-section-left { display: flex; align-items: center; gap: 10px; }
   .inv-section-title { font-family: 'Poppins', sans-serif; font-size: 14px; font-weight: 600; color: var(--text); }
-  .inv-count-badge {
-    background: #fef7ea; color: var(--gold); border: 1px solid #f5d898;
-    border-radius: 20px; padding: 2px 10px; font-size: 11px; font-weight: 600;
-    font-family: 'Poppins', sans-serif;
-  }
   .inv-section-right { display: flex; align-items: center; gap: 10px; }
   .btn-audit-hist {
     background: var(--gold); color: #fff; border: none; border-radius: 8px;
@@ -81,6 +76,7 @@
     font-weight: 600; cursor: pointer; text-decoration: none; transition: background .2s;
   }
   .btn-audit-hist:hover { background: var(--gold-dark); }
+  .audit-hist-row { text-align: right; margin-bottom: 24px; }
   .search-box {
     display: flex; align-items: center; gap: 6px;
     background: #fef7ea; border: 1.5px solid #f5d898; border-radius: 8px;
@@ -92,45 +88,40 @@
     width: 160px;
   }
 
-  /* Table */
-  .inv-table { width: 100%; min-width: 720px; border-collapse: collapse; table-layout: auto; }
-  .inv-table th {
-    padding: 10px 16px; font-family: 'Poppins', sans-serif; font-size: 10px;
-    font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px;
-    text-align: left; border-bottom: 1.5px solid var(--border); background: #fafaf8;
-    white-space: nowrap; word-break: normal; overflow-wrap: normal;
-  }
-  .inv-table td {
-    padding: 14px 16px; font-family: 'Poppins', sans-serif; font-size: 13px;
-    font-weight: 600; color: var(--text); border-bottom: 1px solid #f0ede8;
-    vertical-align: middle; word-break: normal; overflow-wrap: normal;
-  }
-  .inv-table tr:last-child td { border-bottom: none; }
-  .inv-table tr:hover td { background: #fafaf8; }
-
   /* Weight bar */
   .weight-cell { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
   .weight-bar-wrap { width: 80px; height: 6px; background: #f0ede8; border-radius: 3px; overflow: hidden; flex-shrink: 0; }
   .weight-bar { height: 100%; border-radius: 3px; }
 
-  /* Status badge */
-  .status-badge {
-    display: inline-flex; align-items: center; gap: 4px;
-    padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
-    font-family: 'Poppins', sans-serif; white-space: nowrap;
-  }
-  .badge-audit { background: #fff3cd; color: #856404; border: 1px solid #ffd166; }
-  .badge-active { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-
   /* Action buttons */
   .act-btn {
-    padding: 5px 12px; border-radius: 6px; font-family: 'Poppins', sans-serif;
-    font-size: 11px; font-weight: 600; cursor: pointer; border: none; transition: .2s;
+    padding: 1px 28px; border-radius: 999px; font-family: 'Poppins', sans-serif;
+    font-size: 10px; font-weight: 500; cursor: pointer; border: none; transition: .2s;
+    background: #FFF1D8; color: #000;
+    box-shadow: 0 3px 10px rgba(0,0,0,.2);
+    white-space: nowrap;
+    flex-shrink: 0;
   }
-  .act-update { background: #e8f5e9; color: #2d7a4f; margin-right: 4px; }
-  .act-update:hover { background: #c8e6c9; }
-  .act-delete { background: #fde8e6; color: var(--red); }
-  .act-delete:hover { background: #f5c6c2; }
+  .act-btn:hover { background: #f5d898; }
+
+  .inv-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+
+  #inv-table .status-badge {
+    padding: 1px 28px; border-radius: 999px;
+    font-size: 10px; font-weight: 500;
+    font-family: 'Poppins', sans-serif; border: none;
+    min-width: calc(56px * 2 + 4px);
+    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 3px 10px rgba(0,0,0,.2);
+  }
 
   /* Footer */
   .inv-footer { padding: 12px 20px; font-family: 'Poppins', sans-serif; font-size: 12px; color: var(--muted); }
@@ -177,18 +168,41 @@
     font-size: 13px; font-weight: 600; cursor: pointer;
   }
 
-  /* Undo toast */
+  /* Undo bar */
   .undo-toast {
-    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
-    z-index: 9500; background: #fff; border-radius: 12px; padding: 14px 20px;
-    box-shadow: 0 8px 32px rgba(0,0,0,.18); display: flex; align-items: center;
-    gap: 12px; min-width: 320px; border: 1.5px solid var(--border);
+    width: 100%;
+    background: #fffaf0;
+    border: 1.5px solid #f5d898;
+    border-radius: 18px;
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
     font-family: 'Poppins', sans-serif;
   }
-  .undo-icon { width: 28px; height: 28px; border: 2px solid var(--gold); border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; flex-shrink: 0; }
+
+  #inv-table th:nth-child(5),
+  #inv-table td:nth-child(5) {
+    width: 180px;
+  }
+  .undo-icon { width: 22px; height: 22px; border: 2px solid var(--gold); border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; flex-shrink: 0; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .undo-msg { font-size: 13px; font-weight: 600; color: var(--text); flex: 1; }
-  .undo-btn { font-size: 13px; font-weight: 700; color: var(--gold); cursor: pointer; background: none; border: none; font-family: 'Poppins', sans-serif; padding: 0; }
+  .undo-btn {
+    min-width: 86px;
+    border: none;
+    border-radius: 999px;
+    background: #fffaf0;
+    color: var(--gold);
+    box-shadow: 0 3px 10px rgba(232, 160, 32, 0.22);
+    cursor: pointer;
+    font-family: 'Poppins', sans-serif;
+    font-size: 13px;
+    font-weight: 300;
+    padding: 4px 16px;
+  }
+  .undo-btn:hover { background: #fff4db; }
 
   .hidden { display: none !important; }
 
@@ -197,7 +211,7 @@
     .inv-section-left,
     .inv-section-right { width: 100%; flex-wrap: wrap; }
     .inv-section-right > * { flex: 1 1 auto; }
-    .btn-audit-hist { text-align: center; }
+    .audit-hist-row .btn-audit-hist { display: block; text-align: center; width: 100%; }
     .search-box { width: 100%; }
     .search-box input { width: 100%; }
     .cat-cards { grid-template-columns: 1fr 1fr; }
@@ -216,7 +230,7 @@
     </div>
     <div class="cat-cards">
       {% for cat in category_summary %}
-      {% if forloop.counter == 1 %}<div class="cat-card" style="border-left:4px solid #4299e1">{% elif forloop.counter == 2 %}<div class="cat-card" style="border-left:4px solid #48bb78">{% elif forloop.counter == 3 %}<div class="cat-card" style="border-left:4px solid #9f7aea">{% elif forloop.counter == 4 %}<div class="cat-card" style="border-left:4px solid #ed8936">{% else %}<div class="cat-card" style="border-left:4px solid #f687b3">{% endif %}
+      {% if forloop.counter == 1 %}<div class="cat-card" style="border:2px solid #4299e1">{% elif forloop.counter == 2 %}<div class="cat-card" style="border:2px solid #48bb78">{% elif forloop.counter == 3 %}<div class="cat-card" style="border:2px solid #9f7aea">{% elif forloop.counter == 4 %}<div class="cat-card" style="border:2px solid #ed8936">{% else %}<div class="cat-card" style="border:2px solid #f687b3">{% endif %}
         <div class="cat-card-name">{{ cat.category|upper }}</div>
         <div class="cat-card-val">{{ cat.total_weight_kg|floatformat:1 }}</div>
         <div class="cat-card-unit">kg</div>
@@ -226,17 +240,26 @@
   </div>
   {% endif %}
 
+  <!-- Undo bar (hidden by default) -->
+  <div id="undo-toast" class="undo-toast hidden">
+    <div class="undo-icon"></div>
+    <span class="undo-msg">Your item has been deleted</span>
+    <button class="undo-btn" onclick="undoArchive()">Undo</button>
+  </div>
+
+  <div class="audit-hist-row">
+    <a href="#" class="btn-audit-hist" onclick="viewAuditHistory(event)">View Audit History</a>
+  </div>
+
   <!-- Inventory Grid -->
-  <div class="inv-section">
+  <div class="inv-section table-wrap">
     <div class="inv-section-head">
       <div class="inv-section-left">
         <svg width="16" height="16" fill="none" stroke="#888" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
         <span class="inv-section-title">Inventory Grid</span>
-        <span class="inv-count-badge" id="item-count">{{ inventory_items|length }} items</span>
+        <span class="inv-count-badge" id="item-count" style="background:#d4edda;color:#155724;border-color:#c3e6cb">{{ count }} items</span>
       </div>
       <div class="inv-section-right">
-        <a href="#" class="btn-audit-hist" onclick="viewAuditHistory(event)">View Audit History</a>
-        <button type="button" class="btn-audit-hist" onclick="exportInventoryCSV()" style="background:#2d7a4f;color:#fff;border:none;cursor:pointer;">Export CSV</button>
         <form method="GET" style="display:inline-block; margin:0;">
           <div class="search-box">
             <svg width="13" height="13" fill="none" stroke="#c0952a" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -246,16 +269,9 @@
       </div>
     </div>
 
-    <!-- Undo toast (hidden by default) -->
-    <div id="undo-toast" class="undo-toast hidden">
-      <div class="undo-icon"></div>
-      <span class="undo-msg">Your item has been deleted</span>
-      <button class="undo-btn" onclick="undoArchive()">Undo</button>
-    </div>
-
-    <div style="overflow-x:auto">
+    <div class="table-scroll">
       {% if inventory_items %}
-      <table class="inv-table" id="inv-table">
+      <table class="wf-table" id="inv-table">
         <thead>
           <tr>
             <th>Inventory ID</th>
@@ -289,14 +305,16 @@
               {% endif %}
             </td>
             <td>
-              <button class="act-btn act-update"
-                onclick="openUpdateModal({{ item.inventory_id }}, {{ item.current_weight_kg }}, {{ item.low_stock_threshold }})">
-                Update
-              </button>
-              <button class="act-btn act-delete"
-                onclick="openArchiveModal({{ item.inventory_id }}, {{ item.current_weight_kg }})">
-                Delete
-              </button>
+              <div class="inv-actions">
+                <button class="act-btn act-update"
+                  onclick="openUpdateModal({{ item.inventory_id }}, {{ item.current_weight_kg }}, {{ item.low_stock_threshold }})">
+                  Update
+                </button>
+                <button class="act-btn act-delete"
+                  onclick="openArchiveModal({{ item.inventory_id }}, {{ item.current_weight_kg }})">
+                  Delete
+                </button>
+              </div>
             </td>
           </tr>
           {% endwith %}
@@ -313,18 +331,18 @@
     <div class="inv-footer" id="inv-footer" style="border-bottom: 1px solid var(--border);">
       Showing {{ inventory_items|length }} of {{ count }} items
     </div>
+  </div>
+</div>
 
-    <div class="pagination-wrap" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 20px;">
-      <div class="pg-info" style="font-family: 'Poppins', sans-serif; font-size: 13px; color: var(--muted);">Page {{ current_page }} of {{ total_pages }}</div>
-      <div class="pg-btns" style="display: flex; gap: 8px;">
-        {% if has_prev %}
-        <a href="?page={{ current_page|add:-1 }}{% if q %}&q={{ q }}{% endif %}" class="btn-download" style="background: var(--gold); padding: 6px 12px; font-size: 11px;">❮ Previous</a>
-        {% endif %}
-        {% if has_next %}
-        <a href="?page={{ current_page|add:1 }}{% if q %}&q={{ q }}{% endif %}" class="btn-download" style="background: var(--gold); padding: 6px 12px; font-size: 11px;">Next ❯</a>
-        {% endif %}
-      </div>
-    </div>
+<div class="pagination-wrap">
+  <div class="pg-info">Page {{ current_page }} of {{ total_pages }}</div>
+  <div class="pg-btns">
+    {% if has_prev %}
+    <a href="?page={{ current_page|add:-1 }}{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline">❮ Previous</a>
+    {% endif %}
+    {% if has_next %}
+    <a href="?page={{ current_page|add:1 }}{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline">Next ❯</a>
+    {% endif %}
   </div>
 </div>
 
@@ -630,3 +648,5 @@
   document.getElementById('archive-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeArchiveModal(); });
 </script>
 {% endblock %}
+
+

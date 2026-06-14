@@ -98,6 +98,18 @@
       min-height: 0;
       scrollbar-width: thin;
       scrollbar-color: var(--gold) #fff1d8;
+      padding-right: 10px;
+    }
+    .leaderboard-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+    .leaderboard-scroll::-webkit-scrollbar-track {
+      background: #fff1d8;
+      border-radius: 3px;
+    }
+    .leaderboard-scroll::-webkit-scrollbar-thumb {
+      background: var(--gold);
+      border-radius: 3px;
     }
 
     /* RIGHT panel (map) */
@@ -219,7 +231,7 @@
       <div class="leaderboard-scroll">
         {% for entry in leaderboard %}
           <div class="leaderboard-row">
-            <span>{{ entry.full_name|default:"Anonymous Donor" }}</span>
+            <span title="{{ entry.full_name|default:'Anonymous Donor' }}" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px;">{{ entry.full_name|default:"Anonymous Donor" }}</span>
             <span style="color:var(--gold);font-weight:500">{{ entry.donation_count }}</span>
           </div>
         {% empty %}
@@ -281,3 +293,5 @@
   });
 </script>
 {% endblock %}
+
+
