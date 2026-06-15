@@ -2,9 +2,13 @@
 WeaveForward Cloud SQL Loader — entry point.
 
 Bootstraps the Cloud SQL production instance in order:
-  1. migrations  — apply all pending Django DB migrations
-  2. admin       — seed / update the admin user account
-  3. catalog     — sync brand-fiber lookup catalog from CSV
+  1. migrations - apply all pending Django DB migrations
+  2. fixtures   - upsert demo/UAT seed data with stable primary keys
+  3. admin      - seed / update the admin user account from env vars
+  4. catalog    - sync brand-fiber lookup catalog from CSV
+
+Admin runs after fixtures so ADMIN_PASSWORD from the environment always wins
+over fixture data.
 
 Run locally (dev):
   cd WeaveForward_Backend
@@ -44,9 +48,9 @@ from deployment.cloudsql.loaders import migrations, admin, catalog, fixtures
 
 PIPELINE = [
     ("migrations", migrations.apply),
+    ("fixtures",   fixtures.apply),
     ("admin",      admin.apply),
     ("catalog",    catalog.apply),
-    ("fixtures",   fixtures.apply),
 ]
 
 
