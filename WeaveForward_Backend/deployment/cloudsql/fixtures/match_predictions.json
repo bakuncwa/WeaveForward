@@ -10,8 +10,8 @@
     "biodeg_target_fiber": "92.00",
     "match_prob": "1.00000",
     "distance_km": "1.594",
-    "is_archived_version": false,
-    "recommendation_status": "PENDING",
+    "is_archived_version": true,
+    "recommendation_status": "ACCEPTED",
     "tuab_rejection_reason": null,
     "predicted_at": "2026-06-10T08:55:32.488Z"
   }
@@ -27,7 +27,7 @@
     "biodeg_target_fiber": "92.00",
     "match_prob": "1.00000",
     "distance_km": "1.594",
-    "is_archived_version": false,
+    "is_archived_version": true,
     "recommendation_status": "PENDING",
     "tuab_rejection_reason": null,
     "predicted_at": "2026-06-10T08:55:41.629Z"
@@ -44,7 +44,7 @@
     "biodeg_target_fiber": "92.00",
     "match_prob": "0.00005",
     "distance_km": "1.594",
-    "is_archived_version": false,
+    "is_archived_version": true,
     "recommendation_status": "PENDING",
     "tuab_rejection_reason": null,
     "predicted_at": "2026-06-10T08:55:50.800Z"
@@ -61,7 +61,7 @@
     "biodeg_target_fiber": "92.00",
     "match_prob": "0.00009",
     "distance_km": "1.594",
-    "is_archived_version": false,
+    "is_archived_version": true,
     "recommendation_status": "PENDING",
     "tuab_rejection_reason": null,
     "predicted_at": "2026-06-10T09:11:34.902Z"
@@ -78,7 +78,7 @@
     "biodeg_target_fiber": "95.00",
     "match_prob": "0.99999",
     "distance_km": "1.594",
-    "is_archived_version": false,
+    "is_archived_version": true,
     "recommendation_status": "ACCEPTED",
     "tuab_rejection_reason": null,
     "predicted_at": "2026-06-10T09:11:45.352Z"
@@ -95,7 +95,7 @@
     "biodeg_target_fiber": "78.00",
     "match_prob": "0.99951",
     "distance_km": "1.594",
-    "is_archived_version": false,
+    "is_archived_version": true,
     "recommendation_status": "PENDING",
     "tuab_rejection_reason": null,
     "predicted_at": "2026-06-10T09:11:45.388Z"
@@ -112,10 +112,95 @@
     "biodeg_target_fiber": "92.00",
     "match_prob": "1.00000",
     "distance_km": "1.594",
-    "is_archived_version": false,
+    "is_archived_version": true,
     "recommendation_status": "PENDING",
     "tuab_rejection_reason": null,
     "predicted_at": "2026-06-10T09:17:19.790Z"
+  }
+},
+{
+  "model": "backend.matchprediction",
+  "pk": 86,
+  "fields": {
+    "item": 53,
+    "tuab": 19,
+    "is_match": true,
+    "pct_target_fiber": "100.00",
+    "biodeg_target_fiber": "92.00",
+    "match_prob": "1.00000",
+    "distance_km": "1.594",
+    "is_archived_version": false,
+    "recommendation_status": "PENDING",
+    "tuab_rejection_reason": null,
+    "predicted_at": "2026-06-16T08:51:53.887Z"
+  }
+},
+{
+  "model": "backend.matchprediction",
+  "pk": 87,
+  "fields": {
+    "item": 52,
+    "tuab": 19,
+    "is_match": true,
+    "pct_target_fiber": "100.00",
+    "biodeg_target_fiber": "92.00",
+    "match_prob": "1.00000",
+    "distance_km": "1.594",
+    "is_archived_version": false,
+    "recommendation_status": "PENDING",
+    "tuab_rejection_reason": null,
+    "predicted_at": "2026-06-16T08:51:53.887Z"
+  }
+},
+{
+  "model": "backend.matchprediction",
+  "pk": 88,
+  "fields": {
+    "item": 56,
+    "tuab": 19,
+    "is_match": true,
+    "pct_target_fiber": "100.00",
+    "biodeg_target_fiber": "95.00",
+    "match_prob": "0.99999",
+    "distance_km": "1.594",
+    "is_archived_version": false,
+    "recommendation_status": "PENDING",
+    "tuab_rejection_reason": null,
+    "predicted_at": "2026-06-16T08:51:53.887Z"
+  }
+},
+{
+  "model": "backend.matchprediction",
+  "pk": 89,
+  "fields": {
+    "item": 57,
+    "tuab": 19,
+    "is_match": true,
+    "pct_target_fiber": "100.00",
+    "biodeg_target_fiber": "78.00",
+    "match_prob": "0.99951",
+    "distance_km": "1.594",
+    "is_archived_version": false,
+    "recommendation_status": "PENDING",
+    "tuab_rejection_reason": null,
+    "predicted_at": "2026-06-16T08:51:53.887Z"
+  }
+},
+{
+  "model": "backend.matchprediction",
+  "pk": 90,
+  "fields": {
+    "item": 54,
+    "tuab": 19,
+    "is_match": false,
+    "pct_target_fiber": "0.00",
+    "biodeg_target_fiber": "92.00",
+    "match_prob": "0.00005",
+    "distance_km": "1.594",
+    "is_archived_version": false,
+    "recommendation_status": "PENDING",
+    "tuab_rejection_reason": null,
+    "predicted_at": "2026-06-16T08:51:53.887Z"
   }
 }
 ]

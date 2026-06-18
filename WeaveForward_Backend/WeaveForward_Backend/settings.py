@@ -76,9 +76,9 @@ ALLOWED_HOSTS = _get_list_env(
     required=IS_PRODUCTION,
 )
 
-CORS_ALLOWED_ORIGINS = []
+CORS_ALLOWED_ORIGINS = _get_list_env("CORS_ALLOWED_ORIGINS", default=[] if not IS_PRODUCTION else None, required=False)
 CORS_ALLOW_ALL_ORIGINS = False
-CSRF_TRUSTED_ORIGINS = []
+CSRF_TRUSTED_ORIGINS = _get_list_env("CSRF_TRUSTED_ORIGINS", default=[] if not IS_PRODUCTION else None, required=False)
 
 AUTH_COOKIE_SECURE = _get_bool_env("AUTH_COOKIE_SECURE", default=IS_PRODUCTION)
 AUTH_COOKIE_SAMESITE = "Lax"

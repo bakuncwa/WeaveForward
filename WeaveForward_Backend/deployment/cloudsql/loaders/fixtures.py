@@ -30,7 +30,7 @@ _FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 FIXTURE_ORDER = [
     "uploads",
     "users",
-    "brand_fiber_lookups",
+    # brand_fiber_lookups handled by catalog.py via bulk_create — skipped here
     "donations",
     "donation_items",
     "match_predictions",

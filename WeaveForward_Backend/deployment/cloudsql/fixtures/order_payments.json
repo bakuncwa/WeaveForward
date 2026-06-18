@@ -22,5 +22,17 @@
     "created_at": "2026-06-10T09:22:05.500Z",
     "updated_at": "2026-06-10T09:22:07.378Z"
   }
+},
+{
+  "model": "backend.orderpayment",
+  "pk": 3,
+  "fields": {
+    "order": 3,
+    "amount": "111.00",
+    "status": "SUCCESS",
+    "payment_reference": "755a4dde-0b68-4fad-975a-0d372f9e7175",
+    "created_at": "2026-06-16T08:16:45.440Z",
+    "updated_at": "2026-06-16T08:16:47.041Z"
+  }
 }
 ]

@@ -55,22 +55,22 @@ GS_PROJECT_ID=YOUR_PROJECT_ID
 
 ```bash
 # Create instance
-gcloud sql instances create weaveforward-db \
-  --database-version=MYSQL_8_0 \
+gcloud sql instances create weaveforward-system \
+  --database-version=MYSQL_8_4 \
   --tier=db-f1-micro \
   --region=asia-southeast1
 
 # Create database
-gcloud sql databases create weaveforward_db --instance=weaveforward-db
+gcloud sql databases create weaveforward_db --instance=weaveforward-system
 
 # Set root password
 gcloud sql users set-password root \
-  --instance=weaveforward-db \
+  --instance=weaveforward-system \
   --password=YOUR_DB_PASSWORD
 
 # Get connection name (needed for Cloud Run)
-gcloud sql instances describe weaveforward-db --format="value(connectionName)"
-# Output: YOUR_PROJECT_ID:asia-southeast1:weaveforward-db
+gcloud sql instances describe weaveforward-system --format="value(connectionName)"
+# Output: weaveforward-system:asia-southeast1:weaveforward-system
 ```
 
 Set in backend Cloud Run environment variables:
@@ -79,7 +79,7 @@ Set in backend Cloud Run environment variables:
 DB_NAME=weaveforward_db
 DB_USER=root
 DB_PASSWORD=YOUR_DB_PASSWORD
-CLOUD_SQL_CONNECTION_NAME=YOUR_PROJECT_ID:asia-southeast1:weaveforward-db
+CLOUD_SQL_CONNECTION_NAME=weaveforward-system:asia-southeast1:weaveforward-system
 ```
 
 ---
@@ -108,11 +108,11 @@ gcloud run deploy weaveforward-backend \
   --region asia-southeast1 \
   --platform managed \
   --allow-unauthenticated \
-  --add-cloudsql-instances YOUR_PROJECT_ID:asia-southeast1:weaveforward-db \
+  --add-cloudsql-instances weaveforward-system:asia-southeast1:weaveforward-system \
   --set-env-vars "ENVIRONMENT=production,DEBUG=False,\
 SECRET_KEY=YOUR_SECRET_KEY,\
 DB_NAME=weaveforward_db,DB_USER=root,DB_PASSWORD=YOUR_DB_PASSWORD,\
-CLOUD_SQL_CONNECTION_NAME=YOUR_PROJECT_ID:asia-southeast1:weaveforward-db,\
+CLOUD_SQL_CONNECTION_NAME=weaveforward-system:asia-southeast1:weaveforward-system,\
 GS_BUCKET_NAME=weaveforward-media,GS_PROJECT_ID=YOUR_PROJECT_ID,\
 ALLOWED_HOSTS=weaveforward-backend-xxxx-as.a.run.app,\
 AUTH_COOKIE_SECURE=True,\
@@ -152,7 +152,7 @@ After the backend is deployed for the first time, run migrations and seed the ad
 gcloud run jobs create bootstrap \
   --image gcr.io/YOUR_PROJECT_ID/weaveforward-backend \
   --region asia-southeast1 \
-  --add-cloudsql-instances YOUR_PROJECT_ID:asia-southeast1:weaveforward-db \
+  --add-cloudsql-instances weaveforward-system:asia-southeast1:weaveforward-system \
   --set-env-vars "ENVIRONMENT=production,..." \
   --command "python" \
   --args "manage.py,bootstrap_environment"

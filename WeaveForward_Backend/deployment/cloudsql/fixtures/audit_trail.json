@@ -250,5 +250,101 @@
     "ip_address": "127.0.0.1",
     "occurred_at": "2026-06-10T09:22:07.379Z"
   }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 34,
+  "fields": {
+    "actor": 19,
+    "entity_type": "MatchPrediction",
+    "action": "ACCEPT_RECOMMENDATION",
+    "fields_modified": "recommendation_status",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-16T07:39:33.047Z"
+  }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 35,
+  "fields": {
+    "actor": 19,
+    "entity_type": "users",
+    "action": "CREDENTIAL_UPDATE",
+    "fields_modified": "[\"password\",\"is_2fa_enabled\",\"totp_secret\"]",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-16T07:43:44.757Z"
+  }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 36,
+  "fields": {
+    "actor": 19,
+    "entity_type": "users",
+    "action": "CREDENTIAL_UPDATE",
+    "fields_modified": "[\"is_2fa_enabled\",\"totp_secret\"]",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-16T07:51:07.577Z"
+  }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 37,
+  "fields": {
+    "actor": 19,
+    "entity_type": "users",
+    "action": "CREDENTIAL_UPDATE",
+    "fields_modified": "[\"max_distance_km\",\"min_biodeg_score\",\"target_fibers\",\"latitude\",\"longitude\",\"display_address\"]",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-16T07:51:07.611Z"
+  }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 38,
+  "fields": {
+    "actor": 19,
+    "entity_type": "donations",
+    "action": "STATUS_CHANGE",
+    "fields_modified": "[\"status\",\"claimed_by_tuab\",\"delivery_method\"]",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-16T08:16:47.042Z"
+  }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 39,
+  "fields": {
+    "actor": 19,
+    "entity_type": "donations",
+    "action": "STATUS_CHANGE",
+    "fields_modified": "[\"status\"]",
+    "ip_address": "52.76.164.226",
+    "occurred_at": "2026-06-16T08:49:33.227Z"
+  }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 40,
+  "fields": {
+    "actor": 19,
+    "entity_type": "inventory_ledger",
+    "action": "CONSUMPTION_LOG",
+    "fields_modified": "[\"source_donation\",\"usage_amount_kg\",\"weight_before_kg\",\"current_weight_kg\"]",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-16T08:51:44.016Z"
+  }
+},
+{
+  "model": "backend.audittrail",
+  "pk": 41,
+  "fields": {
+    "actor": 19,
+    "entity_type": "donations",
+    "action": "STATUS_CHANGE",
+    "fields_modified": "[\"status\"]",
+    "ip_address": "127.0.0.1",
+    "occurred_at": "2026-06-16T08:51:44.017Z"
+  }
 }
 ]
