@@ -35,7 +35,7 @@
     .tab-btn.active { border-bottom-color: #e8a020; }
 
     .search-wrap { position: relative; flex-shrink: 0; }
-    .search-input { padding: 9px 14px 9px 36px; width: 200px; border: 1.5px solid #fff1d8; border-radius: 8px; background: #fff1d8; color: #c0952a; font-family: 'Poppins', sans-serif; font-size: 13px; outline: none; }
+    .search-input { padding: 9px 14px 9px 36px; width: min(520px, 46vw); border: 1.5px solid #fff1d8; border-radius: 8px; background: #fff1d8; color: #c0952a; font-family: 'Poppins', sans-serif; font-size: 13px; outline: none; }
     .search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); pointer-events: none; }
 
     .modal-overlay { position: fixed; inset: 0; z-index: 9500; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.45); }
@@ -63,7 +63,7 @@
       </div>
       <div class="search-wrap">
         <svg class="search-icon" width="15" height="15" fill="none" stroke="#c0952a" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input class="search-input" id="dash-search" placeholder="Search Donations" value="{{ search_query }}" onkeypress="if(event.key === 'Enter') filterTable()"/>
+        <input class="search-input" id="dash-search" placeholder="Search by donor, brand, clothing type, fiber, or condition" value="{{ search_query }}" onkeypress="if(event.key === 'Enter') filterTable()"/>
       </div>
     </div>
 
@@ -195,6 +195,12 @@
       window.location.href = url.toString();
   }
 
+  function filterMarkers(tab) {
+    Object.values(dashMarkers).forEach(m => {
+      m._tab === tab ? m.addTo(dashMap) : dashMap.removeLayer(m);
+    });
+  }
+
   function setTab(tab) {
     activeTab = tab;
     document.getElementById('tab-available').classList.toggle('active', tab === 'available');
@@ -206,6 +212,7 @@
     document.getElementById('dash-table-count').textContent = `Showing ${list.length} of ${meta.total} items`;
 
     updatePagination();
+    filterMarkers(tab);
   }
 
   function filterTable() {
@@ -292,6 +299,8 @@
     }
     if (map) L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
 
+    DONATIONS.available.forEach(d => { d._tab = 'available'; });
+    DONATIONS.claimed.forEach(d => { d._tab = 'claimed'; });
     [...DONATIONS.available, ...DONATIONS.claimed].forEach(d => {
       if (map && d.lat && d.lng) {
         const popupEl = document.createElement('div');
@@ -301,6 +310,7 @@
         popupEl.appendChild(document.createElement('br'));
         popupEl.appendChild(document.createTextNode(d.address));
         dashMarkers[d.id] = L.marker([d.lat, d.lng]).addTo(map).bindPopup(popupEl);
+        dashMarkers[d.id]._tab = d._tab;
       }
     });
     setTab(activeTab);

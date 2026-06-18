@@ -1,5 +1,6 @@
 import json
 import asyncio
+from datetime import datetime
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.contrib import messages
@@ -526,4 +527,5 @@ async def donor_impact_dashboard(request):
         'date_to': date_to,
         'selected_city': pickup_city,
         'selected_clothing_type': clothing_type,
+        'today_iso': datetime.now().strftime('%Y-%m-%d'),
     })

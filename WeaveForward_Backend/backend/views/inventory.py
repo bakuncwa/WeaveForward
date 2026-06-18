@@ -172,7 +172,7 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
         try:
             usage = Decimal(str(raw_usage))
         except (InvalidOperation, TypeError):
-            return Response({'error': 'Invalid usage amount.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Please enter a valid number for usage amount.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if usage <= 0:
             return Response({'error': 'Usage amount must be greater than zero.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -213,7 +213,7 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
         exit_state_raw = (request.data.get('exit_state') or '').upper()
         valid_exit_states = [c[0] for c in InventoryExitState.choices]
         if exit_state_raw not in valid_exit_states:
-            return Response({'error': f'Invalid exit state. Choose from: {", ".join(valid_exit_states)}'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Exit state must be Upcycled, Shredded, or Landfill.'}, status=status.HTTP_400_BAD_REQUEST)
 
         instance.lifecycle_status = InventoryLifecycleStatus.ARCHIVED
         instance.exit_state = exit_state_raw

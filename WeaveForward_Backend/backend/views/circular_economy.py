@@ -51,9 +51,9 @@ class TuabCircularEconomyViewSet(viewsets.GenericViewSet):
                     else:
                         donation_filters["updated_at__gte"] = dt_from
                 else:
-                    errors["date_from"] = "Invalid date_from."
+                    errors["date_from"] = "Please enter a valid start date in YYYY-MM-DD format."
             except ValueError:
-                errors["date_from"] = "Invalid date_from."
+                errors["date_from"] = "Please enter a valid start date in YYYY-MM-DD format."
 
         if dt := request.query_params.get("date_to"):
             try:
@@ -66,9 +66,9 @@ class TuabCircularEconomyViewSet(viewsets.GenericViewSet):
                     else:
                         donation_filters["updated_at__lte"] = dt_to
                 else:
-                    errors["date_to"] = "Invalid date_to."
+                    errors["date_to"] = "Please enter a valid end date in YYYY-MM-DD format."
             except ValueError:
-                errors["date_to"] = "Invalid date_to."
+                errors["date_to"] = "Please enter a valid end date in YYYY-MM-DD format."
 
         if "updated_at__gte" in donation_filters and "updated_at__lte" in donation_filters:
             if donation_filters["updated_at__gte"] > donation_filters["updated_at__lte"]:

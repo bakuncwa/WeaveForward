@@ -12,7 +12,6 @@ from ..models import User, UserAccountStatus, UserOperationalStatus
 from ..services.auth_service import reset_user_password, validate_reset_token
 from ..services.location_service import get_city_and_barangay
 from ..services.brand_fiber_lookup_service import get_allowed_fibers
-from ..services.upload_service import build_upload_url
 
 
 class DonorRegisterSerializer(serializers.ModelSerializer):
@@ -30,14 +29,14 @@ class DonorRegisterSerializer(serializers.ModelSerializer):
         # Email
         email = data.get('email', '')
         if not re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', email):
-            raise serializers.ValidationError({'email': "Invalid email."})
+            raise serializers.ValidationError({'email': "Please enter a valid email address."})
         if User.objects.filter(email__iexact=email).exists():
             raise serializers.ValidationError({'email': "Email already taken."})
 
         # Phone
         contact_no = data.get('contact_no', '')
         if not re.match(r'^\+63\d{10}$', contact_no):
-            raise serializers.ValidationError({'contact_no': "Invalid phone number."})
+            raise serializers.ValidationError({'contact_no': "Enter a valid Philippine mobile number starting with +63 (e.g., +639171234567)."})
         if User.objects.filter(contact_no=contact_no).exists():
             raise serializers.ValidationError({'contact_no': "Phone already taken."})
 
@@ -76,14 +75,14 @@ class TUABRegisterSerializer(serializers.ModelSerializer):
         # Email
         email = data.get('email', '')
         if not re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', email):
-            raise serializers.ValidationError({'email': "Invalid email."})
+            raise serializers.ValidationError({'email': "Please enter a valid email address."})
         if User.objects.filter(email__iexact=email).exists():
             raise serializers.ValidationError({'email': "Email already taken."})
 
         # Phone
         contact_no = data.get('contact_no', '')
         if not re.match(r'^\+63\d{10}$', contact_no):
-            raise serializers.ValidationError({'contact_no': "Invalid phone number."})
+            raise serializers.ValidationError({'contact_no': "Enter a valid Philippine mobile number starting with +63 (e.g., +639171234567)."})
         if User.objects.filter(contact_no=contact_no).exists():
             raise serializers.ValidationError({'contact_no': "Phone already taken."})
 
@@ -95,13 +94,13 @@ class TUABRegisterSerializer(serializers.ModelSerializer):
         # File
         documentation = self.initial_data.get('documentation')
         if os.path.splitext(documentation.name)[1].lower() not in TUAB_REG_ALLOWED_EXTENSIONS or documentation.size > TUAB_REG_MAX_SIZE:
-            raise serializers.ValidationError({'documentation': "Invalid file."})
+            raise serializers.ValidationError({'documentation': "Please upload a PDF, JPG, or PNG file under 50 MB."})
 
         # Fibers
         input_fibers = [f for f in (data.get('target_fibers') or '').split(',') if f]
         for f in input_fibers:
             if f not in get_allowed_fibers():
-                raise serializers.ValidationError({'target_fibers': f"Invalid fiber: {f}"})
+                raise serializers.ValidationError({'target_fibers': f"{f} is not a recognized fiber type."})
         data['target_fibers'] = ','.join(input_fibers)
 
         # Location
@@ -176,11 +175,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         # Token
         refresh = self.get_token(self.user)
-        access = refresh.access_token
-        access['upload'] = build_upload_url(self.user.upload, self.context)
         return {
             'refresh': str(refresh),
-            'access': str(access),
+            'access': str(refresh.access_token),
             'user_id': self.user.user_id,
             'role': self.user.role,
         }

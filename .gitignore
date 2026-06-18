@@ -5,6 +5,7 @@ __pycache__/
 
 # Django
 db.sqlite3-journal
+*.sqlite3
 # Ignore local SQLite DB for frontend if you want, but usually kept for sessions if small.
 # WeaveForward_Frontend/db.sqlite3
 

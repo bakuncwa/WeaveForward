@@ -207,7 +207,7 @@ class MatchRecommendationViewSet(viewsets.GenericViewSet, PaginatedResponseMixin
             match_pred.recommendation_status = MatchRecommendationStatus.ACCEPTED
             match_pred.save(update_fields=['recommendation_status'])
             log_audit(actor=request.user, entity_type='MatchPrediction', action='ACCEPT_RECOMMENDATION',
-                      fields_modified='recommendation_status', ip_address=get_client_ip(request))
+                      fields_modified=['recommendation_status'], ip_address=get_client_ip(request))
 
             donor = donation.donor
             already_notified = MatchPrediction.objects.filter(
@@ -271,7 +271,7 @@ class MatchRecommendationViewSet(viewsets.GenericViewSet, PaginatedResponseMixin
             match_pred.tuab_rejection_reason = reason if reason and reason.strip() else None
             match_pred.save(update_fields=['recommendation_status', 'tuab_rejection_reason'])
             log_audit(actor=request.user, entity_type='MatchPrediction', action='REJECT_RECOMMENDATION',
-                      fields_modified='recommendation_status,tuab_rejection_reason', ip_address=get_client_ip(request))
+                      fields_modified=['recommendation_status', 'tuab_rejection_reason'], ip_address=get_client_ip(request))
 
             donor = donation.donor
             already_notified = MatchPrediction.objects.filter(

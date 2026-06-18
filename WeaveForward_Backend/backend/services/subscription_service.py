@@ -198,7 +198,10 @@ def _activate_subscription_from_maya_verification(payload):
 
     if failed_verification and maya_card_token_id:
         with transaction.atomic():
-            user = User.objects.select_for_update().get(role=UserRole.TUAB, maya_card_id=maya_card_token_id)
+            try:
+                user = User.objects.select_for_update().get(role=UserRole.TUAB, maya_card_id=maya_card_token_id)
+            except User.DoesNotExist:
+                return {"status_code": 200, "detail": "Maya card token not found; webhook acknowledged."}
             user.maya_card_id, user.updated_at = None, timezone.now(); user.save(update_fields=['maya_card_id', 'updated_at'])
         return {"status_code": 200, "detail": "Maya card verification failed and the card token was cleared."}
 
@@ -219,7 +222,10 @@ def _activate_subscription_from_maya_verification(payload):
     if v_resp.status_code != 200 or v_resp.json().get('status') not in ['PAYMENT_SUCCESS', 'VOIDED']:
         return {"status_code": 200, "detail": "Maya verification failed."}
 
-    user = User.objects.get(role=UserRole.TUAB, maya_card_id=maya_card_token_id)
+    try:
+        user = User.objects.get(role=UserRole.TUAB, maya_card_id=maya_card_token_id)
+    except User.DoesNotExist:
+        return {"status_code": 200, "detail": "Maya card token not found; webhook acknowledged."}
 
     if user.status != UserAccountStatus.ACTIVE:
         return {"status_code": 200, "detail": "Maya webhook ignored because the matched TUAB is not active."}

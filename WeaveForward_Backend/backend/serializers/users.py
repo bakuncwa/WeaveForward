@@ -118,12 +118,12 @@ class DonorUpdateSerializer(serializers.ModelSerializer):
 
         # 2. Upload
         if data.get('upload') and (data['upload'].size > 5242880 or not data['upload'].name.lower().endswith(('.jpg', '.jpeg', '.png'))):
-            raise serializers.ValidationError({'upload': "Invalid image."})
+            raise serializers.ValidationError({'upload': "Please upload a JPG or PNG image under 5 MB."})
 
         # 3. Contact No
         contact_no = data.get('contact_no')
         if contact_no and not re.match(r'^\+63\d{10}$', contact_no):
-            raise serializers.ValidationError({'contact_no': "Phone must be +63 followed by 10 digits."})
+            raise serializers.ValidationError({'contact_no': "Enter a valid Philippine mobile number starting with +63 (e.g., +639171234567)."})
 
         # 4. Location
         lat, lng = data.get('latitude'), data.get('longitude')
@@ -194,22 +194,22 @@ class TuabUpdateSerializer(serializers.ModelSerializer):
 
         # 2. Upload
         if data.get('upload') and (data['upload'].size > 5242880 or not data['upload'].name.lower().endswith(('.jpg', '.jpeg', '.png'))):
-            raise serializers.ValidationError({'upload': "Invalid image."})
+            raise serializers.ValidationError({'upload': "Please upload a JPG or PNG image under 5 MB."})
 
         # 3. Contact No
         contact_no = data.get('contact_no')
         if contact_no and not re.match(r'^\+63\d{10}$', contact_no):
-            raise serializers.ValidationError({'contact_no': "Phone must be +63 followed by 10 digits."})
+            raise serializers.ValidationError({'contact_no': "Enter a valid Philippine mobile number starting with +63 (e.g., +639171234567)."})
 
         # 4. Target Fibers
         if 'target_fibers' in data:
             fibers = data.get('target_fibers')
             input_fibers = [f for f in (fibers or '').split(',') if f]
             if not input_fibers:
-                raise serializers.ValidationError({'target_fibers': "At least one target fiber is required."})
+                raise serializers.ValidationError({'target_fibers': "Select at least one fiber type you accept."})
             for f in input_fibers:
                 if f not in get_allowed_fibers():
-                    raise serializers.ValidationError({'target_fibers': f"Invalid fiber: {f}"})
+                    raise serializers.ValidationError({'target_fibers': f"{f} is not a recognized fiber type."})
             data['target_fibers'] = ','.join(input_fibers)
 
         # 5. Location
@@ -423,12 +423,12 @@ class DonorUpdateSelfSerializer(serializers.ModelSerializer):
 
         # 2. Upload
         if data.get('upload') and (data['upload'].size > 5242880 or not data['upload'].name.lower().endswith(('.jpg', '.jpeg', '.png'))):
-            raise serializers.ValidationError({'upload': "Invalid image."})
+            raise serializers.ValidationError({'upload': "Please upload a JPG or PNG image under 5 MB."})
 
         # 3. Contact No
         contact_no = data.get('contact_no')
         if contact_no and not re.match(r'^\+63\d{10}$', contact_no):
-            raise serializers.ValidationError({'contact_no': "Phone must be +63 followed by 10 digits."})
+            raise serializers.ValidationError({'contact_no': "Enter a valid Philippine mobile number starting with +63 (e.g., +639171234567)."})
 
         # 4. Location
         lat, lng = data.get('latitude'), data.get('longitude')
@@ -501,22 +501,22 @@ class TuabUpdateSelfSerializer(serializers.ModelSerializer):
 
         # 2. Upload
         if data.get('upload') and (data['upload'].size > 5242880 or not data['upload'].name.lower().endswith(('.jpg', '.jpeg', '.png'))):
-            raise serializers.ValidationError({'upload': "Invalid image."})
+            raise serializers.ValidationError({'upload': "Please upload a JPG or PNG image under 5 MB."})
 
         # 3. Contact No
         contact_no = data.get('contact_no')
         if contact_no and not re.match(r'^\+63\d{10}$', contact_no):
-            raise serializers.ValidationError({'contact_no': "Phone must be +63 followed by 10 digits."})
+            raise serializers.ValidationError({'contact_no': "Enter a valid Philippine mobile number starting with +63 (e.g., +639171234567)."})
 
         # 4. Target Fibers
         if 'target_fibers' in data:
             fibers = data.get('target_fibers')
             input_fibers = [f for f in (fibers or '').split(',') if f]
             if not input_fibers:
-                raise serializers.ValidationError({'target_fibers': "At least one target fiber is required."})
+                raise serializers.ValidationError({'target_fibers': "Select at least one fiber type you accept."})
             for f in input_fibers:
                 if f not in get_allowed_fibers():
-                    raise serializers.ValidationError({'target_fibers': f"Invalid fiber: {f}"})
+                    raise serializers.ValidationError({'target_fibers': f"{f} is not a recognized fiber type."})
             data['target_fibers'] = ','.join(input_fibers)
 
         # 5. Location

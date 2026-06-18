@@ -1,5 +1,5 @@
 import pyotp
-from django.db.models import F, Func, ExpressionWrapper, FloatField
+from django.db.models import F, Func, ExpressionWrapper, FloatField, Q
 from django.db import transaction
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
@@ -127,7 +127,15 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
         
         # 4. Apply Category Filter if present
         if request.query_params.get('category'):
-            queryset = queryset.filter(target_fibers=request.query_params.get('category'))
+            category = request.query_params.get('category')
+            queryset = queryset.filter(
+                Q(target_fibers=category)
+                | Q(target_fibers__startswith=f"{category},")
+                | Q(target_fibers__endswith=f",{category}")
+                | Q(target_fibers__contains=f",{category},")
+                | Q(target_fibers__contains=f", {category},")
+                | Q(target_fibers__endswith=f", {category}")
+            )
 
         # 5. Distance Calculation & Sorting (Database Level)
         lat = request.query_params.get('lat')
@@ -182,7 +190,7 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
         if_match = request.headers.get('If-Match')
         current_etag = build_updated_at_etag(instance)
         if not if_match or not matches_if_match(current_etag, if_match):
-            return Response({"detail": "Invalid or missing ETag."}, status=status.HTTP_412_PRECONDITION_FAILED)
+            return Response({"detail": "Your session has expired. Please refresh the page and try again."}, status=status.HTTP_412_PRECONDITION_FAILED)
 
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -190,11 +198,19 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
         if request.query_params.get('validate_only') == 'true':
             return Response({"detail": "Validation successful."}, status=status.HTTP_200_OK)
 
-        fields_modified = list(serializer.validated_data.keys())
+        fields_modified = []
+        for field_name, new_value in serializer.validated_data.items():
+            if field_name in {'password', 'upload'}:
+                fields_modified.append(field_name)
+                continue
+
+            if getattr(instance, field_name) != new_value:
+                fields_modified.append(field_name)
+
         if instance.role == UserRole.TUAB:
             critical = ['max_distance_km', 'min_biodeg_score', 'target_fibers', 'latitude', 'longitude', 'display_address']
             # Put critical fields at the FRONT so they are prioritized before the 100-char cutoff
-            fields_modified = critical + [f for f in fields_modified if f not in critical]
+            fields_modified = [f for f in critical if f in fields_modified] + [f for f in fields_modified if f not in critical]
 
         ip_address = get_client_ip(request)
         with transaction.atomic():
@@ -228,7 +244,7 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
         status_input = request.data.get('status')
         rejection_reason = request.data.get('rejection_reason')
         if status_input not in [UserAccountStatus.ACTIVE, UserAccountStatus.REJECTED]:
-            return Response({"detail": "Invalid status. Must be ACTIVE or REJECTED."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Status must be either ACTIVE or REJECTED."}, status=status.HTTP_400_BAD_REQUEST)
 
         if status_input == UserAccountStatus.REJECTED:
             if not rejection_reason or not str(rejection_reason).strip():
@@ -487,7 +503,7 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
             elif role == UserRole.TUAB:
                 serializer = TUABRegisterSerializer(data=request.data)
             else:
-                return Response({"error": "Invalid role specified."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "Please specify a valid user role (Donor or TUAB)."}, status=status.HTTP_400_BAD_REQUEST)
 
         if serializer.is_valid():
             if role == UserRole.TUAB:

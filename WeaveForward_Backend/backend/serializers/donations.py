@@ -188,7 +188,7 @@ class DonationCreateSerializer(serializers.ModelSerializer):
         if image:
             valid_exts = ['.jpg', '.jpeg', '.png']
             if image.size > 5 * 1024 * 1024 or os.path.splitext(image.name)[1].lower() not in valid_exts:
-                raise serializers.ValidationError({'donation_image': "Invalid image."})
+                raise serializers.ValidationError({'donation_image': "Please upload a JPG or PNG image under 5 MB."})
 
         # 2. Coordinate & Location Check
         lat, lng = data['pickup_latitude'], data['pickup_longitude']
@@ -199,7 +199,7 @@ class DonationCreateSerializer(serializers.ModelSerializer):
             data['_loc_barangay'] = loc['barangay']
             data['_loc_city'] = loc['city']
         except Exception:
-            raise serializers.ValidationError({'pickup_latitude': "Invalid pickup location."})
+            raise serializers.ValidationError({'pickup_latitude': "We couldn't find that location. Please make sure the pickup address is within Metro Manila."})
 
         # 3. Date & Time Business Rules
         pick_date = data.get('preferred_pickup_date')
@@ -209,13 +209,13 @@ class DonationCreateSerializer(serializers.ModelSerializer):
         pick_date_local = timezone.localtime(pick_date)
 
         if pick_date_local.date() < now_local.date():
-            raise serializers.ValidationError({'preferred_pickup_date': "Invalid pickup schedule."})
+            raise serializers.ValidationError({'preferred_pickup_date': "Pickup date can't be in the past. Please choose today or a future date."})
         if pick_date_local.date() > (now_local + timedelta(days=29)).date():
-            raise serializers.ValidationError({'preferred_pickup_date': "Invalid pickup schedule."})
+            raise serializers.ValidationError({'preferred_pickup_date': "Pickup date must be within the next 30 days."})
         if pick_date_local.date() == now_local.date() and win_start and win_start < now_local.time():
-            raise serializers.ValidationError({'preferred_pickup_window_start': "Invalid pickup schedule."})
+            raise serializers.ValidationError({'preferred_pickup_window_start': "Pickup window can't start before the current time for same-day pickups."})
         if win_start and win_end and win_start >= win_end:
-            raise serializers.ValidationError({'preferred_pickup_window_start': "Invalid pickup schedule."})
+            raise serializers.ValidationError({'preferred_pickup_window_start': "End time must be after the start time."})
 
         # 4. Donor Validation
         donor_id = data.get('donor_user_id')
@@ -224,12 +224,12 @@ class DonationCreateSerializer(serializers.ModelSerializer):
                 donor_id = request.user.user_id
                 data['donor_user_id'] = donor_id
             else:
-                raise serializers.ValidationError({'donor_user_id': "Invalid donor."})
+                raise serializers.ValidationError({'donor_user_id': "Please provide a valid donor account."})
         donor = User.objects.filter(pk=donor_id).first()
         if not donor or donor.role != UserRole.DONOR or donor.status != UserAccountStatus.ACTIVE:
-            raise serializers.ValidationError({'donor_user_id': "Invalid donor."})
+            raise serializers.ValidationError({'donor_user_id': "This donor account doesn't exist or is no longer active."})
         if request and request.user.role == UserRole.DONOR and donor_id != request.user.user_id:
-            raise serializers.ValidationError({'donor_user_id': "Invalid donor."})
+            raise serializers.ValidationError({'donor_user_id': "You can only create donations under your own account."})
 
         # 5. Items Validation
         try:
@@ -247,7 +247,7 @@ class DonationCreateSerializer(serializers.ModelSerializer):
                     raise ValueError
             data['items'] = items
         except Exception:
-            raise serializers.ValidationError({'items': "Invalid items."})
+            raise serializers.ValidationError({'items': "Each item needs a recognized brand/fiber type, a weight greater than 0 kg, and a condition rating."})
 
         return data
 
@@ -306,11 +306,11 @@ class QuotationRequestSerializer(serializers.ModelSerializer):
             for field in ['dropoff_lat', 'dropoff_lng']:
                 raw_val = request.data.get(field)
                 if raw_val and not re.match(r'^-?\d+\.\d{7}$', str(raw_val)):
-                    raise serializers.ValidationError({field: "Invalid dropoff location."})
+                    raise serializers.ValidationError({field: "Coordinates must be in decimal format with exactly 7 decimal places (e.g. 14.5995000)."})
 
         location_info = get_city_and_barangay(lat, lng)
         if not location_info:
-            raise serializers.ValidationError({"dropoff_lat": "Invalid dropoff location."})
+            raise serializers.ValidationError({"dropoff_lat": "We couldn't find that location. Please make sure the dropoff address is within Metro Manila."})
 
         # 2. Scheduled Time Validation
         if donation and scheduled_time:
@@ -318,7 +318,7 @@ class QuotationRequestSerializer(serializers.ModelSerializer):
             window_end = donation.preferred_pickup_window_end
 
             if scheduled_time < window_start or scheduled_time > window_end:
-                raise serializers.ValidationError({"scheduled_time": "Invalid scheduled time."})
+                raise serializers.ValidationError({"scheduled_time": "Scheduled time must fall within the donor's preferred pickup window."})
 
             scheduled_at = timezone.localtime(donation.preferred_pickup_date).replace(
                 hour=scheduled_time.hour,
@@ -328,7 +328,7 @@ class QuotationRequestSerializer(serializers.ModelSerializer):
             )
 
             if scheduled_at < timezone.now():
-                raise serializers.ValidationError({"scheduled_time": "Invalid scheduled time."})
+                raise serializers.ValidationError({"scheduled_time": "Scheduled time can't be in the past."})
             
         return data
 
@@ -358,19 +358,19 @@ class DonationItemUpdateSerializer(serializers.ModelSerializer):
         # 1. REMOVING (Archive Case)
         if is_archived:
             if not item_id:
-                raise serializers.ValidationError("item_id is required to remove an item.")
+                raise serializers.ValidationError("Please specify which item to remove.")
             return data
 
         # 2. ADDING (New Item Case)
         if not item_id:
             if not data.get('lookup') or not data.get('weight_kg') or not data.get('condition_rating'):
-                raise serializers.ValidationError("New items require: lookup_id, weight_kg, and condition_rating.")
+                raise serializers.ValidationError("New items need a brand/fiber type, weight, and condition rating.")
             return data
         
         # 3. EDITING (Update Case)
         update_fields = {'lookup', 'weight_kg', 'condition_rating'}
         if not any(f in data for f in update_fields):
-            raise serializers.ValidationError(f"Update for item {item_id} must provide at least one field to change.")
+            raise serializers.ValidationError(f"Please provide at least one field to update for item {item_id}.")
 
         return data
 
@@ -404,16 +404,16 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
         if image:
             valid_exts = ['.jpg', '.jpeg', '.png']
             if image.size > 5 * 1024 * 1024 or os.path.splitext(image.name)[1].lower() not in valid_exts:
-                raise serializers.ValidationError({'donation_image': "Invalid image."})
+                raise serializers.ValidationError({'donation_image': "Please upload a JPG or PNG image under 5 MB."})
 
         # 2. Location Validation
         if 'pickup_latitude' in self.initial_data or 'pickup_longitude' in self.initial_data:
             raw_lat = str(self.initial_data.get('pickup_latitude') or '').strip()
             raw_lng = str(self.initial_data.get('pickup_longitude') or '').strip()
             if not raw_lat or not raw_lng:
-                raise serializers.ValidationError({'pickup_latitude': "Both coordinates are required."})
+                raise serializers.ValidationError({'pickup_latitude': "Both latitude and longitude are required."})
             if 'pickup_display_address' not in data or not (data.get('pickup_display_address') or '').strip():
-                raise serializers.ValidationError({'pickup_display_address': "This field is required when updating coordinates."})
+                raise serializers.ValidationError({'pickup_display_address': "Please provide a street address when updating coordinates."})
             try:
                 loc = get_city_and_barangay(Decimal(raw_lat), Decimal(raw_lng))
                 if not loc:
@@ -423,7 +423,7 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
                 data['pickup_barangay'] = loc['barangay']
                 data['pickup_city'] = loc['city']
             except Exception:
-                raise serializers.ValidationError({'pickup_latitude': "Invalid pickup location."})
+                raise serializers.ValidationError({'pickup_latitude': "We couldn't find that location. Please make sure the pickup address is within Metro Manila."})
 
         # 3. Date & Time Business Rules
         now_local = timezone.localtime(timezone.now())
@@ -434,19 +434,19 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
 
         pick_date_local = timezone.localtime(pick_date)
         if is_updating_schedule and pick_date_local.date() < now_local.date():
-            raise serializers.ValidationError({'preferred_pickup_date': "Invalid pickup schedule."})
+            raise serializers.ValidationError({'preferred_pickup_date': "Pickup date can't be in the past. Please choose today or a future date."})
         if 'preferred_pickup_date' in data and pick_date_local.date() > (now_local + timedelta(days=29)).date():
-            raise serializers.ValidationError({'preferred_pickup_date': "Invalid pickup schedule."})
+            raise serializers.ValidationError({'preferred_pickup_date': "Pickup date must be within the next 30 days."})
         if is_updating_schedule and pick_date_local.date() == now_local.date() and win_start and win_start < now_local.time():
-            raise serializers.ValidationError({'preferred_pickup_window_start': "Invalid pickup schedule."})
+            raise serializers.ValidationError({'preferred_pickup_window_start': "Pickup window can't start before the current time for same-day pickups."})
         if win_start and win_end and win_start >= win_end:
-            raise serializers.ValidationError({'preferred_pickup_window_start': "Invalid pickup schedule."})
+            raise serializers.ValidationError({'preferred_pickup_window_start': "End time must be after the start time."})
 
         # 4. Cross-check: auto_archive_at must be after preferred_pickup_date
         if is_updating_schedule or 'auto_archive_at' in data:
             archive = data.get('auto_archive_at') if 'auto_archive_at' in data else self.instance.auto_archive_at
             if archive and pick_date and timezone.localtime(archive).date() <= timezone.localtime(pick_date).date():
-                raise serializers.ValidationError({'auto_archive_at': "Invalid auto-archive date."})
+                raise serializers.ValidationError({'auto_archive_at': "Archive date must be after the scheduled pickup date."})
 
         # 5. Items Validation
         items_json = data.get('items')
@@ -470,7 +470,7 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
 
                 data['items'] = items
             except Exception:
-                raise serializers.ValidationError({'items': "Invalid items."})
+                raise serializers.ValidationError({'items': "Each item needs a recognized brand/fiber type, a weight greater than 0 kg, and a condition rating."})
 
         return data
 
@@ -510,7 +510,7 @@ class DonationResolveSerializer(serializers.Serializer):
 
                 data['items'] = items
             except Exception:
-                raise serializers.ValidationError({'items': "Invalid items."})
+                raise serializers.ValidationError({'items': "Each item must have a recognized fiber type, a positive weight, and a condition rating."})
 
         return data
 
@@ -547,10 +547,10 @@ class AdminDonationUpdateSerializer(serializers.ModelSerializer):
         if image:
             valid_exts = ['.jpg', '.jpeg', '.png']
             if image.size > 5 * 1024 * 1024 or os.path.splitext(image.name)[1].lower() not in valid_exts:
-                raise serializers.ValidationError({'donation_image': "Invalid image."})
+                raise serializers.ValidationError({'donation_image': "Please upload a JPG or PNG image under 5 MB."})
 
         if 'auto_archive_at' in data and data['auto_archive_at'] and data['auto_archive_at'] < timezone.now():
-            raise serializers.ValidationError({'auto_archive_at': "Invalid auto-archive date."})
+            raise serializers.ValidationError({'auto_archive_at': "Archive date must be in the future."})
 
         # 2. State-based Lock Validation
         if current_delivery_method == DonationDeliveryMethod.DELIVERY:
@@ -560,7 +560,7 @@ class AdminDonationUpdateSerializer(serializers.ModelSerializer):
                     'preferred_pickup_date', 'preferred_pickup_window_start', 'preferred_pickup_window_end'
                 })
                 if locked:
-                    raise serializers.ValidationError("Cannot edit pickup details once the delivery has been claimed.")
+                    raise serializers.ValidationError("Pickup details can't be edited once a delivery has been claimed.")
             elif current_status in [DonationStatus.IN_TRANSIT, DonationStatus.RECEIVED, DonationStatus.REJECTED]:
                 locked = set(data.keys()).intersection({
                     'dropoff_display_address', 'dropoff_latitude', 'dropoff_longitude',
@@ -568,16 +568,16 @@ class AdminDonationUpdateSerializer(serializers.ModelSerializer):
                     'preferred_pickup_date', 'preferred_pickup_window_start', 'preferred_pickup_window_end'
                 })
                 if locked:
-                    raise serializers.ValidationError("Cannot edit pickup/dropoff details for this donation.")
+                    raise serializers.ValidationError("Pickup and dropoff details can't be edited for in-transit or completed donations.")
 
         # 3. Coordinate & Location Validation
         if 'pickup_latitude' in self.initial_data or 'pickup_longitude' in self.initial_data:
             raw_lat = str(self.initial_data.get('pickup_latitude') or '').strip()
             raw_lng = str(self.initial_data.get('pickup_longitude') or '').strip()
             if not raw_lat or not raw_lng:
-                raise serializers.ValidationError({'pickup_latitude': "Both coordinates are required."})
+                raise serializers.ValidationError({'pickup_latitude': "Both latitude and longitude are required."})
             if 'pickup_display_address' not in data or not (data.get('pickup_display_address') or '').strip():
-                raise serializers.ValidationError({'pickup_display_address': "This field is required when updating coordinates."})
+                raise serializers.ValidationError({'pickup_display_address': "Please provide a street address when updating coordinates."})
             try:
                 loc = get_city_and_barangay(Decimal(raw_lat), Decimal(raw_lng))
                 if not loc:
@@ -587,26 +587,26 @@ class AdminDonationUpdateSerializer(serializers.ModelSerializer):
                 data['pickup_barangay'] = loc['barangay']
                 data['pickup_city'] = loc['city']
             except Exception:
-                raise serializers.ValidationError({'pickup_latitude': "Invalid pickup location."})
+                raise serializers.ValidationError({'pickup_latitude': "We couldn't find that location. Please make sure the pickup address is within Metro Manila."})
 
         # 4. Dropoff Coordinate & Location Validation
         if current_delivery_method == DonationDeliveryMethod.PICKUP:
             for field in ['dropoff_display_address', 'dropoff_latitude', 'dropoff_longitude']:
                 if field in data:
-                    raise serializers.ValidationError({field: "Dropoff details are not allowed for PICKUP donations."})
+                    raise serializers.ValidationError({field: "Dropoff details aren't applicable for self-pickup donations."})
         elif 'dropoff_latitude' in self.initial_data or 'dropoff_longitude' in self.initial_data:
             raw_lat = str(self.initial_data.get('dropoff_latitude') or '').strip()
             raw_lng = str(self.initial_data.get('dropoff_longitude') or '').strip()
             if not raw_lat or not raw_lng:
-                raise serializers.ValidationError({'dropoff_latitude': "Both coordinates are required."})
+                raise serializers.ValidationError({'dropoff_latitude': "Both latitude and longitude are required."})
             if 'dropoff_display_address' not in data or not (data.get('dropoff_display_address') or '').strip():
-                raise serializers.ValidationError({'dropoff_display_address': "This field is required when updating coordinates."})
+                raise serializers.ValidationError({'dropoff_display_address': "Please provide a street address when updating coordinates."})
             try:
                 loc = get_city_and_barangay(Decimal(raw_lat), Decimal(raw_lng))
                 if not loc:
                     raise ValueError
             except Exception:
-                raise serializers.ValidationError({'dropoff_latitude': "Invalid dropoff location."})
+                raise serializers.ValidationError({'dropoff_latitude': "We couldn't find that location. Please make sure the dropoff address is within Metro Manila."})
 
         # 5. Date & Time Business Rules
         now_local = timezone.localtime(timezone.now())
@@ -617,19 +617,19 @@ class AdminDonationUpdateSerializer(serializers.ModelSerializer):
 
         pick_date_local = timezone.localtime(pick_date)
         if is_updating_schedule and pick_date_local.date() < now_local.date():
-            raise serializers.ValidationError({'preferred_pickup_date': "Invalid pickup schedule."})
+            raise serializers.ValidationError({'preferred_pickup_date': "Pickup date can't be in the past. Please choose today or a future date."})
         if 'preferred_pickup_date' in data and pick_date_local.date() > (now_local + timedelta(days=29)).date():
-            raise serializers.ValidationError({'preferred_pickup_date': "Invalid pickup schedule."})
+            raise serializers.ValidationError({'preferred_pickup_date': "Pickup date must be within the next 30 days."})
         if is_updating_schedule and pick_date_local.date() == now_local.date() and win_start and win_start < now_local.time():
-            raise serializers.ValidationError({'preferred_pickup_window_start': "Invalid pickup schedule."})
+            raise serializers.ValidationError({'preferred_pickup_window_start': "Pickup window can't start before the current time for same-day pickups."})
         if win_start and win_end and win_start >= win_end:
-            raise serializers.ValidationError({'preferred_pickup_window_start': "Invalid pickup schedule."})
+            raise serializers.ValidationError({'preferred_pickup_window_start': "End time must be after the start time."})
 
         # 6. Cross-check: auto_archive_at must be after preferred_pickup_date
         if is_updating_schedule or 'auto_archive_at' in data:
             archive = data.get('auto_archive_at') if 'auto_archive_at' in data else self.instance.auto_archive_at
             if archive and pick_date and timezone.localtime(archive).date() <= timezone.localtime(pick_date).date():
-                raise serializers.ValidationError({'auto_archive_at': "Invalid auto-archive date."})
+                raise serializers.ValidationError({'auto_archive_at': "Archive date must be after the scheduled pickup date."})
 
         # 7. Items Validation
         items_json = data.get('items')
@@ -653,6 +653,6 @@ class AdminDonationUpdateSerializer(serializers.ModelSerializer):
 
                 data['items'] = items
             except Exception:
-                raise serializers.ValidationError({'items': "Invalid items."})
+                raise serializers.ValidationError({'items': "Each item needs a recognized brand/fiber type, a weight greater than 0 kg, and a condition rating."})
 
         return data

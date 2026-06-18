@@ -17,6 +17,11 @@ def log_audit(actor, entity_type, action, ip_address=None, fields_modified=None)
     """
     Utility to create an AuditTrail record.
     """
+    if ip_address is not None:
+        max_length = AuditTrail._meta.get_field('ip_address').max_length
+        if max_length and len(ip_address) > max_length:
+            ip_address = ip_address[:max_length]
+
     if fields_modified is not None:
         if isinstance(fields_modified, str):
             serialized_fields_modified = fields_modified

@@ -35,7 +35,6 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
     serializer_class = DonationDetailSerializer
     filter_backends = [filters.SearchFilter]
     search_fields = [
-        '=donation_id', 
         'donor__email', 
         'donor__first_name', 
         'donor__last_name', 
@@ -219,7 +218,7 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
 
         if_match = request.headers.get('If-Match')
         if not if_match or not matches_if_match(build_updated_at_etag(donation), if_match):
-            exc = APIException("Invalid or missing ETag.")
+            exc = APIException("Your session has expired. Please refresh the page and try again.")
             exc.status_code = 412
             raise exc
 
@@ -267,7 +266,7 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
         # Request freshness
         if_match = request.headers.get('If-Match')
         if not if_match or not matches_if_match(build_updated_at_etag(donation), if_match):
-            exc = APIException("Invalid or missing ETag.")
+            exc = APIException("Your session has expired. Please refresh the page and try again.")
             exc.status_code = 412
             raise exc
 
@@ -381,14 +380,14 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
         # 2. ETag Verification
         if_match = request.headers.get('If-Match')
         if not if_match or not matches_if_match(build_updated_at_etag(donation), if_match):
-            exc = APIException("Invalid or missing ETag.")
+            exc = APIException("Your session has expired. Please refresh the page and try again.")
             exc.status_code = 412
             raise exc
 
         # 3. Request Data
         delivery_method = request.data.get('delivery_method')
         if delivery_method not in ['PICKUP', 'DELIVERY']:
-            exc = APIException("Invalid delivery_method. Must be 'PICKUP' or 'DELIVERY'.")
+            exc = APIException("Delivery method must be either PICKUP or DELIVERY.")
             exc.status_code = 400
             raise exc
 

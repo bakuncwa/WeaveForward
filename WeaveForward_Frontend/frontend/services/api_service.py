@@ -14,8 +14,16 @@ async_client._cookies.extract_cookies = lambda _response: None
 
 
 async def api_call(request, method, endpoint, **kwargs):
+    headers = kwargs.setdefault("headers", {})
+
     if csrf_token := request.COOKIES.get("csrftoken"):
-        kwargs.setdefault("headers", {}).setdefault("X-CSRFToken", csrf_token)
+        headers.setdefault("X-CSRFToken", csrf_token)
+
+    # Forward the original client IP chain to the backend.
+    if forwarded_for := request.META.get("HTTP_X_FORWARDED_FOR"):
+        headers.setdefault("X-Forwarded-For", forwarded_for)
+    elif remote_addr := request.META.get("REMOTE_ADDR"):
+        headers.setdefault("X-Forwarded-For", remote_addr)
 
     url = f"{BACKEND_BASE_URL.rstrip('/')}/{endpoint.lstrip('/')}"
     cookies = dict(request.COOKIES.items())

@@ -144,20 +144,17 @@ def create_donation(*, request):
             entity_type="donations",
             action="STATUS_CHANGE",
             ip_address=get_client_ip(request),
-            fields_modified={
-                "donation_id": donation.donation_id,
-                "donor_id": donation.donor_id,
-                "upload_id": donation.upload_id,
-                "status": donation.status,
-                "auto_archive_at": donation.auto_archive_at.isoformat() if donation.auto_archive_at else None,
-                "pickup_city": donation.pickup_city,
-                "pickup_barangay": donation.pickup_barangay,
-                "pickup_latitude": str(donation.pickup_latitude),
-                "pickup_longitude": str(donation.pickup_longitude),
-                "preferred_pickup_date": donation.preferred_pickup_date.isoformat() if donation.preferred_pickup_date else None,
-                "preferred_pickup_window_start": str(donation.preferred_pickup_window_start),
-                "preferred_pickup_window_end": str(donation.preferred_pickup_window_end)
-            }
+            fields_modified=[
+                "status",
+                "auto_archive_at",
+                "pickup_city",
+                "pickup_barangay",
+                "pickup_latitude",
+                "pickup_longitude",
+                "preferred_pickup_date",
+                "preferred_pickup_window_start",
+                "preferred_pickup_window_end",
+            ]
         )
 
         # 5. AI Prediction Trigger

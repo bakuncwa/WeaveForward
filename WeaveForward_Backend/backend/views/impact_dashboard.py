@@ -86,14 +86,16 @@ class ImpactDashboardViewSet(viewsets.GenericViewSet):
         if city_filter:
             filters["pickup_city__iexact"] = city_filter
 
-        today = timezone.now().date()
+        today = timezone.localdate()
         current_timezone = timezone.get_current_timezone()
 
         date_from = request.query_params.get("date_from")
         if date_from:
             parsed_date_from = parse_date(date_from)
-            if parsed_date_from is None or parsed_date_from > today:
-                raise ValidationError({"date": "Invalid date."})
+            if parsed_date_from is None:
+                raise ValidationError({"date": "Please enter a valid date in YYYY-MM-DD format."})
+            if parsed_date_from > today:
+                raise ValidationError({"date": "Date cannot be in the future."})
             date_from_bound = datetime.combine(parsed_date_from, time.min)
             date_from_bound = timezone.make_aware(date_from_bound, current_timezone)
             filters["updated_at__gte"] = date_from_bound
@@ -101,14 +103,16 @@ class ImpactDashboardViewSet(viewsets.GenericViewSet):
         date_to = request.query_params.get("date_to")
         if date_to:
             parsed_date_to = parse_date(date_to)
-            if parsed_date_to is None or parsed_date_to > today:
-                raise ValidationError({"date": "Invalid date."})
+            if parsed_date_to is None:
+                raise ValidationError({"date": "Please enter a valid date in YYYY-MM-DD format."})
+            if parsed_date_to > today:
+                raise ValidationError({"date": "Date cannot be in the future."})
             date_to_bound = datetime.combine(parsed_date_to, time.max)
             date_to_bound = timezone.make_aware(date_to_bound, current_timezone)
             filters["updated_at__lte"] = date_to_bound
 
         if date_from and date_to and filters["updated_at__gte"] > filters["updated_at__lte"]:
-            raise ValidationError({"date": "Invalid date."})
+            raise ValidationError({"date": "Start date must be on or before the end date."})
 
         base_qs = Donation.objects.filter(**filters).distinct()
 

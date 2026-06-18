@@ -182,8 +182,8 @@
         <!-- Date range -->
         <div class="field-group">
           <label class="form-label-upper">Date Range</label>
-          <input class="form-input" type="date" name="date_from" id="dash-from" value="{{ date_from }}" style="margin-bottom:6px"/>
-          <input class="form-input" type="date" name="date_to" id="dash-to" value="{{ date_to }}"/>
+          <input class="form-input" type="date" name="date_from" id="dash-from" value="{{ date_from }}" max="{{ today_iso }}" style="margin-bottom:6px"/>
+          <input class="form-input" type="date" name="date_to" id="dash-to" value="{{ date_to }}" max="{{ today_iso }}"/>
         </div>
 
         <!-- City -->

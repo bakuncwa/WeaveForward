@@ -81,11 +81,12 @@
     display: flex; align-items: center; gap: 6px;
     background: #fef7ea; border: 1.5px solid #f5d898; border-radius: 8px;
     padding: 7px 12px;
+    width: min(360px, 42vw);
   }
   .search-box input {
     border: none; background: transparent; outline: none;
     font-family: 'Poppins', sans-serif; font-size: 12px; color: var(--text);
-    width: 160px;
+    width: 100%;
   }
 
   /* Weight bar */
@@ -232,7 +233,7 @@
       {% for cat in category_summary %}
       {% if forloop.counter == 1 %}<div class="cat-card" style="border:2px solid #4299e1">{% elif forloop.counter == 2 %}<div class="cat-card" style="border:2px solid #48bb78">{% elif forloop.counter == 3 %}<div class="cat-card" style="border:2px solid #9f7aea">{% elif forloop.counter == 4 %}<div class="cat-card" style="border:2px solid #ed8936">{% else %}<div class="cat-card" style="border:2px solid #f687b3">{% endif %}
         <div class="cat-card-name">{{ cat.category|upper }}</div>
-        <div class="cat-card-val">{{ cat.total_weight_kg|floatformat:1 }}</div>
+        <div class="cat-card-val">{{ cat.total_weight_kg|floatformat:2 }}</div>
         <div class="cat-card-unit">kg</div>
       </div>
       {% endfor %}
@@ -263,7 +264,7 @@
         <form method="GET" style="display:inline-block; margin:0;">
           <div class="search-box">
             <svg width="13" height="13" fill="none" stroke="#c0952a" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="text" name="q" id="inv-search" placeholder="Search" value="{{ q|default:'' }}">
+            <input type="text" name="q" id="inv-search" placeholder="Search by inventory ID, donation ID, or donor name" value="{{ q|default:'' }}">
           </div>
         </form>
       </div>

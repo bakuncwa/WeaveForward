@@ -158,7 +158,10 @@ def process_lalamove_webhook(payload, client_ip):
     if payload.get("eventType") == "ORDER_AMOUNT_CHANGED":
         order_data = data_obj["order"]
         with transaction.atomic():
-            order_record = Order.objects.select_for_update().get(lalamove_order_id=order_data["orderId"])
+            try:
+                order_record = Order.objects.select_for_update().get(lalamove_order_id=order_data["orderId"])
+            except Order.DoesNotExist:
+                return {"status_code": 200, "detail": f"Order with lalamove_order_id {order_data.get('orderId')} not found; webhook acknowledged."}
             total_price = Decimal(str(order_data["price"]["totalPrice"]))
             paid_amount = sum((p.amount for p in order_record.payments.filter(status=PaymentStatus.SUCCESS)), Decimal("0.00"))
             amount = total_price - paid_amount
@@ -207,7 +210,7 @@ def process_lalamove_webhook(payload, client_ip):
         try:
             order_record = Order.objects.select_for_update().get(lalamove_order_id=lalamove_order_id)
         except Order.DoesNotExist:
-            return {"status_code": 404, "detail": f"Order with lalamove_order_id {lalamove_order_id} not found."}
+            return {"status_code": 200, "detail": f"Order with lalamove_order_id {lalamove_order_id} not found; webhook acknowledged."}
 
 
 

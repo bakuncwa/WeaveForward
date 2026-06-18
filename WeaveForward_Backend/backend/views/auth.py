@@ -1,4 +1,3 @@
-from django.conf import settings
 from django.db import transaction
 
 from rest_framework import status, viewsets
@@ -7,8 +6,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
+from rest_framework_simplejwt.tokens import RefreshToken
 
-from ..models import User, UserRole
+from ..models import User
 from ..serializers import (
     CustomTokenObtainPairSerializer,
     DonorRegisterSerializer,
@@ -18,7 +18,6 @@ from ..serializers import (
 )
 from ..services.audit_service import get_client_ip, log_audit
 from ..services.auth_service import (
-    ACCESS_COOKIE_NAME,
     clear_auth_cookies,
     enforce_csrf,
     REFRESH_COOKIE_NAME,
@@ -27,6 +26,7 @@ from ..services.auth_service import (
     set_auth_cookies,
 )
 from ..services.email_service import send_password_reset_email
+from ..services.upload_service import build_upload_url
 
 
 
@@ -54,10 +54,19 @@ class CookieTokenRefreshView(APIView):
             clear_auth_cookies(response)
             return response
 
+        refresh = RefreshToken(refresh_cookie)
+        user = User.objects.only("upload").filter(user_id=refresh["user_id"]).first()
+        if not user:
+            response = Response({"detail": "User not found."}, status=status.HTTP_401_UNAUTHORIZED)
+            clear_auth_cookies(response)
+            return response
+        access = refresh.access_token
+        access["upload"] = build_upload_url(user.upload, {"request": request})
+
         response = Response({"message": "Session refreshed."}, status=status.HTTP_200_OK)
         set_auth_cookies(
             response,
-            serializer.validated_data.get("access"),
+            str(access),
             serializer.validated_data.get("refresh"),
         )
         return response
@@ -120,11 +129,13 @@ class TokenViewSet(viewsets.ViewSet):
         serializer.is_valid(raise_exception=True)
 
         validated_data = serializer.validated_data.copy()
-        access_token = validated_data.pop("access", None)
+        validated_data.pop("access", None)
         refresh_token = validated_data.pop("refresh", None)
+        access = RefreshToken(refresh_token).access_token
+        access["upload"] = build_upload_url(serializer.user.upload, {"request": request})
 
         response = Response(validated_data, status=status.HTTP_200_OK)
-        set_auth_cookies(response, access_token, refresh_token)
+        set_auth_cookies(response, str(access), refresh_token)
         
         # Force CSRF cookie to be set on login
         from django.middleware.csrf import get_token
