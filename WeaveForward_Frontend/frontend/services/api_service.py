@@ -5,7 +5,7 @@ from ..constants import BACKEND_BASE_URL
 logger = logging.getLogger(__name__)
 
 async_client = httpx.AsyncClient(
-    timeout=httpx.Timeout(connect=5.0, read=30.0, write=30.0, pool=5.0),
+    timeout=httpx.Timeout(connect=30.0, read=60.0, write=30.0, pool=10.0),
     limits=httpx.Limits(max_connections=50, max_keepalive_connections=20),
 )
 # Disable cookie merging under concurrent requests
