@@ -300,7 +300,7 @@ git status
 Required before feature development:
 
 - [x] Github Repository Set-up + Git commands in README.md
-- [ ] Django SQL to Google Cloud Storage + BigQuery + Cloud Run + Scheduler + Database Migrations Set-Up
+- [x] Django SQL to Google Cloud Storage + BigQuery + Cloud Run + Scheduler + Database Migrations Set-Up
 - [x] Django RBAC Routing for Authentication and Authorization
 
 ### Phase 2: Core Authentication
@@ -339,7 +339,7 @@ Features for TUAB (Organization) user role:
 - [x] Subscribe for Premium Features
 - [x] View Payment History
 - [x] Update Account Information
-- [ ] TUAB Features Blackbox Selenium Test Script
+- [x] TUAB Features Blackbox Selenium Test Script
 
 ### Phase 5: Admin Features
 
@@ -365,7 +365,7 @@ Features for Admin user role:
 
 System testing and user acceptance testing:
 
-- [ ] Full System Dry Run #1 (with Capstone Adviser)
+- [x] Full System Dry Run #1 (with Capstone Adviser)
 - [ ] Revisions #1
 - [ ] Full System Dry Run #2 (internal)
 - [ ] Revisions #2

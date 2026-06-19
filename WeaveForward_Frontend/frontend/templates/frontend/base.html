@@ -702,12 +702,13 @@
           {% endif %}
 
           <!-- Avatar: Show profile picture if it exists, else empty -->
-          <div class="wf-topbar__avatar" title="Account">
+          <a class="wf-topbar__avatar" title="Account" style="text-decoration: none;"
+            href="{% if user.role == 'TUAB' %}{% url 'tuab_profile' %}{% elif user.role == 'Admin' %}{% url 'admin_view_donors' %}{% else %}{% url 'donor_profile' %}{% endif %}">
             {% if user.upload %}
             <img src="{{ user.upload }}" alt="Profile"
               style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
             {% endif %}
-          </div>
+          </a>
         </div>
       </header>
 
