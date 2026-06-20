@@ -8,7 +8,7 @@ from rest_framework import viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
-from ..models import Donation, DonationItem, DonationStatus
+from ..models import Donation, DonationItem, DonationStatus, UserRole
 from ..permissions import IsActiveAdminOrTUABWithActiveSubscription
 
 
@@ -30,10 +30,9 @@ class TuabCircularEconomyViewSet(viewsets.GenericViewSet):
         # c = grouped city decision rows.
         # SQL query count inside this method: 4. Permission checks run before this method.
 
-        donation_filters = {
-            "status__in": [DonationStatus.RECEIVED, DonationStatus.REJECTED],
-            "claimed_by_tuab": request.user,
-        }
+        donation_filters = {"status__in": [DonationStatus.RECEIVED, DonationStatus.REJECTED]}
+        if request.user.role == UserRole.TUAB:
+            donation_filters["claimed_by_tuab"] = request.user
         errors = {}
 
         if settings.USE_TZ:

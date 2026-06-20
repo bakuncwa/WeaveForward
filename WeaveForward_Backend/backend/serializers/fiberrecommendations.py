@@ -111,7 +111,7 @@ class MatchRecommendationListSerializer(serializers.ModelSerializer):
             return 'MEDIUM'
 
     def get_match_confidence(self, obj):
-        return round(float(obj.match_prob) * 100, 2) if obj.match_prob is not None else 0
+        return round(float(obj.match_prob) * 100, 2) if obj.match_prob else 0
 
 
 class MatchRecommendationDetailSerializer(serializers.ModelSerializer):
@@ -146,7 +146,7 @@ class MatchRecommendationDetailSerializer(serializers.ModelSerializer):
             return 'MEDIUM'
 
     def get_match_confidence(self, obj):
-        return round(float(obj.match_prob) * 100, 2) if obj.match_prob is not None else 0
+        return round(float(obj.match_prob) * 100, 2) if obj.match_prob else 0
 
 
 class MatchRecommendationActionSerializer(serializers.Serializer):
