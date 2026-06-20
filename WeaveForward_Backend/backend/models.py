@@ -252,7 +252,7 @@ class MatchPrediction(models.Model):
     is_match              = models.BooleanField()
     pct_target_fiber      = models.DecimalField(max_digits=5, decimal_places=2, null=True, default=None)
     biodeg_target_fiber   = models.DecimalField(max_digits=5, decimal_places=2, null=True, default=None)
-    match_prob            = models.DecimalField(max_digits=10, decimal_places=8)
+    match_prob            = models.DecimalField(max_digits=6, decimal_places=5)
     distance_km           = models.DecimalField(max_digits=8, decimal_places=3, null=True, default=None)
     is_archived_version   = models.BooleanField(default=False)
     recommendation_status = EnumField(choices=MatchRecommendationStatus.choices, default=MatchRecommendationStatus.PENDING)
