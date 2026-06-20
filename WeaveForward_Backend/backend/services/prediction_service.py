@@ -102,10 +102,11 @@ class MatchPredictionService:
     def _normalize_tuab_payload(cls, tuab):
         cls.load_model()
         targets = [t.strip().lower() for t in (tuab["target_fibers"] or "").split(",") if t.strip()]
+        sorted_targets = sorted(targets)
         return {
             "tuab_id": tuab["user_id"],
             "target_fibers": targets,
-            "target_fibers_str": ",".join(targets) if targets else "unknown",
+            "target_fibers_str": ",".join(sorted_targets) if sorted_targets else "unknown",
             "latitude": cls._safe_float(tuab["latitude"]),
             "longitude": cls._safe_float(tuab["longitude"]),
             "latitude_rad": math.radians(cls._safe_float(tuab["latitude"])),

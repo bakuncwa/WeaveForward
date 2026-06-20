@@ -30,7 +30,10 @@ class TuabCircularEconomyViewSet(viewsets.GenericViewSet):
         # c = grouped city decision rows.
         # SQL query count inside this method: 4. Permission checks run before this method.
 
-        donation_filters = {"status__in": [DonationStatus.RECEIVED, DonationStatus.REJECTED]}
+        donation_filters = {
+            "status__in": [DonationStatus.RECEIVED, DonationStatus.REJECTED],
+            "claimed_by_tuab": request.user,
+        }
         errors = {}
 
         if settings.USE_TZ:

@@ -616,7 +616,7 @@
                     data-lng="{{ rec.donation.location.longitude }}"
                     data-confidence="{{ rec.match_confidence|floatformat:4 }}"
                 >
-                    <span class="rec-badge">{{ rec.match_confidence|floatformat:0 }}%</span>
+                    <span class="rec-badge">{{ rec.match_confidence|floatformat:1 }}%</span>
 
                     <div class="rec-name-row">
                         <span class="rec-dot"></span>
@@ -713,7 +713,7 @@
             const marker = L.marker([lat, lng]).addTo(map);
             marker.bindPopup(
                 `<strong>${rec.donor.name}</strong><br/>` +
-                `${Math.round(rec.match_confidence)}%<br/>` +
+                `${parseFloat(rec.match_confidence).toFixed(1)}%<br/>` +
                 `${rec.item.weight_kg} kg`
             );
             marker.on('click', () => selectRecommendation(rec.pair_id, lat, lng));
