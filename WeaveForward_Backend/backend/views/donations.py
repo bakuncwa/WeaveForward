@@ -1,4 +1,4 @@
-from django.db.models import Prefetch, Q
+﻿from django.db.models import Prefetch, Q
 from rest_framework import filters, mixins, viewsets, serializers, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -21,7 +21,8 @@ from ..serializers import DonationDetailSerializer, DonationListSerializer, Quot
 from ..services.donation_service import (
     create_donation, mark_donation_in_transit, donor_update_donation,
     admin_update_donation, cancel_donation, archive_donation,
-    resolve_donation, claim_donation, sign_quotation_data
+    resolve_donation, claim_donation, sign_quotation_data,
+    _extract_external_error_message,
 )
 from ..services.etag_service import build_updated_at_etag, matches_if_match
 from ..services.lalamove_service import get_lalamove_quotation
@@ -342,7 +343,7 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
         if "error" in result:
             exc = APIException({
                 "error": "LALAMOVE_API_ERROR",
-                "detail": str(result["error"])
+                "detail": _extract_external_error_message(result["error"])
             })
             exc.status_code = result.get("status_code", 400)
             raise exc

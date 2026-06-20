@@ -1,4 +1,4 @@
-from calendar import monthrange
+﻿from calendar import monthrange
 from decimal import Decimal, InvalidOperation
 
 import requests
@@ -40,7 +40,7 @@ def _extract_error_detail(response):
     try:
         payload = response.json()
     except ValueError:
-        return response.text or "Maya request failed."
+        return "Maya request failed."
 
     if isinstance(payload, dict):
         return payload.get('error') or payload.get('message') or payload.get('detail') or str(payload)
@@ -82,30 +82,26 @@ def subscribe_user(*, target_user_id, first_name, last_name, card, frontend_base
 
     base_url = settings.MAYA_SANDBOX_BASE_URL.rstrip('/')
 
-    customer_id = user.maya_customer_id
-
-    if not customer_id:
-        try:
-            customer_response = _maya_post(
-                url=f'{base_url}/customers',
-                payload={
-                    'firstName': first_name,
-                    'lastName': last_name,
-                },
-                authorization_value=settings.MAYA_SANDBOX_SECRET_BASIC_AUTH,
-            )
-        except requests.RequestException as exc:
-            return {
-                "status_code": 502,
-                "detail": f"Maya customer creation failed: {exc}",
-            }
-        if customer_response.status_code != 200:
-            return {
-                "status_code": 502,
-                "detail": f"Maya customer creation failed: {_extract_error_detail(customer_response)}",
-            }
-        customer_payload = customer_response.json()
-        customer_id = customer_payload['id']
+    try:
+        customer_response = _maya_post(
+            url=f'{base_url}/customers',
+            payload={
+                'firstName': first_name,
+                'lastName': last_name,
+            },
+            authorization_value=settings.MAYA_SANDBOX_SECRET_BASIC_AUTH,
+        )
+    except requests.RequestException as exc:
+        return {
+            "status_code": 502,
+            "detail": f"Maya customer creation failed: {exc}",
+        }
+    if customer_response.status_code != 200:
+        return {
+            "status_code": 502,
+            "detail": f"Maya customer creation failed: {_extract_error_detail(customer_response)}",
+        }
+    customer_id = customer_response.json()['id']
 
     try:
         payment_token_response = _maya_post(

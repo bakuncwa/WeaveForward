@@ -1,4 +1,4 @@
-{% extends 'frontend/base.html' %}
+﻿{% extends 'frontend/base.html' %}
 
 {% block content %}
   <link href="https://fonts.googleapis.com/css2?family=Lato:wght@600&family=Poppins:wght@400;600;700&display=swap"
@@ -560,7 +560,7 @@
       if (typeof data?.detail === 'string') return data.detail;
       if (Array.isArray(data?.detail)) return data.detail.join(', ');
       if (data?.detail?.errors?.length) {
-        return data.detail.errors.map((item) => item.message || item.detail || JSON.stringify(item)).join(', ');
+        return data.detail.errors.map((item) => item.message || item.detail || 'Unexpected error.').join(', ');
       }
       if (typeof data?.error === 'string') return data.error;
       if (data && typeof data === 'object') {

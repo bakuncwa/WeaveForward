@@ -1,4 +1,4 @@
-import hmac
+﻿import hmac
 import hashlib
 import json
 import time
@@ -78,7 +78,7 @@ def get_lalamove_quotation(pickup_lat, pickup_lng, pickup_address, dropoff_lat, 
         try:
             err = response.json()
         except ValueError:
-            err = response.text
+            err = "Lalamove request failed."
         return {"error": err, "status_code": response.status_code}
         
     return response.json()
@@ -192,7 +192,7 @@ def process_lalamove_webhook(payload, client_ip):
                 payment.payment_reference = response_json.get("id")
                 payment.save(update_fields=["status", "payment_reference", "updated_at"])
             return {"status_code": 200, "detail": "Order amount change charged successfully."}
-        return {"status_code": 502, "detail": f"Maya payment failed: {response_json.get('message', response.text)}"}
+        return {"status_code": 502, "detail": f"Maya payment failed: {response_json.get('message') or response_json.get('error') or 'Payment could not be completed.'}"}
 
     if payload.get("eventType") != "ORDER_STATUS_CHANGED":
         return {"status_code": 200, "detail": f"Webhook event type {payload.get('eventType')} ignored."}

@@ -1,4 +1,4 @@
-import json
+﻿import json
 import asyncio
 from datetime import datetime
 from django.contrib import messages
@@ -52,6 +52,13 @@ async def tuab_dashboard(request):
         available_donations = data.get('results', [])
         avail_meta['has_next'] = data.get('next') is not None
         avail_meta['count'] = data.get('count', 0)
+        while data.get('next'):
+            avail_params['page'] = int(avail_params['page']) + 1
+            avail_res = await api_call(request, 'GET', 'donations', params=avail_params)
+            if avail_res.status_code != 200:
+                break
+            data = avail_res.json()
+            available_donations.extend(data.get('results', []))
 
     # Process Claimed Donations response
     if claimed_res and not isinstance(claimed_res, Exception) and claimed_res.status_code == 200:
@@ -59,6 +66,13 @@ async def tuab_dashboard(request):
         my_claimed_donations = data.get('results', [])
         claimed_meta['has_next'] = data.get('next') is not None
         claimed_meta['count'] = data.get('count', 0)
+        while data.get('next'):
+            claimed_params['page'] = int(claimed_params['page']) + 1
+            claimed_res = await api_call(request, 'GET', 'users/me/donations', params=claimed_params)
+            if claimed_res.status_code != 200:
+                break
+            data = claimed_res.json()
+            my_claimed_donations.extend(data.get('results', []))
 
     return render(request, 'frontend/tuabs/tuab_dashboard.html', {
         'page_title': 'Dashboard',
@@ -348,12 +362,6 @@ async def tuab_quotation_proxy(request, donation_id):
 async def tuab_subscribe(request):
     """Handle TUAB Premium Subscription."""
     profile = await get_user_profile(request) or request.user_profile
-
-    # Always force fetch the latest profile directly from the backend to guarantee fresh subscription status
-    if hasattr(request, 'session') and profile:
-        request.session['user_profile'] = profile
-        import time
-        request.session['user_profile_verified_at'] = time.time()
             
     # 1. Check if already subscribed or redirected back from successful Maya 3DS
     if profile.get('is_subscribed') or request.GET.get('status') == 'success':

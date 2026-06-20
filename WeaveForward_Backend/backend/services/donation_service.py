@@ -55,7 +55,7 @@ def _raise_external_api_error(prefix, result, default_status=400):
     raise exc
 
 
-def _revert_failed_delivery_claim(*, donation_id, user_id, order_id, payment_id=None, reversal_reference=None):
+def _revert_failed_delivery_claim(*, donation_id, user_id, order_id):
     with transaction.atomic():
         donation = Donation.objects.select_for_update().get(pk=donation_id)
         order = Order.objects.select_for_update().get(pk=order_id)
@@ -66,15 +66,6 @@ def _revert_failed_delivery_claim(*, donation_id, user_id, order_id, payment_id=
             donation.delivery_method = None
             donation.updated_at = timezone.now()
             donation.save(update_fields=["status", "claimed_by_tuab", "delivery_method", "updated_at"])
-
-        if payment_id and reversal_reference:
-            payment = OrderPayment.objects.select_for_update().get(pk=payment_id)
-            OrderPayment.objects.create(
-                order=order,
-                amount=-payment.amount,
-                status=PaymentStatus.SUCCESS,
-                payment_reference=reversal_reference,
-            )
 
 
 def create_donation(*, request):
@@ -783,7 +774,7 @@ def claim_donation(user, donation, claim_params, ip_address=None):
             maya_payment_id = maya_json.get('id')
         else:
             _revert_failed_delivery_claim(donation_id=donation.pk, user_id=user.pk, order_id=order_record.pk)
-            exc = APIException(f"Maya payment failed: {maya_json.get('message', maya_resp.text)}")
+            exc = APIException(f"Maya payment failed: {_extract_external_error_message(maya_json)}")
             exc.status_code = 502
             raise exc
     except APIException:
@@ -831,7 +822,10 @@ def claim_donation(user, donation, claim_params, ip_address=None):
         if l_resp.status_code in [200, 201]:
             lalamove_order_id = l_resp.json().get("data", {}).get("orderId")
         else:
-            lalamove_error_msg = l_resp.text
+            try:
+                lalamove_error_msg = _extract_external_error_message(l_resp.json())
+            except ValueError:
+                lalamove_error_msg = "Delivery partner rejected the order."
     except Exception as e:
         lalamove_error_msg = str(e)
 
@@ -852,8 +846,6 @@ def claim_donation(user, donation, claim_params, ip_address=None):
             donation_id=donation.pk,
             user_id=user.pk,
             order_id=order_record.pk,
-            payment_id=payment_record.pk,
-            reversal_reference=f"void-{maya_payment_id}" if void_success else None,
         )
         exc = APIException(
             f"Delivery placement failed: {lalamove_error_msg}. " +

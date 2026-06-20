@@ -568,7 +568,7 @@ class AdminDonationUpdateSerializer(serializers.ModelSerializer):
                     'preferred_pickup_date', 'preferred_pickup_window_start', 'preferred_pickup_window_end'
                 })
                 if locked:
-                    raise serializers.ValidationError("Pickup and dropoff details can't be edited for in-transit or completed donations.")
+                    raise serializers.ValidationError("Delivery pickup and dropoff details can't be edited once a delivery is in transit or completed.")
 
         # 3. Coordinate & Location Validation
         if 'pickup_latitude' in self.initial_data or 'pickup_longitude' in self.initial_data:
@@ -634,6 +634,8 @@ class AdminDonationUpdateSerializer(serializers.ModelSerializer):
         # 7. Items Validation
         items_json = data.get('items')
         if items_json:
+            if current_status == DonationStatus.RECEIVED:
+                raise serializers.ValidationError({'items': "Items can't be edited after the donation has been received into inventory."})
             try:
                 raw_items = json.loads(items_json)
                 item_serializer = DonationItemUpdateSerializer(data=raw_items, many=True)
