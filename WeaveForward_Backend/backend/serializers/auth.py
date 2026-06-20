@@ -8,7 +8,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.settings import api_settings
 
 from ..constants import TUAB_REG_ALLOWED_EXTENSIONS, TUAB_REG_MAX_SIZE
-from ..models import User, UserAccountStatus, UserOperationalStatus
+from ..models import User, UserAccountStatus
 from ..services.auth_service import reset_user_password, validate_reset_token
 from ..services.location_service import get_city_and_barangay
 from ..services.brand_fiber_lookup_service import get_allowed_fibers
@@ -56,7 +56,8 @@ class DonorRegisterSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         role, password = validated_data.pop('role', 'Donor'), validated_data.pop('password')
-        validated_data['role'], validated_data['status'] = role, 'ACTIVE'
+        validated_data['role'] = role
+        validated_data['status'] = UserAccountStatus.EMAIL_UNVERIFIED
         return User.objects.create_user(password=password, **validated_data)
 
 
@@ -122,8 +123,8 @@ class TUABRegisterSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         role, password = validated_data.pop('role', 'TUAB'), validated_data.pop('password')
-        validated_data['role'], validated_data['status'] = role, 'UNDER_REVIEW'
-        validated_data['operational_status'] = UserOperationalStatus.ACTIVE
+        validated_data['role'] = role
+        validated_data['status'] = UserAccountStatus.EMAIL_UNVERIFIED
         return User.objects.create_user(password=password, **validated_data)
 
 
@@ -146,11 +147,13 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         email = attrs.get(self.username_field)
         password = attrs.get('password')
 
-        # PRE-CHECK: Show REJECTED users their specific reason (authenticate() would hide it)
+        # PRE-CHECK: Show REJECTED / EMAIL_UNVERIFIED users their specific reason (authenticate() would hide it)
         try:
             user_check = User.objects.get(email=email)
             if user_check.status == UserAccountStatus.REJECTED and user_check.check_password(password):
                 raise exceptions.AuthenticationFailed({"detail": f"Your registration was rejected. {user_check.rejection_reason}"})
+            if user_check.status == UserAccountStatus.EMAIL_UNVERIFIED and user_check.check_password(password):
+                raise exceptions.AuthenticationFailed({"detail": "Please verify your email before logging in."})
         except User.DoesNotExist:
             pass
 

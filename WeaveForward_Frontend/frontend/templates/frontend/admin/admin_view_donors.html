@@ -230,6 +230,8 @@
           <td>
             {% if donor.status == 'ACTIVE' %}
             <span class="badge badge-active">Active</span>
+            {% elif donor.status == 'EMAIL_UNVERIFIED' %}
+            <span class="badge badge-email-unverified">Email Unverified</span>
             {% elif donor.status == 'ARCHIVED' %}
             <span class="badge badge-archived">Archived</span>
             {% else %}

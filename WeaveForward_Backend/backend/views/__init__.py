@@ -2,7 +2,9 @@ from .auth import (
     CookieTokenRefreshView,
     PasswordResetRequestView,
     PasswordResetConfirmView,
+    ResendVerificationEmailView,
     TokenViewSet,
+    VerifyEmailView,
 )
 from .users import UserViewSet
 from .locations import lookup_location

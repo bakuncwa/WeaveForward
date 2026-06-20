@@ -26,6 +26,7 @@ GUEST_ONLY_PATHS = {
     "/register/tuab/",
     "/forgot-password/",
     "/reset-password-confirm/",
+    "/verify-email/",
 }
 PUBLIC_PASSTHROUGH_PATHS = {"/api/location/lookup/", "/logout/"}
 

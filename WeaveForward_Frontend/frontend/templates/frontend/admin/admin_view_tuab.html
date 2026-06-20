@@ -291,7 +291,7 @@
 
       <div class="chip-row">
         <span class="chip chip-outline">{{ tuab.role|default:"TUAB" }}</span>
-        <span class="chip chip-filled">{{ tuab.status|title|default:"-" }}</span>
+        <span class="chip chip-filled">{% if tuab.status == 'EMAIL_UNVERIFIED' %}Email Unverified{% else %}{{ tuab.status|title|default:"-" }}{% endif %}</span>
         <span class="chip chip-grey">{{ tuab.operational_status|title|default:"-" }}</span>
         <span class="chip chip-grey">{% if tuab.is_subscribed %}Pro{% else %}Free{% endif %}</span>
         <span class="chip chip-grey">Member since {{ tuab.created_at|date:"F j Y" }}</span>
@@ -387,7 +387,7 @@
     <table class="info-table">
       <tr><td>User ID</td><td>#{{ tuab.user_id }}</td></tr>
       <tr><td>2FA Enabled</td><td>{{ tuab.is_2fa_enabled|yesno:"Yes,No" }}</td></tr>
-      <tr><td>Account Status</td><td>{{ tuab.status|title|default:"-" }}</td></tr>
+      <tr><td>Account Status</td><td>{% if tuab.status == 'EMAIL_UNVERIFIED' %}Email Unverified{% else %}{{ tuab.status|title|default:"-" }}{% endif %}</td></tr>
     </table>
 
     <table class="info-table">

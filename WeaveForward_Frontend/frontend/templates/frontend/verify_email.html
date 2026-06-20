@@ -1,0 +1,82 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/png" href="{% static 'frontend/img/ProjectIcon.png' %}" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>WeaveForward - Verifying Email</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500&family=Poppins:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'frontend/css/auth.css' %}">
+    <style>
+        .alert { padding: 10px; border-radius: 8px; font-size: 13px; margin-bottom: 20px; text-align: center; }
+        .alert-success { background: #dcfce7; border: 1px solid #22c55e; color: #166534; }
+        .alert-error { background: #fee2e2; border: 1px solid #ef4444; color: #991b1b; }
+        .alert-info { background: #eef5ff; border: 1px solid #cdddf7; color: #264f8f; }
+        .spinner { border: 3px solid #e0e0e0; border-top: 3px solid #4A7C59; border-radius: 50%; width: 30px; height: 30px; animation: spin .8s linear infinite; margin: 20px auto; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .back-link { display: block; text-align: center; margin-top: 20px; color: #555; font-size: 13px; text-decoration: none }
+        .back-link:hover { text-decoration: underline }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+        </div>
+        <div class="title" id="statusTitle">Verifying your email...</div>
+        <div class="spinner" id="spinner"></div>
+        <div id="messageArea"></div>
+        <a href="{% url 'login' %}" class="back-link" id="backLink" style="display:none">Back to Login</a>
+    </div>
+    <script>
+        (async function() {
+            const params = new URLSearchParams(window.location.search);
+            const uidb64 = params.get('uidb64');
+            const token = params.get('token');
+
+            if (!uidb64 || !token) {
+                document.getElementById('statusTitle').textContent = 'Invalid link';
+                document.getElementById('spinner').style.display = 'none';
+                document.getElementById('messageArea').innerHTML = '<div class="alert alert-error">Missing verification parameters.</div>';
+                document.getElementById('backLink').style.display = 'block';
+                return;
+            }
+
+            try {
+                const resp = await fetch('{% url "verify_email" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}',
+                    },
+                    body: JSON.stringify({ uidb64, token })
+                });
+                const data = await resp.json();
+                document.getElementById('spinner').style.display = 'none';
+
+                if (resp.ok) {
+                    document.getElementById('statusTitle').textContent = 'Email Verified!';
+                    document.getElementById('messageArea').innerHTML = '<div class="alert alert-success">Your email has been verified. You can now log in.</div>';
+                    document.getElementById('backLink').style.display = 'block';
+                    setTimeout(() => { window.location.href = '{% url "login" %}'; }, 3000);
+                } else {
+                    document.getElementById('statusTitle').textContent = 'Verification failed';
+                    document.getElementById('messageArea').innerHTML = '<div class="alert alert-error">' + (data.error || 'Invalid or expired link.') + '</div>';
+                    document.getElementById('backLink').style.display = 'block';
+                }
+            } catch (e) {
+                document.getElementById('spinner').style.display = 'none';
+                document.getElementById('statusTitle').textContent = 'Error';
+                document.getElementById('messageArea').innerHTML = '<div class="alert alert-error">Service unreachable.</div>';
+                document.getElementById('backLink').style.display = 'block';
+            }
+        })();
+    </script>
+</body>
+</html>

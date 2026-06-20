@@ -8,7 +8,7 @@ from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from ..models import User
+from ..models import User, UserAccountStatus, UserRole
 from ..serializers import (
     CustomTokenObtainPairSerializer,
     DonorRegisterSerializer,
@@ -25,7 +25,7 @@ from ..services.auth_service import (
     get_request_base_url,
     set_auth_cookies,
 )
-from ..services.email_service import send_password_reset_email
+from ..services.email_service import send_password_reset_email, send_verification_email
 from ..services.upload_service import build_upload_url
 
 
@@ -156,4 +156,54 @@ class TokenViewSet(viewsets.ViewSet):
         response = Response({"message": "Successfully logged out"}, status=status.HTTP_205_RESET_CONTENT)
         clear_auth_cookies(response)
         return response
+
+
+class VerifyEmailView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        uidb64 = request.data.get('uidb64')
+        token = request.data.get('token')
+
+        try:
+            from django.utils.encoding import force_str
+            from django.utils.http import urlsafe_base64_decode
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(pk=uid)
+        except Exception:
+            return Response({'error': 'Invalid link'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if user.status != UserAccountStatus.EMAIL_UNVERIFIED:
+            return Response({'error': 'This email has already been verified.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        from django.contrib.auth.tokens import default_token_generator
+        if not default_token_generator.check_token(user, token):
+            return Response({'error': 'Invalid or expired token'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if user.role == UserRole.DONOR:
+            user.status = UserAccountStatus.ACTIVE
+        else:
+            user.status = UserAccountStatus.UNDER_REVIEW
+        user.save(update_fields=['status'])
+
+        return Response({'message': 'Email verified successfully.'}, status=status.HTTP_200_OK)
+
+
+class ResendVerificationEmailView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        if not email:
+            return Response({'email': 'This field is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = User.objects.filter(email=email, status=UserAccountStatus.EMAIL_UNVERIFIED).first()
+        if user:
+            uidb64, token = generate_reset_token(user)
+            frontend_base_url = get_request_base_url(request)
+            verify_link = f"{frontend_base_url}/verify-email/?uidb64={uidb64}&token={token}"
+            display_name = user.business_name or f"{user.first_name or ''} {user.last_name or ''}".strip() or user.email
+            send_verification_email(user.email, verify_link, display_name)
+
+        return Response({'message': 'If that email is pending verification, a new verification link has been sent.'}, status=status.HTTP_200_OK)
 

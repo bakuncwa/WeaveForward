@@ -31,10 +31,11 @@ class UserOperationalStatus(models.TextChoices):
 
 
 class UserAccountStatus(models.TextChoices):
-    ACTIVE       = "ACTIVE",       "Active"
-    UNDER_REVIEW = "UNDER_REVIEW", "Under Review"
-    REJECTED     = "REJECTED",     "Rejected"
-    ARCHIVED     = "ARCHIVED",     "Archived"
+    EMAIL_UNVERIFIED = "EMAIL_UNVERIFIED", "Email Unverified"
+    UNDER_REVIEW     = "UNDER_REVIEW",     "Under Review"
+    ACTIVE           = "ACTIVE",           "Active"
+    REJECTED         = "REJECTED",         "Rejected"
+    ARCHIVED         = "ARCHIVED",         "Archived"
 
 
 class DonationStatus(models.TextChoices):

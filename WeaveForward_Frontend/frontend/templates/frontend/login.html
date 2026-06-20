@@ -261,7 +261,33 @@
                         return;
                     }
 
-                    showToast(data.error || 'Login failed. Please try again.');
+                    const errorMessage = data.error || 'Login failed. Please try again.';
+                    if (errorMessage === 'Please verify your email before logging in.') {
+                        const result = await Swal.fire({
+                            text: errorMessage,
+                            icon: 'error',
+                            showCancelButton: true,
+                            confirmButtonText: 'Resend verification email',
+                            cancelButtonText: 'Close',
+                            confirmButtonColor: '#4a7c59'
+                        });
+                        if (result.isConfirmed) {
+                            const resendResponse = await fetch('{% url "resend_verification_email" %}', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                                },
+                                body: JSON.stringify({ email: emailInput.value }),
+                                credentials: 'same-origin'
+                            });
+                            const resendData = await resendResponse.json().catch(() => ({}));
+                            showToast(resendData.message || 'Verification email resent.', resendResponse.ok ? 'success' : 'error');
+                        }
+                        return;
+                    }
+
+                    showToast(errorMessage);
                 } catch (error) {
                     showToast('Backend API is offline or unreachable.');
                 } finally {
