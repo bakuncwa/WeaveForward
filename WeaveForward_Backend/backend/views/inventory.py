@@ -34,10 +34,13 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
     def get_queryset(self):
         user = self.request.user
 
-        return InventoryLedger.objects.filter(
-            source_donation__claimed_by_tuab=user,
-            lifecycle_status=InventoryLifecycleStatus.ACTIVE
-        ).select_related(
+        queryset = InventoryLedger.objects.filter(
+            source_donation__claimed_by_tuab=user
+        )
+        if self.request.query_params.get('status') != 'all':
+            queryset = queryset.filter(lifecycle_status=InventoryLifecycleStatus.ACTIVE)
+
+        return queryset.select_related(
             'source_donation',
             'source_donation__donor',
             'source_donation__upload'
@@ -179,10 +182,34 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
         if usage > instance.current_weight_kg:
             return Response({'error': 'Negative stock not allowed. Usage exceeds current stock.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        notes = request.data.get('notes')
+        before_weight = instance.current_weight_kg
+        after_weight = before_weight - usage
+
+        raw_notes = instance.notes
+        try:
+            notes_payload = json.loads(raw_notes) if raw_notes else {}
+            if not isinstance(notes_payload, dict):
+                notes_payload = {'text': raw_notes}
+        except (TypeError, json.JSONDecodeError):
+            notes_payload = {'text': raw_notes}
+
+        if request.data.get('notes'):
+            notes_payload['text'] = request.data.get('notes')
+
+        usage_events = notes_payload.get('production_context')
+        if not isinstance(usage_events, list):
+            usage_events = []
+        usage_events.append({
+            'used': str(usage),
+            'before': str(before_weight),
+            'after': str(after_weight),
+            'at': timezone.localtime(timezone.now()).isoformat(),
+        })
+        notes_payload['production_context'] = usage_events
+
         instance.usage_amount_kg += usage
-        instance.current_weight_kg -= usage
-        instance.notes = notes or instance.notes
+        instance.current_weight_kg = after_weight
+        instance.notes = json.dumps(notes_payload, separators=(',', ':'))
         instance.save()
 
         # Log audit trail

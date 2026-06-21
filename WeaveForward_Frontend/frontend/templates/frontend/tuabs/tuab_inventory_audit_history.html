@@ -24,7 +24,6 @@
     color: #666;
     margin-bottom: 10px;
   }
-
 </style>
 
 <div class="table-wrap">
@@ -46,7 +45,7 @@
           <td>{{ item.weight_before_kg|floatformat:2 }}</td>
           <td>{{ item.usage_amount_kg|floatformat:2 }}</td>
           <td>{{ item.current_weight_kg|floatformat:2 }}</td>
-          <td>{{ item.last_audit|default:"—" }}</td>
+          <td>{{ item.last_audit|default:"-" }}</td>
         </tr>
         {% empty %}
         <tr>
@@ -62,10 +61,10 @@
   <div class="pg-info">Page {{ current_page }} of {{ total_pages }}</div>
   <div class="pg-btns">
     {% if has_prev %}
-    <a href="?page={{ current_page|add:-1 }}" class="btn btn-outline">❮ Previous</a>
+    <a href="?page={{ current_page|add:-1 }}" class="btn btn-outline">Previous</a>
     {% endif %}
     {% if has_next %}
-    <a href="?page={{ current_page|add:1 }}" class="btn btn-outline">Next ❯</a>
+    <a href="?page={{ current_page|add:1 }}" class="btn btn-outline">Next</a>
     {% endif %}
   </div>
 </div>

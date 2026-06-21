@@ -607,36 +607,67 @@ async def tuab_inventory_snapshot(request):
 async def tuab_view_audit_history(request):
     """View all TUAB inventory audit history in a table, similar to admin view donors."""
     profile = request.user_profile
-    page_data = await get_paginated_data(request, 'inventory')
-    inventory_items = page_data['results']
+    response = await api_call(request, 'GET', 'inventory', params={'status': 'all', 'nopaginate': 'true'})
+    inventory_items = response.json() if response.status_code == 200 else []
+    if isinstance(inventory_items, dict):
+        inventory_items = inventory_items.get('results', [])
+
+    def format_audit_date(value):
+        if not value:
+            return ''
+        try:
+            dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+            time_part = dt.strftime('%I:%M %p').lstrip('0')
+            return f'{dt.month}-{dt.day}-{dt.year} {time_part}'
+        except Exception:
+            return value[:10]
 
     formatted_items = []
     for item in inventory_items:
         updated_raw = item.get('updated_at', '')
-        last_audit = ''
-        if updated_raw:
-            try:
-                dt = datetime.fromisoformat(updated_raw.replace('Z', '+00:00'))
-                last_audit = dt.strftime('%-m-%-d-%Y')
-            except Exception:
-                last_audit = updated_raw[:10]
-        formatted_items.append({
-            'inventory_id': item.get('inventory_id'),
-            'weight_before_kg': float(item.get('weight_before_kg', 0)),
-            'usage_amount_kg': float(item.get('usage_amount_kg', 0)),
-            'current_weight_kg': float(item.get('current_weight_kg', 0)),
-            'last_audit': last_audit,
-        })
+        notes = item.get('notes')
+        try:
+            notes_payload = json.loads(notes) if notes else {}
+        except (TypeError, json.JSONDecodeError):
+            notes_payload = {}
+
+        usage_events = notes_payload.get('production_context') if isinstance(notes_payload, dict) else None
+        if isinstance(usage_events, list) and usage_events:
+            for event in usage_events:
+                if not isinstance(event, dict):
+                    continue
+                audited_at = event.get('at') or updated_raw
+                formatted_items.append({
+                    'inventory_id': item.get('inventory_id'),
+                    'weight_before_kg': float(event.get('before', 0)),
+                    'usage_amount_kg': float(event.get('used', 0)),
+                    'current_weight_kg': float(event.get('after', 0)),
+                    'last_audit': format_audit_date(audited_at),
+                    'sort_key': audited_at,
+                })
+
+    formatted_items.sort(key=lambda item: item.get('sort_key') or '', reverse=True)
+    page_size = 10
+    count = len(formatted_items)
+    total_pages = max((count + page_size - 1) // page_size, 1)
+    try:
+        current_page = int(request.GET.get('page', 1))
+    except (TypeError, ValueError):
+        current_page = 1
+    current_page = min(max(current_page, 1), total_pages)
+    start = (current_page - 1) * page_size
+    end = start + page_size
+    page_items = formatted_items[start:end]
 
     return render(request, 'frontend/tuabs/tuab_inventory_audit_history.html', {
         'page_title': 'Inventory Snapshot',
         'user': profile,
-        'inventory_items': formatted_items,
-        'count': page_data['count'],
-        'total_pages': page_data['total_pages'],
-        'current_page': page_data['current_page'],
-        'has_next': page_data['has_next'],
-        'has_prev': page_data['has_prev'],
+        'inventory_items': page_items,
+        'count': count,
+        'total_pages': total_pages,
+        'current_page': current_page,
+        'has_next': current_page < total_pages,
+        'has_prev': current_page > 1,
     })
 
 

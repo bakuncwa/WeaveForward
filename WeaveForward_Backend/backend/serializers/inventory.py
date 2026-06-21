@@ -3,7 +3,10 @@ Serializers for Inventory management.
 Handles InventoryLedger serialization for viewing and managing raw material stock levels.
 """
 
+import json
 from rest_framework import serializers
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from ..models import InventoryLedger, Donation, DonationItem
 from .brandfiberlookups import BrandFiberLookupSerializer
 
@@ -67,6 +70,7 @@ class InventoryLedgerSerializer(serializers.ModelSerializer):
     audit_required = serializers.SerializerMethodField()
     days_since_audit = serializers.SerializerMethodField()
     material_category = serializers.SerializerMethodField()
+    notes = serializers.SerializerMethodField()
     
     class Meta:
         model = InventoryLedger
@@ -89,6 +93,33 @@ class InventoryLedgerSerializer(serializers.ModelSerializer):
             'material_category',
             'notes'
         ]
+
+    def get_notes(self, obj):
+        raw_notes = obj.notes
+        if not raw_notes:
+            return raw_notes
+        try:
+            notes_payload = json.loads(raw_notes)
+        except (TypeError, json.JSONDecodeError):
+            return raw_notes
+        if not isinstance(notes_payload, dict):
+            return raw_notes
+
+        usage_events = notes_payload.get('production_context')
+        if not isinstance(usage_events, list):
+            return raw_notes
+
+        for event in usage_events:
+            if not isinstance(event, dict) or not event.get('at'):
+                continue
+            dt = parse_datetime(str(event['at']))
+            if not dt:
+                continue
+            if timezone.is_naive(dt):
+                dt = timezone.make_aware(dt, timezone.get_default_timezone())
+            event['at'] = timezone.localtime(dt).isoformat()
+
+        return json.dumps(notes_payload, separators=(',', ':'))
     
     def get_audit_required(self, obj):
         """Check if audit is required (items older than 30 days)."""
