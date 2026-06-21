@@ -1,0 +1,180 @@
+<style>
+  .agreement-link {
+    background: none;
+    border: none;
+    color: #3C6591;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 600;
+    padding: 0;
+    text-decoration: underline;
+  }
+
+  .agreement-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .5);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .agreement-overlay.open {
+    display: flex;
+  }
+
+  .agreement-modal {
+    background: #fff;
+    border-radius: 16px;
+    max-width: 560px;
+    width: 100%;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .25);
+  }
+
+  .agreement-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px 0;
+  }
+
+  .agreement-header h2 {
+    font-family: 'Pixelify Sans', monospace;
+    font-size: 24px;
+    color: #1a1a1a;
+  }
+
+  .agreement-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #999;
+    padding: 4px 8px;
+    line-height: 1;
+  }
+
+  .agreement-body {
+    padding: 16px 24px 20px;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .agreement-body p {
+    font-size: 12px;
+    color: #444;
+    line-height: 1.7;
+    margin-bottom: 8px;
+  }
+
+  .agreement-body .section {
+    font-size: 12px;
+    font-weight: 700;
+    color: #3C6591;
+    margin: 14px 0 6px;
+  }
+</style>
+
+<div class="agreement-overlay" id="agreementOverlay" onclick="closeAgreement(event)">
+  <div class="agreement-modal" onclick="event.stopPropagation()">
+    <div class="agreement-header">
+      <h2 id="agreementTitle"></h2>
+      <button type="button" class="agreement-close" onclick="closeAgreement()">&times;</button>
+    </div>
+    <div class="agreement-body" id="agreementBody"></div>
+  </div>
+</div>
+
+<template id="termsContent">
+  <p class="section">I. Introduction</p>
+  <p>Welcome to WeaveForward! WeaveForward is a textile donation platform that connects Donors with Textile Upcycling Artisan Businesses (TUABs) to promote sustainable fashion and waste reduction in the Philippines. By registering as a {{ agreement_role_title }}, you acknowledge that you have read, understood, and agree to be bound by these Terms and Conditions. If you do not agree, please discontinue use immediately.</p>
+
+  <p class="section">II. User Agreement</p>
+  <p>You confirm that all details submitted during registration are accurate and truthful. You agree to use the platform responsibly and in accordance with applicable laws. You are accountable for keeping your login credentials secure and for any actions taken through your account. WeaveForward may update these terms periodically, and registered users will be notified via email of any significant changes. Continuing to use the platform after updates are posted means you accept the revised terms. Services are currently limited to Metro Manila (NCR), as our logistics operations only cover this region.</p>
+
+  <p class="section">III. Registration and Services</p>
+  <p>WeaveForward allows Donors to donate textiles and TUABs to receive materials for upcycling. Users must supply accurate and complete registration details — any false information may result in account suspension or removal. Platform features include account creation and management, donation matching and claims, inventory management for TUABs, donation history for Donors, role-based access controls, audit logs, and multi-factor authentication.</p>
+
+  <p class="section">IV. Payment and Fees</p>
+  <p>Basic access to WeaveForward is free. TUABs may choose to subscribe to premium features for a fee. All transactions are processed through Maya's secure payment gateway. Billing concerns should be directed to our support team for assistance.</p>
+
+  <p class="section">V. Intellectual Property</p>
+  <p>All content on the platform — including software, text, graphics, logos, and design — belongs to WeaveForward or its licensors. Users may not copy, distribute, modify, or reproduce any content without written authorization. If you believe your intellectual property has been infringed, please contact us with supporting details.</p>
+
+  <p class="section">VI. Limitations of Liability</p>
+  <p>WeaveForward provides its services on an "as is" basis and does not guarantee uninterrupted or error-free operation. We are not responsible for inaccuracies in user-provided information. WeaveForward shall not be liable for indirect, incidental, special, or consequential damages resulting from platform use, including any disagreements between Donors and TUABs.</p>
+
+  <p class="section">VII. Account Termination and Suspension</p>
+  <p>WeaveForward may suspend or remove accounts that breach these terms or participate in prohibited activities. Users may request account deletion by reaching out to our support team. Dormant accounts may be archived, with data retained and disposed of in line with our retention policies and legal requirements.</p>
+
+  <p class="section">VIII. Dispute Resolution</p>
+  <p>Users should first raise concerns through WeaveForward's support channels for prompt and cooperative resolution. If a mutually acceptable outcome cannot be reached, the matter may be brought to arbitration or legal proceedings as permitted by law.</p>
+
+  <p class="section">IX. Governing Law</p>
+  <p>These Terms and Conditions shall be governed by and construed in accordance with the laws of the Republic of the Philippines.</p>
+
+  <p class="section">X. Contact Information</p>
+  <p>For questions regarding these terms, contact us at gabrielleysabel.almirol@benilde.edu.ph, joshua.vinson@benilde.edu.ph, or marthinalauren.melliang@benilde.edu.ph.</p>
+
+  <p>By accepting these terms, you acknowledge and agree to all of the above provisions.</p>
+</template>
+
+<template id="privacyContent">
+  <p class="section">I. Introduction</p>
+  <p>Welcome to WeaveForward, a textile donation platform connecting Donors and Textile Upcycling Artisan Businesses (TUABs). Safeguarding your privacy and securing your personal data are fundamental to how we operate. This Privacy Agreement describes the types of information we collect, the reasons we collect it, how we keep it safe, and the circumstances under which it may be shared. It is designed to comply with the Data Privacy Act of 2012 (Republic Act No. 10173), its Implementing Rules and Regulations, and applicable National Privacy Commission (NPC) guidelines. By using WeaveForward, you agree to the practices set out in this document.</p>
+
+  <p class="section">II. Information We Collect</p>
+  <p><strong>Personal Information.</strong> We collect your full name, email address, mobile number, physical address, and account credentials. For Donors, this includes your first, middle, and last name. For TUABs, this includes your business name, description, social media links, and operational preferences.</p>
+  <p><strong>Transaction Information.</strong> We collect donation records, pickup and delivery addresses, GPS coordinates, donation images, and payment details required to process donations and coordinate logistics.</p>
+  <p><strong>Technical Information.</strong> We collect device information such as your IP address, browser type, and operating system, along with usage data like pages viewed and features accessed.</p>
+  <p><strong>Business Documents (TUABs only).</strong> TUABs are required to submit business documents such as DTI or SEC registration and permits for identity verification purposes.</p>
+
+  <p class="section">III. How We Use Your Information</p>
+  <p>We use your information to create and manage your account, match Donors with nearby TUABs based on location and preferences, schedule pickups, deliveries, and logistics, handle payments and subscriptions, communicate with you regarding your account and platform updates, improve our platform's functionality and user experience, and meet legal and regulatory obligations.</p>
+
+  <p class="section">IV. How We Protect Your Information</p>
+  <p>We deploy suitable technical and organizational measures to protect your personal data. Communications between your device and our servers are encrypted using HTTPS with Transport Layer Security (TLS), consistent with NPC Circular No. 2023-06. We enforce role-based access controls so only authorized personnel can view your data. Multi-factor authentication (MFA) is available as an additional security layer. Our systems are continuously monitored and undergo regular security evaluations.</p>
+
+  <p class="section">V. Sharing Your Information</p>
+  <p><strong>With Your Consent.</strong> We share information with other users as needed to enable donations and logistics. For instance, your business name and address are visible to Donors browsing TUABs, and your pickup address is shared with TUABs for coordination.</p>
+  <p><strong>With Service Providers.</strong> We rely on trusted third-party vendors to help run the platform, including payment processors (Maya), cloud storage services, and delivery partners (Lalamove). These providers are contractually required to protect your data and may only process it according to our instructions.</p>
+  <p><strong>For Legal Purposes.</strong> We may disclose your information if required by law, regulation, or legal process, or to protect the rights, safety, or property of WeaveForward, our users, or others.</p>
+
+  <p class="section">VI. Your Rights Under RA 10173</p>
+  <p>Under the Data Privacy Act of 2012, you are entitled to: be informed about how your data is collected and processed, request a copy of your personal data held by WeaveForward, correct any inaccurate or incomplete information, request deletion of your data subject to legal retention periods, object to the processing of your data, receive your data in a portable format, and withdraw your consent at any time without affecting the lawfulness of prior processing. To exercise these rights, contact our Data Protection Officer at gabrielleysabel.almirol@benilde.edu.ph.</p>
+
+  <p class="section">VII. Data Retention</p>
+  <p>We follow tiered retention schedules aligned with the DPA's proportionality principle. Highly sensitive data — such as your contact details, location coordinates, uploaded identification documents, and authentication tokens — is retained only as long as strictly needed for its intended purpose and is then permanently deleted or irreversibly anonymized. Audit logs and transaction records may be kept longer to support accountability, compliance, and dispute resolution. Upon account deletion, your data will be securely archived or anonymized as required by law. We periodically review retained data to confirm it remains necessary for its declared purpose.</p>
+
+  <p class="section">VIII. NPC Registration and Compliance</p>
+  <p>WeaveForward's data processing systems are registered with the National Privacy Commission through the NPC Registration System as required by NPC Circular No. 2022-04. We have appointed a Data Protection Officer (DPO) and regularly conduct Privacy Impact Assessments (PIAs) to ensure continued compliance with the DPA and relevant NPC regulations.</p>
+
+  <p class="section">IX. Changes to This Agreement</p>
+  <p>We may revise this Privacy Agreement as needed to reflect changes in our operations, services, or legal obligations. Material updates will be communicated through the platform or via email. Continuing to use WeaveForward after changes take effect means you accept the updated agreement.</p>
+
+  <p class="section">X. Contact Us</p>
+  <p>If you have questions, concerns, or requests regarding this Privacy Agreement or your personal data, please contact our Data Protection Officer at gabrielleysabel.almirol@benilde.edu.ph. You may also reach our support team at joshua.vinson@benilde.edu.ph or marthinalauren.melliang@benilde.edu.ph. If you believe your data privacy rights have been violated, you may lodge a complaint with the National Privacy Commission through their website at privacy.gov.ph.</p>
+
+  <p>Thank you for trusting WeaveForward. By accepting this Privacy Agreement, you consent to the collection and processing of your personal data as described in this document.</p>
+</template>
+
+<script>
+  function openAgreement(kind) {
+    const title = kind === 'terms' ? 'Terms and Conditions' : 'Privacy Agreement';
+    const templateId = kind === 'terms' ? 'termsContent' : 'privacyContent';
+    document.getElementById('agreementTitle').textContent = title;
+    document.getElementById('agreementBody').innerHTML = document.getElementById(templateId).innerHTML;
+    document.getElementById('agreementBody').scrollTop = 0;
+    document.getElementById('agreementOverlay').classList.add('open');
+  }
+
+  function closeAgreement(e) {
+    if (e && e.target !== e.currentTarget) return;
+    document.getElementById('agreementOverlay').classList.remove('open');
+  }
+</script>

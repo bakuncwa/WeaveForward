@@ -15,6 +15,7 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400&family=Poppins:wght@300;400;500;600&family=Inter:wght@500&display=swap"
     rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
@@ -470,6 +471,9 @@
     .pw-rule.met { color: #2d7a4f; }
     .pw-match-err { font-size: 11px; font-family: 'Poppins', sans-serif; color: #c0392b; margin-top: -6px; margin-bottom: 8px; }
     .pw-match-err.hidden { display: none; }
+    .agreement-checks { display: grid; gap: 8px; max-width: 600px; margin: 18px auto 0; font-size: 12px; color: #555; }
+    .agreement-checks label { display: flex; align-items: flex-start; gap: 8px; line-height: 1.5; }
+    .agreement-checks input { margin-top: 2px; accent-color: var(--g); }
   </style>
 </head>
 
@@ -628,6 +632,11 @@
               <input type="file" name="documentation" id="fi" class="hidden" accept=".jpg,.jpeg,.png,.pdf"
                 onchange="uF(this)">
             </div>
+            {% include 'frontend/includes/registration_agreement_content.html' with agreement_role_title='TUAB (Business)' %}
+            <div class="agreement-checks">
+              <label><input type="checkbox" id="terms_accepted" name="terms_accepted"> I agree to the <button type="button" class="agreement-link" onclick="event.preventDefault();event.stopPropagation();openAgreement('terms')">Terms and Conditions</button>.</label>
+              <label><input type="checkbox" id="privacy_accepted" name="privacy_accepted"> I agree to the <button type="button" class="agreement-link" onclick="event.preventDefault();event.stopPropagation();openAgreement('privacy')">Privacy Agreement</button>.</label>
+            </div>
             <div class="sub-wrap">
               <button type="button" class="btn" style="padding:16px 80px;font-weight:600;font-size:18px"
                 onclick="subFrm()">Submit</button>
@@ -680,8 +689,19 @@
       const match = gE('pw').value === gE('cp').value;
       gE('pw-match-err').classList.toggle('hidden', match);
     });
-
-
+    function agreementsOk() {
+      const terms = gE('terms_accepted'), privacy = gE('privacy_accepted');
+      if (terms.checked && privacy.checked) return true;
+      Swal.fire({
+        icon: 'warning',
+        title: 'Agreement required',
+        text: 'Please accept the Terms and Conditions and Privacy Agreement.',
+        confirmButtonColor: '#E86338'
+      });
+      (terms.checked ? privacy : terms).focus();
+      return false;
+    }
+    gE('reg-form')?.addEventListener('submit', e => { if (!agreementsOk()) e.preventDefault(); });
     const fiberLookup = JSON.parse(document.getElementById('fibers-data').textContent);
 
     const steps = [
@@ -832,6 +852,7 @@
       });
     }
     function subFrm() {
+      if (!agreementsOk()) return;
       gE('reg-form').submit();
     }
   </script>
