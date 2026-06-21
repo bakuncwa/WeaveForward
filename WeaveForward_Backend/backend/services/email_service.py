@@ -10,7 +10,7 @@ def send_password_reset_email(to_email, reset_link):
     resend.api_key = settings.RESEND_API_KEY
     
     params = {
-        "from": "WeaveForward <onboarding@resend.dev>", # Default for free tier
+        "from": "WeaveForward <no-reply@weaveforward.online>",
         "to": [to_email],
         "subject": "Reset Your WeaveForward Password",
         "html": f"""
@@ -37,6 +37,39 @@ def send_password_reset_email(to_email, reset_link):
         return None
 
 
+def send_verification_email(to_email, verify_link, display_name):
+    resend.api_key = settings.RESEND_API_KEY
+    safe_display_name = escape(display_name)
+    safe_verify_link = escape(verify_link)
+
+    params = {
+        "from": "WeaveForward <no-reply@weaveforward.online>",
+        "to": [to_email],
+        "subject": "Verify Your WeaveForward Account",
+        "html": f"""
+            <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                <h2 style="color: #2D3748;">Welcome to WeaveForward!</h2>
+                <p>Hello {safe_display_name},</p>
+                <p>Please verify your email address by clicking the button below:</p>
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="{safe_verify_link}" style="background-color: #4A5568; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Verify Email</a>
+                </div>
+                <p>This link stays valid until your account is verified. If you didn't create an account, you can ignore this email.</p>
+                <p>Best regards,<br>The WeaveForward Team</p>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+                <p style="font-size: 12px; color: #A0AEC0;">If the button doesn't work, copy and paste this link:</p>
+                <p style="font-size: 12px; color: #A0AEC0;">{safe_verify_link}</p>
+            </div>
+        """,
+    }
+
+    try:
+        return resend.Emails.send(params)
+    except Exception as e:
+        logger.error("Failed to send verification email to %s: %s", to_email, e)
+        return None
+
+
 def send_match_accept_notification(donor_email, donor_name, tuab_name,
                                     pickup_address, pickup_date, items_list):
     resend.api_key = settings.RESEND_API_KEY
@@ -49,7 +82,7 @@ def send_match_accept_notification(donor_email, donor_name, tuab_name,
     )
 
     params = {
-        "from": "WeaveForward <onboarding@resend.dev>",
+        "from": "WeaveForward <no-reply@weaveforward.online>",
         "to": [donor_email],
         "subject": f"{tuab_name} is Interested in Your Donation Items",
         "html": f"""
@@ -87,7 +120,7 @@ def send_match_reject_notification(donor_email, donor_name, tuab_name,
     )
 
     params = {
-        "from": "WeaveForward <onboarding@resend.dev>",
+        "from": "WeaveForward <no-reply@weaveforward.online>",
         "to": [donor_email],
         "subject": f"{tuab_name} Has Reviewed Your Donation Items",
         "html": f"""
@@ -119,7 +152,7 @@ def send_flag_notification(admin_emails, donation_id, flag_reason, flagged_by_na
     flag_reason = escape(flag_reason)
 
     params = {
-        "from": "WeaveForward <onboarding@resend.dev>",
+        "from": "WeaveForward <no-reply@weaveforward.online>",
         "to": admin_emails,
         "subject": f"Donation #{donation_id} Flagged for Review",
         "html": f"""

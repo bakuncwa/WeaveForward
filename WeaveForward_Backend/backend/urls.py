@@ -7,6 +7,8 @@ urlpatterns = [
     # --- AUTH ---
     path('auth/token', views.TokenViewSet.as_view({'post': 'create', 'delete': 'destroy'}), name='token_obtain'),
     path('auth/token/refresh', views.CookieTokenRefreshView.as_view(), name='token_refresh'),
+    path('auth/verify-email', views.VerifyEmailView.as_view(), name='verify_email'),
+    path('auth/resend-verification', views.ResendVerificationEmailView.as_view(), name='resend_verification_email'),
     path('auth/password-reset', views.PasswordResetRequestView.as_view(), name='password_reset_request'),
     path('auth/password-reset/confirmation', views.PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
 

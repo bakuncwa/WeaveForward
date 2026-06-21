@@ -72,7 +72,7 @@
           </div>
           <div class="profile-chips">
             <span class="chip-outline">{{ donor.role|lower }}</span>
-            <span class="chip-filled">{{ donor.status|title }}</span>
+            <span class="chip-filled">{% if donor.status == 'EMAIL_UNVERIFIED' %}Email Unverified{% else %}{{ donor.status|title }}{% endif %}</span>
             <span class="chip-grey">Member since {{ donor.created_at|date:"F j Y" }}</span>
           </div>
         </div>

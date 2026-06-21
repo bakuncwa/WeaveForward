@@ -29,7 +29,8 @@ from ..serializers import (
     TUABRegisterSerializer
 )
 from ..services.audit_service import get_client_ip, log_audit
-from ..services.auth_service import create_tuab_documentation_upload, get_request_base_url, generate_api_key
+from ..services.auth_service import create_tuab_documentation_upload, generate_api_key, generate_reset_token, get_request_base_url
+from ..services.email_service import send_verification_email
 from ..services.etag_service import build_updated_at_etag, matches_if_match
 from ..services.two_factor_service import disable_two_factor, enable_two_factor
 from ..services.user_archive_service import archive_user
@@ -268,6 +269,9 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
             if target_user.role != UserRole.TUAB:
                 return Response({"detail": "Only TUAB users can be reviewed via this endpoint."}, status=status.HTTP_409_CONFLICT)
 
+            if target_user.status == UserAccountStatus.EMAIL_UNVERIFIED:
+                return Response({"detail": "TUAB must verify their email before being approved."}, status=status.HTTP_409_CONFLICT)
+
             if target_user.status != UserAccountStatus.UNDER_REVIEW:
                 return Response({"detail": "Only TUAB users under review can be reviewed."}, status=status.HTTP_409_CONFLICT)
 
@@ -276,10 +280,11 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
                 target_user.rejection_reason = rejection_reason
             else:
                 target_user.status = UserAccountStatus.ACTIVE
+                target_user.operational_status = UserOperationalStatus.ACTIVE
                 target_user.rejection_reason = None
                 generate_api_key(target_user)
             
-            target_user.save(update_fields=['status', 'rejection_reason', 'updated_at'])
+            target_user.save(update_fields=['status', 'operational_status', 'rejection_reason', 'updated_at'])
 
             log_audit(
                 actor=request.user,
@@ -486,6 +491,7 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
 
     def create(self, request, *args, **kwargs):
         # If user is authenticated, they must be an Admin
+        is_admin_create = bool(request.user and request.user.is_authenticated)
         if request.user and request.user.is_authenticated:
             if request.user.role != UserRole.ADMIN:
                 return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
@@ -506,14 +512,36 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
                 return Response({"error": "Please specify a valid user role (Donor or TUAB)."}, status=status.HTTP_400_BAD_REQUEST)
 
         if serializer.is_valid():
-            if role == UserRole.TUAB:
-                documentation = serializer.validated_data.pop('documentation', None)
-                with transaction.atomic():
+            with transaction.atomic():
+                if role == UserRole.TUAB:
+                    documentation = serializer.validated_data.pop('documentation', None)
                     documentation_upload = create_tuab_documentation_upload(documentation)
-                    serializer.save(documentation=documentation_upload)
-            else:
-                serializer.save()
-            return Response({"message": "Registration successful."}, status=status.HTTP_201_CREATED)
+                    user = serializer.save(documentation=documentation_upload)
+                else:
+                    user = serializer.save()
+
+                if is_admin_create:
+                    user.status = UserAccountStatus.ACTIVE
+                    user.save(update_fields=['status', 'updated_at'])
+                    return Response({"message": "Donor account created successfully."}, status=status.HTTP_201_CREATED)
+
+                try:
+                    uidb64, token = generate_reset_token(user)
+                    frontend_base_url = get_request_base_url(request)
+                    verify_link = f"{frontend_base_url}/verify-email/?uidb64={uidb64}&token={token}"
+                    display_name = user.business_name or f"{user.first_name or ''} {user.last_name or ''}".strip() or user.email
+                    email_result = send_verification_email(user.email, verify_link, display_name)
+                except Exception:
+                    email_result = None
+
+                if email_result is None:
+                    transaction.set_rollback(True)
+                    return Response(
+                        {"detail": "Registration could not be completed because the verification email could not be sent. Please try again."},
+                        status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    )
+
+            return Response({"message": "Registration successful. Please check your email to verify your account."}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def destroy(self, request, *args, **kwargs):

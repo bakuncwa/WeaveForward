@@ -246,6 +246,8 @@
             <span class="badge badge-active">Active</span>
             {% elif tuab.status == 'UNDER_REVIEW' %}
             <span class="badge badge-under-review">Under Review</span>
+            {% elif tuab.status == 'EMAIL_UNVERIFIED' %}
+            <span class="badge badge-email-unverified">Email Unverified</span>
             {% elif tuab.status == 'ARCHIVED' %}
             <span class="badge badge-archived">Archived</span>
             {% else %}

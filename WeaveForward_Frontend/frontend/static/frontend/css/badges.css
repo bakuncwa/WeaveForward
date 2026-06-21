@@ -23,6 +23,10 @@
   background: var(--gold, #e8a020);
 }
 
+.badge.badge-email-unverified {
+  background: #6b7280;
+}
+
 .badge.badge-transit {
   background: var(--blue, #0b77dc);
 }

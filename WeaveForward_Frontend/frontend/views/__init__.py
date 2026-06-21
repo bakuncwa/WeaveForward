@@ -259,6 +259,32 @@ async def reset_password_confirm(request):
                     'token': token
                 })
 
+async def verify_email(request):
+    if request.method == 'GET':
+        return render(request, 'frontend/verify_email.html')
+
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        response = await api_call(request, 'POST', 'auth/verify-email', json=data)
+        result = response.json()
+        if response.status_code == 200:
+            return JsonResponse(result, status=200)
+        return JsonResponse(result, status=response.status_code)
+
+async def resend_verification_email(request):
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+
+    data = json.loads(request.body)
+    response = await api_call(
+        request,
+        'POST',
+        'auth/resend-verification',
+        json=data,
+        headers={'X-Frontend-Redirect-Url': request.build_absolute_uri('/').rstrip('/')},
+    )
+    return JsonResponse(response.json(), status=response.status_code)
+
 async def donor_registration(request):
     if request.method == 'POST':
         raw_data = request.POST
@@ -290,9 +316,17 @@ async def donor_registration(request):
         elif not payload['contact_no'].startswith('+'):
             payload['contact_no'] = '+63' + payload['contact_no']
         try:
-            response = await api_call(request, 'POST', 'users', json=payload)
+            response = await api_call(
+                request,
+                'POST',
+                'users',
+                json=payload,
+                headers={
+                    'X-Frontend-Redirect-Url': request.build_absolute_uri('/').rstrip('/'),
+                },
+            )
             if response.status_code == 201:
-                messages.success(request, "Registration successful!")
+                messages.success(request, "Registration successful! Please check your email for a verification link before logging in.")
                 return redirect('login')
             else:
                 return render(request, 'frontend/donor_registration.html', {'errors': format_errors(response.json()), 'form_data': raw_data})
@@ -355,9 +389,18 @@ async def tuab_registration(request):
         files = {'documentation': request.FILES.get('documentation')} if request.FILES.get('documentation') else None
 
         try:
-            response = await api_call(request, 'POST', 'users', data=payload, files=files)
+            response = await api_call(
+                request,
+                'POST',
+                'users',
+                data=payload,
+                files=files,
+                headers={
+                    'X-Frontend-Redirect-Url': request.build_absolute_uri('/').rstrip('/'),
+                },
+            )
             if response.status_code == 201:
-                messages.success(request, "TUAB Application Submitted!")
+                messages.success(request, "TUAB Application Submitted! Please check your email for a verification link.")
                 return redirect('login')
             else:
                 try:
