@@ -460,8 +460,9 @@
         // Driver details
         var dd = data.driver_details;
         var section = document.getElementById('driver-section');
-        if (section && dd) {
-          var infoEl = document.getElementById('driver-info');
+        if (!section) return;
+        var infoEl = document.getElementById('driver-info');
+        if (dd) {
           var nameEl = document.getElementById('driver-name');
           if (!nameEl && infoEl) {
             infoEl.innerHTML = '<div class="drow"><span class="lbl">Name</span><span class="val" id="driver-name"></span></div><div class="drow"><span class="lbl">Phone</span><span class="val" id="driver-phone"></span></div><div class="drow"><span class="lbl">Plate No.</span><span class="val" id="driver-plate"></span></div>';
@@ -474,6 +475,8 @@
           if (plateEl) { plateEl.textContent = dd.plateNumber || '-'; }
           var waiting = document.getElementById('driver-waiting');
           if (waiting) waiting.remove();
+        } else if (document.getElementById('driver-name')) {
+          infoEl.innerHTML = '<div style="font-size:13px;color:#999" id="driver-waiting">Waiting for driver assignment...</div>';
         }
       })
       .catch(function () { /* silent */ })
