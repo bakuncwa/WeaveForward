@@ -8,7 +8,7 @@ from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from ..models import User, UserAccountStatus, UserRole
+from ..models import User, UserAccountStatus, UserOperationalStatus, UserRole
 from ..serializers import (
     CustomTokenObtainPairSerializer,
     DonorRegisterSerializer,
@@ -22,6 +22,7 @@ from ..services.auth_service import (
     enforce_csrf,
     REFRESH_COOKIE_NAME,
     generate_reset_token,
+    generate_api_key,
     get_request_base_url,
     set_auth_cookies,
 )
@@ -185,7 +186,10 @@ class VerifyEmailView(APIView):
         # else:
         #     user.status = UserAccountStatus.UNDER_REVIEW
         user.status = UserAccountStatus.ACTIVE
-        user.save(update_fields=['status'])
+        if user.role == UserRole.TUAB:
+            user.operational_status = UserOperationalStatus.ACTIVE
+            generate_api_key(user)
+        user.save(update_fields=['status', 'operational_status'])
 
         return Response({'message': 'Email verified successfully.'}, status=status.HTTP_200_OK)
 
