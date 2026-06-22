@@ -461,7 +461,12 @@
         var dd = data.driver_details;
         var section = document.getElementById('driver-section');
         if (section && dd) {
+          var infoEl = document.getElementById('driver-info');
           var nameEl = document.getElementById('driver-name');
+          if (!nameEl && infoEl) {
+            infoEl.innerHTML = '<div class="drow"><span class="lbl">Name</span><span class="val" id="driver-name"></span></div><div class="drow"><span class="lbl">Phone</span><span class="val" id="driver-phone"></span></div><div class="drow"><span class="lbl">Plate No.</span><span class="val" id="driver-plate"></span></div>';
+            nameEl = document.getElementById('driver-name');
+          }
           if (nameEl) { nameEl.textContent = dd.name || '-'; }
           var phoneEl = document.getElementById('driver-phone');
           if (phoneEl) { phoneEl.textContent = dd.phone || '-'; }

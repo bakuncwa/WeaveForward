@@ -7,6 +7,33 @@ const getEl = id => document.getElementById(id);
 const escapeHTML = str => !str ? '' : str.replace(/[&<>'"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[c] || c));
 let map, mrk, tmpLat, tmpLng, acTmr, acRes = [];
 let activePrefix = '';
+let pendingLookups = 0;
+
+function setSubmitDisabled(disabled) {
+  var form = document.querySelector('form[id$="-frm"]');
+  if (!form) return;
+  var btn = form.querySelector('[type="submit"]');
+  if (!btn) return;
+  btn.disabled = disabled;
+  btn.style.opacity = disabled ? '0.5' : '';
+  btn.style.cursor = disabled ? 'not-allowed' : '';
+}
+
+function lockSubmit() {
+  pendingLookups++;
+  setSubmitDisabled(true);
+}
+
+function unlockSubmit() {
+  pendingLookups--;
+  if (pendingLookups < 0) pendingLookups = 0;
+  if (pendingLookups === 0) setSubmitDisabled(false);
+}
+
+function releaseAllLocks() {
+  pendingLookups = 0;
+  setSubmitDisabled(false);
+}
 
 function setAddressValue(prefix, address) {
   const addrId = prefix ? prefix + '_addr' : 'addr';
@@ -52,8 +79,14 @@ function srchAddr(v, prefix = '') {
   if (latEl) latEl.value = '';
   if (lngEl) lngEl.value = '';
 
-  if (v.length < 3) { getEl(itemsId).innerHTML = ''; return; }
+  if (v.length < 3) {
+    getEl(itemsId).innerHTML = '';
+    clearTimeout(acTmr);
+    releaseAllLocks();
+    return;
+  }
   clearTimeout(acTmr);
+  lockSubmit();
   acTmr = setTimeout(async () => {
     try {
       const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(v + ', Philippines')}&limit=5&countrycodes=ph`);
@@ -64,6 +97,8 @@ function srchAddr(v, prefix = '') {
       console.error("Search failed", e); 
       getEl(itemsId).innerHTML = `<div style="padding:10px 14px; color:#d9534f; font-weight:500; font-size:12.5px;">Location resolution services are unavailable.</div>`;
       getEl(acId).classList.remove('hidden');
+    } finally {
+      unlockSubmit();
     }
   }, 350);
 }
@@ -159,6 +194,7 @@ async function confirmMap() {
   getEl(lngId).value = tmpLng.toFixed(7);
   closeMap();
   
+  lockSubmit();
   try {
     const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${tmpLat}&lon=${tmpLng}`);
     const data = await res.json();
@@ -173,6 +209,8 @@ async function confirmMap() {
     if (typeof showFlash === 'function') {
       showFlash('Location resolution services are unavailable.', 'error');
     }
+  } finally {
+    unlockSubmit();
   }
 }
 

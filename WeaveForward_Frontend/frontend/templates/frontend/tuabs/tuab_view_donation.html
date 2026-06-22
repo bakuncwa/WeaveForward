@@ -524,6 +524,12 @@
           <div class="drow"><span class="lbl">Pickup Preferred Date</span><span class="val">{{ donation.preferred_pickup_date|date:"m-d-Y"|default:"-" }}</span></div>
           <div class="drow"><span class="lbl">Pickup Preferred Pickup Window</span><span class="val">{% if donation.preferred_pickup_window_start and donation.preferred_pickup_window_end %}{{ donation.preferred_pickup_window_start|time:"h:i A" }} - {{ donation.preferred_pickup_window_end|time:"h:i A" }}{% else %}-{% endif %}</span></div>
 
+          {% if donation.delivery_method == 'DELIVERY' %}
+          <div class="drow"><span class="lbl">Driver Name</span><span class="val">{{ donation.driver_details.name|default:"-" }}</span></div>
+          <div class="drow"><span class="lbl">Driver Phone</span><span class="val">{{ donation.driver_details.phone|default:"-" }}</span></div>
+          <div class="drow"><span class="lbl">Plate Number</span><span class="val">{{ donation.driver_details.plateNumber|default:"-" }}</span></div>
+          {% endif %}
+
           <div class="sep"></div>
           <img src="{{ donation.upload|default:'' }}"
             class="upload-photo{% if not donation.upload %} hidden{% endif %}" alt="Donation">
