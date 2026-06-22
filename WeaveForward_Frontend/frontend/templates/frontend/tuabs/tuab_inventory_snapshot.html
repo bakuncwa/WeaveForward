@@ -702,7 +702,7 @@
 
     function buildCardHTML(donor, address, items) {
       const itemsHtml = items.length
-        ? '<ul class="hc-items">' + items.slice(0, 5).map(it => `<li>${escapeHTML(it.fiber || it.type || '?')}</li>`).join('') + (items.length > 5 ? `<li class="hc-more">+${items.length - 5} more</li>` : '') + '</ul>'
+        ? '<ul class="hc-items">' + items.slice(0, 5).map(it => `<li>${escapeHTML(it.fiber || '?')}${it.type ? ' ' + escapeHTML(it.type) : ''}</li>`).join('') + (items.length > 5 ? `<li class="hc-more">+${items.length - 5} more</li>` : '') + '</ul>'
         : '<div style="color:var(--muted,#888);padding:4px 0">No item details</div>';
       return `
         <div class="hc-hdr">Donor: ${escapeHTML(donor)}</div>

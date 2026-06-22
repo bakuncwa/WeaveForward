@@ -405,6 +405,7 @@ async def tuab_registration(request):
             )
             if response.status_code == 201:
                 if is_ajax:
+                    messages.success(request, "TUAB Application Submitted! Please check your email for a verification link.")
                     return JsonResponse({'redirect': reverse('login')})
                 messages.success(request, "TUAB Application Submitted! Please check your email for a verification link.")
                 return redirect('login')

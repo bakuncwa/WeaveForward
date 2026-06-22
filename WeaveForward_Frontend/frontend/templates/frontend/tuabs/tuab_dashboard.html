@@ -300,8 +300,7 @@
     const maxItems = 5;
     const show = items.slice(0, maxItems);
     show.forEach(it => {
-      const label = it.fiber || it.type || '?';
-      itemsHtml += `<li>${escapeHTML(label)}</li>`;
+      itemsHtml += `<li>${escapeHTML(it.fiber || '?')}${it.type ? ' ' + escapeHTML(it.type) : ''}</li>`;
     });
     if (items.length > maxItems) itemsHtml += `<li class="hc-more">+${items.length - maxItems} more</li>`;
     itemsHtml += '</ul>';
