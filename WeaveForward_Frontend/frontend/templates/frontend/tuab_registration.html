@@ -263,6 +263,21 @@
       gap: 5px
     }
 
+    .t-chevron {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #aaa;
+      pointer-events: none;
+      transition: transform .2s, color .2s;
+      flex-shrink: 0;
+    }
+    .t-box:focus-within .t-chevron {
+      color: var(--g);
+      transform: translateY(-50%) rotate(180deg);
+    }
+
     .t-chip span {
       cursor: pointer;
       font-size: 14px
@@ -611,9 +626,12 @@
               <div class="group"><label class="cap-lbl">Target Fiber Types<span class="req">*</span></label>
                 <div class="t-box" id="tbox">
                   <div id="tags" style="display:flex;flex-wrap:wrap;gap:6px"></div>
-                  <input id="ti" style="border:none;outline:none;flex:1;min-width:60px" oninput="fIn(this.value)" onfocus="showFiberOptions(this.value)" onclick="showFiberOptions(this.value)"
+                  <input id="ti" style="border:none;outline:none;flex:1;min-width:60px" autocomplete="off" autocapitalize="off" spellcheck="false"
+                    oninput="fIn(this.value)" onfocus="showFiberOptions(this.value)" onclick="showFiberOptions(this.value)"
+                    onkeydown="if(event.key==='Enter'){event.preventDefault();if(commitFiberInput())showFiberOptions('');}"
                     onblur="commitFiberInput();hAc('f-ac');validateFibers()">
                   <div id="f-ac" class="ac-list hidden"></div>
+                  <svg class="t-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
                 </div>
                 <input type="hidden" id="fibs" name="target_fibers" value="{{ form_data.target_fibers }}">
               <span class="field-err" id="err-target_fibers"></span></div>
@@ -1069,7 +1087,6 @@
     }
 
     function fIn(v) {
-      if (commitFiberInput()) return;
       showFiberOptions(v);
     }
 

@@ -251,6 +251,21 @@
     margin-left: 2px;
   }
 
+  .t-chevron {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #aaa;
+    pointer-events: none;
+    transition: transform .2s, color .2s;
+    flex-shrink: 0;
+  }
+  .t-box:focus-within .t-chevron {
+    color: var(--g);
+    transform: translateY(-50%) rotate(180deg);
+  }
+
   #ti {
     border: none !important;
     outline: none !important;
@@ -415,8 +430,11 @@
       <div class="t-box" onclick="getEl('ti').focus()">
         <div id="tags"></div>
         <input id="ti" placeholder="Add fiber…" autocomplete="off" autocapitalize="off" spellcheck="false"
-          oninput="handleFiberInput(this.value)" onfocus="showFiberOptions(this.value)" onclick="showFiberOptions(this.value)" onblur="commitFiberInput();hideDd('f-ac')">
+          oninput="handleFiberInput(this.value)" onfocus="showFiberOptions(this.value)" onclick="showFiberOptions(this.value)"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();if(commitFiberInput())showFiberOptions('');}"
+          onblur="commitFiberInput();hideDd('f-ac')">
         <div id="f-ac" class="f-dd hidden"></div>
+        <svg class="t-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
       </div>
       <input type="hidden" id="fibs" name="target_fibers" value="{{ tuab.target_fibers }}">
     </div>
@@ -556,7 +574,7 @@
   const renderTags = () => { getEl('tags').innerHTML = tags.map(t => `<div class="t-chip">${escapeHTML(t)}<span data-tag="${escapeHTML(t)}" onclick="toggleTag(this.getAttribute('data-tag'))">×</span></div>`).join(''); getEl('fibs').value = tags.join(','); };
   const showFiberOptions = (val = '') => { const q = val.trim().toLowerCase(); const m = FIBERS.filter(f => !tags.includes(f) && (!q || f.toLowerCase().includes(q))); getEl('f-ac').innerHTML = m.map(f => `<div data-tag="${escapeHTML(f)}" onmousedown="toggleTag(this.getAttribute('data-tag'))">${escapeHTML(f)}</div>`).join(''); getEl('f-ac').classList.toggle('hidden', !m.length); };
   const commitFiberInput = () => { const raw = getEl('ti').value.trim().toLowerCase(); if (!raw) return false; const exact = FIBERS.find(f => f.toLowerCase() === raw); if (!exact) return false; if (!tags.includes(exact)) { tags = [...tags, exact]; renderTags(); } else { getEl('ti').value = ''; getEl('f-ac').classList.add('hidden'); } return true; };
-  const handleFiberInput = val => { if (commitFiberInput()) return; showFiberOptions(val); };
+  const handleFiberInput = val => { showFiberOptions(val); };
   const toggleTag = (f, keepOpen = false) => { const wasSelected = tags.includes(f); tags = wasSelected ? tags.filter(t => t !== f) : [...tags, f]; renderTags(); getEl('ti').value = ''; if (keepOpen || wasSelected) { getEl('ti').focus(); showFiberOptions(''); } else getEl('f-ac').classList.add('hidden'); };
 
   // --- 5. Location ---

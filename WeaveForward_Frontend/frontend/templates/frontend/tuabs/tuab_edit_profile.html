@@ -21,6 +21,8 @@
     .t-chip { background: #FFF1D8; color: #E8A020; border-radius: 5.12px; padding: 2px 10px; font-size: 10px; font-weight: 400; display: flex; align-items: center; gap: 4px; font-family: 'Poppins', sans-serif; }
     .t-chip span { cursor: pointer; font-size: 11px; line-height: 1; margin-left: auto; color: #E8A020; }
     #ti { border: none !important; outline: none !important; font-size: 13px; background: transparent; min-width: 80px; flex: 1; padding: 0 !important; height: auto !important; }
+    .t-chevron { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: #aaa; pointer-events: none; transition: transform .2s, color .2s; flex-shrink: 0; }
+    .t-box:focus-within .t-chevron { color: var(--gold); transform: translateY(-50%) rotate(180deg); }
 
     .btn-remove-pay { width: 100%; padding: 10px 14px; border-radius: 8px; border: 1.5px solid #e2e2e2; background: #f4f4f4; color: #c0392b; font-weight: 600; font-size: 13px; cursor: pointer; }
     .btn-remove-pay.staged { cursor: default; opacity: .7; background: #fce8e0; border-color: #f5c0a0; color: #c0410e; }
@@ -72,8 +74,12 @@
             <label>Target Fiber Types</label>
             <div class="t-box" onclick="$('ti').focus()">
               <div id="tags"></div>
-              <input id="ti" placeholder="Add fiber…" autocomplete="off" autocapitalize="off" spellcheck="false" oninput="handleFiberInput(this.value)" onfocus="showFiberOptions(this.value)" onclick="showFiberOptions(this.value)" onblur="commitFiberInput();setTimeout(()=>$('f-ac').classList.add('hidden'),200)">
+              <input id="ti" placeholder="Add fiber…" autocomplete="off" autocapitalize="off" spellcheck="false"
+                oninput="handleFiberInput(this.value)" onfocus="showFiberOptions(this.value)" onclick="showFiberOptions(this.value)"
+                onkeydown="if(event.key==='Enter'){event.preventDefault();if(commitFiberInput())showFiberOptions('');}"
+                onblur="commitFiberInput();setTimeout(()=>$('f-ac').classList.add('hidden'),200)">
               <div id="f-ac" class="dropdown hidden"></div>
+              <svg class="t-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
             </div>
           </div>
         </div>
@@ -424,7 +430,6 @@
         return true;
     }
     function handleFiberInput(val) {
-        if (commitFiberInput()) return;
         showFiberOptions(val);
     }
     function toggleTag(f, keepOpen = false) {
