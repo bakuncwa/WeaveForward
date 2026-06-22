@@ -23,7 +23,7 @@
     #ti { border: none !important; outline: none !important; font-size: 13px; background: transparent; min-width: 80px; flex: 1; padding: 0 !important; height: auto !important; }
 
     .btn-remove-pay { width: 100%; padding: 10px 14px; border-radius: 8px; border: 1.5px solid #e2e2e2; background: #f4f4f4; color: #c0392b; font-weight: 600; font-size: 13px; cursor: pointer; }
-    .btn-remove-pay:disabled { cursor: default; opacity: .7; background: #fce8e0; border-color: #f5c0a0; color: #c0410e; }
+    .btn-remove-pay.staged { cursor: default; opacity: .7; background: #fce8e0; border-color: #f5c0a0; color: #c0410e; }
 
     @media(max-width: 768px), (max-aspect-ratio: 1/1) { .g2 { grid-template-columns: 1fr; } .sec { padding: 18px 16px; } }
 </style>
@@ -72,7 +72,7 @@
             <label>Target Fiber Types</label>
             <div class="t-box" onclick="$('ti').focus()">
               <div id="tags"></div>
-              <input id="ti" placeholder="Add fiber…" autocomplete="off" autocapitalize="off" spellcheck="false" oninput="handleFiberInput(this.value)" onblur="setTimeout(()=>$('f-ac').classList.add('hidden'),200)">
+              <input id="ti" placeholder="Add fiber…" autocomplete="off" autocapitalize="off" spellcheck="false" oninput="handleFiberInput(this.value)" onfocus="showFiberOptions(this.value)" onclick="showFiberOptions(this.value)" onblur="commitFiberInput();setTimeout(()=>$('f-ac').classList.add('hidden'),200)">
               <div id="f-ac" class="dropdown hidden"></div>
             </div>
           </div>
@@ -96,8 +96,8 @@
 
       <div class="sec" style="border:none">
         <div class="g2" style="margin-bottom:14px">
-          <div class="field"><label>Barangay</label><input id="brgy" class="wf-in" value="{{ user.barangay|default:'' }}" readonly style="background:#f9f9f9" /></div>
-          <div class="field"><label style="text-transform:none">CITY</label><input id="city" class="wf-in" value="{{ user.city|default:'' }}" readonly style="background:#f9f9f9" /></div>
+          <div class="field"><label>Barangay</label><div class="readonly-tip-wrap" data-tip="This is auto-filled. Change the address below to update barangay."><input id="brgy" class="wf-in" value="{{ user.barangay|default:'' }}" readonly style="background:#f9f9f9" /></div></div>
+          <div class="field"><label style="text-transform:none">CITY</label><div class="readonly-tip-wrap" data-tip="This is auto-filled. Change the address below to update city."><input id="city" class="wf-in" value="{{ user.city|default:'' }}" readonly style="background:#f9f9f9" /></div></div>
         </div>
         <div class="field" style="margin-bottom:14px">
           <label>Address</label>
@@ -401,27 +401,61 @@
         }
         $('fibs').value = tags.join(',');
     }
-    function handleFiberInput(val) {
+    function showFiberOptions(val = '') {
         const FIBERS = JSON.parse(document.getElementById('fibers-data').textContent);
-        const m = FIBERS.filter(f => f.toLowerCase().includes(val.toLowerCase()) && !tags.includes(f));
+        const q = val.trim().toLowerCase();
+        const m = FIBERS.filter(f => !tags.includes(f) && (!q || f.toLowerCase().includes(q)));
         $('f-ac').innerHTML = m.map(f => `<div data-tag="${escapeHTML(f)}" onmousedown="toggleTag(this.getAttribute('data-tag'))">${escapeHTML(f)}</div>`).join('');
-        $('f-ac').classList.toggle('hidden', !val || !m.length);
+        $('f-ac').classList.toggle('hidden', !m.length);
     }
-    function toggleTag(f) {
-        tags = tags.includes(f) ? tags.filter(t => t !== f) : [...tags, f];
+    function commitFiberInput() {
+        const FIBERS = JSON.parse(document.getElementById('fibers-data').textContent);
+        const raw = $('ti').value.trim().toLowerCase();
+        if (!raw) return false;
+        const exact = FIBERS.find(f => f.toLowerCase() === raw);
+        if (!exact) return false;
+        if (!tags.includes(exact)) {
+            tags = [...tags, exact];
+            renderTags();
+        } else {
+            $('ti').value = '';
+            $('f-ac').classList.add('hidden');
+        }
+        return true;
+    }
+    function handleFiberInput(val) {
+        if (commitFiberInput()) return;
+        showFiberOptions(val);
+    }
+    function toggleTag(f, keepOpen = false) {
+        const wasSelected = tags.includes(f);
+        tags = wasSelected ? tags.filter(t => t !== f) : [...tags, f];
         renderTags();
         $('ti').value = '';
-        $('f-ac').classList.add('hidden');
+        if (keepOpen || wasSelected) {
+            $('ti').focus();
+            showFiberOptions('');
+        }
+        else $('f-ac').classList.add('hidden');
     }
     renderTags();
+    $('tags')?.addEventListener('mousedown', e => {
+        if (e.target.closest('span')) e.preventDefault();
+    });
 
     // ############################################################
     // #  TUAB-specific: Unsubscribe from Premium                #
     // ############################################################
     function stageRemovePayment(btn) {
-        stagedUnsubscribe = true;
-        btn.textContent = 'Will unsubscribe on save';
-        btn.disabled = true;
+        if (stagedUnsubscribe) {
+            stagedUnsubscribe = false;
+            btn.textContent = 'Unsubscribe Business';
+            btn.classList.remove('staged');
+        } else {
+            stagedUnsubscribe = true;
+            btn.textContent = 'Will unsubscribe on save — Click again to unstage';
+            btn.classList.add('staged');
+        }
     }
 </script>
 {% endblock %}

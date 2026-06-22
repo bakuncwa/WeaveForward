@@ -179,6 +179,9 @@
     .btn:hover {
       background: var(--gd)
     }
+    .btn:disabled {
+      opacity: .5; cursor: not-allowed; background: #aaa;
+    }
 
     .step-nav {
       display: flex;
@@ -207,6 +210,12 @@
       color: #fff;
       font-weight: 700;
       font-size: 18px
+    }
+
+    .step-btn:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+      background: #aaa
     }
 
     .ac,
@@ -306,15 +315,28 @@
       z-index: 1;
       margin-bottom: 14px
     }
-    .pw-rules { display: none; flex-direction: column; gap: 4px; padding: 10px 12px; background: #faf8f5; border: 1px solid #e0dbd4; border-radius: 8px; margin-top: -8px; margin-bottom: 10px; }
+    .pw-wrap { position: relative; margin-bottom: 14px; }
+    .pw-wrap > .group { margin-bottom: 0; }
+    .pw-label-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .pw-toggle { border: 0; background: none; color: var(--g); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-family: 'Poppins', sans-serif; padding: 0; }
+    .pw-toggle svg { width: 15px; height: 15px; }
+    .pw-rules { position: absolute; top: 100%; left: 0; right: 0; z-index: 1; display: none; flex-direction: column; gap: 4px; padding: 10px 12px; background: #faf8f5; border: 1px solid #e0dbd4; border-radius: 8px; }
     .pw-rules.visible { display: flex; }
     .pw-rule { font-size: 11px; font-family: 'Poppins', sans-serif; color: #aaa; transition: color 0.2s; }
     .pw-rule.met { color: #2d7a4f; }
-    .pw-match-err { font-size: 11px; font-family: 'Poppins', sans-serif; color: #c0392b; margin-top: -6px; margin-bottom: 8px; }
-    .pw-match-err.hidden { display: none; }
     .agreement-checks { display: grid; gap: 8px; margin: 14px 0 4px; font-size: 12px; color: #555; }
     .agreement-checks label { display: flex; align-items: flex-start; gap: 8px; line-height: 1.5; }
     .agreement-checks input { margin-top: 2px; accent-color: var(--g); }
+    .req { color: #e74c3c; margin-left: 2px; }
+    .field-err { font-size: 11px; color: #c0392b; margin-top: 2px; min-height: 0; display: block; }
+    .in.invalid { border-color: #e74c3c !important; }
+    .in.valid { border-color: #27ae60 !important; }
+    .in.invalid:focus { border-color: #e74c3c !important; box-shadow: 0 0 0 2px rgba(231,76,60,.15); }
+    .in.valid:focus { border-color: #27ae60 !important; box-shadow: 0 0 0 2px rgba(39,174,96,.15); }
+    .readonly-tip-wrap { position: relative; }
+    .readonly-tip-wrap::after { content: attr(data-tip); position: absolute; left: 0; bottom: calc(100% + 8px); width: max-content; max-width: min(280px, 80vw); padding: 8px 10px; border-radius: 8px; background: #222; color: #fff; font-size: 12px; line-height: 1.4; box-shadow: 0 6px 18px rgba(0,0,0,.18); opacity: 0; pointer-events: none; transform: translateY(4px); transition: opacity .15s, transform .15s; z-index: 20; }
+    .readonly-tip-wrap::before { content: ''; position: absolute; left: 16px; bottom: calc(100% + 2px); border: 6px solid transparent; border-top-color: #222; opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 21; }
+    .readonly-tip-wrap:hover::after, .readonly-tip-wrap:focus-within::after, .readonly-tip-wrap:hover::before, .readonly-tip-wrap:focus-within::before { opacity: 1; transform: translateY(0); }
   </style>
 </head>
 
@@ -341,28 +363,25 @@
 
         <div id="step1">
           <div class="grid-3">
-            <div class="group"><label class="up">First Name</label><input class="in" name="first_name" value="{{ form_data.first_name }}"></div>
-            <div class="group"><label class="up">Middle Name</label><input class="in" name="middle_name" value="{{ form_data.middle_name }}"></div>
-            <div class="group"><label class="up">Last Name</label><input class="in" name="last_name" value="{{ form_data.last_name }}"></div>
+            <div class="group"><label class="up">First Name<span class="req">*</span></label><input class="in" name="first_name" id="donor-fn" value="{{ form_data.first_name }}"><span class="field-err" id="err-first_name"></span></div>
+            <div class="group"><label class="up">Middle Name</label><input class="in" name="middle_name" value="{{ form_data.middle_name }}"><span class="field-err" id="err-middle_name"></span></div>
+            <div class="group"><label class="up">Last Name<span class="req">*</span></label><input class="in" name="last_name" id="donor-ln" value="{{ form_data.last_name }}"><span class="field-err" id="err-last_name"></span></div>
           </div>
-          <div class="group"><label class="up">Email Address</label><input class="in" type="email" name="email" value="{{ form_data.email }}" autocomplete="off"></div>
-          <div class="group"><label class="up">Phone Number</label>
-            <div class="phone-row"><input class="in" value="+63" readonly><input class="in" name="contact_no" value="{{ form_data.contact_no }}"></div>
+          <div class="group"><label class="up">Email Address<span class="req">*</span></label><input class="in" type="email" name="email" id="donor-email" value="{{ form_data.email }}" autocomplete="off"><span class="field-err" id="err-email"></span></div>
+          <div class="group"><label class="up">Phone Number<span class="req">*</span></label>
+            <div class="phone-row"><input class="in" value="+63" readonly><input class="in" name="contact_no" id="donor-phone" value="{{ form_data.contact_no }}"></div><span class="field-err" id="err-contact_no"></span>
           </div>
-          <div class="group"><label class="up">Password</label><input class="in" type="password" name="password" id="donor-pw" autocomplete="new-password"></div>
-          <div class="pw-rules" id="pw-rules">
+            <div class="pw-wrap"><div class="group"><div class="pw-label-row"><label class="up">Password<span class="req">*</span></label><button type="button" class="pw-toggle" onclick="toggleRegistrationPasswords('donor-pw','donor-cp','donor-pw-toggle-text')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg><span id="donor-pw-toggle-text">Show</span></button></div><input class="in" type="password" name="password" id="donor-pw" autocomplete="new-password"><span class="field-err" id="err-password"></span></div>
+           <div class="pw-rules" id="pw-rules">
             <div class="pw-rule" id="r-len">&#x25CF; At least 8 characters</div>
-            <div class="pw-rule" id="r-upper">&#x25CF; At least 1 uppercase letter (A–Z)</div>
-            <div class="pw-rule" id="r-lower">&#x25CF; At least 1 lowercase letter (a–z)</div>
-            <div class="pw-rule" id="r-digit">&#x25CF; At least 1 number (0–9)</div>
-            <div class="pw-rule" id="r-special">&#x25CF; At least 1 special character (!@#$%...)</div>
-          </div>
-          <div class="group"><label class="up">Confirm Password</label><input class="in" type="password"
-              name="confirm_password" id="donor-cp" autocomplete="new-password"></div>
-          <div class="pw-match-err hidden" id="pw-match-err">Passwords do not match.</div>
-        </div>
+            <div class="pw-rule" id="r-letter">&#x25CF; At least 1 letter</div>
+            <div class="pw-rule" id="r-digit">&#x25CF; At least 1 number</div>
+          </div></div>
+           <div class="group"><label class="up">Confirm Password<span class="req">*</span></label><input class="in" type="password"
+               name="confirm_password" id="donor-cp" autocomplete="new-password"><span class="field-err" id="err-confirm_password"></span></div>
+         </div>
         <div id="step2" class="hidden">
-          <div class="group"><label class="up">Pickup Address</label>
+          <div class="group"><label class="up">Pickup Address<span class="req">*</span></label>
             <div class="ac">
               <div class="pin-wrap"><input id="addr" name="display_address" class="in"
                   value="{{ form_data.display_address }}" oninput="srAddr(this.value)"
@@ -373,19 +392,19 @@
                   </svg></button></div>
               <div id="ac" class="ac-list hidden"></div>
             </div>
-          </div>
+          <span class="field-err" id="err-display_address"></span></div>
           <input type="hidden" id="lat" name="latitude" value="{{ form_data.latitude }}"><input type="hidden"
             id="lng" name="longitude" value="{{ form_data.longitude }}">
-          <div class="group"><label class="up">City</label><input id="city" name="city" class="in"
-              value="{{ form_data.city }}" readonly></div>
-          <div class="group" style="margin-bottom:8px"><label class="up">Barangay</label><input id="brgy"
-              name="barangay" class="in" value="{{ form_data.barangay }}" readonly></div>
+          <div class="group"><label class="up">City</label><div class="readonly-tip-wrap" data-tip="This is auto-filled. Change the pickup address above to update city."><input id="city" name="city" class="in"
+              value="{{ form_data.city }}" readonly></div></div>
+          <div class="group" style="margin-bottom:8px"><label class="up">Barangay</label><div class="readonly-tip-wrap" data-tip="This is auto-filled. Change the pickup address above to update barangay."><input id="brgy"
+              name="barangay" class="in" value="{{ form_data.barangay }}" readonly></div></div>
           {% include 'frontend/includes/registration_agreement_content.html' with agreement_role_title='Donor' %}
           <div class="agreement-checks">
             <label><input type="checkbox" id="terms_accepted" name="terms_accepted"> I agree to the <button type="button" class="agreement-link" onclick="event.preventDefault();event.stopPropagation();openAgreement('terms')">Terms and Conditions</button>.</label>
             <label><input type="checkbox" id="privacy_accepted" name="privacy_accepted"> I agree to the <button type="button" class="agreement-link" onclick="event.preventDefault();event.stopPropagation();openAgreement('privacy')">Privacy Agreement</button>.</label>
           </div>
-          <button type="submit" class="btn">Register</button>
+          <button type="submit" class="btn" id="reg-btn" disabled>Register</button>
         </div>
         {% if errors %}
         <div
@@ -399,7 +418,7 @@
         </div>
         {% endif %}
         <div class="step-nav">
-          <button type="button" class="step-btn" onclick="go(-1)">❮</button>
+          <button type="button" class="step-btn" id="db-pb" onclick="go(-1)">❮</button>
           <div style="display:flex;gap:8px">
             <div id="d1" class="step-dot" style="background:var(--g)"></div>
             <div id="d2" class="step-dot"></div>
@@ -428,22 +447,130 @@
 
     const PW_RULES = [
       { id: 'r-len',     test: v => v.length >= 8 },
-      { id: 'r-upper',   test: v => /[A-Z]/.test(v) },
-      { id: 'r-lower',   test: v => /[a-z]/.test(v) },
+      { id: 'r-letter',  test: v => /[A-Za-z]/.test(v) },
       { id: 'r-digit',   test: v => /\d/.test(v) },
-      { id: 'r-special', test: v => /[!@#$%^&*()\-_=+\[\]{}|;:'",.<>?/`~\\]/.test(v) },
     ];
     function checkPw(v) {
       const rules = gE('pw-rules');
-      if (v) rules.classList.add('visible'); else rules.classList.remove('visible');
-      return PW_RULES.map(r => { const ok = r.test(v); gE(r.id).classList.toggle('met', ok); return ok; }).every(Boolean);
+      const results = PW_RULES.map(r => { const ok = r.test(v); gE(r.id).classList.toggle('met', ok); return ok; });
+      if (v && !results.every(Boolean)) rules.classList.add('visible'); else rules.classList.remove('visible');
+      return results.every(Boolean);
     }
     function pwValid() { return checkPw(gE('donor-pw')?.value || ''); }
     gE('donor-pw')?.addEventListener('input', () => checkPw(gE('donor-pw').value));
-    gE('donor-cp')?.addEventListener('input', () => {
-      const match = gE('donor-pw').value === gE('donor-cp').value;
-      gE('pw-match-err').classList.toggle('hidden', match);
+    function toggleRegistrationPasswords(passwordId, confirmId, textId) {
+      const pw = gE(passwordId), cp = gE(confirmId), text = gE(textId);
+      const show = pw.type === 'password';
+      pw.type = show ? 'text' : 'password';
+      cp.type = show ? 'text' : 'password';
+      text.textContent = show ? 'Hide' : 'Show';
+    }
+
+    // --- REAL-TIME VALIDATION ---
+    const EMAIL_RE = /^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/;
+    const PHONE_RE = /^\+63\d{10}$/;
+
+    const MAXLEN = { first_name: 50, last_name: 50, email: 100, middle_name: 50 };
+    const VALIDATORS = {
+      first_name: v => v.trim() ? (v.length <= MAXLEN.first_name ? '' : `Max ${MAXLEN.first_name} characters.`) : 'First name is required.',
+      middle_name: v => v.trim() ? (v.length <= MAXLEN.middle_name ? '' : `Max ${MAXLEN.middle_name} characters.`) : '',
+      last_name: v => v.trim() ? (v.length <= MAXLEN.last_name ? '' : `Max ${MAXLEN.last_name} characters.`) : 'Last name is required.',
+      email: v => v.trim() ? (EMAIL_RE.test(v.trim()) ? (v.length <= MAXLEN.email ? '' : `Max ${MAXLEN.email} characters.`) : 'Enter a valid email address.') : 'Email is required.',
+      contact_no: v => {
+        const raw = v.startsWith('+63') ? v : '+63' + v.replace(/^0?/, '');
+        return v.trim() ? (PHONE_RE.test(raw) ? '' : 'Enter 10 digits after +63 (e.g., 9150814395).') : 'Phone number is required.';
+      },
+      password: v => {
+        if (!v) return 'Password is required.';
+        const ok = v.length >= 8 && /[A-Za-z]/.test(v) && /\d/.test(v);
+        return ok ? '' : ' ';
+      },
+      confirm_password: v => {
+        if (!v) return 'Confirm your password.';
+        return v === gE('donor-pw').value ? '' : 'Passwords do not match.';
+      },
+      display_address: v => v.trim() ? '' : 'Pickup address is required.',
+    };
+
+    function showErr(field, msg) {
+      const el = gE('err-' + field);
+      if (!el) return;
+      el.textContent = msg;
+      const inp = document.querySelector(`[name="${field}"]`);
+      if (inp) { inp.classList.toggle('invalid', !!msg); inp.classList.toggle('valid', !msg && inp.value.trim()); }
+    }
+
+    function validateField(field) {
+      const fn = VALIDATORS[field];
+      if (!fn) return true;
+      const inp = document.querySelector(`[name="${field}"]`);
+      const v = inp ? inp.value : '';
+      const msg = fn(v);
+      showErr(field, msg);
+      return !msg;
+    }
+
+    function validateStep1() {
+      const ok = ['first_name','middle_name','last_name','email','contact_no','password','confirm_password'].every(validateField) && pwValid();
+      if (!pwValid()) gE('pw-rules').classList.add('visible');
+      return ok;
+    }
+
+    // Wire up realtime validation
+    ['first_name','middle_name','last_name','email','contact_no','password','confirm_password'].forEach(f => {
+      const el = document.querySelector(`[name="${f}"]`);
+      if (!el) return;
+      el.addEventListener('blur', () => validateField(f));
+      el.addEventListener('input', () => validateField(f));
     });
+    const _da = document.querySelector('[name="display_address"]');
+    if (_da) {
+      _da.addEventListener('blur', () => validateAddress());
+      _da.addEventListener('input', () => { gE('lat').value = ''; gE('lng').value = ''; gE('city').value = ''; gE('brgy').value = ''; validateAddress(); });
+    }
+
+    // Validate address when map picks or user types
+    function validateAddress() {
+      const ncrOk = gE('city').value && gE('brgy').value;
+      if (gE('addr').value && !ncrOk) { showErr('display_address', 'Address must be within Metro Manila.'); updateSubmitBtn(); return false; }
+      const ok = validateField('display_address'); updateSubmitBtn(); return ok;
+    }
+    const _slAddr = slAddr; slAddr = function(i) { _slAddr(i); setTimeout(validateAddress, 100); };
+    const _cfMap = cfMap; cfMap = async function() { await _cfMap(); setTimeout(validateAddress, 100); };
+
+    function updateSubmitBtn() {
+      const s1 = ['first_name','last_name','email','contact_no','password'].every(f => {
+        const el = document.querySelector(`[name="${f}"]`);
+        return el && el.value.trim();
+      }) && pwValid() && gE('donor-pw').value === gE('donor-cp').value;
+      const addr = gE('addr').value.trim() && gE('city').value && gE('brgy').value;
+      const agree = gE('terms_accepted').checked && gE('privacy_accepted').checked;
+      gE('reg-btn').disabled = !(s1 && addr && agree);
+      updateArrows();
+    }
+
+    function validateFieldSilent(field) {
+      const fn = VALIDATORS[field];
+      if (!fn) return true;
+      const inp = document.querySelector(`[name="${field}"]`);
+      return inp ? !fn(inp.value) : true;
+    }
+    function updateArrows() {
+      const nb = gE('next-btn');
+      if (cS === 2) { nb.disabled = true; return; }
+      const ok = ['first_name','middle_name','last_name','email','contact_no','password','confirm_password'].every(validateFieldSilent);
+      nb.disabled = !ok;
+    }
+    ['first_name','middle_name','last_name','email','contact_no','password','confirm_password'].forEach(f => {
+      const el = document.querySelector(`[name="${f}"]`);
+      if (!el) return;
+      el.addEventListener('input', updateSubmitBtn);
+      el.addEventListener('change', updateSubmitBtn);
+    });
+    gE('terms_accepted')?.addEventListener('change', updateSubmitBtn);
+    gE('privacy_accepted')?.addEventListener('change', updateSubmitBtn);
+    gE('addr')?.addEventListener('input', updateSubmitBtn);
+
     function agreementsOk() {
       const terms = gE('terms_accepted'), privacy = gE('privacy_accepted');
       if (terms.checked && privacy.checked) return true;
@@ -456,25 +583,26 @@
       (terms.checked ? privacy : terms).focus();
       return false;
     }
-    gE('frm')?.addEventListener('submit', e => { if (!agreementsOk()) e.preventDefault(); });
+    gE('frm')?.addEventListener('submit', e => {
+      if (!agreementsOk() || !validateStep1() || !validateField('display_address')) e.preventDefault();
+    });
     function go(d) {
-      if (cS == 1 && d == -1) { window.location.href = "{% url 'role_select' %}"; return; }
+      if (cS == 1 && d == -1) { window.location.href = "{% url 'login' %}"; return; }
       if (cS == 1 && d == 1) {
-        if (!pwValid()) { gE('pw-rules').classList.add('visible'); gE('donor-pw').focus(); return; }
-        if (gE('donor-pw').value !== gE('donor-cp').value) { gE('pw-match-err').classList.remove('hidden'); gE('donor-cp').focus(); return; }
+        if (!validateStep1()) return;
         cS = 2;
       } else if (cS == 2 && d == -1) { cS = 1; }
       gE('step1').classList.toggle('hidden', cS != 1); gE('step2').classList.toggle('hidden', cS != 2);
       gE('d1').style.background = cS == 1 ? 'var(--g)' : '#ccc'; gE('d2').style.background = cS == 2 ? 'var(--g)' : '#ccc';
-      gE('next-btn').style.visibility = cS == 1 ? 'visible' : 'hidden';
+      updateArrows();
     }
     // Initialize step on load
-    gE('step1').classList.toggle('hidden', cS != 1); gE('step2').classList.toggle('hidden', cS != 2); gE('d1').style.background = cS == 1 ? 'var(--g)' : '#ccc'; gE('d2').style.background = cS == 2 ? 'var(--g)' : '#ccc'; gE('next-btn').style.visibility = cS == 1 ? 'visible' : 'hidden';
+    gE('step1').classList.toggle('hidden', cS != 1); gE('step2').classList.toggle('hidden', cS != 2); gE('d1').style.background = cS == 1 ? 'var(--g)' : '#ccc'; gE('d2').style.background = cS == 2 ? 'var(--g)' : '#ccc'; updateArrows();
     function srAddr(v) { const ac = gE('ac'); if (v.length < 3) return ac.classList.add('hidden'); clearTimeout(aT); aT = setTimeout(async () => { try { const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${v}, Philippines&limit=5&countrycodes=ph`); aR = await r.json(); ac.innerHTML = aR.map((r, i) => `<div class="ac-item" onmousedown="slAddr(${i})">${esc(r.display_name)}</div>`).join(''); ac.classList.remove('hidden') } catch { } }, 350) }
-    function slAddr(i) { const lt = (+aR[i].lat).toFixed(7), lg = (+aR[i].lon).toFixed(7); gE('addr').value = aR[i].display_name; gE('lat').value = lt; gE('lng').value = lg; fLD(lt, lg) }
-    async function fLD(lt, lg) { try { const r = await fetch(`/api/location/lookup/?lat=${lt}&lng=${lg}`); if (r.ok) { const d = await r.json(); gE('city').value = d.city || ''; gE('brgy').value = d.barangay || '' } } catch { } }
+    function slAddr(i) { const lt = (+aR[i].lat).toFixed(7), lg = (+aR[i].lon).toFixed(7); gE('addr').value = aR[i].display_name; gE('lat').value = lt; gE('lng').value = lg; fLD(lt, lg); setTimeout(validateAddress, 100) }
+    async function fLD(lt, lg) { try { const r = await fetch(`/api/location/lookup/?lat=${lt}&lng=${lg}`); gE('city').value = ''; gE('brgy').value = ''; if (r.ok) { const d = await r.json(); gE('city').value = d.city || ''; gE('brgy').value = d.barangay || '' } } catch { } }
     function opMap() { gE('map-modal').classList.remove('hidden'); let lt = +gE('lat').value || 14.589, lg = +gE('lng').value || 120.982; tLt = lt; tLg = lg; if (!m) { m = L.map('picker-map').setView([lt, lg], 15); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m); mk = L.marker([lt, lg], { draggable: !0 }).addTo(m); mk.on('dragend', e => { tLt = e.target.getLatLng().lat; tLg = e.target.getLatLng().lng }); m.on('click', e => { tLt = e.latlng.lat; tLg = e.latlng.lng; mk.setLatLng(e.latlng) }) } else { m.setView([lt, lg]); mk.setLatLng([lt, lg]); m.invalidateSize() } }
-    async function cfMap() { gE('lat').value = (+tLt).toFixed(7); gE('lng').value = (+tLg).toFixed(7); const lt = gE('lat').value, lg = gE('lng').value; clMap(); try { const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lt}&lon=${lg}`); gE('addr').value = (await r.json()).display_name || `${lt}, ${lg}` } catch { } fLD(lt, lg) }
+    async function cfMap() { gE('lat').value = (+tLt).toFixed(7); gE('lng').value = (+tLg).toFixed(7); const lt = gE('lat').value, lg = gE('lng').value; clMap(); try { const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lt}&lon=${lg}`); gE('addr').value = (await r.json()).display_name || `${lt}, ${lg}` } catch { } fLD(lt, lg); setTimeout(validateAddress, 100) }
     function clMap() { gE('map-modal').classList.add('hidden') }
   </script>
   <script>

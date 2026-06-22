@@ -272,7 +272,7 @@
                 <div class="restored-group">
                   <label class="up-label">Material</label>
                   <div class="ss-wrap">
-                    <input type="text" class="restored-in mat-in" placeholder="Search" value="{{ item.lookup_details.fiber_json }} - {{ item.lookup_details.category }}" oninput="searchMaterials(this)" required>
+                    <input type="text" class="restored-in mat-in" placeholder="Search" value="{{ item.lookup_details.fiber_json }} - {{ item.lookup_details.product_name }}" oninput="searchMaterials(this)" required>
                     <input type="hidden" class="lookup-id" value="{{ item.lookup_details.lookup_id }}">
                     <div class="ss-list hidden"></div>
                   </div>
@@ -486,13 +486,14 @@
       mIn.placeholder = materials.length ? 'Search' : 'No combinations found';
       list.innerHTML = '';
       for (const m of materials) {
+        const productName = m.product_name || '';
         const div = document.createElement('div');
         div.className = 'ss-item';
         const b = document.createElement('b');
-        b.textContent = m.category;
+        b.textContent = productName;
         div.append(b, document.createTextNode(m.fiber_json));
         div.dataset.lookupId = m.lookup_id;
-        div.dataset.display = `${m.fiber_json} - ${m.category}`;
+        div.dataset.display = `${m.fiber_json} - ${productName}`;
         div.addEventListener('click', function () {
           selectMat(this, this.dataset.lookupId, this.dataset.display);
         });

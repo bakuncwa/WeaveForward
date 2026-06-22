@@ -113,8 +113,8 @@ class DonorUpdateSerializer(serializers.ModelSerializer):
     def validate(self, data):
         # 1. Password
         pw = data.get('password')
-        if pw and not re.match(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()\-_=+\[\]{}|;:\'",.<>?/`~\\]).{8,}$', pw):
-            raise serializers.ValidationError({'password': "Password must be at least 8 characters and include an uppercase letter, a lowercase letter, a number, and a special character."})
+        if pw and not re.match(r'^(?=.*[A-Za-z])(?=.*\d).{8,}$', pw):
+            raise serializers.ValidationError({'password': "Password must be at least 8 characters and include at least one letter and one number."})
 
         # 2. Upload
         if data.get('upload') and (data['upload'].size > 5242880 or not data['upload'].name.lower().endswith(('.jpg', '.jpeg', '.png'))):
@@ -189,8 +189,8 @@ class TuabUpdateSerializer(serializers.ModelSerializer):
     def validate(self, data):
         # 1. Password
         pw = data.get('password')
-        if pw and not re.match(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()\-_=+\[\]{}|;:\'",.<>?/`~\\]).{8,}$', pw):
-            raise serializers.ValidationError({'password': "Password must be at least 8 characters and include an uppercase letter, a lowercase letter, a number, and a special character."})
+        if pw and not re.match(r'^(?=.*[A-Za-z])(?=.*\d).{8,}$', pw):
+            raise serializers.ValidationError({'password': "Password must be at least 8 characters and include at least one letter and one number."})
 
         # 2. Upload
         if data.get('upload') and (data['upload'].size > 5242880 or not data['upload'].name.lower().endswith(('.jpg', '.jpeg', '.png'))):
@@ -418,8 +418,8 @@ class DonorUpdateSelfSerializer(serializers.ModelSerializer):
     def validate(self, data):
         # 1. Password
         pw = data.get('password')
-        if pw and not re.match(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()\-_=+\[\]{}|;:\'",.<>?/`~\\]).{8,}$', pw):
-            raise serializers.ValidationError({'password': "Password must be at least 8 characters and include an uppercase letter, a lowercase letter, a number, and a special character."})
+        if pw and not re.match(r'^(?=.*[A-Za-z])(?=.*\d).{8,}$', pw):
+            raise serializers.ValidationError({'password': "Password must be at least 8 characters and include at least one letter and one number."})
 
         # 2. Upload
         if data.get('upload') and (data['upload'].size > 5242880 or not data['upload'].name.lower().endswith(('.jpg', '.jpeg', '.png'))):
@@ -496,8 +496,8 @@ class TuabUpdateSelfSerializer(serializers.ModelSerializer):
     def validate(self, data):
         # 1. Password
         pw = data.get('password')
-        if pw and not re.match(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()\-_=+\[\]{}|;:\'",.<>?/`~\\]).{8,}$', pw):
-            raise serializers.ValidationError({'password': "Password must be at least 8 characters and include an uppercase letter, a lowercase letter, a number, and a special character."})
+        if pw and not re.match(r'^(?=.*[A-Za-z])(?=.*\d).{8,}$', pw):
+            raise serializers.ValidationError({'password': "Password must be at least 8 characters and include at least one letter and one number."})
 
         # 2. Upload
         if data.get('upload') and (data['upload'].size > 5242880 or not data['upload'].name.lower().endswith(('.jpg', '.jpeg', '.png'))):

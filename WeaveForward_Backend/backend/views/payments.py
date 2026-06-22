@@ -34,9 +34,7 @@ class PaymentListView(views.APIView):
             subs_qs = SubscriptionPayment.objects.select_related(
                 'subscription', 'subscription__user'
             ).filter(subscription__user=user).order_by('-created_at')
-            orders_qs = OrderPayment.objects.select_related(
-                'order', 'order__donation', 'order__donation__claimed_by_tuab'
-            ).filter(order__donation__claimed_by_tuab=user).order_by('-created_at')
+            orders_qs = OrderPayment.objects.none()
             
         subs_data = SubscriptionPaymentSerializer(subs_qs, many=True).data
         orders_data = OrderPaymentSerializer(orders_qs, many=True).data

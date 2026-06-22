@@ -173,17 +173,17 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
 
         raw_usage = request.data.get('usage_amount_kg', 0)
         try:
-            usage = Decimal(str(raw_usage))
+            usage = Decimal(str(raw_usage)).quantize(Decimal('0.01'))
         except (InvalidOperation, TypeError):
             return Response({'error': 'Please enter a valid number for usage amount.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if usage <= 0:
-            return Response({'error': 'Usage amount must be greater than zero.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Usage amount must be greater than zero and at most 2 decimal places.'}, status=status.HTTP_400_BAD_REQUEST)
         if usage > instance.current_weight_kg:
             return Response({'error': 'Negative stock not allowed. Usage exceeds current stock.'}, status=status.HTTP_400_BAD_REQUEST)
 
         before_weight = instance.current_weight_kg
-        after_weight = before_weight - usage
+        after_weight = (before_weight - usage).quantize(Decimal('0.01'))
 
         raw_notes = instance.notes
         try:
@@ -207,7 +207,7 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
         })
         notes_payload['production_context'] = usage_events
 
-        instance.usage_amount_kg += usage
+        instance.usage_amount_kg = (instance.usage_amount_kg + usage).quantize(Decimal('0.01'))
         instance.current_weight_kg = after_weight
         instance.notes = json.dumps(notes_payload, separators=(',', ':'))
         instance.save()

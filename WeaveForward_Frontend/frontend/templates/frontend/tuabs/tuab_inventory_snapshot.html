@@ -231,11 +231,13 @@
     </div>
     <div class="cat-cards">
       {% for cat in category_summary %}
+      {% if cat.total_weight_kg > 0 %}
       {% if forloop.counter == 1 %}<div class="cat-card" style="border:2px solid #4299e1">{% elif forloop.counter == 2 %}<div class="cat-card" style="border:2px solid #48bb78">{% elif forloop.counter == 3 %}<div class="cat-card" style="border:2px solid #9f7aea">{% elif forloop.counter == 4 %}<div class="cat-card" style="border:2px solid #ed8936">{% else %}<div class="cat-card" style="border:2px solid #f687b3">{% endif %}
         <div class="cat-card-name">{{ cat.category|upper }}</div>
         <div class="cat-card-val">{{ cat.total_weight_kg|floatformat:2 }}</div>
         <div class="cat-card-unit">kg</div>
       </div>
+      {% endif %}
       {% endfor %}
     </div>
   </div>
@@ -353,7 +355,7 @@
     <div class="modal-label">Current Weight</div>
     <div class="modal-meta" id="update-current-weight">— kg</div>
     <div class="modal-label">Usage Amount (kg)</div>
-    <input id="usage-input" class="modal-input" type="number" step="0.001" min="0.001" placeholder="e.g. 0.500">
+    <input id="usage-input" class="modal-input" type="number" step="0.01" min="0.01" placeholder="e.g. 0.50">
     <div id="update-error" class="modal-error"></div>
     <div class="modal-btns">
       <button class="btn-cancel" onclick="closeUpdateModal()">Cancel</button>

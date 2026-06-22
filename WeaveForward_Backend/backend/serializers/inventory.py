@@ -140,5 +140,5 @@ class InventoryLedgerSerializer(serializers.ModelSerializer):
         """Get the primary material category from source donation items."""
         for item in obj.source_donation.items.all():
             if item.lookup:
-                return item.lookup.category
+                return item.lookup.product_name
         return None

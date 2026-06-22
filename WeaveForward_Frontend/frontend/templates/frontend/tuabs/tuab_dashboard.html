@@ -130,6 +130,7 @@
 
   function renderTable(list, tab) {
     if (!list.length) return `<p style="font-family:'Poppins',sans-serif;color:#bbb;padding:20px 24px">No donations found on this page.</p>`;
+    const actionLabel = tab === 'available' ? 'Claim' : 'Manage';
 
     return `<table class="wf-table tuab-dashboard-table"><thead><tr>
       <th>Donation ID</th><th>Donor</th><th>Address</th><th>Preffered Pick-Up Date</th><th>Items</th><th>Actions</th>
@@ -141,7 +142,7 @@
       <td>${escapeHTML(d.pickupDate)}</td>
       <td title="${escapeHTML(String(d.items))}">${escapeHTML(truncateText(String(d.items)))}</td>
       <td><div class="tuab-dashboard-actions">
-        <a href="${d.status === 'IN_TRANSIT' ? `/tuab/donations/${escapeHTML(String(d.id))}/edit/` : `/tuab/donations/${escapeHTML(String(d.id))}/`}" class="btn btn-tuab" onclick="event.stopPropagation()">Manage</a>
+        <a href="${d.status === 'IN_TRANSIT' ? `/tuab/donations/${escapeHTML(String(d.id))}/edit/` : `/tuab/donations/${escapeHTML(String(d.id))}/`}" class="btn btn-tuab" onclick="event.stopPropagation()">${actionLabel}</a>
         ${(d.status === 'PENDING' || d.status === 'FLAGGED') ? `<button class="btn-flag" data-id="${escapeHTML(String(d.id))}" data-tab="${escapeHTML(tab)}" onclick="event.stopPropagation();openFlagModal(this.getAttribute('data-id'), this.getAttribute('data-tab'))">Flag</button>` : ''}
       </div></td>
     </tr>`).join('')}

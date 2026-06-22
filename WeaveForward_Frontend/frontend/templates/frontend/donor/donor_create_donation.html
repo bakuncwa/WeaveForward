@@ -268,13 +268,14 @@
       mIn.placeholder = materials.length ? 'Search...' : 'No combinations found';
       list.innerHTML = '';
       for (const m of materials) {
+        const productName = m.product_name || '';
         const div = document.createElement('div');
         div.className = 'ss-item';
         const b = document.createElement('b');
-        b.textContent = m.category;
+        b.textContent = productName;
         div.append(b, document.createTextNode(m.fiber_json));
         div.dataset.lookupId = m.lookup_id;
-        div.dataset.display = `${m.fiber_json} - ${m.category}`;
+        div.dataset.display = `${m.fiber_json} - ${productName}`;
         div.addEventListener('click', function () {
           selectMat(this, this.dataset.lookupId, this.dataset.display);
         });
@@ -382,4 +383,5 @@
   addCard();
 </script>
 <script src="{% static 'frontend/js/custom-select.js' %}"></script>
+<script src="{% static 'frontend/js/donation-form.js' %}"></script>
 {% endblock %}

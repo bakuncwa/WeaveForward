@@ -191,7 +191,7 @@ class User(AbstractBaseUser):
 
 class BrandFiberLookup(models.Model):
     lookup_id      = models.AutoField(primary_key=True)
-    category       = models.CharField(max_length=100)
+    product_name   = models.CharField(max_length=100)
     brand          = models.CharField(max_length=200)
     clothing_type  = models.CharField(max_length=200)
     fiber_json     = models.TextField()

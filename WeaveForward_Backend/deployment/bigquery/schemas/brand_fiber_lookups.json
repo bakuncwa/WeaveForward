@@ -1,6 +1,6 @@
 [
   {"name": "lookup_id",      "field_type": "INTEGER",   "mode": "REQUIRED"},
-  {"name": "category",       "field_type": "STRING",    "mode": "REQUIRED"},
+  {"name": "product_name",   "field_type": "STRING",    "mode": "REQUIRED"},
   {"name": "brand",          "field_type": "STRING",    "mode": "REQUIRED"},
   {"name": "clothing_type",  "field_type": "STRING",    "mode": "REQUIRED"},
   {"name": "fiber_json",     "field_type": "STRING",    "mode": "NULLABLE"},

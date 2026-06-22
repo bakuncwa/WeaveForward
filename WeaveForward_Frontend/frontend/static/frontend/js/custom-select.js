@@ -108,8 +108,8 @@
 
   document.addEventListener('click', closeAllMenus);
 
-  function scanSelects(root = document) {
-    root.querySelectorAll('select.restored-sel').forEach(initCustomSelect);
+  function scanSelects() {
+    document.querySelectorAll('select.restored-sel').forEach(initCustomSelect);
   }
 
   // Initial scan
@@ -130,4 +130,139 @@
     });
   });
   bodyObserver.observe(document.body, { childList: true, subtree: true });
+
+  /* ── Show material dropdown on focus ── */
+  document.addEventListener('focusin', (e) => {
+    const inp = e.target.closest('.mat-in');
+    if (!inp) return;
+    inp.closest('.ss-wrap')?.querySelector('.ss-list')?.classList.remove('hidden');
+  });
+
+  /* ── Filter brands by clothing type ── */
+  const brandCache = new WeakMap();
+  function cacheBrands(sel) {
+    if (!brandCache.has(sel)) brandCache.set(sel, Array.from(sel.options).map(o => new Option(o.text, o.value)));
+  }
+  function matInDisabled(inp, disabled) {
+    inp.disabled = disabled;
+    inp.placeholder = disabled ? 'Please select a brand and clothing type' : 'Search materials...';
+  }
+  function initTypeSel(typeSel) {
+    const card = typeSel.closest('.restored-card');
+    const brandSel = card?.querySelector('.brand-sel');
+    const matIn = card?.querySelector('.mat-in');
+    if (!brandSel) return;
+    cacheBrands(brandSel);
+    if (!typeSel.value) {
+      brandSel.disabled = true;
+      brandSel.dispatchEvent(new Event('change', { bubbles: true }));
+      if (matIn) matInDisabled(matIn, true);
+    } else {
+      filterBrandsByType(typeSel.value, brandSel, matIn, card, true);
+    }
+  }
+  async function filterBrandsByType(type, brandSel, mIn, card, fromInit) {
+    const allBrands = brandCache.get(brandSel);
+    if (!allBrands) return;
+    const prevVal = brandSel.value;
+    if (!type) {
+      brandSel.innerHTML = '';
+      allBrands.forEach(o => brandSel.add(o.cloneNode(true)));
+      brandSel.disabled = true;
+      if (!fromInit) brandSel.dispatchEvent(new Event('change', { bubbles: true }));
+      if (mIn) matInDisabled(mIn, true);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/materials/search/?clothing_type=${type}`);
+      if (!res.ok) return;
+      const materials = await res.json();
+      const validBrands = new Set(materials.map(m => m.brand));
+      brandSel.innerHTML = '';
+      allBrands.forEach(o => {
+        if (!o.value || validBrands.has(o.value)) brandSel.add(o.cloneNode(true));
+      });
+      if (prevVal && validBrands.has(prevVal)) {
+        brandSel.value = prevVal;
+      } else {
+        brandSel.value = '';
+        if (mIn) { mIn.value = ''; matInDisabled(mIn, true); }
+        const li = card?.querySelector('.lookup-id');
+        if (li) li.value = '';
+      }
+      if (!fromInit) brandSel.dispatchEvent(new Event('change', { bubbles: true }));
+    } catch { /* sequential logic controls disabled state */ }
+  }
+
+  /* ── Sequential field gating ── */
+  function initSeqFields(card) {
+    if (!card?.querySelector('.type-sel')) return;
+    const type = card.querySelector('.type-sel');
+    const weight = card.querySelector('.weight-in');
+    const cond = card.querySelector('.cond-sel');
+    const brand = card.querySelector('.brand-sel');
+    if (weight) weight.disabled = !type.value;
+    if (cond) cond.disabled = !weight?.value || weight?.disabled;
+    if (brand && !type.value) brand.disabled = true;
+    else if (brand && cond) brand.disabled = !cond.value || cond.disabled;
+  }
+
+  document.querySelectorAll('.brand-sel').forEach(cacheBrands);
+  document.querySelectorAll('.type-sel').forEach(initTypeSel);
+  document.querySelectorAll('.restored-card').forEach(initSeqFields);
+
+  /* ── Observe new cards for brand filtering + seq fields ── */
+  const cardBodyObs = new MutationObserver((muts) => {
+    muts.forEach(m => m.addedNodes.forEach(n => {
+      if (n.nodeType !== Node.ELEMENT_NODE) return;
+      (n.matches && n.matches('.type-sel') ? [n] : (n.querySelectorAll ? n.querySelectorAll('.type-sel') : [])).forEach(ts => {
+        initTypeSel(ts);
+        initSeqFields(ts.closest('.restored-card'));
+      });
+    }));
+  });
+  cardBodyObs.observe(document.body, { childList: true, subtree: true });
+
+  /* ── Type → Weight ── */
+  document.addEventListener('change', (e) => {
+    const sel = e.target.closest('.type-sel');
+    if (!sel) return;
+    const card = sel.closest('.restored-card');
+    if (!card) return;
+    const weight = card.querySelector('.weight-in');
+    if (weight && sel.value) weight.disabled = false;
+    const brandSel = card.querySelector('.brand-sel');
+    if (!brandSel) return;
+    cacheBrands(brandSel);
+    filterBrandsByType(sel.value, brandSel, card.querySelector('.mat-in'), card);
+  }, true);
+
+  /* ── Weight → Condition → Brand ── */
+  document.addEventListener('input', (e) => {
+    if (!e.target.matches('.weight-in')) return;
+    const card = e.target.closest('.restored-card');
+    const cond = card?.querySelector('.cond-sel');
+    if (!cond || !e.target.value) return;
+    cond.disabled = false;
+    if (cond.value) {
+      const brandSel = card.querySelector('.brand-sel');
+      if (!brandSel) return;
+      brandSel.disabled = false;
+      const type = card.querySelector('.type-sel')?.value;
+      if (type) filterBrandsByType(type, brandSel, card.querySelector('.mat-in'), card);
+    }
+  });
+
+  /* ── Condition → Brand ── */
+  document.addEventListener('change', (e) => {
+    if (!e.target.matches('.cond-sel')) return;
+    const card = e.target.closest('.restored-card');
+    if (!card) return;
+    const brandSel = card.querySelector('.brand-sel');
+    if (!brandSel || !e.target.value) return;
+    brandSel.disabled = false;
+    const type = card.querySelector('.type-sel')?.value;
+    const matIn = card.querySelector('.mat-in');
+    if (type) filterBrandsByType(type, brandSel, matIn, card);
+  });
 })();

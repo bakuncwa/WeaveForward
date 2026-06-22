@@ -69,6 +69,7 @@
   padding: 10px 14px; font-size: 14px; outline: none; background: #fff; color: #666666;
   font-family: 'Poppins', sans-serif;
 }
+.restored-in:disabled { background: #f4f4f4; color: #aaa; cursor: not-allowed; }
 .restored-in-lg { height: 48px; font-size: 16px; }
 
 .restored-sel {
@@ -96,6 +97,13 @@
 }
 
 .restored-in:focus, .restored-sel:focus { border-color: var(--gold); }
+
+.drop.drag-over {
+  background: #fff8ea;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(232, 160, 32, 0.15);
+}
+
 
 /* Custom Dropdown Styling */
 .custom-select-wrapper {
@@ -129,6 +137,7 @@
   border-color: var(--gold);
   box-shadow: 0 0 0 3px rgba(232, 160, 32, 0.15);
 }
+
 
 .custom-select-wrapper.disabled .custom-select-trigger {
   background: #f4f4f4;

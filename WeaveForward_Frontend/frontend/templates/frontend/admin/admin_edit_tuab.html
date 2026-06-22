@@ -274,7 +274,7 @@
     cursor: pointer;
   }
 
-  .btn-remove-pay:disabled {
+  .btn-remove-pay.staged {
     cursor: default;
     opacity: .7;
     background: #fce8e0;
@@ -415,7 +415,7 @@
       <div class="t-box" onclick="getEl('ti').focus()">
         <div id="tags"></div>
         <input id="ti" placeholder="Add fiber…" autocomplete="off" autocapitalize="off" spellcheck="false"
-          oninput="handleFiberInput(this.value)" onblur="hideDd('f-ac')">
+          oninput="handleFiberInput(this.value)" onfocus="showFiberOptions(this.value)" onclick="showFiberOptions(this.value)" onblur="commitFiberInput();hideDd('f-ac')">
         <div id="f-ac" class="f-dd hidden"></div>
       </div>
       <input type="hidden" id="fibs" name="target_fibers" value="{{ tuab.target_fibers }}">
@@ -554,8 +554,10 @@
   // --- 4. Fiber Tags ---
   let tags = (getEl('fibs').value || '').split(',').map(s => s.trim()).filter(Boolean);
   const renderTags = () => { getEl('tags').innerHTML = tags.map(t => `<div class="t-chip">${escapeHTML(t)}<span data-tag="${escapeHTML(t)}" onclick="toggleTag(this.getAttribute('data-tag'))">×</span></div>`).join(''); getEl('fibs').value = tags.join(','); };
-  const handleFiberInput = val => { const m = FIBERS.filter(f => f.toLowerCase().includes(val.toLowerCase()) && !tags.includes(f)); getEl('f-ac').innerHTML = m.map(f => `<div data-tag="${escapeHTML(f)}" onmousedown="toggleTag(this.getAttribute('data-tag'))">${escapeHTML(f)}</div>`).join(''); getEl('f-ac').classList.toggle('hidden', !val || !m.length); };
-  const toggleTag = f => { tags = tags.includes(f) ? tags.filter(t => t !== f) : [...tags, f]; renderTags(); getEl('ti').value = ''; getEl('f-ac').classList.add('hidden'); };
+  const showFiberOptions = (val = '') => { const q = val.trim().toLowerCase(); const m = FIBERS.filter(f => !tags.includes(f) && (!q || f.toLowerCase().includes(q))); getEl('f-ac').innerHTML = m.map(f => `<div data-tag="${escapeHTML(f)}" onmousedown="toggleTag(this.getAttribute('data-tag'))">${escapeHTML(f)}</div>`).join(''); getEl('f-ac').classList.toggle('hidden', !m.length); };
+  const commitFiberInput = () => { const raw = getEl('ti').value.trim().toLowerCase(); if (!raw) return false; const exact = FIBERS.find(f => f.toLowerCase() === raw); if (!exact) return false; if (!tags.includes(exact)) { tags = [...tags, exact]; renderTags(); } else { getEl('ti').value = ''; getEl('f-ac').classList.add('hidden'); } return true; };
+  const handleFiberInput = val => { if (commitFiberInput()) return; showFiberOptions(val); };
+  const toggleTag = (f, keepOpen = false) => { const wasSelected = tags.includes(f); tags = wasSelected ? tags.filter(t => t !== f) : [...tags, f]; renderTags(); getEl('ti').value = ''; if (keepOpen || wasSelected) { getEl('ti').focus(); showFiberOptions(''); } else getEl('f-ac').classList.add('hidden'); };
 
   // --- 5. Location ---
   let acTmr, acRes = [], map, mrk, tmpLat, tmpLng;
@@ -600,7 +602,18 @@
 
   // --- 6. Actions ---
   function disable2FA(btn) { getEl('2fa-field').value = 'false'; btn.textContent = 'Will be disabled on save'; btn.disabled = true; btn.style.opacity = '0.5'; }
-  function stageRemovePayment(btn) { getEl('remove-pay').value = '1'; btn.textContent = 'Will unsubscribe on save'; btn.disabled = true; }
+  function stageRemovePayment(btn) {
+    const inp = getEl('remove-pay');
+    if (inp.value === '1') {
+      inp.value = '0';
+      btn.textContent = 'Unsubscribe Business';
+      btn.classList.remove('staged');
+    } else {
+      inp.value = '1';
+      btn.textContent = 'Will unsubscribe on save — Click again to unstage';
+      btn.classList.add('staged');
+    }
+  }
 
   getEl('frm').onsubmit = e => {
     const addrEl = getEl('addr');
@@ -613,6 +626,9 @@
 
   // --- 8. Init ---
   document.addEventListener('click', e => { if (e.target === getEl('map-modal')) closeMap(); });
+  getEl('tags')?.addEventListener('mousedown', e => {
+    if (e.target.closest('span')) e.preventDefault();
+  });
   window.addEventListener('load', async () => {
     if (API_FIBER_OPTIONS) { const d = await safeFetch(API_FIBER_OPTIONS); if (Array.isArray(d)) FIBERS = d; else if (Array.isArray(d?.fibers)) FIBERS = d.fibers; }
     renderTags(); syncAll();

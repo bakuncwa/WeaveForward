@@ -201,6 +201,75 @@
       background: var(--tuab-dark);
     }
 
+    .claim-tip {
+      position: relative;
+      width: 100%;
+    }
+
+    .claim-tip::after {
+      content: attr(data-tip);
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 10px);
+      transform: translate(-50%, 4px);
+      width: min(320px, 86vw);
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #222;
+      color: #fff;
+      font: 400 12px/1.45 Poppins, sans-serif;
+      box-shadow: 0 8px 22px rgba(0,0,0,.22);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .15s, transform .15s;
+      z-index: 30;
+      text-align: left;
+    }
+
+    .claim-tip::before {
+      content: '';
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 4px);
+      transform: translateX(-50%);
+      border: 6px solid transparent;
+      border-top-color: #222;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .15s;
+      z-index: 31;
+    }
+
+    .claim-tip:hover::after,
+    .claim-tip:focus-within::after,
+    .claim-tip:hover::before,
+    .claim-tip:focus-within::before {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    .claim-tip:focus-within::before {
+      transform: translateX(-50%);
+    }
+
+    .covered-price {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .covered-price .original {
+      color: #888;
+      text-decoration: line-through;
+      text-decoration-thickness: 2px;
+    }
+
+    .covered-price .covered {
+      color: #3f965f;
+      font-weight: 600;
+    }
+
     .pin-wrap {
       position: relative;
     }
@@ -435,7 +504,7 @@
             </div>
             <div class="group">
               <label class="up">Material</label>
-              <input class="in" value="{{ item.lookup_details.fiber_json }} - {{ item.lookup_details.category }}" readonly>
+              <input class="in" value="{{ item.lookup_details.fiber_json }} - {{ item.lookup_details.product_name }}" readonly>
             </div>
           </div>
         </div>
@@ -463,8 +532,9 @@
           <div class="sep-line"></div>
 
           {% if donation.status == 'PENDING' %}
-            <button type="button" class="btn btn-tuab" style="margin-bottom:12px" onclick="submitPickupClaim()">Claim
-              for Pick-Up</button>
+            <div class="claim-tip" style="margin-bottom:12px" data-tip="Claim for Pick-Up means you claim this donation and pick it up yourself. The donor will be notified that it has been claimed by you.">
+              <button type="button" class="btn btn-tuab" onclick="submitPickupClaim()">Claim for Pick-Up</button>
+            </div>
 
             <div class="sub">Delivery Location</div>
             <div class="delivery-wrap">
@@ -496,7 +566,9 @@
               >
             </div>
 
-            <button type="button" class="btn btn-tuab" onclick="submitDeliveryClaim()">Claim for Delivery</button>
+            <div class="claim-tip" data-tip="Claim for Delivery means you claim this donation and Lalamove delivers it to your drop-off address. This delivery is covered by your subscription.">
+              <button type="button" class="btn btn-tuab" id="delivery-claim-btn" onclick="submitDeliveryClaim()">Claim for Delivery</button>
+            </div>
           {% endif %}
         </div>
 
@@ -537,7 +609,7 @@
       <div id="delivery-confirm-copy" class="confirm-copy"></div>
       <div class="confirm-actions">
         <button type="button" class="confirm-btn cancel" onclick="closeDeliveryConfirm()">Cancel</button>
-        <button type="button" class="confirm-btn submit" onclick="confirmDeliveryClaim()">Confirm</button>
+        <button type="button" class="confirm-btn submit" id="delivery-confirm-submit" onclick="confirmDeliveryClaim()">Confirm</button>
       </div>
     </div>
   </div>
@@ -683,16 +755,26 @@
 
     function closeDeliveryConfirm() {
       pendingDeliveryClaim = null;
+      const btn = getEl('delivery-confirm-submit');
+      if (btn) {
+        btn.textContent = 'Confirm';
+        btn.disabled = false;
+      }
       getEl('delivery-confirm-modal').classList.add('hidden');
     }
 
     function openDeliveryConfirm(totalPrice, scheduleAt, quotationToken) {
       pendingDeliveryClaim = quotationToken;
+      const submitBtn = getEl('delivery-confirm-submit');
+      if (submitBtn) {
+        submitBtn.textContent = 'Confirm';
+        submitBtn.disabled = false;
+      }
       const copy = getEl('delivery-confirm-copy');
       copy.innerHTML = '';
       const row1 = document.createElement('div');
       row1.className = 'confirm-row';
-      row1.textContent = `Total Price: ₱ ${totalPrice}`;
+      row1.innerHTML = `Total Price: <span class="covered-price"><span class="original">₱ ${escapeHTML(totalPrice)}</span><span class="covered">Covered by subscription</span></span>`;
       copy.appendChild(row1);
       const row2 = document.createElement('div');
       row2.className = 'confirm-row';
@@ -707,6 +789,9 @@
 
     function confirmDeliveryClaim() {
       if (!pendingDeliveryClaim) return closeDeliveryConfirm();
+      const btn = getEl('delivery-confirm-submit');
+      btn.textContent = 'Submitting...';
+      btn.disabled = true;
       getEl('delivery-method').value = 'DELIVERY';
       getEl('quotation-token').value = pendingDeliveryClaim;
       getEl('delivery-confirm-modal').classList.add('hidden');
@@ -741,6 +826,7 @@
 
     async function submitDeliveryClaim() {
       clearFlashes();
+      const deliveryBtn = getEl('delivery-claim-btn');
       const currentEtag = getEl('current-etag').value;
       if (!currentEtag) return showFlash('The current donation version is missing. Refresh the page and try again.');
       const addr = (getEl('dropoff-display-address').value || '').trim();
@@ -750,13 +836,31 @@
       if (!addr || !lat || !lng) return showFlash('Please provide complete drop-off location for delivery.');
       if (!scheduledTime) return showFlash('Please choose a scheduled delivery time within the donation window.');
 
-      const quoteResult = await postJson(quotationUrl, {
-        current_etag: currentEtag,
-        dropoff_address: addr,
-        dropoff_lat: lat,
-        dropoff_lng: lng,
-        scheduled_time: scheduledTime,
-      });
+      if (deliveryBtn) {
+        deliveryBtn.textContent = 'Getting quote...';
+        deliveryBtn.disabled = true;
+      }
+
+      let quoteResult;
+      try {
+        quoteResult = await postJson(quotationUrl, {
+          current_etag: currentEtag,
+          dropoff_address: addr,
+          dropoff_lat: lat,
+          dropoff_lng: lng,
+          scheduled_time: scheduledTime,
+        });
+      } catch (err) {
+        if (deliveryBtn) {
+          deliveryBtn.textContent = 'Claim for Delivery';
+          deliveryBtn.disabled = false;
+        }
+        return showFlash('Unable to get a delivery quotation. Please try again.');
+      }
+      if (deliveryBtn) {
+        deliveryBtn.textContent = 'Claim for Delivery';
+        deliveryBtn.disabled = false;
+      }
       if (!quoteResult.response.ok) return showFlash(responseMessage(quoteResult.data, 'Unable to get a delivery quotation.'));
 
       const quotationToken = quoteResult.data.quotation_token;

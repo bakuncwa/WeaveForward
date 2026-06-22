@@ -71,8 +71,8 @@
           </div>
         </div>
         <div class="g2" style="margin-bottom:0">
-          <div class="field"><label>Barangay</label><input id="brgy" class="wf-in" value="{{ user.barangay|default:'' }}" readonly style="background:#f9f9f9" /></div>
-          <div class="field"><label>City</label><input id="city" class="wf-in" value="{{ user.city|default:'' }}" readonly style="background:#f9f9f9" /></div>
+          <div class="field"><label>Barangay</label><div class="readonly-tip-wrap" data-tip="This is auto-filled. Change the display address above to update barangay."><input id="brgy" class="wf-in" value="{{ user.barangay|default:'' }}" readonly style="background:#f9f9f9" /></div></div>
+          <div class="field"><label>City</label><div class="readonly-tip-wrap" data-tip="This is auto-filled. Change the display address above to update city."><input id="city" class="wf-in" value="{{ user.city|default:'' }}" readonly style="background:#f9f9f9" /></div></div>
         </div>
       </div>
       <div class="sep"></div>

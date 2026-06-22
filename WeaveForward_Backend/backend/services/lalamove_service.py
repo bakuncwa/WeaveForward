@@ -12,6 +12,8 @@ from .audit_service import log_audit
 from ..models import User, UserRole, Donation, Order, OrderStatus, DonationStatus, OrderPayment, PaymentStatus, DonationDeliveryMethod
 
 
+SUBSCRIPTION_COVERED_PAYMENT_PREFIX = "subscription-covered-"
+
 
 def get_lalamove_quotation(pickup_lat, pickup_lng, pickup_address, dropoff_lat, dropoff_lng, dropoff_address, schedule_at):
     """
@@ -89,6 +91,9 @@ def reverse_or_refund_payment(payment_record, amount):
     Attempts to Void (DELETE) first. If it is already settled (different day),
     automatically falls back to a Refund (POST).
     """
+    if not payment_record.payment_reference or payment_record.payment_reference.startswith(SUBSCRIPTION_COVERED_PAYMENT_PREFIX) or amount <= 0:
+        return False
+
     headers = {
         'Authorization': settings.MAYA_SANDBOX_SECRET_BASIC_AUTH,
         'Content-Type': 'application/json'
@@ -156,6 +161,10 @@ def process_lalamove_webhook(payload, client_ip):
         return {"status_code": 401, "detail": "Invalid Lalamove webhook signature."}
 
     if payload.get("eventType") == "ORDER_AMOUNT_CHANGED":
+        # Per-order delivery charges are covered by the active PRO subscription.
+        return {"status_code": 200, "detail": "Order amount change acknowledged; no individual delivery charge applied."}
+
+        # Individual order charge path disabled while PRO subscription covers delivery.
         order_data = data_obj["order"]
         with transaction.atomic():
             try:
@@ -287,7 +296,12 @@ def process_lalamove_webhook(payload, client_ip):
                 donation_record.updated_at = timezone.now()
                 donation_record.save(update_fields=["status", "delivery_method", "updated_at"])
 
-                payment_ids_to_refund = list(order_record.payments.filter(status=PaymentStatus.SUCCESS, amount__gt=0).values_list("pk", flat=True))
+                payment_ids_to_refund = list(
+                    order_record.payments
+                    .filter(status=PaymentStatus.SUCCESS, amount__gt=0)
+                    .exclude(payment_reference__startswith=SUBSCRIPTION_COVERED_PAYMENT_PREFIX)
+                    .values_list("pk", flat=True)
+                )
                 webhook_response = {"status_code": 200, "detail": "Order failed due to max driver rejections. Payment reversed/refunded, donation converted to PICKUP."}
             else:
                 order_record.status = OrderStatus.ASSIGNING_DRIVER
@@ -321,7 +335,12 @@ def process_lalamove_webhook(payload, client_ip):
             donation_record.updated_at = timezone.now()
             donation_record.save(update_fields=["status", "delivery_method", "updated_at"])
 
-            payment_ids_to_refund = list(order_record.payments.filter(status=PaymentStatus.SUCCESS, amount__gt=0).values_list("pk", flat=True))
+            payment_ids_to_refund = list(
+                order_record.payments
+                .filter(status=PaymentStatus.SUCCESS, amount__gt=0)
+                .exclude(payment_reference__startswith=SUBSCRIPTION_COVERED_PAYMENT_PREFIX)
+                .values_list("pk", flat=True)
+            )
             webhook_response = {"status_code": 200, "detail": "Order expired and failed. Payment reversed/refunded, donation converted to PICKUP."}
 
     if webhook_response:
@@ -482,7 +501,10 @@ def process_expired_orders():
 
             # 3. Refund the payment if it was successful
             payment_ids_to_refund.extend(
-                order.payments.filter(status=PaymentStatus.SUCCESS, amount__gt=0).values_list("pk", flat=True)
+                order.payments
+                .filter(status=PaymentStatus.SUCCESS, amount__gt=0)
+                .exclude(payment_reference__startswith=SUBSCRIPTION_COVERED_PAYMENT_PREFIX)
+                .values_list("pk", flat=True)
             )
 
             expired_count += 1

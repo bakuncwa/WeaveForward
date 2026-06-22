@@ -15,7 +15,7 @@ class BrandFiberLookupViewset(viewsets.ReadOnlyModelViewSet):
     serializer_class = BrandFiberLookupSerializer
     pagination_class = None
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['lookup_id', 'category', 'brand', 'clothing_type']
+    filterset_fields = ['lookup_id', 'product_name', 'brand', 'clothing_type']
 
     def get_permissions(self):
         if self.action in ['fibers']:

@@ -21,7 +21,7 @@ def apply() -> dict:
         return {"status": "SKIP", "detail": f"Catalog CSV not found at: {csv_path}"}
 
     existing = {
-        (obj.brand, obj.category, obj.clothing_type): obj
+        (obj.brand, obj.product_name, obj.clothing_type): obj
         for obj in BrandFiberLookup.objects.all()
     }
 
@@ -31,12 +31,12 @@ def apply() -> dict:
     with open(csv_path, mode="r", encoding="utf-8") as f:
         for row in csv.DictReader(f):
             brand        = row.get("brand", "Unknown")[:200]
-            category     = row.get("product_name", "Unknown")[:100]
+            product_name = row.get("product_name", "Unknown")[:100]
             clothing_type = row.get("clothing_type", "Unknown")[:200]
             tier_raw     = row.get("fs_biodeg_tier", "").upper()
             biodeg_tier  = tier_raw if tier_raw in [c[0] for c in BiodegTier.choices] else None
             is_active    = row.get("is_active", "True").lower() == "true"
-            key          = (brand, category, clothing_type)
+            key          = (brand, product_name, clothing_type)
 
             if key in existing:
                 obj = existing[key]
@@ -46,7 +46,7 @@ def apply() -> dict:
             else:
                 to_create.append(BrandFiberLookup(
                     brand=brand,
-                    category=category,
+                    product_name=product_name,
                     clothing_type=clothing_type,
                     fiber_json=row.get("fiber_json", "{}"),
                     dominant_fiber=row.get("most_dominant_fiber", "")[:200] or None,

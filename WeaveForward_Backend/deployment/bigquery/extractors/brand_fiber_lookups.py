@@ -8,7 +8,7 @@ def extract() -> list[dict]:
     for b in BrandFiberLookup.objects.order_by("lookup_id"):
         rows.append({
             "lookup_id":      b.lookup_id,
-            "category":       b.category,
+            "product_name":   b.product_name,
             "brand":          b.brand,
             "clothing_type":  b.clothing_type,
             "fiber_json":     b.fiber_json,

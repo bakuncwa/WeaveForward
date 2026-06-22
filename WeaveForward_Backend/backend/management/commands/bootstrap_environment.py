@@ -119,9 +119,9 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f'Synchronizing database with {csv_path}...'))
 
         # 1. Load existing records into memory for fast lookup
-        # Key: (brand, category, clothing_type)
+        # Key: (brand, product_name, clothing_type)
         existing_map = {
-            (obj.brand, obj.category, obj.clothing_type): obj 
+            (obj.brand, obj.product_name, obj.clothing_type): obj
             for obj in BrandFiberLookup.objects.all()
         }
 
@@ -133,7 +133,7 @@ class Command(BaseCommand):
             for row in reader:
                 # Map and Truncate
                 brand = row.get('brand', 'Unknown')[:200]
-                category = row.get('product_name', 'Unknown')[:100] # Truncated to match model
+                product_name = row.get('product_name', 'Unknown')[:100] # Truncated to match model
                 clothing_type = row.get('clothing_type', 'Unknown')[:200]
 
                 # Cleanup tier
@@ -142,7 +142,7 @@ class Command(BaseCommand):
 
                 # Cleanup boolean
                 is_active_csv = row.get('is_active', 'True').lower() == 'true'
-                key = (brand, category, clothing_type)
+                key = (brand, product_name, clothing_type)
 
                 if key in existing_map:
                     obj = existing_map[key]
@@ -154,7 +154,7 @@ class Command(BaseCommand):
                     # Create new
                     lookups_to_create.append(BrandFiberLookup(
                         brand=brand,
-                        category=category,
+                        product_name=product_name,
                         clothing_type=clothing_type,
                         fiber_json=row.get('fiber_json', '{}'),
                         dominant_fiber=row.get('most_dominant_fiber')[:200] if row.get('most_dominant_fiber') else None,

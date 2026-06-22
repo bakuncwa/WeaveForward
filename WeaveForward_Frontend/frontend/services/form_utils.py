@@ -5,6 +5,8 @@ def format_errors(errors):
     """Convert snake_case error keys to Title Case for display (e.g. business_name -> Business Name)."""
     result = {}
     for k, v in errors.items():
+        if not isinstance(v, list):
+            v = [v]
         if k == 'non_field_errors':
             result['Error'] = v
         else:

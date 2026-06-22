@@ -19,7 +19,7 @@ import uuid
 
 from ..models import Donation, DonationItem, Upload, User, DonationStatus, DonationItemConditionRating, Order, OrderPayment, OrderStatus, PaymentStatus, DonationDeliveryMethod, UserRole, InventoryLedger, MatchPrediction
 from ..serializers.donations import DonationCreateSerializer, DonorDonationUpdateSerializer, AdminDonationUpdateSerializer
-from .lalamove_service import cancel_lalamove_order, reverse_or_refund_payment, update_lalamove_order
+from .lalamove_service import SUBSCRIPTION_COVERED_PAYMENT_PREFIX, cancel_lalamove_order, reverse_or_refund_payment, update_lalamove_order
 from .location_service import get_city_and_barangay
 from .audit_service import log_audit, get_client_ip
 from .etag_service import build_updated_at_etag, matches_if_match
@@ -483,7 +483,12 @@ def cancel_donation(*, user, donation, ip_address=None):
                 donation.status, donation.updated_at = DonationStatus.CANCELLED, timezone.now()
                 donation.save(update_fields=["status", "updated_at"])
 
-                payment_ids_to_refund = list(order.payments.filter(status=PaymentStatus.SUCCESS, amount__gt=0).values_list("pk", flat=True))
+                payment_ids_to_refund = list(
+                    order.payments
+                    .filter(status=PaymentStatus.SUCCESS, amount__gt=0)
+                    .exclude(payment_reference__startswith=SUBSCRIPTION_COVERED_PAYMENT_PREFIX)
+                    .values_list("pk", flat=True)
+                )
 
                 # Write to the audit trail logging the status change
                 log_audit(user, "donations", "STATUS_CHANGE", ip_address, ["status"])
@@ -580,7 +585,12 @@ def archive_donation(*, user, donation, ip_address=None):
             order.status, order.updated_at = OrderStatus.CANCELLED, timezone.now()
             order.save(update_fields=["status", "updated_at"])
 
-            payment_ids_to_refund = list(order.payments.filter(status=PaymentStatus.SUCCESS, amount__gt=0).values_list("pk", flat=True))
+            payment_ids_to_refund = list(
+                order.payments
+                .filter(status=PaymentStatus.SUCCESS, amount__gt=0)
+                .exclude(payment_reference__startswith=SUBSCRIPTION_COVERED_PAYMENT_PREFIX)
+                .values_list("pk", flat=True)
+            )
 
         # Archive the donation
         donation.status, donation.updated_at = DonationStatus.ARCHIVED, timezone.now()
@@ -716,10 +726,11 @@ def claim_donation(user, donation, claim_params, ip_address=None):
             exc = APIException(f"You have reached your active claim limit of {user.max_active_claims} active claims. Please complete or cancel your existing claims first.")
             exc.status_code = 409
             raise exc
-        if not all([user.maya_customer_id, user.maya_card_id]):
-            exc = APIException("Your payment details are not fully configured. Please setup your credit card in your profile before claiming deliveries.")
-            exc.status_code = 400
-            raise exc
+        # Per-order delivery charges are covered by the active PRO subscription.
+        # if not all([user.maya_customer_id, user.maya_card_id]):
+        #     exc = APIException("Your payment details are not fully configured. Please setup your credit card in your profile before claiming deliveries.")
+        #     exc.status_code = 400
+        #     raise exc
 
         dropoff_data = {
             'dropoff_display_address': token_data.get('dropoff_address') or user.display_address or "N/A",
@@ -744,12 +755,13 @@ def claim_donation(user, donation, claim_params, ip_address=None):
             payment_reference=f"claim-{donation.donation_id}-{int(timezone.now().timestamp())}",
         )
 
-        maya_url = f"{settings.MAYA_SANDBOX_BASE_URL.rstrip('/')}/customers/{user.maya_customer_id}/cards/{user.maya_card_id}/payments"
-        maya_payload = {
-            'totalAmount': {'amount': quote['amount'], 'currency': 'PHP'},
-            'cardId': user.maya_card_id,
-            'requestReferenceNumber': payment_record.payment_reference,
-        }
+        # Per-order delivery charges are covered by the active PRO subscription.
+        # maya_url = f"{settings.MAYA_SANDBOX_BASE_URL.rstrip('/')}/customers/{user.maya_customer_id}/cards/{user.maya_card_id}/payments"
+        # maya_payload = {
+        #     'totalAmount': {'amount': quote['amount'], 'currency': 'PHP'},
+        #     'cardId': user.maya_card_id,
+        #     'requestReferenceNumber': payment_record.payment_reference,
+        # }
         delivery_people = {
             'pickup_name': f"{donation.donor.first_name} {donation.donor.last_name}".strip(),
             'pickup_phone': donation.donor.contact_no,
@@ -758,32 +770,33 @@ def claim_donation(user, donation, claim_params, ip_address=None):
         }
 
     maya_payment_id = None
-    try:
-        maya_resp = requests.post(
-            maya_url,
-            json=maya_payload,
-            headers={
-                'Authorization': settings.MAYA_SANDBOX_SECRET_BASIC_AUTH,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-            },
-            timeout=30,
-        )
-        maya_json = maya_resp.json()
-        if maya_resp.status_code == 200 and maya_json.get('status') == 'PAYMENT_SUCCESS':
-            maya_payment_id = maya_json.get('id')
-        else:
-            _revert_failed_delivery_claim(donation_id=donation.pk, user_id=user.pk, order_id=order_record.pk)
-            exc = APIException(f"Maya payment failed: {_extract_external_error_message(maya_json)}")
-            exc.status_code = 502
-            raise exc
-    except APIException:
-        raise
-    except Exception as e:
-        _revert_failed_delivery_claim(donation_id=donation.pk, user_id=user.pk, order_id=order_record.pk)
-        exc = APIException(f"Maya connectivity error: {str(e)}")
-        exc.status_code = 502
-        raise exc
+    # Per-order delivery charges are covered by the active PRO subscription.
+    # try:
+    #     maya_resp = requests.post(
+    #         maya_url,
+    #         json=maya_payload,
+    #         headers={
+    #             'Authorization': settings.MAYA_SANDBOX_SECRET_BASIC_AUTH,
+    #             'Content-Type': 'application/json',
+    #             'Accept': 'application/json',
+    #         },
+    #         timeout=30,
+    #     )
+    #     maya_json = maya_resp.json()
+    #     if maya_resp.status_code == 200 and maya_json.get('status') == 'PAYMENT_SUCCESS':
+    #         maya_payment_id = maya_json.get('id')
+    #     else:
+    #         _revert_failed_delivery_claim(donation_id=donation.pk, user_id=user.pk, order_id=order_record.pk)
+    #         exc = APIException(f"Maya payment failed: {_extract_external_error_message(maya_json)}")
+    #         exc.status_code = 502
+    #         raise exc
+    # except APIException:
+    #     raise
+    # except Exception as e:
+    #     _revert_failed_delivery_claim(donation_id=donation.pk, user_id=user.pk, order_id=order_record.pk)
+    #     exc = APIException(f"Maya connectivity error: {str(e)}")
+    #     exc.status_code = 502
+    #     raise exc
 
     l_payload = {
         "data": {
@@ -830,17 +843,18 @@ def claim_donation(user, donation, claim_params, ip_address=None):
         lalamove_error_msg = str(e)
 
     if not lalamove_order_id:
-        void_success = False
-        try:
-            void_resp = requests.delete(
-                f"{settings.MAYA_SANDBOX_BASE_URL.rstrip('/')}/payments/{maya_payment_id}",
-                json={"reason": "Automatic reversal due to logistics failure."},
-                headers={'Authorization': settings.MAYA_SANDBOX_SECRET_BASIC_AUTH, 'Content-Type': 'application/json'},
-                timeout=30
-            )
-            void_success = void_resp.status_code == 200
-        except Exception:
-            pass
+        void_success = None
+        if maya_payment_id:
+            try:
+                void_resp = requests.delete(
+                    f"{settings.MAYA_SANDBOX_BASE_URL.rstrip('/')}/payments/{maya_payment_id}",
+                    json={"reason": "Automatic reversal due to logistics failure."},
+                    headers={'Authorization': settings.MAYA_SANDBOX_SECRET_BASIC_AUTH, 'Content-Type': 'application/json'},
+                    timeout=30
+                )
+                void_success = void_resp.status_code == 200
+            except Exception:
+                pass
 
         _revert_failed_delivery_claim(
             donation_id=donation.pk,
@@ -849,7 +863,7 @@ def claim_donation(user, donation, claim_params, ip_address=None):
         )
         exc = APIException(
             f"Delivery placement failed: {lalamove_error_msg}. " +
-            ("Payment has been automatically reversed." if void_success else "Automatic payment reversal failed. Please contact support for a manual refund.")
+            ("No delivery payment was charged." if void_success is None else ("Payment has been automatically reversed." if void_success else "Automatic payment reversal failed. Please contact support for a manual refund."))
         )
         exc.status_code = 502
         raise exc
@@ -870,7 +884,7 @@ def claim_donation(user, donation, claim_params, ip_address=None):
             order_record.updated_at = timezone.now()
             order_record.save(update_fields=["lalamove_order_id", "status", "updated_at"])
 
-            payment_record.payment_reference = maya_payment_id
+            payment_record.payment_reference = f"subscription-covered-{donation.donation_id}-{int(timezone.now().timestamp())}"
             payment_record.status = PaymentStatus.SUCCESS
             payment_record.updated_at = timezone.now()
             payment_record.save(update_fields=["payment_reference", "status", "updated_at"])

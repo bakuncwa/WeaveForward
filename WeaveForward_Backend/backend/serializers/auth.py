@@ -42,8 +42,8 @@ class DonorRegisterSerializer(serializers.ModelSerializer):
 
         # Password
         pw = data.get('password', '') or ''
-        if not re.match(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()\-_=+\[\]{}|;:\'",.<>?/`~\\]).{8,}$', pw):
-            raise serializers.ValidationError({'password': "Password must be at least 8 characters and include an uppercase letter, a lowercase letter, a number, and a special character."})
+        if not re.match(r'^(?=.*[A-Za-z])(?=.*\d).{8,}$', pw):
+            raise serializers.ValidationError({'password': "Password must be at least 8 characters and include at least one letter and one number."})
 
         # Location
         lat, lng = data.get('latitude'), data.get('longitude')
@@ -89,8 +89,8 @@ class TUABRegisterSerializer(serializers.ModelSerializer):
 
         # Password
         pw = data.get('password', '') or ''
-        if not re.match(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()\-_=+\[\]{}|;:\'",.<>?/`~\\]).{8,}$', pw):
-            raise serializers.ValidationError({'password': "Password must be at least 8 characters and include an uppercase letter, a lowercase letter, a number, and a special character."})
+        if not re.match(r'^(?=.*[A-Za-z])(?=.*\d).{8,}$', pw):
+            raise serializers.ValidationError({'password': "Password must be at least 8 characters and include at least one letter and one number."})
 
         # File
         documentation = self.initial_data.get('documentation')
@@ -198,8 +198,8 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     def validate(self, data):
 
         pw = data.get('new_password', '') or ''
-        if not re.match(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()\-_=+\[\]{}|;:\'",.<>?/`~\\]).{8,}$', pw):
-            raise serializers.ValidationError({'password': "Password must be at least 8 characters and include an uppercase letter, a lowercase letter, a number, and a special character."})
+        if not re.match(r'^(?=.*[A-Za-z])(?=.*\d).{8,}$', pw):
+            raise serializers.ValidationError({'password': "Password must be at least 8 characters and include at least one letter and one number."})
 
         user = validate_reset_token(data['uidb64'], data['token'])
         if not user:
