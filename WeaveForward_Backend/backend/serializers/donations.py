@@ -14,6 +14,7 @@ from ..models import (
 )
 from ..services.location_service import get_city_and_barangay
 from ..services.upload_service import build_upload_url
+from ..services.lalamove_service import get_lalamove_order_driver, get_lalamove_driver_details
 
 
 from .brandfiberlookups import BrandFiberLookupSerializer
@@ -122,6 +123,7 @@ class DonationDetailSerializer(serializers.ModelSerializer):
     dropoff_display_address = serializers.SerializerMethodField()
     dropoff_latitude = serializers.SerializerMethodField()
     dropoff_longitude = serializers.SerializerMethodField()
+    driver_details = serializers.SerializerMethodField()
 
     class Meta:
         model = Donation
@@ -132,6 +134,20 @@ class DonationDetailSerializer(serializers.ModelSerializer):
 
     def _get_active_order(self, obj):
         return obj.orders.filter(status__in=['ASSIGNING_DRIVER', 'ON_GOING', 'PICKED_UP', 'CANCELLED']).first() or obj.orders.exclude(status__in=['FAILED']).first()
+
+    def _fetch_driver_details(self, order):
+        if not order or not order.lalamove_order_id:
+            return None
+        order_result = get_lalamove_order_driver(order.lalamove_order_id)
+        if "error" in order_result:
+            return None
+        driver_id = order_result.get("data", {}).get("driverId")
+        if not driver_id:
+            return None
+        result = get_lalamove_driver_details(order.lalamove_order_id, driver_id)
+        if "error" in result:
+            return None
+        return result.get("data")
 
     def get_dropoff_display_address(self, obj):
         request = self.context.get('request')
@@ -154,10 +170,22 @@ class DonationDetailSerializer(serializers.ModelSerializer):
             return order.dropoff_longitude if order else None
         return None
 
+    def get_driver_details(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user or request.user.role not in ['TUAB', 'Admin']:
+            return None
+        order = obj.orders.filter(
+            lalamove_order_id__isnull=False
+        ).order_by('-created_at').first()
+        return self._fetch_driver_details(order)
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         request = self.context.get('request')
-        if not request or not request.user or request.user.role != 'Admin':
+        role = request.user.role if request and request.user else None
+        if role not in ('TUAB', 'Admin'):
+            data.pop('driver_details', None)
+        if role != 'Admin':
             data.pop('dropoff_display_address', None)
             data.pop('dropoff_latitude', None)
             data.pop('dropoff_longitude', None)

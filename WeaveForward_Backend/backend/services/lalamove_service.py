@@ -458,6 +458,80 @@ def update_lalamove_order(
     return response.json() if response.status_code in [200, 201] else {"status_code": response.status_code}
 
 
+def get_lalamove_order_driver(lalamove_order_id):
+    api_key = settings.LALAMOVE_API_KEY
+    api_secret = settings.LALAMOVE_API_SECRET
+    base_url = settings.LALAMOVE_BASE_URL
+    path = f"/v3/orders/{lalamove_order_id}"
+
+    timestamp = str(int(time.time() * 1000))
+    method = "GET"
+    body = ""
+
+    signature_payload = f"{timestamp}\r\n{method}\r\n{path}\r\n\r\n{body}"
+    signature = hmac.new(
+        api_secret.encode('utf-8'),
+        signature_payload.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
+
+    headers = {
+        "Authorization": f"hmac {api_key}:{timestamp}:{signature}",
+        "Market": "PH",
+        "Request-ID": str(uuid.uuid4()),
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+
+    response = requests.get(f"{base_url}{path}", headers=headers)
+
+    if response.status_code != 200:
+        try:
+            err = response.json()
+        except ValueError:
+            err = "Failed to retrieve order details."
+        return {"error": err, "status_code": response.status_code}
+
+    return response.json()
+
+
+def get_lalamove_driver_details(lalamove_order_id, driver_id):
+    api_key = settings.LALAMOVE_API_KEY
+    api_secret = settings.LALAMOVE_API_SECRET
+    base_url = settings.LALAMOVE_BASE_URL
+    path = f"/v3/orders/{lalamove_order_id}/drivers/{driver_id}"
+
+    timestamp = str(int(time.time() * 1000))
+    method = "GET"
+    body = ""
+
+    signature_payload = f"{timestamp}\r\n{method}\r\n{path}\r\n\r\n{body}"
+    signature = hmac.new(
+        api_secret.encode('utf-8'),
+        signature_payload.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
+
+    headers = {
+        "Authorization": f"hmac {api_key}:{timestamp}:{signature}",
+        "Market": "PH",
+        "Request-ID": str(uuid.uuid4()),
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+
+    response = requests.get(f"{base_url}{path}", headers=headers)
+
+    if response.status_code != 200:
+        try:
+            err = response.json()
+        except ValueError:
+            err = "Failed to retrieve driver details."
+        return {"error": err, "status_code": response.status_code}
+
+    return response.json()
+
+
 def process_expired_orders():
     """
     Finds all active/pending orders that are past their expires_at date

@@ -272,7 +272,7 @@
       <input type="hidden" name="current_etag" value="{{ current_etag }}">
 
       <div class="layout">
-        <div class="left">
+        <div class="left" id="donation-items-left">
           {% for item in items %}
           <div class="card">
             <div class="head">
@@ -308,23 +308,38 @@
 
         <div class="right">
           <div class="panel">
-            <div class="drow"><span class="lbl">Donor</span><span class="val">{{ donation.donor.first_name|default:'' }} {{ donation.donor.last_name|default:'' }}</span></div>
-            <div class="drow"><span class="lbl">Status</span><span class="val">{% if donation.status == 'PENDING' %}Pending{% elif donation.status == 'IN_TRANSIT' %}In Transit{% elif donation.status == 'CLAIMED' %}Claimed{% elif donation.status == 'RECEIVED' %}Received{% elif donation.status == 'REJECTED' %}Rejected{% elif donation.status == 'CANCELLED' %}Cancelled{% elif donation.status == 'ARCHIVED' %}Archived{% else %}{{ donation.status|default:'Pending' }}{% endif %}</span></div>
-            <div class="drow"><span class="lbl">Is Flagged</span><span class="val">{{ donation.is_flagged|default:'False' }}</span></div>
-            <div class="drow"><span class="lbl">Flag Reason</span><span class="val">{{ donation.flag_reason|default:'-' }}</span></div>
-            <div class="drow"><span class="lbl">Submitted At</span><span class="val">{{ donation.submitted_at|date:"m-d-Y h:i A"|default:"-" }}</span></div>
-            <div class="drow"><span class="lbl">Updated At</span><span class="val">{{ donation.updated_at|date:"m-d-Y h:i A"|default:"-" }}</span></div>
-            <div class="drow"><span class="lbl">Auto Archive At</span><span class="val">{{ donation.auto_archive_at|date:"m-d-Y h:i A"|default:"-" }}</span></div>
-            <div class="drow"><span class="lbl">Pickup Address</span><span class="val">{{ donation.pickup_display_address|default:'-' }}</span></div>
-            <div class="drow"><span class="lbl">Pickup Preferred Date</span><span class="val">{{ donation.preferred_pickup_date|date:"m-d-Y"|default:"-" }}</span></div>
-            <div class="drow"><span class="lbl">Pickup Preferred Pickup Window</span><span class="val">{% if donation.preferred_pickup_window_start and donation.preferred_pickup_window_end %}{{ donation.preferred_pickup_window_start|time:"h:i A" }} - {{ donation.preferred_pickup_window_end|time:"h:i A" }}{% else %}-{% endif %}</span></div>
+            <div class="drow"><span class="lbl">Donor</span><span class="val" id="donation-donor">{{ donation.donor.first_name|default:'' }} {{ donation.donor.last_name|default:'' }}</span></div>
+            <div class="drow"><span class="lbl">Status</span><span class="val" id="donation-status">{% if donation.status == 'PENDING' %}Pending{% elif donation.status == 'IN_TRANSIT' %}In Transit{% elif donation.status == 'CLAIMED' %}Claimed{% elif donation.status == 'RECEIVED' %}Received{% elif donation.status == 'REJECTED' %}Rejected{% elif donation.status == 'CANCELLED' %}Cancelled{% elif donation.status == 'ARCHIVED' %}Archived{% else %}{{ donation.status|default:'Pending' }}{% endif %}</span></div>
+            <div class="drow"><span class="lbl">Is Flagged</span><span class="val" id="donation-flagged">{{ donation.is_flagged|default:'False' }}</span></div>
+            <div class="drow"><span class="lbl">Flag Reason</span><span class="val" id="donation-flag-reason">{{ donation.flag_reason|default:'-' }}</span></div>
+            <div class="drow"><span class="lbl">Submitted At</span><span class="val" id="donation-submitted-at">{{ donation.submitted_at|date:"m-d-Y h:i A"|default:"-" }}</span></div>
+            <div class="drow"><span class="lbl">Updated At</span><span class="val" id="donation-updated-at">{{ donation.updated_at|date:"m-d-Y h:i A"|default:"-" }}</span></div>
+            <div class="drow"><span class="lbl">Auto Archive At</span><span class="val" id="donation-auto-archive-at">{{ donation.auto_archive_at|date:"m-d-Y h:i A"|default:"-" }}</span></div>
+            <div class="drow"><span class="lbl">Pickup Address</span><span class="val" id="donation-pickup-address">{{ donation.pickup_display_address|default:'-' }}</span></div>
+            <div class="drow"><span class="lbl">Pickup Preferred Date</span><span class="val" id="donation-pickup-date">{{ donation.preferred_pickup_date|date:"m-d-Y"|default:"-" }}</span></div>
+            <div class="drow"><span class="lbl">Pickup Preferred Pickup Window</span><span class="val" id="donation-pickup-window">{% if donation.preferred_pickup_window_start and donation.preferred_pickup_window_end %}{{ donation.preferred_pickup_window_start|time:"h:i A" }} - {{ donation.preferred_pickup_window_end|time:"h:i A" }}{% else %}-{% endif %}</span></div>
 
             <div class="sep"></div>
             <img src="{{ donation.upload|default:'' }}"
-              class="upload-photo{% if not donation.upload %} hidden{% endif %}" alt="Donation">
+              class="upload-photo{% if not donation.upload %} hidden{% endif %}" alt="Donation" id="donation-img">
             <div class="{% if donation.upload %}hidden{% endif %}"
-              style="font-size:12px;color:#999;margin-top:6px">No donation image uploaded.</div>
+              style="font-size:12px;color:#999;margin-top:6px" id="donation-no-img-text">No donation image uploaded.</div>
             <div class="sep-line"></div>
+
+            {% if donation.delivery_method == 'DELIVERY' %}
+            <div id="driver-section">
+              <div class="sub">Driver Details</div>
+              <div id="driver-info">
+                {% if donation.driver_details %}
+                <div class="drow"><span class="lbl">Name</span><span class="val" id="driver-name">{{ donation.driver_details.name|default:'-' }}</span></div>
+                <div class="drow"><span class="lbl">Phone</span><span class="val" id="driver-phone">{{ donation.driver_details.phone|default:'-' }}</span></div>
+                <div class="drow"><span class="lbl">Plate No.</span><span class="val" id="driver-plate">{{ donation.driver_details.plateNumber|default:'-' }}</span></div>
+                {% else %}
+                <div style="font-size:13px;color:#999" id="driver-waiting">Waiting for driver assignment...</div>
+                {% endif %}
+              </div>
+            </div>
+            {% endif %}
 
             {% if donation.status == 'CLAIMED' and donation.delivery_method == 'PICKUP' %}
             <div class="claim-tip" data-tip="Mark as In-Transit means you are now on your way to pick up the donation. The donor will be notified that you are in transit.">
@@ -349,6 +364,123 @@
         }
       });
     });
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function fmtDT(iso) {
+      if (!iso) return '-';
+      var d = new Date(iso);
+      var pad = function (n) { return String(n).padStart(2, '0'); };
+      return pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '-' + d.getFullYear() + ' ' + pad(d.getHours() % 12 || 12) + ':' + pad(d.getMinutes()) + ' ' + (d.getHours() >= 12 ? 'PM' : 'AM');
+    }
+    function fmtDate(iso) {
+      if (!iso) return '-';
+      var d = new Date(iso);
+      var pad = function (n) { return String(n).padStart(2, '0'); };
+      return pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '-' + d.getFullYear();
+    }
+    function fmtTime(ts) {
+      if (!ts) return '';
+      var parts = ts.split(':');
+      var h = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+      var pad = function (n) { return String(n).padStart(2, '0'); };
+      return pad(h % 12 || 12) + ':' + pad(m) + ' ' + (h >= 12 ? 'PM' : 'AM');
+    }
+
+    // --- Polling (every 30s): refresh everything ---
+    (function pollDonation() {
+      var donationId = {{ donation.donation_id }};
+      fetch(window.location.pathname, {
+        headers: {
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        credentials: 'same-origin'
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        // Redirect if status moved past CLAIMED
+        if (data.status === 'IN_TRANSIT') {
+          window.location.href = '/tuab/donations/' + data.donation_id + '/edit/';
+          return;
+        }
+        if (['RECEIVED', 'REJECTED', 'CANCELLED', 'ARCHIVED'].indexOf(data.status) !== -1) {
+          window.location.href = '/tuab/dashboard/?tab=claimed';
+          return;
+        }
+        // Donor name
+        var donorEl = document.getElementById('donation-donor');
+        if (donorEl && data.donor) {
+          donorEl.textContent = (data.donor.first_name || '') + ' ' + (data.donor.last_name || '');
+        }
+        // Status
+        var statusEl = document.getElementById('donation-status');
+        if (statusEl && data.status) {
+          var labels = { 'PENDING': 'Pending', 'CLAIMED': 'Claimed', 'IN_TRANSIT': 'In Transit', 'RECEIVED': 'Received', 'REJECTED': 'Rejected', 'CANCELLED': 'Cancelled', 'ARCHIVED': 'Archived' };
+          statusEl.textContent = labels[data.status] || data.status;
+        }
+        // Flagged
+        var flaggedEl = document.getElementById('donation-flagged');
+        if (flaggedEl && data.is_flagged !== undefined) {
+          flaggedEl.textContent = data.is_flagged ? 'True' : 'False';
+        }
+        var reasonEl = document.getElementById('donation-flag-reason');
+        if (reasonEl && data.flag_reason !== undefined) {
+          reasonEl.textContent = data.flag_reason || '-';
+        }
+        // Dates
+        textById('donation-submitted-at', fmtDT(data.submitted_at));
+        textById('donation-updated-at', fmtDT(data.updated_at));
+        textById('donation-auto-archive-at', fmtDT(data.auto_archive_at));
+        textById('donation-pickup-date', fmtDate(data.preferred_pickup_date));
+        // Pickup Address
+        textById('donation-pickup-address', data.pickup_display_address || '-');
+        // Pickup Window
+        var winEl = document.getElementById('donation-pickup-window');
+        if (winEl) {
+          var ws = data.preferred_pickup_window_start, we = data.preferred_pickup_window_end;
+          winEl.textContent = (ws && we) ? fmtTime(ws) + ' - ' + fmtTime(we) : '-';
+        }
+        // Donation image
+        var imgEl = document.getElementById('donation-img');
+        var noImgEl = document.getElementById('donation-no-img-text');
+        if (imgEl && noImgEl && data.upload !== undefined) {
+          if (data.upload) {
+            imgEl.src = data.upload;
+            imgEl.classList.remove('hidden');
+            noImgEl.classList.add('hidden');
+          } else {
+            imgEl.classList.add('hidden');
+            noImgEl.classList.remove('hidden');
+          }
+        }
+        // Items (left card) — NOT rebuilt by polling; no external changes
+        // Driver details
+        var dd = data.driver_details;
+        var section = document.getElementById('driver-section');
+        if (section && dd) {
+          var nameEl = document.getElementById('driver-name');
+          if (nameEl) { nameEl.textContent = dd.name || '-'; }
+          var phoneEl = document.getElementById('driver-phone');
+          if (phoneEl) { phoneEl.textContent = dd.phone || '-'; }
+          var plateEl = document.getElementById('driver-plate');
+          if (plateEl) { plateEl.textContent = dd.plateNumber || '-'; }
+          var waiting = document.getElementById('driver-waiting');
+          if (waiting) waiting.remove();
+        }
+      })
+      .catch(function () { /* silent */ })
+      .then(function () {
+        setTimeout(pollDonation, 30000);
+      });
+    })();
+
+    function textById(id, val) {
+      var el = document.getElementById(id);
+      if (el && val !== undefined) el.textContent = val;
+    }
   </script>
 {% endblock %}
 

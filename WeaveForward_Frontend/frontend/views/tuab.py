@@ -1,4 +1,4 @@
-﻿import json
+import json
 import asyncio
 from datetime import datetime
 from django.contrib import messages
@@ -186,6 +186,9 @@ async def tuab_view_donation(request, donation_id):
 
     donation = response.json()
     items = donation.get('items', [])
+
+    if request.headers.get('Accept') == 'application/json':
+        return JsonResponse(donation)
     profile = await get_user_profile(request) or profile
 
     # Parse date and times for all templates
@@ -257,12 +260,15 @@ async def tuab_update_incoming_donation(request, donation_id):
             payload = request.POST.dict()
 
         payload.pop('csrfmiddlewaretoken', None)
-        payload.pop('current_etag', None)
+        current_etag = payload.pop('current_etag', None)
+        headers = {'If-Match': current_etag} if current_etag else {}
 
-        response = await api_call(request, 'POST', f'donations/{donation_id}/resolve', data=payload)
+        response = await api_call(request, 'POST', f'donations/{donation_id}/resolve', data=payload, headers=headers)
         if response.status_code == 200:
             messages.success(request, "Donation resolved successfully!")
             return JsonResponse({'redirect': f'/tuab/dashboard/?tab=claimed&claimed={donation_id}'})
+        elif response.status_code == 412:
+            return JsonResponse({'errors': ['Your session has expired. Please refresh the page and try again.']}, status=409)
         else:
             try:
                 err_data = response.json()
@@ -304,6 +310,12 @@ async def tuab_update_incoming_donation(request, donation_id):
         return redirect('tuab_dashboard')
 
     donation = donation_res.json()
+    current_etag = donation_res.headers.get('ETag', '')
+
+    if request.headers.get('Accept') == 'application/json':
+        resp = JsonResponse({**donation, 'current_etag': current_etag})
+        resp['ETag'] = current_etag
+        return resp
 
     # Parse date and times
     if donation.get('submitted_at'):
@@ -336,7 +348,8 @@ async def tuab_update_incoming_donation(request, donation_id):
             ('GOOD', 'Good'),
             ('FAIR', 'Fair'),
             ('POOR', 'Poor'),
-        ]
+        ],
+        'current_etag': current_etag,
     })
 
 
@@ -744,7 +757,7 @@ async def tuab_donation_flag_proxy(request, donation_id):
 
 
 async def tuab_circular_economy(request):
-    """TUAB Circular Economy Impact Dashboard — Chart.js 4-panel view."""
+    """TUAB Circular Economy Impact Dashboard � Chart.js 4-panel view."""
     profile = request.user_profile
 
     date_from = request.GET.get('date_from', '')

@@ -327,6 +327,10 @@ def admin_update_donation(*, request, donation) -> Donation:
 
         order = donation.orders.filter(status__in=['ASSIGNING_DRIVER', 'ON_GOING', 'PICKED_UP']).first()
         if order and order.lalamove_order_id:
+            if order.has_been_edited:
+                exc = APIException("This delivery order has already been edited and cannot be updated again.")
+                exc.status_code = 409
+                raise exc
             lalamove_update_order_id = order.pk
             lalamove_update_lalamove_order_id = order.lalamove_order_id
             res = update_lalamove_order(**{
@@ -426,6 +430,8 @@ def admin_update_donation(*, request, donation) -> Donation:
                 for field, value in dropoff_data.items():
                     if value is not None:
                         setattr(order, field, value)
+                if lalamove_update_order_id:
+                    order.has_been_edited = True
                 order.save()
 
         log_audit(

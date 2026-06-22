@@ -468,6 +468,13 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
         user = request.user
         donation = self.get_object()
 
+        # Request freshness
+        if_match = request.headers.get('If-Match')
+        if not if_match or not matches_if_match(build_updated_at_etag(donation), if_match):
+            exc = APIException("Your session has expired. Please refresh the page and try again.")
+            exc.status_code = 412
+            raise exc
+
         # Authorization checks
         if donation.claimed_by_tuab != user:
             raise PermissionDenied("You can only resolve donations claimed by your own business.")

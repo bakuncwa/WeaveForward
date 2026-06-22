@@ -203,6 +203,11 @@
                 <p><strong>Delivery Method:</strong> {{ donation.delivery_method|default:"-" }}</p>
                 <p><strong>Flag Reason:</strong> {{ donation.flag_reason|default:"None" }}</p>
                 <p><strong>Is Flagged:</strong> {{ donation.is_flagged|yesno:"Yes,No" }}</p>
+                {% if donation.delivery_method == 'DELIVERY' %}
+                <p><strong>Driver Name:</strong> {{ donation.driver_details.name|default:"-" }}</p>
+                <p><strong>Driver Phone:</strong> {{ donation.driver_details.phone|default:"-" }}</p>
+                <p><strong>Plate Number:</strong> {{ donation.driver_details.plateNumber|default:"-" }}</p>
+                {% endif %}
             </div>
 
             <div class="restored-group" style="margin-bottom:18px">

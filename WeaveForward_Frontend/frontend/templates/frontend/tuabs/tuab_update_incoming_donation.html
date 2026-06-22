@@ -335,7 +335,7 @@
           <div class="incoming-card-section">
             <div class="incoming-detail-grid">
               <div class="incoming-detail-label">Donor</div>
-              <div class="incoming-detail-value">
+              <div class="incoming-detail-value" id="donor-name">
                 {% if donation.donor.business_name %}
                   {{ donation.donor.business_name }}
                 {% else %}
@@ -345,48 +345,54 @@
               </div>
 
               <div class="incoming-detail-label">Status</div>
-              <div class="incoming-detail-value incoming-status {% if donation.status == 'RECEIVED' %}received{% elif donation.status == 'REJECTED' %}rejected{% endif %}">{% if donation.status == 'PENDING' %}Pending{% elif donation.status == 'IN_TRANSIT' %}In Transit{% elif donation.status == 'CLAIMED' %}Claimed{% elif donation.status == 'RECEIVED' %}Received{% elif donation.status == 'REJECTED' %}Rejected{% elif donation.status == 'CANCELLED' %}Cancelled{% elif donation.status == 'ARCHIVED' %}Archived{% else %}{{ donation.status }}{% endif %}</div>
+              <div class="incoming-detail-value incoming-status {% if donation.status == 'RECEIVED' %}received{% elif donation.status == 'REJECTED' %}rejected{% endif %}" id="donation-status">{% if donation.status == 'PENDING' %}Pending{% elif donation.status == 'IN_TRANSIT' %}In Transit{% elif donation.status == 'CLAIMED' %}Claimed{% elif donation.status == 'RECEIVED' %}Received{% elif donation.status == 'REJECTED' %}Rejected{% elif donation.status == 'CANCELLED' %}Cancelled{% elif donation.status == 'ARCHIVED' %}Archived{% else %}{{ donation.status }}{% endif %}</div>
 
               <div class="incoming-detail-label">Is Flagged</div>
-              <div class="incoming-detail-value">{% if donation.is_flagged %}Yes{% else %}No{% endif %}</div>
+              <div class="incoming-detail-value" id="donation-flagged">{% if donation.is_flagged %}Yes{% else %}No{% endif %}</div>
 
               <div class="incoming-detail-label">Flag Reason</div>
-              <div class="incoming-detail-value">{{ donation.flag_reason|default:"N/A" }}</div>
+              <div class="incoming-detail-value" id="donation-flag-reason">{{ donation.flag_reason|default:"N/A" }}</div>
 
               <div class="incoming-detail-label">Submitted At</div>
-              <div class="incoming-detail-value">{{ donation.submitted_at|date:"m-d-Y g:i A"|default:"N/A" }}</div>
+              <div class="incoming-detail-value" id="donation-submitted-at">{{ donation.submitted_at|date:"m-d-Y g:i A"|default:"N/A" }}</div>
 
               <div class="incoming-detail-label">Updated At</div>
-              <div class="incoming-detail-value">{{ donation.updated_at|date:"m-d-Y g:i A"|default:"N/A" }}</div>
+              <div class="incoming-detail-value" id="donation-updated-at">{{ donation.updated_at|date:"m-d-Y g:i A"|default:"N/A" }}</div>
 
               <div class="incoming-detail-label">Auto Archive At</div>
-              <div class="incoming-detail-value">{{ donation.auto_archive_at|date:"m-d-Y g:i A"|default:"N/A" }}</div>
+              <div class="incoming-detail-value" id="donation-auto-archive-at">{{ donation.auto_archive_at|date:"m-d-Y g:i A"|default:"N/A" }}</div>
 
               <div class="incoming-detail-label">Pickup Address</div>
-              <div class="incoming-detail-value">{{ donation.pickup_display_address|default:"N/A" }}</div>
+              <div class="incoming-detail-value" id="donation-pickup-address">{{ donation.pickup_display_address|default:"N/A" }}</div>
 
               <div class="incoming-detail-label">Pickup Preferred Date</div>
-              <div class="incoming-detail-value">{{ donation.preferred_pickup_date|date:"m-d-Y"|default:"N/A" }}</div>
+              <div class="incoming-detail-value" id="donation-pickup-date">{{ donation.preferred_pickup_date|date:"m-d-Y"|default:"N/A" }}</div>
 
               <div class="incoming-detail-label">Pickup Preferred Pickup Window</div>
-              <div class="incoming-detail-value">
+              <div class="incoming-detail-value" id="donation-pickup-window">
                 {% if donation.preferred_pickup_window_start and donation.preferred_pickup_window_end %}
                   {{ donation.preferred_pickup_window_start|time:"g:i A" }} - {{ donation.preferred_pickup_window_end|time:"g:i A" }}
                 {% else %}
                   N/A
                 {% endif %}
               </div>
+
+              {% if donation.delivery_method == 'DELIVERY' %}
+              <div class="incoming-detail-label">Driver Name</div>
+              <div class="incoming-detail-value" id="driver-name">{{ donation.driver_details.name|default:"-" }}</div>
+              <div class="incoming-detail-label">Driver Phone</div>
+              <div class="incoming-detail-value" id="driver-phone">{{ donation.driver_details.phone|default:"-" }}</div>
+              <div class="incoming-detail-label">Plate Number</div>
+              <div class="incoming-detail-value" id="driver-plate">{{ donation.driver_details.plateNumber|default:"-" }}</div>
+              {% endif %}
             </div>
           </div>
 
           <div class="incoming-divider"></div>
 
           <div class="incoming-photo-wrap">
-            {% if donation.upload %}
-              <img src="{{ donation.upload }}" class="incoming-photo" alt="Donation image">
-            {% else %}
-              <div style="color: var(--muted); font-size: 14px; font-family: 'Poppins', sans-serif;">No image uploaded</div>
-            {% endif %}
+            <img src="{{ donation.upload|default:'' }}" class="incoming-photo{% if not donation.upload %} hidden{% endif %}" alt="Donation image" id="donation-img">
+            <div{% if donation.upload %} class="hidden"{% endif %} style="color: var(--muted); font-size: 14px; font-family: 'Poppins', sans-serif;" id="donation-no-img-text">No image uploaded</div>
           </div>
 
           <div class="incoming-divider"></div>
@@ -474,6 +480,7 @@
 </template>
 
 <script>
+  var CURRENT_ETAG = '{{ current_etag|escapejs }}';
   let isInit = true;
 
   // --- 1. Dynamic UI ---
@@ -643,6 +650,7 @@
       const fd = new FormData();
       fd.append('csrfmiddlewaretoken', frm.elements.csrfmiddlewaretoken.value);
       fd.append('status', status);
+      fd.append('current_etag', CURRENT_ETAG);
       if (rejectionReason) fd.append('rejection_reason', rejectionReason);
       const itemsValue = document.getElementById('items-json').value;
       if (itemsValue && itemsValue !== '[]') fd.append('items', itemsValue);
@@ -702,6 +710,109 @@
 
   // Track changes on items: mark card container with data-changed when any input or select changes inside it.
   document.getElementById('cards').addEventListener('input', e => e.target.closest('.restored-card')?.setAttribute('data-changed', 'true'));
+
+  // --- Polling (every 30s): refresh right card + driver details ---
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function fmtDT(iso) {
+    if (!iso) return 'N/A';
+    var d = new Date(iso);
+    var pad = function (n) { return String(n).padStart(2, '0'); };
+    return pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '-' + d.getFullYear() + ' ' + pad(d.getHours() % 12 || 12) + ':' + pad(d.getMinutes()) + ' ' + (d.getHours() >= 12 ? 'PM' : 'AM');
+  }
+  function fmtDate(iso) {
+    if (!iso) return 'N/A';
+    var d = new Date(iso);
+    var pad = function (n) { return String(n).padStart(2, '0'); };
+    return pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '-' + d.getFullYear();
+  }
+  function fmtTime(ts) {
+    if (!ts) return '';
+    var parts = ts.split(':');
+    var h = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+    var pad = function (n) { return String(n).padStart(2, '0'); };
+    return pad(h % 12 || 12) + ':' + pad(m) + ' ' + (h >= 12 ? 'PM' : 'AM');
+  }
+
+  (function pollDonation() {
+    fetch(window.location.pathname, {
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      credentials: 'same-origin'
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (['RECEIVED', 'REJECTED', 'CANCELLED', 'ARCHIVED'].indexOf(data.status) !== -1) {
+        window.location.href = '/tuab/dashboard/?tab=claimed';
+        return;
+      }
+      // Donor name
+      var donorEl = document.getElementById('donor-name');
+      if (donorEl && data.donor) {
+        var dn = (data.donor.business_name || data.donor.first_name + ' ' + data.donor.last_name || '').trim();
+        if (data.donor.email) dn += ' (' + data.donor.email + ')';
+        donorEl.textContent = dn || '-';
+      }
+      // Status
+      var statusEl = document.getElementById('donation-status');
+      if (statusEl && data.status) {
+        var labels = { 'PENDING': 'Pending', 'CLAIMED': 'Claimed', 'IN_TRANSIT': 'In Transit', 'RECEIVED': 'Received', 'REJECTED': 'Rejected', 'CANCELLED': 'Cancelled', 'ARCHIVED': 'Archived' };
+        statusEl.textContent = labels[data.status] || data.status;
+        statusEl.className = 'incoming-detail-value incoming-status' + (data.status === 'RECEIVED' ? ' received' : data.status === 'REJECTED' ? ' rejected' : '');
+      }
+      // Flagged
+      var flaggedEl = document.getElementById('donation-flagged');
+      if (flaggedEl && data.is_flagged !== undefined) flaggedEl.textContent = data.is_flagged ? 'Yes' : 'No';
+      var reasonEl = document.getElementById('donation-flag-reason');
+      if (reasonEl && data.flag_reason !== undefined) reasonEl.textContent = data.flag_reason || 'N/A';
+      // Dates
+      var dateFields = { 'donation-submitted-at': 'submitted_at', 'donation-updated-at': 'updated_at', 'donation-auto-archive-at': 'auto_archive_at' };
+      Object.keys(dateFields).forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = fmtDT(data[dateFields[id]]);
+      });
+      var dateEl = document.getElementById('donation-pickup-date');
+      if (dateEl) dateEl.textContent = fmtDate(data.preferred_pickup_date);
+      // Pickup Address
+      var addrEl = document.getElementById('donation-pickup-address');
+      if (addrEl) addrEl.textContent = data.pickup_display_address || 'N/A';
+      // Pickup Window
+      var winEl = document.getElementById('donation-pickup-window');
+      if (winEl) {
+        var ws = data.preferred_pickup_window_start, we = data.preferred_pickup_window_end;
+        winEl.textContent = (ws && we) ? fmtTime(ws) + ' - ' + fmtTime(we) : 'N/A';
+      }
+      // Items (left cards) — NOT rebuilt here; if admin changed items, resolve will 412 → user refreshes
+      // Driver details
+      var dd = data.driver_details;
+      if (dd) {
+        var nameEl = document.getElementById('driver-name');
+        if (nameEl) nameEl.textContent = dd.name || '-';
+        var phoneEl = document.getElementById('driver-phone');
+        if (phoneEl) phoneEl.textContent = dd.phone || '-';
+        var plateEl = document.getElementById('driver-plate');
+        if (plateEl) plateEl.textContent = dd.plateNumber || '-';
+      }
+      // ETag — NOT updated from polling; donation.save() bumps updated_at for ANY change (incl items)
+      // Keeping page-load ETag ensures resolve 412s if admin changed anything, forcing a refresh.
+      // Image
+      var imgEl = document.getElementById('donation-img');
+      var noImgEl = document.getElementById('donation-no-img-text');
+      if (imgEl && noImgEl && data.upload !== undefined) {
+        if (data.upload) {
+          imgEl.src = data.upload;
+          imgEl.classList.remove('hidden');
+          noImgEl.classList.add('hidden');
+        } else {
+          imgEl.classList.add('hidden');
+          noImgEl.classList.remove('hidden');
+        }
+      }
+    })
+    .catch(function () { /* silent */ })
+    .then(function () { setTimeout(pollDonation, 30000); });
+  })();
 </script>
 <script src="{% static 'frontend/js/custom-select.js' %}"></script>
 <script src="{% static 'frontend/js/donation-form.js' %}"></script>
