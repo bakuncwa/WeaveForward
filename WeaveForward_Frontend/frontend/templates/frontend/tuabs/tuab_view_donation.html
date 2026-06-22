@@ -644,28 +644,6 @@
       return fallback;
     }
 
-    function showFlash(message, type = 'error') {
-      let container = document.querySelector('.wf-flash-messages');
-      if (!container) {
-        container = document.createElement('div');
-        container.className = 'wf-flash-messages';
-        document.querySelector('.wf-content').prepend(container);
-      }
-      const alert = document.createElement('div');
-      alert.className = `wf-alert ${type}`;
-      alert.textContent = message;
-      container.prepend(alert);
-      setTimeout(() => {
-        alert.style.opacity = '0';
-        setTimeout(() => alert.remove(), 400);
-      }, 5000);
-    }
-
-    function clearFlashes() {
-      const container = document.querySelector('.wf-flash-messages');
-      if (container) container.innerHTML = '';
-    }
-
     async function postJson(url, payload) {
       const response = await fetch(url, {
         method: 'POST',

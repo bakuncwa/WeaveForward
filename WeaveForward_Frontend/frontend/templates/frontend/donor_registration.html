@@ -253,6 +253,23 @@
       background: #fdf6e8
     }
 
+    /* ── Material Dropdown (address search) ── */
+    .ss-list { position: absolute; z-index: 100; top: 100%; left: 0; width: 100%; max-height: 200px; overflow-y: auto; background: #fff; border: 1.5px solid var(--b); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.15); }
+    .mat-trigger { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 100%; height: 44px; border: 1.5px solid #d5d5d5; border-radius: 8px; padding: 0 14px; font-size: 14px; font-family: 'Poppins', sans-serif; color: #666; background: #fff; cursor: pointer; user-select: none; transition: border-color .2s,box-shadow .2s; box-sizing: border-box; overflow: hidden; }
+    .mat-trigger:hover { border-color: var(--g); }
+    .mat-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mat-arrow { display: flex; align-items: center; color: var(--g); transition: transform .2s; flex-shrink: 0; margin-left: 8px; }
+    .ss-wrap.open .mat-arrow { transform: rotate(180deg); }
+    .ss-wrap.open .mat-trigger { border-color: var(--g); box-shadow: 0 0 0 3px rgba(232,160,32,.15); }
+    .mat-search { width: 100%; border: none; border-bottom: 1.5px solid #d5d5d5; padding: 10px 14px; font-family: 'Poppins', sans-serif; font-size: 13px; outline: none; border-radius: 8px 8px 0 0; background: #fff; box-sizing: border-box; }
+    .mat-item { padding: 10px 14px; font-size: 13px; cursor: pointer; border-bottom: 1px solid #f5f5f5; color: #666; font-family: 'Poppins', sans-serif; transition: background .15s; }
+    .mat-item:last-child { border-bottom: none; }
+    .mat-item:hover { background: #f5f4f0; }
+    .mat-item b { display: block; color: var(--g); font-size: 11px; }
+    .pin-wrap.mat-wrap { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; }
+    .pin-wrap.mat-wrap .ss-wrap { flex: 1 1 0; min-width: 0; max-width: calc(100% - 52px); }
+    .pin-wrap.mat-wrap .pin { position: static; top: auto; right: auto; transform: none; flex-shrink: 0; width: 44px; height: 44px; border: 1.5px solid #d5d5d5; border-radius: 8px; padding: 0; box-sizing: border-box; display: flex; align-items: center; justify-content: center; line-height: 0; margin: 0; }
+
     .pin {
       position: absolute;
       right: 10px;
@@ -383,14 +400,22 @@
         <div id="step2" class="hidden">
           <div class="group"><label class="up">Pickup Address<span class="req">*</span></label>
             <div class="ac">
-              <div class="pin-wrap"><input id="addr" name="display_address" class="in"
-                  value="{{ form_data.display_address }}" oninput="srAddr(this.value)"
-                  onblur="hdAc()"><button type="button" class="pin" onclick="opMap()"><svg width="18" height="18"
-                    fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
-                    <circle cx="12" cy="10" r="3" />
-                  </svg></button></div>
-              <div id="ac" class="ac-list hidden"></div>
+              <div class="pin-wrap mat-wrap" style="display:flex;align-items:center;gap:8px;width:100%;min-width:0;flex-wrap:nowrap">
+                <div class="ss-wrap" style="position:relative">
+                  <div class="mat-trigger" onclick="toggleAddrDropdown(this)">
+                    <span class="mat-text" id="addr-text">{{ form_data.display_address|default:'Address' }}</span>
+                    <svg class="mat-arrow" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg>
+                  </div>
+                  <input type="hidden" id="addr" name="display_address" value="{{ form_data.display_address }}">
+                  <div id="ac" class="ss-list hidden">
+                    <input type="text" class="mat-search" id="addr-search" placeholder="Search address..." oninput="srAddr(this.value)" onclick="event.stopPropagation()" autocomplete="off">
+                    <div class="mat-items" id="addr-items"></div>
+                  </div>
+                </div>
+                <button type="button" class="pin" style="position:static;flex-shrink:0;width:44px;height:44px;border:1.5px solid #d5d5d5;border-radius:8px;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;margin:0;box-sizing:border-box;line-height:0;color:var(--g)" onclick="opMap()">
+                  <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                </button>
+              </div>
             </div>
           <span class="field-err" id="err-display_address"></span></div>
           <input type="hidden" id="lat" name="latitude" value="{{ form_data.latitude }}"><input type="hidden"
@@ -441,9 +466,32 @@
     </div>
   </div>
   <script>
-    const gE = i => document.getElementById(i), hdAc = () => setTimeout(() => gE('ac')?.classList.add('hidden'), 200);
+    const gE = i => document.getElementById(i);
     const esc = str => !str ? '' : str.replace(/[&<>'"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]||c));
     let cS = {% if errors %}2{% else %} 1{% endif %}, aT, aR = [], m, mk, tLt = 14.589, tLg = 120.982;
+
+    function toggleAddrDropdown(trigger) {
+      const wrap = trigger.closest('.ss-wrap');
+      const list = wrap.querySelector('.ss-list');
+      const isOpen = !list.classList.contains('hidden');
+      document.querySelectorAll('.ss-list').forEach(l => l.classList.add('hidden'));
+      document.querySelectorAll('.ss-wrap').forEach(w => w.classList.remove('open'));
+      if (!isOpen) {
+        list.classList.remove('hidden');
+        wrap.classList.add('open');
+        const search = list.querySelector('.mat-search');
+        if (search) { search.value = ''; search.focus(); }
+        const items = list.querySelector('.mat-items');
+        if (items) items.innerHTML = '';
+      }
+    }
+
+    document.addEventListener('click', e => {
+      if (!e.target.closest('.ss-wrap')) {
+        document.querySelectorAll('.ss-list').forEach(l => l.classList.add('hidden'));
+        document.querySelectorAll('.ss-wrap').forEach(w => w.classList.remove('open'));
+      }
+    });
 
     const PW_RULES = [
       { id: 'r-len',     test: v => v.length >= 8 },
@@ -523,6 +571,9 @@
       el.addEventListener('blur', () => validateField(f));
       el.addEventListener('input', () => validateField(f));
     });
+    gE('donor-pw')?.addEventListener('input', () => {
+      if (gE('donor-cp')?.value) validateField('confirm_password');
+    });
     const _da = document.querySelector('[name="display_address"]');
     if (_da) {
       _da.addEventListener('blur', () => validateAddress());
@@ -535,8 +586,8 @@
       if (gE('addr').value && !ncrOk) { showErr('display_address', 'Address must be within Metro Manila.'); updateSubmitBtn(); return false; }
       const ok = validateField('display_address'); updateSubmitBtn(); return ok;
     }
-    const _slAddr = slAddr; slAddr = function(i) { _slAddr(i); setTimeout(validateAddress, 100); };
-    const _cfMap = cfMap; cfMap = async function() { await _cfMap(); setTimeout(validateAddress, 100); };
+    const _slAddr = slAddr; slAddr = async function(i) { await _slAddr(i); };
+    const _cfMap = cfMap; cfMap = async function() { await _cfMap(); };
 
     function updateSubmitBtn() {
       const s1 = ['first_name','last_name','email','contact_no','password'].every(f => {
@@ -598,12 +649,13 @@
     }
     // Initialize step on load
     gE('step1').classList.toggle('hidden', cS != 1); gE('step2').classList.toggle('hidden', cS != 2); gE('d1').style.background = cS == 1 ? 'var(--g)' : '#ccc'; gE('d2').style.background = cS == 2 ? 'var(--g)' : '#ccc'; updateArrows();
-    function srAddr(v) { const ac = gE('ac'); if (v.length < 3) return ac.classList.add('hidden'); clearTimeout(aT); aT = setTimeout(async () => { try { const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${v}, Philippines&limit=5&countrycodes=ph`); aR = await r.json(); ac.innerHTML = aR.map((r, i) => `<div class="ac-item" onmousedown="slAddr(${i})">${esc(r.display_name)}</div>`).join(''); ac.classList.remove('hidden') } catch { } }, 350) }
-    function slAddr(i) { const lt = (+aR[i].lat).toFixed(7), lg = (+aR[i].lon).toFixed(7); gE('addr').value = aR[i].display_name; gE('lat').value = lt; gE('lng').value = lg; fLD(lt, lg); setTimeout(validateAddress, 100) }
+    function srAddr(v) { const items = gE('addr-items'), ac = gE('ac'); if (!items) return; if (v.length < 3) { items.innerHTML = ''; return; } clearTimeout(aT); aT = setTimeout(async () => { try { const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${v}, Philippines&limit=5&countrycodes=ph`); aR = await r.json(); items.innerHTML = aR.map((r, i) => `<div class="mat-item" onmousedown="event.preventDefault();slAddr(${i})">${esc(r.display_name)}</div>`).join(''); ac.classList.remove('hidden') } catch { } }, 350) }
+    async function slAddr(i) { const lt = (+aR[i].lat).toFixed(7), lg = (+aR[i].lon).toFixed(7); gE('addr').value = aR[i].display_name; const t = gE('addr-text'); if (t) t.textContent = aR[i].display_name; gE('lat').value = lt; gE('lng').value = lg; gE('ac').classList.add('hidden'); const w = gE('addr')?.closest('.ss-wrap'); if (w) w.classList.remove('open'); await fLD(lt, lg); validateAddress() }
     async function fLD(lt, lg) { try { const r = await fetch(`/api/location/lookup/?lat=${lt}&lng=${lg}`); gE('city').value = ''; gE('brgy').value = ''; if (r.ok) { const d = await r.json(); gE('city').value = d.city || ''; gE('brgy').value = d.barangay || '' } } catch { } }
-    function opMap() { gE('map-modal').classList.remove('hidden'); let lt = +gE('lat').value || 14.589, lg = +gE('lng').value || 120.982; tLt = lt; tLg = lg; if (!m) { m = L.map('picker-map').setView([lt, lg], 15); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m); mk = L.marker([lt, lg], { draggable: !0 }).addTo(m); mk.on('dragend', e => { tLt = e.target.getLatLng().lat; tLg = e.target.getLatLng().lng }); m.on('click', e => { tLt = e.latlng.lat; tLg = e.latlng.lng; mk.setLatLng(e.latlng) }) } else { m.setView([lt, lg]); mk.setLatLng([lt, lg]); m.invalidateSize() } }
-    async function cfMap() { gE('lat').value = (+tLt).toFixed(7); gE('lng').value = (+tLg).toFixed(7); const lt = gE('lat').value, lg = gE('lng').value; clMap(); try { const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lt}&lon=${lg}`); gE('addr').value = (await r.json()).display_name || `${lt}, ${lg}` } catch { } fLD(lt, lg); setTimeout(validateAddress, 100) }
+    function opMap() { gE('map-modal').classList.remove('hidden'); let lt = +gE('lat').value || 14.589, lg = +gE('lng').value || 120.982; tLt = lt; tLg = lg; if (!m) { m = L.map('picker-map').setView([lt, lg], 15); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m); mk = L.marker([lt, lg], { draggable: !0 }).addTo(m); mk.on('dragend', e => { tLt = e.target.getLatLng().lat; tLg = e.target.getLatLng().lng }); m.on('click', e => { tLt = e.latlng.lat; tLg = e.latlng.lng; mk.setLatLng(e.latlng) }) } else { m.setView([lt, lg]); mk.setLatLng([lt, lg]) } setTimeout(() => m.invalidateSize(), 100) }
+    async function cfMap() { gE('lat').value = (+tLt).toFixed(7); gE('lng').value = (+tLg).toFixed(7); const lt = gE('lat').value, lg = gE('lng').value; clMap(); try { const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lt}&lon=${lg}`); const name = (await r.json()).display_name || `${lt}, ${lg}`; gE('addr').value = name; const t = gE('addr-text'); if (t) t.textContent = name } catch { gE('addr').value = `${lt}, ${lg}`; const t = gE('addr-text'); if (t) t.textContent = `${lt}, ${lg}` } await fLD(lt, lg); validateAddress() }
     function clMap() { gE('map-modal').classList.add('hidden') }
+    gE('map-modal')?.addEventListener('click', e => { if (e.target === e.currentTarget) clMap(); });
   </script>
   <script>
     window.WF_TEXT_FIELD_MAX_LENGTH = {{ TEXT_FIELD_MAX_LENGTH }};

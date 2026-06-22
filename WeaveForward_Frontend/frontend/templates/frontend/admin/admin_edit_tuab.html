@@ -1,4 +1,5 @@
 {% extends 'frontend/base.html' %}
+{% load static %}
 
 {% block content %}
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
@@ -157,6 +158,113 @@
     padding-right: 42px;
   }
 
+  .pin-wrap.mat-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .pin-wrap.mat-wrap .ss-wrap {
+    flex: 1 1 0;
+    min-width: 0;
+    position: relative;
+  }
+
+  .pin-wrap.mat-wrap .pin {
+    position: static;
+    transform: none;
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border: 1.5px solid #d5d5d5;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .mat-trigger {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    height: 44px;
+    border: 1.5px solid #d5d5d5;
+    border-radius: 8px;
+    padding: 0 14px;
+    font-size: 14px;
+    color: #333;
+    background: #fff;
+    cursor: pointer;
+    overflow: hidden;
+    transition: border-color .2s, box-shadow .2s;
+  }
+
+  .mat-trigger:hover {
+    border-color: var(--g);
+  }
+
+  .mat-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mat-arrow {
+    color: var(--g);
+    flex-shrink: 0;
+    margin-left: 8px;
+    transition: transform .2s;
+  }
+
+  .ss-wrap.open .mat-arrow {
+    transform: rotate(180deg);
+  }
+
+  .ss-wrap.open .mat-trigger {
+    border-color: var(--g);
+    box-shadow: 0 0 0 3px rgba(232, 160, 32, .15);
+  }
+
+  .ss-list {
+    position: absolute;
+    z-index: 50;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    max-height: 180px;
+    overflow: auto;
+    background: #fff;
+    border: 1.5px solid var(--brd);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .1);
+  }
+
+  .mat-search {
+    width: 100%;
+    border: none;
+    border-bottom: 1.5px solid var(--brd);
+    padding: 10px 14px;
+    font-size: 13px;
+    outline: none;
+  }
+
+  .mat-item {
+    padding: 10px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    border-bottom: 1px solid #f5f5f5;
+  }
+
+  .mat-item:hover {
+    background: var(--lt);
+  }
+
   .pin {
     position: absolute;
     right: 10px;
@@ -216,11 +324,7 @@
     padding: 8px 10px;
     min-height: 44px;
     position: relative;
-    cursor: text;
-  }
-
-  .t-box:focus-within {
-    border-color: var(--g);
+    cursor: pointer;
   }
 
   #tags {
@@ -251,31 +355,7 @@
     margin-left: 2px;
   }
 
-  .t-chevron {
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #aaa;
-    pointer-events: none;
-    transition: transform .2s, color .2s;
-    flex-shrink: 0;
-  }
-  .t-box:focus-within .t-chevron {
-    color: var(--g);
-    transform: translateY(-50%) rotate(180deg);
-  }
 
-  #ti {
-    border: none !important;
-    outline: none !important;
-    font-size: 13px;
-    background: transparent;
-    min-width: 80px;
-    flex: 1;
-    padding: 0 !important;
-    height: auto !important;
-  }
 
   .btn-remove-pay {
     width: 100%;
@@ -358,6 +438,7 @@
     padding: 12px 16px 16px;
   }
 </style>
+<link rel="stylesheet" href="{% static 'frontend/css/fiber-dropdown.css' %}" />
 
 <form id="frm" method="post" enctype="multipart/form-data" autocomplete="off">
   {% csrf_token %}
@@ -427,14 +508,13 @@
     <!-- Target Fibers -->
     <div class="group" style="margin-top:14px;position:relative">
       <label class="up">Target Fiber Types</label>
-      <div class="t-box" onclick="getEl('ti').focus()">
-        <div id="tags"></div>
-        <input id="ti" placeholder="Add fiber…" autocomplete="off" autocapitalize="off" spellcheck="false"
-          oninput="handleFiberInput(this.value)" onfocus="showFiberOptions(this.value)" onclick="showFiberOptions(this.value)"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();if(commitFiberInput())showFiberOptions('');}"
-          onblur="commitFiberInput();hideDd('f-ac')">
-        <div id="f-ac" class="f-dd hidden"></div>
-        <svg class="t-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+      <div class="t-box" id="fiber-trigger" style="width:100%;min-height:44px;border:1.5px solid #d5d5d5;border-radius:8px;padding:10px 14px;font-size:14px;background:#fff;cursor:pointer;display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+        <div id="tags" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+        <span id="fiber-ph" style="color:#aaa;font-size:13px">Select fibers</span>
+      </div>
+      <div id="fiber-dd" class="fiber-dropdown hidden">
+        <input id="fiber-search" class="fiber-search" placeholder="Search fibers…" autocomplete="off">
+        <div id="fiber-list" class="fiber-list"></div>
       </div>
       <input type="hidden" id="fibs" name="target_fibers" value="{{ tuab.target_fibers }}">
     </div>
@@ -486,9 +566,18 @@
     <!-- Location -->
     <div class="group" style="position:relative;margin-top:14px">
       <label class="up">Display Address *</label>
-      <div class="pin-wrap">
-        <input id="addr" class="in" name="display_address" placeholder="Loading address…" oninput="srchAddr(this.value)"
-          onblur="hideDd('ac')" required>
+      <div class="pin-wrap mat-wrap">
+        <div class="ss-wrap">
+          <div class="mat-trigger" onclick="toggleAddrDropdown(this)">
+            <span class="mat-text" id="addr-text">{{ tuab.display_address|default:'Address' }}</span>
+            <svg class="mat-arrow" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg>
+          </div>
+          <input id="addr" class="in" type="hidden" name="display_address" value="{{ tuab.display_address|default:'' }}" required>
+          <div id="ac" class="ss-list hidden">
+            <input type="text" class="mat-search" id="addr-search" placeholder="Search address..." oninput="srchAddr(this.value)" onclick="event.stopPropagation()" autocomplete="off">
+            <div class="mat-items" id="addr-items"></div>
+          </div>
+        </div>
         <button type="button" class="pin" onclick="openMap()">
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
@@ -496,7 +585,6 @@
           </svg>
         </button>
       </div>
-      <div id="ac" class="ac-list hidden"></div>
       <input id="lat" name="latitude" type="hidden" value="{{ tuab.latitude }}">
       <input id="lng" name="longitude" type="hidden" value="{{ tuab.longitude }}">
     </div>
@@ -569,13 +657,38 @@
     r.readAsDataURL(file);
   }
 
-  // --- 4. Fiber Tags ---
+  // --- 4. Fiber Tags — dropdown with search ---
   let tags = (getEl('fibs').value || '').split(',').map(s => s.trim()).filter(Boolean);
-  const renderTags = () => { getEl('tags').innerHTML = tags.map(t => `<div class="t-chip">${escapeHTML(t)}<span data-tag="${escapeHTML(t)}" onclick="toggleTag(this.getAttribute('data-tag'))">×</span></div>`).join(''); getEl('fibs').value = tags.join(','); };
-  const showFiberOptions = (val = '') => { const q = val.trim().toLowerCase(); const m = FIBERS.filter(f => !tags.includes(f) && (!q || f.toLowerCase().includes(q))); getEl('f-ac').innerHTML = m.map(f => `<div data-tag="${escapeHTML(f)}" onmousedown="toggleTag(this.getAttribute('data-tag'))">${escapeHTML(f)}</div>`).join(''); getEl('f-ac').classList.toggle('hidden', !m.length); };
-  const commitFiberInput = () => { const raw = getEl('ti').value.trim().toLowerCase(); if (!raw) return false; const exact = FIBERS.find(f => f.toLowerCase() === raw); if (!exact) return false; if (!tags.includes(exact)) { tags = [...tags, exact]; renderTags(); } else { getEl('ti').value = ''; getEl('f-ac').classList.add('hidden'); } return true; };
-  const handleFiberInput = val => { showFiberOptions(val); };
-  const toggleTag = (f, keepOpen = false) => { const wasSelected = tags.includes(f); tags = wasSelected ? tags.filter(t => t !== f) : [...tags, f]; renderTags(); getEl('ti').value = ''; if (keepOpen || wasSelected) { getEl('ti').focus(); showFiberOptions(''); } else getEl('f-ac').classList.add('hidden'); };
+  const renderTags = () => {
+    getEl('tags').innerHTML = tags.map(t => `<div class="t-chip">${escapeHTML(t)}<span data-tag="${escapeHTML(t)}" onclick="fiberToggle(this.getAttribute('data-tag'))">×</span></div>`).join('');
+    getEl('fibs').value = tags.join(',');
+    getEl('fiber-ph').style.display = tags.length ? 'none' : '';
+    if (getEl('fiber-list').children.length) filterFiberList();
+  };
+  const fiberToggle = f => { tags = tags.includes(f) ? tags.filter(x => x !== f) : [...tags, f]; renderTags(); };
+  const filterFiberList = () => {
+    const q = getEl('fiber-search').value.trim().toLowerCase();
+    getEl('fiber-list').innerHTML = FIBERS.map(f => {
+      const sel = tags.includes(f);
+      const hide = q && !f.toLowerCase().includes(q);
+      return `<div class="fiber-dd-item${sel?' selected':''}${hide?' hidden':''}" data-f="${escapeHTML(f)}" onclick="fiberToggle(this.getAttribute('data-f'))">${escapeHTML(f)}${sel?' ✓':''}</div>`;
+    }).join('');
+  };
+  getEl('fiber-trigger').addEventListener('click', e => {
+    const dd = getEl('fiber-dd');
+    dd.classList.toggle('hidden');
+    if (!dd.classList.contains('hidden')) {
+      getEl('fiber-search').value = '';
+      getEl('fiber-search').focus();
+      filterFiberList();
+    }
+  });
+  getEl('fiber-search').addEventListener('input', filterFiberList);
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#fiber-trigger') && !e.target.closest('#fiber-dd')) {
+      getEl('fiber-dd').classList.add('hidden');
+    }
+  });
 
   // --- 5. Location ---
   let acTmr, acRes = [], map, mrk, tmpLat, tmpLng;
@@ -584,26 +697,50 @@
   const initLat = hasLoc ? rawLat.toFixed(7) : '', initLng = hasLoc ? rawLng.toFixed(7) : '';
   if (hasLoc) { getEl('lat').value = initLat; getEl('lng').value = initLng; }
 
+  function setAddressValue(address) {
+    const addr = getEl('addr');
+    addr.value = address || '';
+    addr.dispatchEvent(new Event('input', { bubbles: true }));
+    addr.dispatchEvent(new Event('change', { bubbles: true }));
+    const text = getEl('addr-text');
+    if (text) text.textContent = address || 'Address';
+  }
+
+  function toggleAddrDropdown(trigger) {
+    const wrap = trigger.closest('.ss-wrap');
+    const list = getEl('ac');
+    const isOpen = !list.classList.contains('hidden');
+    document.querySelectorAll('.ss-list').forEach(l => l.classList.add('hidden'));
+    document.querySelectorAll('.ss-wrap').forEach(w => w.classList.remove('open'));
+    if (!isOpen) {
+      list.classList.remove('hidden');
+      wrap.classList.add('open');
+      getEl('addr-search').value = '';
+      getEl('addr-items').innerHTML = '';
+      getEl('addr-search').focus();
+    }
+  }
+
   async function syncLocationMetadata(lat, lng, skipAddr = false) {
     if (!lat || !lng) return;
-    if (!skipAddr) { const d = await safeFetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, { headers: { 'Accept-Language': 'en-US' } }); if (d?.display_name) getEl('addr').value = d.display_name; }
+    if (!skipAddr) { const d = await safeFetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, { headers: { 'Accept-Language': 'en-US' } }); if (d?.display_name) setAddressValue(d.display_name); else setAddressValue(`${Number(lat).toFixed(7)}, ${Number(lng).toFixed(7)}`); }
     const d = await safeFetch(`${API_LOCATION_DETAILS}?lat=${lat}&lng=${lng}`);
   }
 
   function srchAddr(v) {
-    const ac = getEl('ac');
-    getEl('lat').value = '';
-    getEl('lng').value = '';
-    if (v.length < 3) return ac.classList.add('hidden');
+    const items = getEl('addr-items'), ac = getEl('ac');
+    if (v.length < 3) { items.innerHTML = ''; return; }
     clearTimeout(acTmr);
     acTmr = setTimeout(async () => {
-      try { acRes = await (await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(v + ', Philippines')}&limit=5&countrycodes=ph`, { headers: { 'Accept-Language': 'en-US' } })).json(); ac.innerHTML = acRes.map((r, i) => `<div class="ac-item" onmousedown="selAddr(${i})">${escapeHTML(r.display_name)}</div>`).join(''); ac.classList.remove('hidden'); } catch { }
+      try { acRes = await (await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(v + ', Philippines')}&limit=5&countrycodes=ph`, { headers: { 'Accept-Language': 'en-US' } })).json(); items.innerHTML = acRes.map((r, i) => `<div class="mat-item" onmousedown="event.preventDefault();selAddr(${i})">${escapeHTML(r.display_name)}</div>`).join(''); ac.classList.remove('hidden'); ac.closest('.ss-wrap')?.classList.add('open'); } catch { }
     }, 350);
   }
 
-  function selAddr(i) { getEl('addr').value = acRes[i].display_name; getEl('lat').value = (+acRes[i].lat).toFixed(7); getEl('lng').value = (+acRes[i].lon).toFixed(7); syncLocationMetadata(getEl('lat').value, getEl('lng').value, true); }
+  function selAddr(i) { setAddressValue(acRes[i].display_name); getEl('lat').value = (+acRes[i].lat).toFixed(7); getEl('lng').value = (+acRes[i].lon).toFixed(7); getEl('ac').classList.add('hidden'); getEl('ac').closest('.ss-wrap')?.classList.remove('open'); syncLocationMetadata(getEl('lat').value, getEl('lng').value, true); }
 
   function openMap() {
+    getEl('ac').classList.add('hidden');
+    getEl('ac').closest('.ss-wrap')?.classList.remove('open');
     getEl('map-modal').classList.remove('hidden');
     tmpLat = parseFloat(getEl('lat').value) || 14.56; tmpLng = parseFloat(getEl('lng').value) || 120.99;
     if (!map) {
@@ -613,6 +750,7 @@
       mrk.on('dragend', e => { tmpLat = e.target.getLatLng().lat; tmpLng = e.target.getLatLng().lng; });
       map.on('click', e => { tmpLat = e.latlng.lat; tmpLng = e.latlng.lng; mrk.setLatLng(e.latlng); });
     } else { map.setView([tmpLat, tmpLng]); mrk.setLatLng([tmpLat, tmpLng]); }
+    setTimeout(() => map.invalidateSize(), 100);
   }
 
   async function confirmMap() { getEl('lat').value = (+tmpLat).toFixed(7); getEl('lng').value = (+tmpLng).toFixed(7); closeMap(); await syncLocationMetadata(getEl('lat').value, getEl('lng').value); }
@@ -643,7 +781,13 @@
   };
 
   // --- 8. Init ---
-  document.addEventListener('click', e => { if (e.target === getEl('map-modal')) closeMap(); });
+  document.addEventListener('click', e => {
+    if (e.target === getEl('map-modal')) closeMap();
+    if (!e.target.closest('.pin-wrap')) {
+      getEl('ac').classList.add('hidden');
+      getEl('ac').closest('.ss-wrap')?.classList.remove('open');
+    }
+  });
   getEl('tags')?.addEventListener('mousedown', e => {
     if (e.target.closest('span')) e.preventDefault();
   });

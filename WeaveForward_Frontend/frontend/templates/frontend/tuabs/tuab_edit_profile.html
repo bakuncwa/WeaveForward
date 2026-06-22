@@ -5,8 +5,10 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/otpauth/dist/otpauth.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
 <link rel="stylesheet" href="{% static 'frontend/css/edit-profile.css' %}">
+<link rel="stylesheet" href="{% static 'frontend/css/fiber-dropdown.css' %}">
 <style>
     .tuab-edit-wrap, .tuab-edit-wrap * { box-sizing: border-box; font-family: 'Poppins', sans-serif !important; }
     .sec-lbl { font-size: 14px; font-weight: 400; color: #666666; letter-spacing: .8px; display: block; margin-bottom: 18px; font-family: 'Poppins', sans-serif; }
@@ -15,14 +17,12 @@
     .av-img { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; }
     .av-ph { width: 80px; height: 80px; border-radius: 50%; background: #f0e8d8; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 700; color: var(--gold); }
 
-    .t-box { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; border: 1.5px solid var(--bd); border-radius: 8px; padding: 8px 10px; min-height: 44px; position: relative; cursor: text; }
+    .t-box { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; border: 1.5px solid var(--bd); border-radius: 8px; padding: 8px 10px; min-height: 44px; position: relative; cursor: pointer; }
     .t-box:focus-within { border-color: var(--gold); }
     #tags { display: flex; flex-wrap: wrap; gap: 6px; }
     .t-chip { background: #FFF1D8; color: #E8A020; border-radius: 5.12px; padding: 2px 10px; font-size: 10px; font-weight: 400; display: flex; align-items: center; gap: 4px; font-family: 'Poppins', sans-serif; }
     .t-chip span { cursor: pointer; font-size: 11px; line-height: 1; margin-left: auto; color: #E8A020; }
-    #ti { border: none !important; outline: none !important; font-size: 13px; background: transparent; min-width: 80px; flex: 1; padding: 0 !important; height: auto !important; }
-    .t-chevron { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: #aaa; pointer-events: none; transition: transform .2s, color .2s; flex-shrink: 0; }
-    .t-box:focus-within .t-chevron { color: var(--gold); transform: translateY(-50%) rotate(180deg); }
+
 
     .btn-remove-pay { width: 100%; padding: 10px 14px; border-radius: 8px; border: 1.5px solid #e2e2e2; background: #f4f4f4; color: #c0392b; font-weight: 600; font-size: 13px; cursor: pointer; }
     .btn-remove-pay.staged { cursor: default; opacity: .7; background: #fce8e0; border-color: #f5c0a0; color: #c0410e; }
@@ -72,14 +72,13 @@
           <div class="field"><label>Social / Website Link</label><input name="social_link" class="wf-in" value="{{ user.social_link }}" required /></div>
           <div class="field" style="position:relative">
             <label>Target Fiber Types</label>
-            <div class="t-box" onclick="$('ti').focus()">
+            <div class="t-box" id="fiber-trigger">
               <div id="tags"></div>
-              <input id="ti" placeholder="Add fiber…" autocomplete="off" autocapitalize="off" spellcheck="false"
-                oninput="handleFiberInput(this.value)" onfocus="showFiberOptions(this.value)" onclick="showFiberOptions(this.value)"
-                onkeydown="if(event.key==='Enter'){event.preventDefault();if(commitFiberInput())showFiberOptions('');}"
-                onblur="commitFiberInput();setTimeout(()=>$('f-ac').classList.add('hidden'),200)">
-              <div id="f-ac" class="dropdown hidden"></div>
-              <svg class="t-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+              <span id="fiber-ph" style="color:#bbb;font-size:12px">Select fibers</span>
+            </div>
+            <div id="fiber-dd" class="fiber-dropdown hidden">
+              <input id="fiber-search" class="fiber-search" placeholder="Search fibers…" autocomplete="off">
+              <div id="fiber-list" class="fiber-list"></div>
             </div>
           </div>
         </div>
@@ -107,12 +106,21 @@
         </div>
         <div class="field" style="margin-bottom:14px">
           <label>Address</label>
-          <div class="addr-wrap">
-            <input id="addr" name="display_address" class="wf-in" value="{{ user.display_address|default:'' }}" oninput="searchAddress(this.value)" placeholder="Search address" required />
+          <div class="addr-wrap mat-wrap">
+            <div class="ss-wrap">
+              <div class="mat-trigger" onclick="toggleAddressDropdown(this)">
+                <span class="mat-text" id="addr-text">{{ user.display_address|default:'Address' }}</span>
+                <svg class="mat-arrow" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg>
+              </div>
+              <input id="addr" name="display_address" type="hidden" value="{{ user.display_address|default:'' }}" required />
+              <div id="addr-ac" class="ss-list hidden">
+                <input type="text" class="mat-search" id="addr-search" placeholder="Search address..." oninput="searchAddress(this.value)" onclick="event.stopPropagation()" autocomplete="off">
+                <div class="mat-items" id="addr-items"></div>
+              </div>
+            </div>
             <button type="button" class="pin-btn" onclick="openMap()">
                 <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
             </button>
-            <div id="addr-ac" class="dropdown hidden"></div>
           </div>
         </div>
         <div class="field" style="margin-bottom:0">
@@ -181,7 +189,8 @@
 <div id="twofa-modal" class="modal-bg hidden">
   <div class="modal-box">
     <h3 style="font-weight:600;font-size:20px;margin-bottom:12px;color:#1a1a1a">Set Up 2FA</h3>
-    <p style="font-size:13px;color:#666;margin-bottom:20px;line-height:1.5">Enter this secret key in your authenticator app, then enter the 6-digit code below.</p>
+    <p style="font-size:13px;color:#666;margin-bottom:20px;line-height:1.5">Scan this QR code with your authenticator app, or enter the secret key manually below.</p>
+    <div id="qrcode" style="display:flex;justify-content:center;margin-bottom:16px;"></div>
     <div id="totp-secret-display" class="totp-sec">Loading...</div>
     <input id="totp-in" type="text" inputmode="numeric" maxlength="6" placeholder="000000" class="totp-in" />
     <div style="display:flex; gap:12px; margin-top:10px">
@@ -220,6 +229,7 @@
 
     async function onSave() {
         if (!$('ep-form').reportValidity()) return;
+        if (!$('addr').value.trim()) return showFlash('Address is required.', 'error');
         if (!$('fibs').value.trim()) return showFlash('At least one target fiber is required.', 'error');
         const btn = $('save-btn');
         const np = document.querySelector('[name=new_password]'), cp = document.querySelector('[name=confirm_password]');
@@ -236,6 +246,10 @@
                 if (d.secret) {
                     stagedSecret = d.secret;
                     $('totp-secret-display').textContent = d.secret;
+                    $('qrcode').innerHTML = '';
+                    if (d.provisioning_uri && typeof QRCode !== 'undefined') {
+                        new QRCode($('qrcode'), { text: d.provisioning_uri, width: 180, height: 180 });
+                    }
                     $('twofa-modal').classList.remove('hidden');
                 } else {
                     showFlash('Failed to generate secret.', 'error');
@@ -315,7 +329,29 @@
 
     // --- Location Helpers ---
     let mapInst, markerInst, acTimer;
+    function setAddressValue(name) {
+        $('addr').value = name || '';
+        $('addr').dispatchEvent(new Event('input', { bubbles: true }));
+        $('addr').dispatchEvent(new Event('change', { bubbles: true }));
+        $('addr-text').textContent = name || 'Address';
+    }
+    function toggleAddressDropdown(trigger) {
+        const wrap = trigger.closest('.ss-wrap');
+        const list = $('addr-ac');
+        const isOpen = !list.classList.contains('hidden');
+        document.querySelectorAll('.ss-list').forEach(l => l.classList.add('hidden'));
+        document.querySelectorAll('.ss-wrap').forEach(w => w.classList.remove('open'));
+        if (!isOpen) {
+            list.classList.remove('hidden');
+            wrap.classList.add('open');
+            $('addr-search').value = '';
+            $('addr-items').innerHTML = '';
+            $('addr-search').focus();
+        }
+    }
     function openMap() {
+        $('addr-ac').classList.add('hidden');
+        $('addr-ac').closest('.ss-wrap')?.classList.remove('open');
         $('map-modal').classList.remove('hidden');
         const lat = parseFloat($('lat').value) || 14.58, lng = parseFloat($('lng').value) || 120.98;
         setTimeout(() => {
@@ -347,106 +383,75 @@
         $('lat').value = p.lat.toFixed(7); $('lng').value = p.lng.toFixed(7);
         closeMap();
         updateLocationDetails(p.lat, p.lng);
-        const d = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${p.lat}&lon=${p.lng}`).then(r => r.json());
-        if (d.display_name) $('addr').value = d.display_name;
+        try {
+            const d = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${p.lat}&lon=${p.lng}`).then(r => r.json());
+            setAddressValue(d.display_name || `${p.lat.toFixed(7)}, ${p.lng.toFixed(7)}`);
+        } catch {
+            setAddressValue(`${p.lat.toFixed(7)}, ${p.lng.toFixed(7)}`);
+        }
     }
     function searchAddress(q) {
-        $('lat').value = '';
-        $('lng').value = '';
-        if (q.length < 3) return $('addr-ac').classList.add('hidden');
+        if (q.length < 3) { $('addr-items').innerHTML = ''; return; }
         clearTimeout(acTimer);
         acTimer = setTimeout(async () => {
             const items = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=ph&limit=5`).then(r => r.json());
-            $('addr-ac').innerHTML = items.map(i => `<div data-lat="${i.lat}" data-lon="${i.lon}" data-name="${escapeHTML(i.display_name)}" onclick="selectAddress(this.getAttribute('data-lat'), this.getAttribute('data-lon'), this.getAttribute('data-name'))">${escapeHTML(i.display_name)}</div>`).join('');
+            $('addr-items').innerHTML = items.map(i => `<div class="mat-item" data-lat="${i.lat}" data-lon="${i.lon}" data-name="${escapeHTML(i.display_name)}" onmousedown="event.preventDefault();selectAddress(this.getAttribute('data-lat'), this.getAttribute('data-lon'), this.getAttribute('data-name'))">${escapeHTML(i.display_name)}</div>`).join('');
             $('addr-ac').classList.remove('hidden');
+            $('addr-ac').closest('.ss-wrap')?.classList.add('open');
         }, 400);
     }
     function selectAddress(lat, lng, name) {
-        $('lat').value = lat; $('lng').value = lng; $('addr').value = name; $('addr-ac').classList.add('hidden');
+        $('lat').value = lat; $('lng').value = lng; setAddressValue(name); $('addr-ac').classList.add('hidden'); $('addr-ac').closest('.ss-wrap')?.classList.remove('open');
         updateLocationDetails(lat, lng);
     }
 
-    function showFlash(msg, type) {
-        let c = document.querySelector('.wf-flash-messages');
-        if (!c) {
-            c = document.createElement('div');
-            c.className = 'wf-flash-messages';
-            const content = document.querySelector('.wf-content') || document.querySelector('.donor-edit-wrap');
-            if (content) content.prepend(c);
-            else document.body.prepend(c);
+    document.addEventListener('click', e => {
+        if (e.target === $('map-modal')) closeMap();
+        if (!e.target.closest('.addr-wrap')) {
+            $('addr-ac').classList.add('hidden');
+            $('addr-ac').closest('.ss-wrap')?.classList.remove('open');
         }
-        const d = document.createElement('div');
-        d.className = `wf-alert ${type}`;
-        const span = document.createElement('span');
-        span.textContent = msg;
-        const btn = document.createElement('button');
-        btn.textContent = '×';
-        btn.style.cssText = 'background:none;border:none;color:inherit;font-size:18px;cursor:pointer;line-height:1;margin-left:10px;';
-        btn.addEventListener('click', () => d.remove());
-        d.append(span, btn);
-        c.prepend(d);
-        setTimeout(() => d.remove(), 5000);
-    }
-    document.addEventListener('click', e => { if (!e.target.closest('.addr-wrap')) $('addr-ac').classList.add('hidden'); });
+    });
 
     // ############################################################
     // #  TUAB-specific: Target Fiber Tag Chips                  #
     // ############################################################
-    let tags = (document.getElementById('fibs').value || '').split(',').map(s => s.trim()).filter(Boolean);
-    function renderTags() {
-        $('tags').innerHTML = '';
-        for (const t of tags) {
-            const div = document.createElement('div');
-            div.className = 't-chip';
-            div.append(document.createTextNode(t));
-            const span = document.createElement('span');
-            span.textContent = '×';
-            span.addEventListener('click', () => toggleTag(t));
-            div.appendChild(span);
-            $('tags').appendChild(div);
+    const fiberData = JSON.parse(document.getElementById('fibers-data').textContent);
+    let fiberTags = (document.getElementById('fibs').value || '').split(',').map(s => s.trim()).filter(Boolean);
+    function renderFiberTags() {
+        $('tags').innerHTML = fiberTags.map(t => `<div class="t-chip">${escapeHTML(t)}<span data-tag="${escapeHTML(t)}" onclick="fiberToggle(this.getAttribute('data-tag'))">×</span></div>`).join('');
+        $('fibs').value = fiberTags.join(',');
+        $('fiber-ph').style.display = fiberTags.length ? 'none' : '';
+        if ($('fiber-list').children.length) filterFiberList();
+    }
+    function fiberToggle(f) {
+        fiberTags = fiberTags.includes(f) ? fiberTags.filter(x => x !== f) : [...fiberTags, f];
+        renderFiberTags();
+    }
+    function filterFiberList() {
+        const q = $('fiber-search').value.trim().toLowerCase();
+        $('fiber-list').innerHTML = fiberData.map(f => {
+            const sel = fiberTags.includes(f);
+            const hide = q && !f.toLowerCase().includes(q);
+            return `<div class="fiber-dd-item${sel?' selected':''}${hide?' hidden':''}" data-f="${escapeHTML(f)}" onclick="fiberToggle(this.getAttribute('data-f'))">${escapeHTML(f)}${sel?' ✓':''}</div>`;
+        }).join('');
+    }
+    $('fiber-trigger').addEventListener('click', e => {
+        const dd = $('fiber-dd');
+        dd.classList.toggle('hidden');
+        if (!dd.classList.contains('hidden')) {
+            $('fiber-search').value = '';
+            $('fiber-search').focus();
+            filterFiberList();
         }
-        $('fibs').value = tags.join(',');
-    }
-    function showFiberOptions(val = '') {
-        const FIBERS = JSON.parse(document.getElementById('fibers-data').textContent);
-        const q = val.trim().toLowerCase();
-        const m = FIBERS.filter(f => !tags.includes(f) && (!q || f.toLowerCase().includes(q)));
-        $('f-ac').innerHTML = m.map(f => `<div data-tag="${escapeHTML(f)}" onmousedown="toggleTag(this.getAttribute('data-tag'))">${escapeHTML(f)}</div>`).join('');
-        $('f-ac').classList.toggle('hidden', !m.length);
-    }
-    function commitFiberInput() {
-        const FIBERS = JSON.parse(document.getElementById('fibers-data').textContent);
-        const raw = $('ti').value.trim().toLowerCase();
-        if (!raw) return false;
-        const exact = FIBERS.find(f => f.toLowerCase() === raw);
-        if (!exact) return false;
-        if (!tags.includes(exact)) {
-            tags = [...tags, exact];
-            renderTags();
-        } else {
-            $('ti').value = '';
-            $('f-ac').classList.add('hidden');
-        }
-        return true;
-    }
-    function handleFiberInput(val) {
-        showFiberOptions(val);
-    }
-    function toggleTag(f, keepOpen = false) {
-        const wasSelected = tags.includes(f);
-        tags = wasSelected ? tags.filter(t => t !== f) : [...tags, f];
-        renderTags();
-        $('ti').value = '';
-        if (keepOpen || wasSelected) {
-            $('ti').focus();
-            showFiberOptions('');
-        }
-        else $('f-ac').classList.add('hidden');
-    }
-    renderTags();
-    $('tags')?.addEventListener('mousedown', e => {
-        if (e.target.closest('span')) e.preventDefault();
     });
+    $('fiber-search').addEventListener('input', filterFiberList);
+    document.addEventListener('click', e => {
+        if (!e.target.closest('#fiber-trigger') && !e.target.closest('#fiber-dd')) {
+            $('fiber-dd').classList.add('hidden');
+        }
+    });
+    renderFiberTags();
 
     // ############################################################
     // #  TUAB-specific: Unsubscribe from Premium                #

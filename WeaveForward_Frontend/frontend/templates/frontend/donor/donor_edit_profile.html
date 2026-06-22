@@ -5,6 +5,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/otpauth/dist/otpauth.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
 <link rel="stylesheet" href="{% static 'frontend/css/edit-profile.css' %}">
 <style>
@@ -62,12 +63,21 @@
         <div class="sec-lbl">Location</div>
         <div class="field" style="margin-bottom:18px">
           <label>Display Address</label>
-          <div class="addr-wrap">
-            <input id="addr" name="display_address" class="wf-in" value="{{ user.display_address|default:'' }}" oninput="searchAddress(this.value)" placeholder="Search address" />
+          <div class="addr-wrap mat-wrap">
+            <div class="ss-wrap">
+              <div class="mat-trigger" onclick="toggleAddressDropdown(this)">
+                <span class="mat-text" id="addr-text">{{ user.display_address|default:'Address' }}</span>
+                <svg class="mat-arrow" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg>
+              </div>
+              <input id="addr" name="display_address" type="hidden" value="{{ user.display_address|default:'' }}" />
+              <div id="addr-ac" class="ss-list hidden">
+                <input type="text" class="mat-search" id="addr-search" placeholder="Search address..." oninput="searchAddress(this.value)" onclick="event.stopPropagation()" autocomplete="off">
+                <div class="mat-items" id="addr-items"></div>
+              </div>
+            </div>
             <button type="button" class="pin-btn" onclick="openMap()">
                 <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
             </button>
-            <div id="addr-ac" class="dropdown hidden"></div>
           </div>
         </div>
         <div class="g2" style="margin-bottom:0">
@@ -122,7 +132,8 @@
 <div id="twofa-modal" class="modal-bg hidden">
   <div class="modal-box">
     <h3 style="font-weight:600;font-size:20px;margin-bottom:12px;color:#1a1a1a">Set Up 2FA</h3>
-    <p style="font-size:13px;color:#666;margin-bottom:20px;line-height:1.5">Enter this secret key in your authenticator app, then enter the 6-digit code below.</p>
+    <p style="font-size:13px;color:#666;margin-bottom:20px;line-height:1.5">Scan this QR code with your authenticator app, or enter the secret key manually below.</p>
+    <div id="qrcode" style="display:flex;justify-content:center;margin-bottom:16px;"></div>
     <div id="totp-secret-display" class="totp-sec">Loading...</div>
     <input id="totp-in" type="text" inputmode="numeric" maxlength="6" placeholder="000000" class="totp-in" />
     <div style="display:flex; gap:12px; margin-top:10px">
@@ -174,6 +185,10 @@
                 if (d.secret) {
                     stagedSecret = d.secret;
                     $('totp-secret-display').textContent = d.secret;
+                    $('qrcode').innerHTML = '';
+                    if (d.provisioning_uri && typeof QRCode !== 'undefined') {
+                        new QRCode($('qrcode'), { text: d.provisioning_uri, width: 180, height: 180 });
+                    }
                     $('twofa-modal').classList.remove('hidden');
                 } else {
                     showFlash('Failed to generate secret.', 'error');
@@ -251,7 +266,29 @@
 
     // --- Location Helpers ---
     let mapInst, markerInst, acTimer;
+    function setAddressValue(name) {
+        $('addr').value = name || '';
+        $('addr').dispatchEvent(new Event('input', { bubbles: true }));
+        $('addr').dispatchEvent(new Event('change', { bubbles: true }));
+        $('addr-text').textContent = name || 'Address';
+    }
+    function toggleAddressDropdown(trigger) {
+        const wrap = trigger.closest('.ss-wrap');
+        const list = $('addr-ac');
+        const isOpen = !list.classList.contains('hidden');
+        document.querySelectorAll('.ss-list').forEach(l => l.classList.add('hidden'));
+        document.querySelectorAll('.ss-wrap').forEach(w => w.classList.remove('open'));
+        if (!isOpen) {
+            list.classList.remove('hidden');
+            wrap.classList.add('open');
+            $('addr-search').value = '';
+            $('addr-items').innerHTML = '';
+            $('addr-search').focus();
+        }
+    }
     function openMap() {
+        $('addr-ac').classList.add('hidden');
+        $('addr-ac').closest('.ss-wrap')?.classList.remove('open');
         $('map-modal').classList.remove('hidden');
         const lat = parseFloat($('lat').value) || 14.58, lng = parseFloat($('lng').value) || 120.98;
         setTimeout(() => {
@@ -283,59 +320,34 @@
         $('lat').value = p.lat.toFixed(7); $('lng').value = p.lng.toFixed(7);
         closeMap();
         updateLocationDetails(p.lat, p.lng);
-        const d = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${p.lat}&lon=${p.lng}`).then(r => r.json());
-        if (d.display_name) $('addr').value = d.display_name;
+        try {
+            const d = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${p.lat}&lon=${p.lng}`).then(r => r.json());
+            setAddressValue(d.display_name || `${p.lat.toFixed(7)}, ${p.lng.toFixed(7)}`);
+        } catch {
+            setAddressValue(`${p.lat.toFixed(7)}, ${p.lng.toFixed(7)}`);
+        }
     }
     function searchAddress(q) {
-        $('lat').value = '';
-        $('lng').value = '';
-        if (q.length < 3) return $('addr-ac').classList.add('hidden');
+        if (q.length < 3) { $('addr-items').innerHTML = ''; return; }
         clearTimeout(acTimer);
         acTimer = setTimeout(async () => {
-            const ac = $('addr-ac');
-            ac.innerHTML = '';
             const items = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=ph&limit=5`).then(r => r.json());
-            for (const i of items) {
-                const div = document.createElement('div');
-                div.textContent = i.display_name;
-                div.addEventListener('click', () => {
-                    $('lat').value = i.lat;
-                    $('lng').value = i.lon;
-                    $('addr').value = i.display_name;
-                    ac.classList.add('hidden');
-                    updateLocationDetails(i.lat, i.lon);
-                });
-                ac.appendChild(div);
-            }
-            ac.classList.remove('hidden');
+            $('addr-items').innerHTML = items.map(i => `<div class="mat-item" data-lat="${i.lat}" data-lon="${i.lon}" data-name="${escapeHTML(i.display_name)}" onmousedown="event.preventDefault();selectAddress(this.getAttribute('data-lat'), this.getAttribute('data-lon'), this.getAttribute('data-name'))">${escapeHTML(i.display_name)}</div>`).join('');
+            $('addr-ac').classList.remove('hidden');
+            $('addr-ac').closest('.ss-wrap')?.classList.add('open');
         }, 400);
     }
     function selectAddress(lat, lng, name) {
-        $('lat').value = lat; $('lng').value = lng; $('addr').value = name; $('addr-ac').classList.add('hidden');
+        $('lat').value = lat; $('lng').value = lng; setAddressValue(name); $('addr-ac').classList.add('hidden'); $('addr-ac').closest('.ss-wrap')?.classList.remove('open');
         updateLocationDetails(lat, lng);
     }
 
-    function showFlash(msg, type) {
-        let c = document.querySelector('.wf-flash-messages');
-        if (!c) {
-            c = document.createElement('div');
-            c.className = 'wf-flash-messages';
-            const content = document.querySelector('.wf-content') || document.querySelector('.donor-edit-wrap');
-            if (content) content.prepend(c);
-            else document.body.prepend(c);
+    document.addEventListener('click', e => {
+        if (e.target === $('map-modal')) closeMap();
+        if (!e.target.closest('.addr-wrap')) {
+            $('addr-ac').classList.add('hidden');
+            $('addr-ac').closest('.ss-wrap')?.classList.remove('open');
         }
-        const d = document.createElement('div');
-        d.className = `wf-alert ${type}`;
-        const s = document.createElement('span');
-        s.textContent = msg;
-        const b = document.createElement('button');
-        b.textContent = '×';
-        b.style.cssText = 'background:none;border:none;color:inherit;font-size:18px;cursor:pointer;line-height:1;margin-left:10px;';
-        b.addEventListener('click', () => d.remove());
-        d.append(s, b);
-        c.prepend(d);
-        setTimeout(() => d.remove(), 5000);
-    }
-    document.addEventListener('click', e => { if (!e.target.closest('.addr-wrap')) $('addr-ac').classList.add('hidden'); });
+    });
 </script>
 {% endblock %}

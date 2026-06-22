@@ -8,12 +8,43 @@ const escapeHTML = str => !str ? '' : str.replace(/[&<>'"]/g, c => ({ '&':'&amp;
 let map, mrk, tmpLat, tmpLng, acTmr, acRes = [];
 let activePrefix = '';
 
+function setAddressValue(prefix, address) {
+  const addrId = prefix ? prefix + '_addr' : 'addr';
+  const textId = prefix ? prefix + '_addr-text' : 'addr-text';
+  const addrEl = getEl(addrId);
+  const textEl = getEl(textId);
+
+  if (addrEl) {
+    addrEl.value = address;
+    addrEl.dispatchEvent(new Event('input', { bubbles: true }));
+    addrEl.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  if (textEl) textEl.textContent = address || 'Address';
+}
+
+// 0. Toggle address dropdown (material pattern)
+function toggleAddrDropdown(trigger) {
+  const wrap = trigger.closest('.ss-wrap');
+  const list = wrap.querySelector('.ss-list');
+  const isOpen = !list.classList.contains('hidden');
+  document.querySelectorAll('.ss-list').forEach(l => l.classList.add('hidden'));
+  document.querySelectorAll('.ss-wrap').forEach(w => w.classList.remove('open'));
+  if (!isOpen) {
+    list.classList.remove('hidden');
+    wrap.classList.add('open');
+    const search = list.querySelector('.mat-search');
+    if (search) { search.value = ''; search.focus(); }
+    const items = list.querySelector('.mat-items');
+    if (items) items.innerHTML = '';
+  }
+}
+
 // 1. Search for addresses as you type (Nominatim API)
 function srchAddr(v, prefix = '') {
   activePrefix = prefix;
+  const itemsId = prefix ? prefix + '_items' : 'addr-items';
   const acId = prefix ? prefix + '_ac' : 'ac';
   
-  // Clear coordinates since the address text is being modified
   const latId = prefix ? prefix + '_lat' : 'lat';
   const lngId = prefix ? prefix + '_lng' : 'lng';
   const latEl = getEl(latId);
@@ -21,17 +52,17 @@ function srchAddr(v, prefix = '') {
   if (latEl) latEl.value = '';
   if (lngEl) lngEl.value = '';
 
-  if (v.length < 3) return getEl(acId).classList.add('hidden');
+  if (v.length < 3) { getEl(itemsId).innerHTML = ''; return; }
   clearTimeout(acTmr);
   acTmr = setTimeout(async () => {
     try {
       const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(v + ', Philippines')}&limit=5&countrycodes=ph`);
       acRes = await res.json();
-      getEl(acId).innerHTML = acRes.map((r, i) => `<div class="ac-item" onmousedown="selAddr(${i})">${escapeHTML(r.display_name)}</div>`).join('');
+      getEl(itemsId).innerHTML = acRes.map((r, i) => `<div class="mat-item" onmousedown="event.preventDefault(); selAddr(${i})">${escapeHTML(r.display_name)}</div>`).join('');
       getEl(acId).classList.remove('hidden');
     } catch (e) { 
       console.error("Search failed", e); 
-      getEl(acId).innerHTML = `<div style="padding:10px 14px; color:#d9534f; font-weight:500; font-size:12.5px;">Location resolution services are unavailable.</div>`;
+      getEl(itemsId).innerHTML = `<div style="padding:10px 14px; color:#d9534f; font-weight:500; font-size:12.5px;">Location resolution services are unavailable.</div>`;
       getEl(acId).classList.remove('hidden');
     }
   }, 350);
@@ -40,12 +71,22 @@ function srchAddr(v, prefix = '') {
 // 2. Select an address from the suggestions list
 function selAddr(i) {
   const r = acRes[i];
-  const addrId = activePrefix ? activePrefix + '_addr' : 'addr';
-  const latId = activePrefix ? activePrefix + '_lat' : 'lat';
-  const lngId = activePrefix ? activePrefix + '_lng' : 'lng';
-  getEl(addrId).value = r.display_name;
+  const prefix = activePrefix;
+  const latId = prefix ? prefix + '_lat' : 'lat';
+  const lngId = prefix ? prefix + '_lng' : 'lng';
+  const textId = prefix ? prefix + '_addr-text' : 'addr-text';
+  const acId = prefix ? prefix + '_ac' : 'ac';
+  
   getEl(latId).value = (+r.lat).toFixed(7);
   getEl(lngId).value = (+r.lon).toFixed(7);
+  setAddressValue(prefix, r.display_name);
+
+  const textEl = getEl(textId);
+  const acEl = getEl(acId);
+  if (acEl) acEl.classList.add('hidden');
+  
+  const wrap = textEl ? textEl.closest('.ss-wrap') : null;
+  if (wrap) wrap.classList.remove('open');
 }
 
 // 3. Open the Map Modal and initialize Leaflet if needed
@@ -84,8 +125,8 @@ function openMap(prefix = '') {
     } else {
       map.setView([l, g]); 
       mrk.setLatLng([l, g]);
-      setTimeout(() => map.invalidateSize(), 100);
     }
+    setTimeout(() => map.invalidateSize(), 100);
   } catch (err) {
     showMapError();
   }
@@ -110,7 +151,7 @@ const closeMap = () => getEl('map-modal').classList.add('hidden');
 
 // 5. Confirm the selection and perform reverse geocoding
 async function confirmMap() {
-  const addrId = activePrefix ? activePrefix + '_addr' : 'addr';
+  const prefix = activePrefix;
   const latId = activePrefix ? activePrefix + '_lat' : 'lat';
   const lngId = activePrefix ? activePrefix + '_lng' : 'lng';
   
@@ -122,12 +163,23 @@ async function confirmMap() {
     const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${tmpLat}&lon=${tmpLng}`);
     const data = await res.json();
     if (data.display_name) {
-      getEl(addrId).value = data.display_name;
+      setAddressValue(prefix, data.display_name);
+    } else {
+      setAddressValue(prefix, `${tmpLat.toFixed(7)}, ${tmpLng.toFixed(7)}`);
     }
   } catch (e) { 
     console.error("Reverse geocode failed", e);
+    setAddressValue(prefix, `${tmpLat.toFixed(7)}, ${tmpLng.toFixed(7)}`);
     if (typeof showFlash === 'function') {
       showFlash('Location resolution services are unavailable.', 'error');
     }
   }
 }
+
+document.addEventListener('click', e => {
+  if (e.target === getEl('map-modal')) closeMap();
+  if (!e.target.closest('.ss-wrap')) {
+    document.querySelectorAll('.ss-list').forEach(l => l.classList.add('hidden'));
+    document.querySelectorAll('.ss-wrap').forEach(w => w.classList.remove('open'));
+  }
+});

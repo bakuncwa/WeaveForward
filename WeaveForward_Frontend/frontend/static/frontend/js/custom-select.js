@@ -131,13 +131,6 @@
   });
   bodyObserver.observe(document.body, { childList: true, subtree: true });
 
-  /* ── Show material dropdown on focus ── */
-  document.addEventListener('focusin', (e) => {
-    const inp = e.target.closest('.mat-in');
-    if (!inp) return;
-    inp.closest('.ss-wrap')?.querySelector('.ss-list')?.classList.remove('hidden');
-  });
-
   /* ── Filter brands by clothing type ── */
   const brandCache = new WeakMap();
   function cacheBrands(sel) {
