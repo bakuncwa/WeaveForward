@@ -28,11 +28,13 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker gcr.io --quiet
+
       - name: Build and push backend image
         run: |
-          gcloud builds submit WeaveForward_Backend \
-            --tag gcr.io/weaveforward-system/weaveforward-backend \
-            --project weaveforward-system
+          docker build -t gcr.io/weaveforward-system/weaveforward-backend WeaveForward_Backend
+          docker push gcr.io/weaveforward-system/weaveforward-backend
 
       - name: Deploy backend to Cloud Run
         run: |
@@ -60,11 +62,13 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker gcr.io --quiet
+
       - name: Build and push frontend image
         run: |
-          gcloud builds submit WeaveForward_Frontend \
-            --tag gcr.io/weaveforward-system/weaveforward-frontend \
-            --project weaveforward-system
+          docker build -t gcr.io/weaveforward-system/weaveforward-frontend WeaveForward_Frontend
+          docker push gcr.io/weaveforward-system/weaveforward-frontend
 
       - name: Deploy frontend to Cloud Run
         run: |
