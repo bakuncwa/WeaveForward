@@ -84,6 +84,113 @@
     padding-right: 42px;
   }
 
+  .pin-wrap.mat-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .pin-wrap.mat-wrap .ss-wrap {
+    flex: 1 1 0;
+    min-width: 0;
+    position: relative;
+  }
+
+  .pin-wrap.mat-wrap .pin {
+    position: static;
+    transform: none;
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border: 1.5px solid #d5d5d5;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .mat-trigger {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    height: 44px;
+    border: 1.5px solid #d5d5d5;
+    border-radius: 8px;
+    padding: 0 14px;
+    font-size: 14px;
+    color: #333;
+    background: #fff;
+    cursor: pointer;
+    overflow: hidden;
+    transition: border-color .2s, box-shadow .2s;
+  }
+
+  .mat-trigger:hover {
+    border-color: var(--g);
+  }
+
+  .mat-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mat-arrow {
+    color: var(--g);
+    flex-shrink: 0;
+    margin-left: 8px;
+    transition: transform .2s;
+  }
+
+  .ss-wrap.open .mat-arrow {
+    transform: rotate(180deg);
+  }
+
+  .ss-wrap.open .mat-trigger {
+    border-color: var(--g);
+    box-shadow: 0 0 0 3px rgba(232, 160, 32, .15);
+  }
+
+  .ss-list {
+    position: absolute;
+    z-index: 50;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    max-height: 180px;
+    overflow: auto;
+    background: #fff;
+    border: 1.5px solid var(--brd);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .1);
+  }
+
+  .mat-search {
+    width: 100%;
+    border: none;
+    border-bottom: 1.5px solid var(--brd);
+    padding: 10px 14px;
+    font-size: 13px;
+    outline: none;
+  }
+
+  .mat-item {
+    padding: 10px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    border-bottom: 1px solid #f5f5f5;
+  }
+
+  .mat-item:hover {
+    background: var(--lt);
+  }
+
   .pin {
     position: absolute;
     right: 10px;
@@ -252,7 +359,7 @@
 
 <div class="edit-donor-page">
   <form id="frm" method="post" action="{% url 'admin_edit_donor' donor.user_id %}" enctype="multipart/form-data"
-    novalidate autocomplete="off">
+    autocomplete="off">
     {% csrf_token %}
     <div class="panel">
       {% if error_message %}
@@ -286,16 +393,16 @@
       <hr>
 
       <div class="group"><label class="up">First Name</label><input class="in" name="first_name"
-          value="{{ donor.first_name|default:'' }}"></div>
+          value="{{ donor.first_name|default:'' }}" required></div>
       <div class="group"><label class="up">Middle Name</label><input class="in" name="middle_name"
           value="{{ donor.middle_name|default:'' }}"></div>
       <div class="group"><label class="up">Last Name</label><input class="in" name="last_name"
-          value="{{ donor.last_name|default:'' }}"></div>
+          value="{{ donor.last_name|default:'' }}" required></div>
 
       <hr>
 
-      <div class="group"><label class="up">Phone Number</label><input class="in" name="contact_no" autocomplete="tel"
-          value="{{ donor.contact_no|default:'' }}"></div>
+      <div class="group"><label class="up">Phone Number</label><input class="in" type="tel" name="contact_no" autocomplete="tel"
+          value="{{ donor.contact_no|default:'' }}" required></div>
 
       <div class="group">
         <label class="up">Two-Factor Authentication</label>
@@ -314,18 +421,26 @@
       <hr>
 
       <div class="group"><label class="up">New Password (leave blank to keep current)</label><input class="in"
-          type="password" name="password" autocomplete="new-password"></div>
+          type="password" name="password" autocomplete="new-password" minlength="8"></div>
       <div class="group"><label class="up">Confirm New Password</label><input class="in" type="password"
-          name="confirm_password" autocomplete="new-password"></div>
+          name="confirm_password" autocomplete="new-password" minlength="8"></div>
 
       <hr>
 
       <div class="group" style="position:relative">
         <label class="up">Pickup Address</label>
-        <div class="pin-wrap">
-          <input id="addr" class="in" name="display_address" autocomplete="off"
-            value="{{ donor.display_address|default:'' }}" placeholder="Loading address..."
-            oninput="srchAddr(this.value)" onblur="hideAc()">
+        <div class="pin-wrap mat-wrap">
+          <div class="ss-wrap">
+            <div class="mat-trigger" onclick="toggleAddrDropdown(this)">
+              <span class="mat-text" id="addr-text">{{ donor.display_address|default:'Address' }}</span>
+              <svg class="mat-arrow" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg>
+            </div>
+            <input id="addr" type="hidden" name="display_address" value="{{ donor.display_address|default:'' }}">
+            <div id="ac" class="ss-list hidden">
+              <input type="text" class="mat-search" id="addr-search" placeholder="Search address..." oninput="srchAddr(this.value)" onclick="event.stopPropagation()" autocomplete="off">
+              <div class="mat-items" id="addr-items"></div>
+            </div>
+          </div>
           <button type="button" class="pin" onclick="openMap()">
             <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
@@ -333,7 +448,6 @@
             </svg>
           </button>
         </div>
-        <div id="ac" class="ac-list hidden"></div>
         <input id="lat" name="latitude" type="hidden" value="{{ donor.latitude|default:'' }}">
         <input id="lng" name="longitude" type="hidden" value="{{ donor.longitude|default:'' }}">
       </div>
@@ -409,12 +523,36 @@
     getEl('lng').value = normalizedInitialLng;
   }
 
+  function setAddressValue(address) {
+    const addr = getEl('addr');
+    addr.value = address || '';
+    addr.dispatchEvent(new Event('input', { bubbles: true }));
+    addr.dispatchEvent(new Event('change', { bubbles: true }));
+    const text = getEl('addr-text');
+    if (text) text.textContent = address || 'Address';
+  }
+
+  function toggleAddrDropdown(trigger) {
+    const wrap = trigger.closest('.ss-wrap');
+    const list = getEl('ac');
+    const isOpen = !list.classList.contains('hidden');
+    document.querySelectorAll('.ss-list').forEach(l => l.classList.add('hidden'));
+    document.querySelectorAll('.ss-wrap').forEach(w => w.classList.remove('open'));
+    if (!isOpen) {
+      list.classList.remove('hidden');
+      wrap.classList.add('open');
+      getEl('addr-search').value = '';
+      getEl('addr-items').innerHTML = '';
+      getEl('addr-search').focus();
+    }
+  }
+
   async function syncAddressFromCoords(latitude, longitude, syncInitial = false) {
     try {
       const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
       const data = await response.json();
       if (data.display_name) {
-        getEl('addr').value = data.display_name;
+        setAddressValue(data.display_name);
         if (syncInitial) syncInitialNamedFieldValue(getEl('addr'));
       }
     } catch { }
@@ -440,27 +578,30 @@
 
   const esc = str => !str ? '' : str.replace(/[&<>'"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]||c));
   function srchAddr(v) {
-    const ac = getEl('ac');
-    getEl('lat').value = '';
-    getEl('lng').value = '';
-    if (v.length < 3) return ac.classList.add('hidden');
+    const items = getEl('addr-items'), ac = getEl('ac');
+    if (v.length < 3) { items.innerHTML = ''; return; }
     clearTimeout(acTmr);
     acTmr = setTimeout(async () => {
       try {
         acRes = await (await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${v}, Philippines&limit=5&countrycodes=ph`)).json();
-        ac.innerHTML = acRes.map((r, i) => `<div class="ac-item" onmousedown="selAddr(${i})">${esc(r.display_name)}</div>`).join('');
+        items.innerHTML = acRes.map((r, i) => `<div class="mat-item" onmousedown="event.preventDefault();selAddr(${i})">${esc(r.display_name)}</div>`).join('');
         ac.classList.remove('hidden');
+        ac.closest('.ss-wrap')?.classList.add('open');
       } catch { }
     }, 350);
   }
 
   function selAddr(i) {
-    getEl('addr').value = acRes[i].display_name;
+    setAddressValue(acRes[i].display_name);
     getEl('lat').value = (+acRes[i].lat).toFixed(7);
     getEl('lng').value = (+acRes[i].lon).toFixed(7);
+    getEl('ac').classList.add('hidden');
+    getEl('ac').closest('.ss-wrap')?.classList.remove('open');
   }
 
   function openMap() {
+    getEl('ac').classList.add('hidden');
+    getEl('ac').closest('.ss-wrap')?.classList.remove('open');
     getEl('map-modal').classList.remove('hidden');
     tmpLat = parseFloat(getEl('lat').value) || 14.56;
     tmpLng = parseFloat(getEl('lng').value) || 120.99;
@@ -474,6 +615,7 @@
       map.setView([tmpLat, tmpLng]);
       mrk.setLatLng([tmpLat, tmpLng]);
     }
+    setTimeout(() => map.invalidateSize(), 100);
   }
 
   async function confirmMap() {
@@ -536,6 +678,10 @@
   // --- 4. Init ---
   document.addEventListener('click', e => {
     if (e.target === getEl('map-modal')) closeMap();
+    if (!e.target.closest('.pin-wrap')) {
+      getEl('ac').classList.add('hidden');
+      getEl('ac').closest('.ss-wrap')?.classList.remove('open');
+    }
   });
 
   window.addEventListener('load', async () => {

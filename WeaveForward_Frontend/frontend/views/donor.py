@@ -514,6 +514,14 @@ async def donor_impact_dashboard(request):
     leaderboard = dashboard_data.get('top_donors', [])
     donations_json = dashboard_data.get('barangay_breakdown', [])
 
+    if request.GET.get('format') == 'json':
+        return JsonResponse({
+            'total_donations': total_donations,
+            'claimed_count': claimed_count,
+            'leaderboard': leaderboard,
+            'donations_json': donations_json,
+        })
+
     return render(request, 'frontend/donor/donor_impact_dashboard.html', {
         'page_title': 'Donation Impact Dashboard',
         'user': profile,

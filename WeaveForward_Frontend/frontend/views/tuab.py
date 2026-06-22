@@ -81,6 +81,15 @@ async def tuab_dashboard(request):
                     'items': len(d['items']),
                     'lat': float(d['pickup_latitude']),
                     'lng': float(d['pickup_longitude']),
+                    'item_details': [
+                        {
+                            'type': i.get('lookup_details', {}).get('clothing_type', ''),
+                            'brand': i.get('lookup_details', {}).get('brand', ''),
+                            'fiber': i.get('lookup_details', {}).get('dominant_fiber', ''),
+                        } for i in d.get('items', [])
+                    ],
+                    'pickup_window_start': d.get('preferred_pickup_window_start', ''),
+                    'pickup_window_end': d.get('preferred_pickup_window_end', ''),
                 } for d in available_donations
             ],
             'claimed': [
@@ -94,6 +103,15 @@ async def tuab_dashboard(request):
                     'items': len(d['items']),
                     'lat': float(d['pickup_latitude']),
                     'lng': float(d['pickup_longitude']),
+                    'item_details': [
+                        {
+                            'type': i.get('lookup_details', {}).get('clothing_type', ''),
+                            'brand': i.get('lookup_details', {}).get('brand', ''),
+                            'fiber': i.get('lookup_details', {}).get('dominant_fiber', ''),
+                        } for i in d.get('items', [])
+                    ],
+                    'pickup_window_start': d.get('preferred_pickup_window_start', ''),
+                    'pickup_window_end': d.get('preferred_pickup_window_end', ''),
                 } for d in my_claimed_donations
             ]
         }
@@ -150,7 +168,7 @@ async def tuab_view_donation(request, donation_id):
 
         if hasattr(response, 'status_code') and 200 <= response.status_code < 300:
             messages.success(request, data.get('detail') or 'Donation claim submitted successfully.')
-            return redirect('/tuab/dashboard/?tab=claimed')
+            return redirect(f'/tuab/dashboard/?tab=claimed&claimed={donation_id}')
 
         messages.error(request, data.get('detail') or 'Unable to submit the donation claim.')
         return redirect('tuab_view_donation', donation_id=donation_id)
@@ -244,7 +262,7 @@ async def tuab_update_incoming_donation(request, donation_id):
         response = await api_call(request, 'POST', f'donations/{donation_id}/resolve', data=payload)
         if response.status_code == 200:
             messages.success(request, "Donation resolved successfully!")
-            return JsonResponse({'redirect': '/tuab/dashboard/?tab=claimed'})
+            return JsonResponse({'redirect': f'/tuab/dashboard/?tab=claimed&claimed={donation_id}'})
         else:
             try:
                 err_data = response.json()
@@ -559,11 +577,18 @@ async def tuab_inventory_snapshot(request):
                 last_audit = dt.strftime('%-m-%-d-%Y')
             except Exception:
                 last_audit = updated_raw[:10]
+        item_details = []
+        for si in source_donation.get('items', []):
+            ld = si.get('lookup_details', {})
+            if ld:
+                item_details.append({'fiber': ld.get('dominant_fiber', ''), 'type': ld.get('clothing_type', '')})
         formatted_item = {
             'inventory_id': item.get('inventory_id'),
             'donation_id': source_donation.get('donation_id'),
             'donor_name': f"{source_donation.get('donor', {}).get('first_name', '')} {source_donation.get('donor', {}).get('last_name', '')}".strip(),
             'address': source_donation.get('pickup_display_address', ''),
+            'item_details': item_details,
+            'item_details_json': json.dumps(item_details),
             'items_count': len(source_donation.get('items', [])),
             'current_weight_kg': float(item.get('current_weight_kg', 0)),
             'weight_before_kg': float(item.get('weight_before_kg', 0)),

@@ -287,20 +287,60 @@
     }
 
     .wf-flash-messages {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      z-index: 99998;
+      width: min(460px, calc(100vw - 32px));
       display: flex;
       flex-direction: column;
       gap: 10px;
-      margin-bottom: 16px;
+      margin: 0;
+      pointer-events: none;
     }
 
     .wf-alert {
-      border-radius: 10px;
-      border: 1px solid #e2e2e2;
-      padding: 12px 14px;
+      width: 100%;
+      border-radius: 12px;
+      border: 1.5px solid #e2e2e2;
+      padding: 16px 18px;
       font-family: 'Poppins', sans-serif;
-      font-size: 13px;
-      line-height: 1.4;
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.5;
       transition: opacity 0.4s ease;
+      box-shadow: 0 14px 36px rgba(0, 0, 0, .16);
+      pointer-events: all;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+
+    .wf-alert-body {
+      flex: 1;
+    }
+
+    .wf-alert-close {
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .45);
+      border: 1px solid rgba(0, 0, 0, .08);
+      color: inherit;
+      cursor: pointer;
+      flex-shrink: 0;
+      font-size: 16px;
+      line-height: 1;
+      opacity: .72;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .wf-alert-close:hover {
+      opacity: 1;
+      background: rgba(255, 255, 255, .75);
     }
 
     .wf-alert.success {
@@ -717,7 +757,10 @@
         {% if messages %}
         <div class="wf-flash-messages" aria-live="polite">
           {% for message in messages %}
-          <div class="wf-alert {{ message.tags|default:'info' }}">{{ message }}</div>
+          <div class="wf-alert {{ message.tags|default:'info' }}">
+            <span class="wf-alert-body">{{ message }}</span>
+            <button class="wf-alert-close" type="button" aria-label="Close notification">x</button>
+          </div>
           {% endfor %}
         </div>
         {% endif %}
@@ -759,6 +802,22 @@
         });
       });
 
+      function removeAlert(alert) {
+        if (!alert) return;
+        alert.style.opacity = '0';
+        setTimeout(() => {
+          const container = alert.parentElement;
+          alert.remove();
+          if (container && container.classList.contains('wf-flash-messages') && container.children.length === 0) {
+            container.remove();
+          }
+        }, 400);
+      }
+
+      document.querySelectorAll('.wf-alert-close').forEach(button => {
+        button.addEventListener('click', () => removeAlert(button.closest('.wf-alert')));
+      });
+
       setTimeout(() => {
         document.querySelectorAll('.wf-alert').forEach(alert => {
           alert.style.opacity = '0';
@@ -770,7 +829,7 @@
             }
           }, 400);
         });
-      }, 5000);
+      }, 8000);
 
     })();
   </script>
@@ -786,63 +845,95 @@
   <style>
     #wf-toast-container {
       position: fixed;
-      bottom: 24px;
+      top: 24px;
       right: 24px;
       z-index: 99999;
+      width: min(460px, calc(100vw - 32px));
       display: flex;
       flex-direction: column;
       gap: 10px;
       pointer-events: none;
     }
     .wf-toast {
-      min-width: 260px;
-      max-width: 380px;
-      border-radius: 10px;
-      border: 1px solid #e2e2e2;
-      padding: 13px 16px;
+      width: 100%;
+      border-radius: 12px;
+      border: 1.5px solid #e2e2e2;
+      padding: 16px 18px;
       font-family: 'Poppins', sans-serif;
-      font-size: 13px;
-      line-height: 1.4;
-      box-shadow: 0 4px 18px rgba(0,0,0,0.13);
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.5;
+      box-shadow: 0 14px 36px rgba(0, 0, 0, .16);
       pointer-events: all;
       opacity: 0;
-      transform: translateY(12px);
+      transform: translateY(-12px);
       transition: opacity 0.25s ease, transform 0.25s ease;
       display: flex;
       align-items: flex-start;
-      gap: 10px;
+      gap: 14px;
     }
     .wf-toast.show { opacity: 1; transform: translateY(0); }
     .wf-toast.success { background:#edf7ef; border-color:#cfe6d4; color:#2f6b3b; }
     .wf-toast.error   { background:#fff2f0; border-color:#f0c9c2; color:#9f3a2d; }
     .wf-toast.warning { background:#fff9e9; border-color:#ecd9a6; color:#7f5f14; }
     .wf-toast.info    { background:#eef5ff; border-color:#cdddf7; color:#264f8f; }
-    .wf-toast-icon { font-size:15px; flex-shrink:0; margin-top:1px; }
     .wf-toast-body { flex:1; }
     .wf-toast-close {
-      background:none; border:none; cursor:pointer; font-size:15px;
-      color:inherit; opacity:0.55; padding:0; line-height:1; flex-shrink:0;
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .45);
+      border: 1px solid rgba(0, 0, 0, .08);
+      cursor: pointer;
+      font-size: 16px;
+      color: inherit;
+      opacity: .72;
+      padding: 0;
+      line-height: 1;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
-    .wf-toast-close:hover { opacity:1; }
+    .wf-toast-close:hover { opacity:1; background: rgba(255, 255, 255, .75); }
   </style>
   <div id="wf-toast-container"></div>
   <script>
-    function wfToast(message, type = 'info', duration = 4000) {
-      const icons = { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' };
+    function wfToast(message, type = 'info', duration = 8000) {
       const container = document.getElementById('wf-toast-container');
+      if (!container) return;
+      container.querySelectorAll('.wf-toast').forEach(toast => toast.remove());
       const toast = document.createElement('div');
-      toast.className = `wf-toast ${type}`;
-      toast.innerHTML = `
-        <span class="wf-toast-icon">${icons[type] || icons.info}</span>
-        <span class="wf-toast-body">${message}</span>
-        <button class="wf-toast-close" onclick="this.closest('.wf-toast').remove()">✕</button>
-      `;
+      const kind = ['success', 'error', 'warning', 'info'].includes(type) ? type : 'info';
+      toast.className = `wf-toast ${kind}`;
+      toast.setAttribute('role', 'alert');
+      const body = document.createElement('span');
+      body.className = 'wf-toast-body';
+      body.innerHTML = message;
+
+      const close = document.createElement('button');
+      close.type = 'button';
+      close.className = 'wf-toast-close';
+      close.setAttribute('aria-label', 'Close notification');
+      close.textContent = 'x';
+      close.addEventListener('click', () => toast.remove());
+      toast.append(body, close);
       container.appendChild(toast);
       requestAnimationFrame(() => { requestAnimationFrame(() => toast.classList.add('show')); });
       setTimeout(() => {
+        if (!toast.isConnected) return;
         toast.classList.remove('show');
         setTimeout(() => toast.remove(), 280);
       }, duration);
+    }
+
+    function showFlash(message, type = 'info', duration = 8000) {
+      return wfToast(message, type, duration);
+    }
+
+    function clearFlashes() {
+      document.getElementById('wf-toast-container')?.replaceChildren();
+      document.querySelectorAll('.wf-flash-messages').forEach(container => container.remove());
     }
   </script>
   <script>

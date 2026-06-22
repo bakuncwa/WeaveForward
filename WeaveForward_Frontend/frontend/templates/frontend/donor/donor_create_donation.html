@@ -21,11 +21,8 @@
   .btn-submit { background: var(--gold); color: var(--btn-text); border-radius: 30px; margin-top: 14px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15); }
   .trash { background: none; border: none; color: var(--gold); cursor: pointer; }
 
-  .ss-wrap { position: relative; }
-  .ss-list, .ac-list { position: absolute; z-index: 100; top: 100%; left: 0; width: 100%; max-height: 200px; overflow-y: auto; background: #fff; border: 1.5px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.15); }
-  .ss-item, .ac-item { padding: 10px 14px; font-size: 13px; cursor: pointer; border-bottom: 1px solid #f5f5f5; color: #666666; font-family: 'Poppins', sans-serif; }
-  .ss-item:hover, .ac-item:hover { } /* Hover disabled */
-  .ss-item b { display: block; color: var(--gold); font-size: 11px; }
+  .ac-list { position: absolute; z-index: 100; top: 100%; left: 0; width: 100%; max-height: 200px; overflow-y: auto; background: #fff; border: 1.5px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.15); }
+  .ac-item { padding: 10px 14px; font-size: 13px; cursor: pointer; border-bottom: 1px solid #f5f5f5; color: #666666; font-family: 'Poppins', sans-serif; }
 
   #picker-map { width: 100%; height: 350px; }
   .pin { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--gold); cursor: pointer; }
@@ -45,13 +42,9 @@
   .drop { border: 2px dashed #e8a020; border-radius: 16px; padding: 30px 20px; text-align: center; cursor: pointer; position: relative; }
   .drop-icon { width: 56px; height: 56px; margin: 0 auto 16px; display: block; }
   .drop-text { font-size: 16px; color: #333; font-weight: 400; margin-bottom: 8px; }
-
-  .wf-alert { padding: 12px 16px; border-radius: 8px; margin-bottom: 8px; font-size: 14px; }
 </style>
 
 <div class="wf-content-inner">
-  <div id="flash-msgs"></div>
-  
   <form id="create-frm" method="post" action="{% url 'donor_create_donation' %}" enctype="multipart/form-data">
     {% csrf_token %}
     <input type="hidden" name="items" id="items-json">
@@ -85,11 +78,20 @@
           <div class="restored-group">
             <label class="sub-title">Pick-Up Location</label>
             <div class="pin-wrap">
-              <input id="addr" class="restored-in restored-in-lg" name="pickup_display_address" value="{{ user.display_address }}" oninput="srchAddr(this.value)" onblur="setTimeout(()=>getEl('ac').classList.add('hidden'),200)" required>
+              <div class="ss-wrap" style="flex:1; position:relative">
+                <div class="mat-trigger" onclick="toggleAddrDropdown(this)">
+                  <span class="mat-text" id="addr-text">{{ user.display_address|default:'Address' }}</span>
+                  <svg class="mat-arrow" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg>
+                </div>
+                <input type="hidden" id="addr" name="pickup_display_address" value="{{ user.display_address }}" required>
+                <div id="ac" class="ss-list hidden">
+                  <input type="text" class="mat-search" id="addr-search" placeholder="Search address..." oninput="srchAddr(this.value)" onclick="event.stopPropagation()" autocomplete="off">
+                  <div class="mat-items" id="addr-items"></div>
+                </div>
+              </div>
               <button type="button" class="pin" onclick="openMap()">
                 <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
               </button>
-              <div id="ac" class="ac-list hidden"></div>
               <input type="hidden" id="lat" name="pickup_latitude" value="{{ user.latitude }}">
               <input type="hidden" id="lng" name="pickup_longitude" value="{{ user.longitude }}">
             </div>
@@ -157,10 +159,16 @@
         </div>
         <div class="restored-group">
           <label class="up-label">Material</label>
-          <div class="ss-wrap">
-            <input type="text" class="restored-in mat-in" placeholder="Please select a brand and clothing type" disabled oninput="searchMaterials(this)" required>
+          <div class="ss-wrap" style="position:relative">
+            <div class="mat-trigger disabled" onclick="toggleMatDropdown(this)">
+              <span class="mat-text">Please select a brand and clothing type</span>
+              <svg class="mat-arrow" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg>
+            </div>
             <input type="hidden" class="lookup-id">
-            <div class="ss-list hidden"></div>
+            <div class="ss-list hidden">
+              <input type="text" class="mat-search" placeholder="Search materials…" oninput="filterMatList(this)" onclick="event.stopPropagation()" autocomplete="off">
+              <div class="mat-items"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -196,7 +204,10 @@
     try {
       document.getElementById('lat').value=t.toFixed(7); document.getElementById('lng').value=g.toFixed(7);
       const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${t}&lon=${g}`);
-      document.getElementById('addr').value=(await r.json()).display_name||'';
+      const name=(await r.json()).display_name||'';
+      document.getElementById('addr').value=name;
+      const textEl=document.getElementById('addr-text');
+      if(textEl) textEl.textContent=name;
     } catch (e) {
       if (typeof showFlash === 'function') {
         showFlash('Location resolution services are unavailable.', 'error');
@@ -204,37 +215,13 @@
     }
   });
 
-  // -------------------------
-  // --- Notification System ---
-  function showFlash(msg, type = 'info') {
-    const container = document.getElementById('flash-msgs');
-    if (!container) return;
-    const alert = document.createElement('div');
-    alert.className = `wf-alert ${type}`;
-    alert.style.display = 'flex';
-    alert.style.justifyContent = 'space-between';
-    alert.style.alignItems = 'center';
-    const span = document.createElement('span');
-    span.textContent = msg;
-    const btn = document.createElement('button');
-    btn.textContent = '×';
-    btn.style.cssText = 'background:none;border:none;color:inherit;font-size:18px;cursor:pointer;line-height:1;margin-left:10px;';
-    btn.addEventListener('click', () => alert.remove());
-    alert.append(span, btn);
-    container.prepend(alert);
-    setTimeout(() => {
-      if (alert.parentElement) {
-        alert.style.opacity = '0';
-        setTimeout(() => alert.remove(), 400);
-      }
-    }, 5000);
-  }
-
   // --- 1. Dynamic UI ---
   function addCard() {
     const tpl = document.getElementById('card-tpl').content.cloneNode(true);
     document.getElementById('cards').appendChild(tpl);
   }
+
+  const MATERIAL_SEARCH_URL = '{% url "material_search_proxy" %}';
 
   // --- 2. Material Search ---
   async function loadMaterials(el) {
@@ -243,43 +230,50 @@
     const brandSel = card.querySelector('.brand-sel');
     const type = typeSel.value;
     const brand = brandSel.value;
-    const mIn = card.querySelector('.mat-in');
-    const list = card.querySelector('.ss-list');
+    const wrap = card.querySelector('.ss-wrap');
+    const trigger = wrap.querySelector('.mat-trigger');
+    const matText = trigger.querySelector('.mat-text');
+    const list = wrap.querySelector('.ss-list');
+    const itemsContainer = wrap.querySelector('.mat-items');
 
-    // Always clear material on user change in fresh creation
-    mIn.value = '';
+    matText.textContent = 'Please select a brand and clothing type';
     card.querySelector('.lookup-id').value = '';
-    
+    list.classList.add('hidden');
+    wrap.classList.remove('open');
+
     if (!type || !brand) {
-      mIn.disabled = true;
-      mIn.placeholder = 'Please select a brand and clothing type';
-      list.innerHTML = '';
+      trigger.classList.add('disabled');
       return;
     }
-    
+
     typeSel.disabled = true;
     brandSel.disabled = true;
     try {
-      const res = await fetch(`{% url "material_search_proxy" %}?clothing_type=${type}&brand=${brand}`);
+      const res = await fetch(`${MATERIAL_SEARCH_URL}?clothing_type=${type}&brand=${brand}`);
       if (!res.ok) throw new Error("HTTP error " + res.status);
       const materials = await res.json();
-      
-      mIn.disabled = !materials.length;
-      mIn.placeholder = materials.length ? 'Search...' : 'No combinations found';
-      list.innerHTML = '';
-      for (const m of materials) {
-        const productName = m.product_name || '';
-        const div = document.createElement('div');
-        div.className = 'ss-item';
-        const b = document.createElement('b');
-        b.textContent = productName;
-        div.append(b, document.createTextNode(m.fiber_json));
-        div.dataset.lookupId = m.lookup_id;
-        div.dataset.display = `${m.fiber_json} - ${productName}`;
-        div.addEventListener('click', function () {
-          selectMat(this, this.dataset.lookupId, this.dataset.display);
-        });
-        list.appendChild(div);
+
+      itemsContainer.innerHTML = '';
+      if (!materials.length) {
+        matText.textContent = 'No combinations found';
+        trigger.classList.add('disabled');
+      } else {
+        trigger.classList.remove('disabled');
+        matText.textContent = 'Search materials...';
+        for (const m of materials) {
+          const productName = m.product_name || '';
+          const div = document.createElement('div');
+          div.className = 'mat-item';
+          const b = document.createElement('b');
+          b.textContent = productName;
+          div.append(b, document.createTextNode(' ' + (m.fiber_json || '')));
+          div.dataset.lookupId = m.lookup_id;
+          div.dataset.display = `${m.fiber_json} - ${productName}`;
+          div.addEventListener('click', function () {
+            selectMat(this, this.dataset.lookupId, this.dataset.display);
+          });
+          itemsContainer.appendChild(div);
+        }
       }
     } catch (e) {
       console.error(e);
@@ -290,24 +284,13 @@
     }
   }
 
-  function searchMaterials(inp) {
-    const list = inp.closest('.ss-wrap').querySelector('.ss-list');
-    list.classList.remove('hidden');
-    const items = list.querySelectorAll('.ss-item');
-    items.forEach(it => it.style.display = it.textContent.toLowerCase().includes(inp.value.toLowerCase()) ? '' : 'none');
-    inp.closest('.ss-wrap').querySelector('.lookup-id').value = ''; 
-  }
-
   function selectMat(el, id, text) {
     const wrap = el.closest('.ss-wrap');
-    wrap.querySelector('.mat-in').value = text;
+    wrap.querySelector('.mat-text').textContent = text;
     wrap.querySelector('.lookup-id').value = id;
     wrap.querySelector('.ss-list').classList.add('hidden');
+    wrap.classList.remove('open');
   }
-
-  document.addEventListener('click', e => {
-    if (!e.target.closest('.ss-wrap')) document.querySelectorAll('.ss-list').forEach(l => l.classList.add('hidden'));
-  });
 
   // --- 3. Form Submission ---
   function prepareSubmit(e) {

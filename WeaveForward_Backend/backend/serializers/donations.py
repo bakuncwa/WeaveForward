@@ -199,7 +199,7 @@ class DonationCreateSerializer(serializers.ModelSerializer):
             data['_loc_barangay'] = loc['barangay']
             data['_loc_city'] = loc['city']
         except Exception:
-            raise serializers.ValidationError({'pickup_latitude': "We couldn't find that location. Please make sure the pickup address is within Metro Manila."})
+            raise serializers.ValidationError({'pickup_location': "We couldn't find that location. Please make sure the pickup address is within Metro Manila."})
 
         # 3. Date & Time Business Rules
         pick_date = data.get('preferred_pickup_date')
@@ -310,7 +310,7 @@ class QuotationRequestSerializer(serializers.ModelSerializer):
 
         location_info = get_city_and_barangay(lat, lng)
         if not location_info:
-            raise serializers.ValidationError({"dropoff_lat": "We couldn't find that location. Please make sure the dropoff address is within Metro Manila."})
+            raise serializers.ValidationError({"dropoff_location": "We couldn't find that location. Please make sure the dropoff address is within Metro Manila."})
 
         # 2. Scheduled Time Validation
         if donation and scheduled_time:
@@ -411,7 +411,7 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
             raw_lat = str(self.initial_data.get('pickup_latitude') or '').strip()
             raw_lng = str(self.initial_data.get('pickup_longitude') or '').strip()
             if not raw_lat or not raw_lng:
-                raise serializers.ValidationError({'pickup_latitude': "Both latitude and longitude are required."})
+                raise serializers.ValidationError({'pickup_location': "Both latitude and longitude are required."})
             if 'pickup_display_address' not in data or not (data.get('pickup_display_address') or '').strip():
                 raise serializers.ValidationError({'pickup_display_address': "Please provide a street address when updating coordinates."})
             try:
@@ -423,7 +423,7 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
                 data['pickup_barangay'] = loc['barangay']
                 data['pickup_city'] = loc['city']
             except Exception:
-                raise serializers.ValidationError({'pickup_latitude': "We couldn't find that location. Please make sure the pickup address is within Metro Manila."})
+                raise serializers.ValidationError({'pickup_location': "We couldn't find that location. Please make sure the pickup address is within Metro Manila."})
 
         # 3. Date & Time Business Rules
         now_local = timezone.localtime(timezone.now())
@@ -575,7 +575,7 @@ class AdminDonationUpdateSerializer(serializers.ModelSerializer):
             raw_lat = str(self.initial_data.get('pickup_latitude') or '').strip()
             raw_lng = str(self.initial_data.get('pickup_longitude') or '').strip()
             if not raw_lat or not raw_lng:
-                raise serializers.ValidationError({'pickup_latitude': "Both latitude and longitude are required."})
+                raise serializers.ValidationError({'pickup_location': "Both latitude and longitude are required."})
             if 'pickup_display_address' not in data or not (data.get('pickup_display_address') or '').strip():
                 raise serializers.ValidationError({'pickup_display_address': "Please provide a street address when updating coordinates."})
             try:
@@ -587,7 +587,7 @@ class AdminDonationUpdateSerializer(serializers.ModelSerializer):
                 data['pickup_barangay'] = loc['barangay']
                 data['pickup_city'] = loc['city']
             except Exception:
-                raise serializers.ValidationError({'pickup_latitude': "We couldn't find that location. Please make sure the pickup address is within Metro Manila."})
+                raise serializers.ValidationError({'pickup_location': "We couldn't find that location. Please make sure the pickup address is within Metro Manila."})
 
         # 4. Dropoff Coordinate & Location Validation
         if current_delivery_method == DonationDeliveryMethod.PICKUP:
@@ -598,7 +598,7 @@ class AdminDonationUpdateSerializer(serializers.ModelSerializer):
             raw_lat = str(self.initial_data.get('dropoff_latitude') or '').strip()
             raw_lng = str(self.initial_data.get('dropoff_longitude') or '').strip()
             if not raw_lat or not raw_lng:
-                raise serializers.ValidationError({'dropoff_latitude': "Both latitude and longitude are required."})
+                raise serializers.ValidationError({'dropoff_location': "Both latitude and longitude are required."})
             if 'dropoff_display_address' not in data or not (data.get('dropoff_display_address') or '').strip():
                 raise serializers.ValidationError({'dropoff_display_address': "Please provide a street address when updating coordinates."})
             try:
@@ -606,7 +606,7 @@ class AdminDonationUpdateSerializer(serializers.ModelSerializer):
                 if not loc:
                     raise ValueError
             except Exception:
-                raise serializers.ValidationError({'dropoff_latitude': "We couldn't find that location. Please make sure the dropoff address is within Metro Manila."})
+                raise serializers.ValidationError({'dropoff_location': "We couldn't find that location. Please make sure the dropoff address is within Metro Manila."})
 
         # 5. Date & Time Business Rules
         now_local = timezone.localtime(timezone.now())

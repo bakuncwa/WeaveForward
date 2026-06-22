@@ -250,6 +250,7 @@
 
 {{ donations_json|json_script:"donations-data" }}
 <script>
+  const escapeHTML = s => String(s||'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]||c));
   // Dynamic data from context
   const DASH_DONATIONS = JSON.parse(document.getElementById('donations-data').textContent);
 
@@ -291,6 +292,38 @@
       }
     }
   });
+
+  /* ── Poll every 30s ── */
+  function pollDashboard() {
+    const q = new URLSearchParams(window.location.search);
+    q.set('format', 'json');
+    fetch(window.location.pathname + '?' + q.toString()).then(r => r.ok && r.json()).then(d => {
+      if (!d) return;
+      document.getElementById('dash-stat-don').textContent = d.total_donations;
+      document.getElementById('dash-stat-donors').textContent = d.claimed_count;
+      const lb = document.querySelector('.leaderboard-scroll');
+      lb.innerHTML = d.leaderboard.length
+        ? d.leaderboard.map(e => `<div class="leaderboard-row"><span title="${(e.full_name||'Anonymous Donor').replace(/"/g,'&quot;')}" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px;">${escapeHTML(e.full_name||'Anonymous Donor')}</span><span style="color:var(--gold);font-weight:500">${e.donation_count}</span></div>`).join('')
+        : '<div style="font-family:\'Poppins\',sans-serif;font-size:12px;color:var(--muted);padding:10px 0;">No donations recorded yet.</div>';
+      if (d.donations_json) {
+        dashMarkers.forEach(m => dashMap.removeLayer(m));
+        dashMarkers = d.donations_json.filter(d2 => d2.latitude != null && d2.longitude != null).map(d2 => {
+          const mk = L.marker([parseFloat(d2.latitude), parseFloat(d2.longitude)]).addTo(dashMap);
+          mk._data = d2;
+          const el = document.createElement('div');
+          const b = document.createElement('b'); b.textContent = d2.barangay;
+          el.appendChild(b); el.appendChild(document.createElement('br'));
+          const s = document.createElement('span');
+          s.style.cssText = 'color:#888;font-size:11px';
+          s.textContent = 'Donations Received: ' + d2.donation_count;
+          el.appendChild(s);
+          mk.bindPopup(el);
+          return mk;
+        });
+      }
+    }).catch(() => {});
+  }
+  setInterval(pollDashboard, 15000);
 </script>
 {% endblock %}
 

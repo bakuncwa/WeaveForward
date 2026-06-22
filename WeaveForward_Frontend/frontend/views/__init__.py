@@ -186,8 +186,9 @@ async def material_search_proxy(request):
 
 async def donor_search_proxy(request):
     """SSR Proxy for searching active donors only."""
-    params = request.GET.dict()
-    params.update({'role': 'Donor', 'status': 'ACTIVE'})
+    params = {'nopaginate': 'true', 'role': 'Donor', 'status': 'ACTIVE'}
+    if request.GET.get('search'):
+        params['search'] = request.GET['search']
     response = await api_call(request, 'GET', 'users', params=params)
     return JsonResponse(response.json(), status=response.status_code, safe=False)
 

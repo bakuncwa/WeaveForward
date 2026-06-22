@@ -56,6 +56,53 @@
       }
     }
 
+    .claim-tip {
+      position: relative;
+      width: 100%;
+    }
+    .claim-tip::after {
+      content: attr(data-tip);
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 10px);
+      transform: translate(-50%, 4px);
+      width: min(320px, 86vw);
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #222;
+      color: #fff;
+      font: 400 12px/1.45 Poppins, sans-serif;
+      box-shadow: 0 8px 22px rgba(0,0,0,.22);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .15s, transform .15s;
+      z-index: 30;
+      text-align: left;
+    }
+    .claim-tip::before {
+      content: '';
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 4px);
+      transform: translateX(-50%);
+      border: 6px solid transparent;
+      border-top-color: #222;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .15s;
+      z-index: 31;
+    }
+    .claim-tip:hover::after,
+    .claim-tip:focus-within::after,
+    .claim-tip:hover::before,
+    .claim-tip:focus-within::before {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+    .claim-tip:focus-within::before {
+      transform: translateX(-50%);
+    }
+
     .card,
     .panel {
       background: #fff;
@@ -280,7 +327,9 @@
             <div class="sep-line"></div>
 
             {% if donation.status == 'CLAIMED' and donation.delivery_method == 'PICKUP' %}
-            <button type="submit" class="btn btn-tuab">Mark as In-Transit</button>
+            <div class="claim-tip" data-tip="Mark as In-Transit means you are now on your way to pick up the donation. The donor will be notified that you are in transit.">
+              <button type="submit" class="btn btn-tuab">Mark as In-Transit</button>
+            </div>
             {% endif %}
           </div>
         </div>

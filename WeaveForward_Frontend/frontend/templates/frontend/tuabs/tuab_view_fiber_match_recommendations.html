@@ -734,6 +734,31 @@
         if (map && lat != null && lng != null) {
             map.setView([lat, lng], 15);
         }
+        const rec = recommendations.find(r => r.pair_id === pairId);
+        if (!rec || !markerMap[pairId]) return;
+        const mk = markerMap[pairId];
+        const fiber = rec.item?.dominant_fiber || '—';
+        const weight = rec.item?.weight_kg || '—';
+        const biodeg = rec.biodeg_tier === 'HIGH' ? 'High' : rec.biodeg_tier === 'MEDIUM' ? 'Medium' : 'Low';
+        const biodegScore = rec.item?.biodeg_score != null ? ` (${parseFloat(rec.item.biodeg_score).toFixed(0)}%)` : '';
+        const loc = `Brgy. ${rec.donation?.pickup_barangay || '—'}, ${rec.donation?.pickup_city || '—'}`;
+        const score = parseFloat(rec.match_confidence).toFixed(1);
+        const popupHtml = `
+            <div style="font-family:'Poppins',sans-serif;font-size:12px;line-height:1.6;min-width:220px">
+                <div style="font-size:13px;font-weight:700;color:#222;margin-bottom:6px">${escHtml(rec.donor.name)}</div>
+                <div style="display:flex;gap:8px;padding:1px 0"><span style="color:#888;min-width:60px">Location</span><span>${escHtml(loc)}</span></div>
+                <div style="display:flex;gap:8px;padding:1px 0"><span style="color:#888;min-width:60px">Fiber</span><span style="background:#1e2a3a;color:#fff;font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;text-transform:uppercase">${escHtml(fiber)}</span></div>
+                <div style="display:flex;gap:8px;padding:1px 0"><span style="color:#888;min-width:60px">Weight</span><span>${escHtml(weight)} kg</span></div>
+                <div style="display:flex;gap:8px;padding:1px 0"><span style="color:#888;min-width:60px">Biodeg</span><span>${escHtml(biodeg)}${escHtml(biodegScore)}</span></div>
+                <div style="margin-top:6px;padding-top:6px;border-top:1px solid #e0dbd4;font-weight:600;color:#e8a020">Match Score: ${score}%</div>
+            </div>
+        `;
+        mk.bindPopup(popupHtml, { closeButton: true, maxWidth: 320 });
+        mk.openPopup();
+    }
+
+    function escHtml(s) {
+        return String(s == null ? '' : s).replace(/[&<>'"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[c]||c));
     }
 
     function removeCard(pairId) {
@@ -760,6 +785,8 @@
 
     async function acceptRecommendation(e, pairId) {
         e.stopPropagation();
+        const btn = e.currentTarget;
+        btn.disabled = true; btn.textContent = 'Accepting…';
         try {
             const res = await fetch(`/api/tuab/match-predict/${pairId}/accept/`, {
                 method: 'POST',
@@ -768,13 +795,20 @@
             });
             if (res.ok) {
                 removeCard(pairId);
-                wfToast('Recommendation accepted.', 'success');
+                const rec = recommendations.find(r => r.pair_id === pairId);
+                const donationId = rec?.donation?.donation_id;
+                const link = donationId
+                    ? ` <a href="/tuab/donations/${donationId}/" style="color:#1a6dd4;text-decoration:underline;font-weight:600">View donation #${donationId}</a>`
+                    : '';
+                wfToast('Recommendation accepted. Would you like to claim this donation too?' + link, 'success', 8000);
             } else {
                 const data = await res.json().catch(() => ({}));
                 wfToast(data.detail || 'Unable to accept recommendation.', 'error');
             }
         } catch {
             wfToast('An error occurred. Please try again.', 'error');
+        } finally {
+            if (btn.parentElement) { btn.disabled = false; btn.textContent = 'Accept'; }
         }
     }
 
@@ -792,6 +826,8 @@
 
     async function confirmReject() {
         if (!rejectingPairId) return;
+        const btn = document.querySelector('#rejectModal .modal-btn-confirm');
+        if (btn) { btn.disabled = true; btn.textContent = 'Rejecting…'; }
         const reason = document.getElementById('rejectReason').value.trim();
         const pid = rejectingPairId;
         try {
@@ -810,6 +846,8 @@
             }
         } catch {
             wfToast('An error occurred. Please try again.', 'error');
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Reject'; }
         }
     }
 

@@ -3,6 +3,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'frontend/css/tuab-tables.css' %}" />
+<link rel="stylesheet" href="{% static 'frontend/css/badges.css' %}" />
 <link rel="stylesheet" href="{% static 'frontend/css/pagination.css' %}" />
 {% endblock %}
 
@@ -43,6 +44,34 @@
     .modal-input { width: 100%; border: 1.5px solid #e0dbd4; border-radius: 8px; padding: 10px 14px; font-family: 'Poppins', sans-serif; font-size: 14px; outline: none; margin-bottom: 16px; }
     .modal-input:focus { border-color: #e8a020; }
     .hidden { display: none !important; }
+
+    /* Hover card */
+    .dash-hover-card {
+      position: fixed; z-index: 9999;
+      background: var(--card, #fff);
+      color: var(--text, #222);
+      border: 1.5px solid var(--border, #e0dbd4);
+      border-radius: 12px; padding: 14px 18px;
+      font-family: 'Poppins', sans-serif; font-size: 12px;
+      min-width: 260px; max-width: 340px;
+      box-shadow: 0 8px 30px rgba(0,0,0,.12);
+      pointer-events: none; opacity: 0; transition: opacity .12s;
+      line-height: 1.6;
+    }
+    .dash-hover-card.visible { opacity: 1; }
+    .dash-hover-card .hc-hdr { font-size: 13px; font-weight: 600; color: var(--text, #222); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .dash-hover-card .hc-row { display: flex; gap: 8px; padding: 1px 0; }
+    .dash-hover-card .hc-lbl { color: var(--muted, #888); min-width: 64px; flex-shrink: 0; }
+    .dash-hover-card .hc-items { list-style: none; padding: 0; margin: 4px 0 0 0; }
+    .dash-hover-card .hc-items li { padding: 1px 0 1px 14px; position: relative; font-size: 11px; color: var(--text, #222); }
+    .dash-hover-card .hc-items li::before { content: '•'; position: absolute; left: 0; color: var(--gold, #e8a020); }
+    .dash-hover-card .hc-more { font-size: 10px; color: var(--muted, #888); padding-left: 14px; }
+
+    @keyframes claimed-flash {
+      0%   { background: #d4edda; }
+      100% { background: transparent; }
+    }
+    tr.claimed-flash { animation: claimed-flash 4s ease-out; }
 
     @media (max-width: 768px), (max-aspect-ratio: 1/1) {
       .tab-row { flex-wrap: wrap; gap: 8px; }
@@ -109,6 +138,8 @@
     </div>
   </div>
 </div>
+
+<div id="dash-hover-card" class="dash-hover-card"></div>
 
 {{ donations_json|json_script:"donations-data" }}
 <script>
@@ -235,6 +266,86 @@
     if (dashMap && marker) dashMap.setView(marker.getLatLng(), 15).openPopup(marker.getPopup());
   }
 
+  function findDonationById(id) {
+    return [...DONATIONS.available, ...DONATIONS.claimed].find(d => String(d.id) === String(id));
+  }
+
+  function formatTime(t) {
+    if (!t) return '';
+    const m = t.match(/^(\d{1,2}):(\d{2})/);
+    if (!m) return t;
+    let h = parseInt(m[1], 10), mi = m[2];
+    const ampm = h >= 12 ? 'pm' : 'am';
+    if (h > 12) h -= 12;
+    if (h === 0) h = 12;
+    return h + ampm;
+  }
+
+  let _hcTimer = null, _hcDonation = null;
+  function showHoverCard(e, d) {
+    if (_hcTimer) { clearTimeout(_hcTimer); _hcTimer = null; }
+    _hcDonation = d;
+    const card = document.getElementById('dash-hover-card');
+    if (card._hcContent === d.id) { card.classList.add('visible'); positionCard(e); return; }
+    const statusClsMap = { 'in_transit':'transit', 'completed':'active', 'flagged':'rejected' };
+    const statusLabelMap = { 'pending':'Pending', 'claimed':'Claimed', 'in_transit':'In Transit', 'completed':'Completed', 'flagged':'Flagged', 'cancelled':'Cancelled', 'received':'Received', 'rejected':'Rejected', 'archived':'Archived' };
+    const raw = (d.status||'').toLowerCase();
+    const cls = statusClsMap[raw] || raw;
+    const label = statusLabelMap[raw] || raw;
+    const deliveryHtml = d.delivery_method
+      ? `<div class="hc-row"><span class="hc-lbl">Delivery</span><span>${escapeHTML(d.delivery_method)}</span></div>`
+      : '';
+    const items = d.item_details || [];
+    let itemsHtml = '<ul class="hc-items">';
+    const maxItems = 5;
+    const show = items.slice(0, maxItems);
+    show.forEach(it => {
+      const label = it.fiber || it.type || '?';
+      itemsHtml += `<li>${escapeHTML(label)}</li>`;
+    });
+    if (items.length > maxItems) itemsHtml += `<li class="hc-more">+${items.length - maxItems} more</li>`;
+    itemsHtml += '</ul>';
+    const start = formatTime(d.pickup_window_start);
+    const end = formatTime(d.pickup_window_end);
+    const windowHtml = start && end
+      ? `<div class="hc-row"><span class="hc-lbl">Window</span><span>${escapeHTML(start)} — ${escapeHTML(end)}</span></div>`
+      : '';
+    card.innerHTML = `
+      <div class="hc-hdr">Donation #${escapeHTML(String(d.id))} <span class="badge badge-${escapeHTML(cls)}">${escapeHTML(label)}</span></div>
+      <div class="hc-row"><span class="hc-lbl">Donor</span><span>${escapeHTML(d.donor)}</span></div>
+      <div class="hc-row"><span class="hc-lbl">Address</span><span>${escapeHTML(d.address)}</span></div>
+      ${deliveryHtml}
+      ${windowHtml}
+      <div style="margin-top:6px;border-top:1px solid var(--border,#e0dbd4);padding-top:6px;font-size:11px;color:var(--muted,#888)">Items</div>
+      ${itemsHtml}
+    `;
+    card._hcContent = d.id;
+    card.classList.add('visible');
+    positionCard(e);
+  }
+
+  function positionCard(e) {
+    const card = document.getElementById('dash-hover-card');
+    if (!card.classList.contains('visible')) return;
+    let left = e.clientX + 16;
+    let top = e.clientY + 12;
+    if (left + 360 > window.innerWidth) left = Math.max(8, e.clientX - 360);
+    if (top + card.offsetHeight > window.innerHeight) top = window.innerHeight - card.offsetHeight - 8;
+    if (top < 0) top = 4;
+    card.style.left = left + 'px';
+    card.style.top = top + 'px';
+  }
+
+  function hideHoverCard() {
+    if (_hcTimer) clearTimeout(_hcTimer);
+    _hcTimer = setTimeout(() => {
+      const card = document.getElementById('dash-hover-card');
+      card.classList.remove('visible');
+      card._hcContent = null;
+      _hcDonation = null;
+    }, 80);
+  }
+
   function openFlagModal(id, tab) {
     flagTarget = { id, tab };
     document.getElementById('flag-reason-select').value = '';
@@ -315,6 +426,95 @@
       }
     });
     setTab(activeTab);
+
+    (function highlightClaimed() {
+      const claimedId = new URLSearchParams(window.location.search).get('claimed');
+      if (!claimedId) return;
+      const tr = document.querySelector('#dash-table-wrap td:first-child');
+      if (tr && tr.textContent.trim() === claimedId) {
+        tr.closest('tr').classList.add('claimed-flash');
+      } else {
+        document.querySelectorAll('#dash-table-wrap tr').forEach(r => {
+          const c = r.querySelector('td:first-child');
+          if (c && c.textContent.trim() === claimedId) r.classList.add('claimed-flash');
+        });
+      }
+      const url = new URL(window.location);
+      url.searchParams.delete('claimed');
+      window.history.replaceState({}, '', url);
+    })();
+
+    const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const tableWrap = document.getElementById('dash-table-wrap');
+    tableWrap.addEventListener('mouseover', e => {
+      if (isTouch) return;
+      const btn = e.target.closest('.btn-tuab, .btn-flag');
+      if (btn && _hcDonation) { showActionTip(btn); return; }
+      const tr = e.target.closest('tr');
+      if (!tr || tr._hcActive) return;
+      const id = tr.querySelector('td:first-child')?.textContent;
+      if (!id) return;
+      const d = findDonationById(id);
+      if (d) { tr._hcActive = true; showHoverCard(e, d); }
+    }, true);
+    tableWrap.addEventListener('mousemove', e => {
+      if (_hcDonation) positionCard(e);
+    }, true);
+    tableWrap.addEventListener('mouseout', e => {
+      const btn = e.target.closest('.btn-tuab, .btn-flag');
+      if (btn && _hcDonation) { const tr = btn.closest('tr'); if (tr) tr._hcActive = false; rebuildHoverCard(_hcDonation); return; }
+      const tr = e.target.closest('tr');
+      if (!tr) return;
+      tr._hcActive = false;
+      hideHoverCard();
+    }, true);
+    function showActionTip(btn) {
+      if (_hcTimer) clearTimeout(_hcTimer);
+      const card = document.getElementById('dash-hover-card');
+      const isClaim = btn.classList.contains('btn-tuab') && btn.textContent.trim() === 'Claim';
+      const isManage = btn.classList.contains('btn-tuab') && btn.textContent.trim() === 'Manage';
+      if (isClaim) card.innerHTML = '<div style="padding:6px 0;font-size:12px;color:var(--text,#222)">Click to view more about the donation and choose to claim it.</div>';
+      else if (isManage) card.innerHTML = '<div style="padding:6px 0;font-size:12px;color:var(--text,#222)">Click to view more about the donation and manage it.</div>';
+      else card.innerHTML = '<div style="padding:6px 0;font-size:12px;color:var(--text,#222)">Report a donation to the admins.</div>';
+    }
+    function rebuildHoverCard(d) {
+      if (_hcTimer) clearTimeout(_hcTimer);
+      const card = document.getElementById('dash-hover-card');
+      const statusClsMap = { 'in_transit':'transit', 'completed':'active', 'flagged':'rejected' };
+      const statusLabelMap = { 'pending':'Pending', 'claimed':'Claimed', 'in_transit':'In Transit', 'completed':'Completed', 'flagged':'Flagged', 'cancelled':'Cancelled', 'received':'Received', 'rejected':'Rejected', 'archived':'Archived' };
+      const raw = (d.status||'').toLowerCase();
+      const cls = statusClsMap[raw] || raw;
+      const label = statusLabelMap[raw] || raw;
+      const deliveryHtml = d.delivery_method
+        ? `<div class="hc-row"><span class="hc-lbl">Delivery</span><span>${escapeHTML(d.delivery_method)}</span></div>`
+        : '';
+      const items = d.item_details || [];
+      let itemsHtml = '<ul class="hc-items">';
+      const maxItems = 5;
+      const show = items.slice(0, maxItems);
+      show.forEach(it => {
+        const label = it.fiber || it.type || '?';
+        itemsHtml += `<li>${escapeHTML(label)}</li>`;
+      });
+      if (items.length > maxItems) itemsHtml += `<li class="hc-more">+${items.length - maxItems} more</li>`;
+      itemsHtml += '</ul>';
+      const start = formatTime(d.pickup_window_start);
+      const end = formatTime(d.pickup_window_end);
+      const windowHtml = start && end
+        ? `<div class="hc-row"><span class="hc-lbl">Window</span><span>${escapeHTML(start)} — ${escapeHTML(end)}</span></div>`
+        : '';
+      card.innerHTML = `
+        <div class="hc-hdr">Donation #${escapeHTML(String(d.id))} <span class="badge badge-${escapeHTML(cls)}">${escapeHTML(label)}</span></div>
+        <div class="hc-row"><span class="hc-lbl">Donor</span><span>${escapeHTML(d.donor)}</span></div>
+        <div class="hc-row"><span class="hc-lbl">Address</span><span>${escapeHTML(d.address)}</span></div>
+        ${deliveryHtml}
+        ${windowHtml}
+        <div style="margin-top:6px;border-top:1px solid var(--border,#e0dbd4);padding-top:6px;font-size:11px;color:var(--muted,#888)">Items</div>
+        ${itemsHtml}
+      `;
+      card.classList.add('visible');
+      card._hcContent = d.id;
+    }
   });
 
   document.addEventListener('click', e => {
