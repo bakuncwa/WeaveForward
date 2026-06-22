@@ -287,6 +287,21 @@
       gap: 5px
     }
 
+    .t-chevron {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #aaa;
+      pointer-events: none;
+      transition: transform .2s, color .2s;
+      flex-shrink: 0;
+    }
+    .t-box:focus-within .t-chevron {
+      color: var(--g);
+      transform: translateY(-50%) rotate(180deg);
+    }
+
     .t-chip span {
       cursor: pointer;
       font-size: 14px
