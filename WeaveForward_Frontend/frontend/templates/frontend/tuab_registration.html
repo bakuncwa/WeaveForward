@@ -262,6 +262,8 @@
     .mat-arrow { display: flex; align-items: center; color: var(--g); transition: transform .2s; flex-shrink: 0; margin-left: 8px; }
     .ss-wrap.open .mat-arrow { transform: rotate(180deg); }
     .ss-wrap.open .mat-trigger { border-color: var(--g); box-shadow: 0 0 0 3px rgba(232,160,32,.15); }
+    .mat-trigger.valid { border-color: #27ae60 !important; }
+    .mat-trigger.invalid { border-color: #e74c3c !important; }
     .mat-search { width: 100%; border: none; border-bottom: 1.5px solid #d5d5d5; padding: 10px 14px; font-family: 'Poppins', sans-serif; font-size: 13px; outline: none; border-radius: 8px 8px 0 0; background: #fff; box-sizing: border-box; }
     .mat-item { padding: 10px 14px; font-size: 13px; cursor: pointer; border-bottom: 1px solid #f5f5f5; color: #666; font-family: 'Poppins', sans-serif; transition: background .15s; }
     .mat-item:last-child { border-bottom: none; }
@@ -595,13 +597,18 @@
           {% endif %}
 
           {% if errors %}
-          <div style="background:#fff5f5;border:1px solid #ff4d4d;color:#c0392b;border-radius:8px;padding:16px;margin-bottom:16px;font-size:13px;">
+          <div id="ajax-err" style="background:#fff5f5;border:1px solid #ff4d4d;color:#c0392b;border-radius:8px;padding:16px;margin-bottom:16px;font-size:13px;">
             <strong style="display:block;margin-bottom:5px;">Please fix these errors:</strong>
             <ul style="padding-left:20px;margin:0;">
               {% for field, error_list in errors.items %}
               <li><strong>{{ field|title }}</strong>: {{ error_list.0 }}</li>
               {% endfor %}
             </ul>
+          </div>
+          {% else %}
+          <div id="ajax-err" style="display:none;background:#fff5f5;border:1px solid #ff4d4d;color:#c0392b;border-radius:8px;padding:16px;margin-bottom:16px;font-size:13px;">
+            <strong style="display:block;margin-bottom:5px;">Please fix these errors:</strong>
+            <ul style="padding-left:20px;margin:0;"></ul>
           </div>
           {% endif %}
 
@@ -617,14 +624,14 @@
               </div><span class="field-err" id="err-contact_no"></span>
             </div>
             <div class="pw-wrap"><div class="group"><div class="pw-label-row"><label class="cap-lbl">Password<span class="req">*</span></label><button type="button" class="pw-toggle" onclick="toggleRegistrationPasswords('pw','cp','tuab-pw-toggle-text')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg><span id="tuab-pw-toggle-text">Show</span></button></div><input class="in" type="password" name="password"
-                id="pw" autocomplete="new-password"><span class="field-err" id="err-password"></span></div>
+                id="pw" value="{{ form_data.password }}" autocomplete="new-password"><span class="field-err" id="err-password"></span></div>
             <div class="pw-rules" id="pw-rules">
               <div class="pw-rule" id="r-len">&#x25CF; At least 8 characters</div>
               <div class="pw-rule" id="r-letter">&#x25CF; At least 1 letter</div>
               <div class="pw-rule" id="r-digit">&#x25CF; At least 1 number</div>
             </div></div>
             <div class="group"><label class="cap-lbl">Confirm Password<span class="req">*</span></label><input class="in" type="password"
-                name="confirm_password" id="cp" autocomplete="new-password"><span class="field-err" id="err-confirm_password"></span></div>
+                name="confirm_password" id="cp" value="{{ form_data.confirm_password }}" autocomplete="new-password"><span class="field-err" id="err-confirm_password"></span></div>
           </div>
 
           <!-- Step 2 -->
@@ -718,26 +725,28 @@
                 </div>
               </div>
               <div class="uz" id="uzone" onclick="gE('fi').click()">
-                <svg style="margin:0 auto 12px;display:block" width="24" height="24" fill="none" stroke="#E8A020"
-                  stroke-width="2" viewBox="0 0 24 24">
-                  <path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z" />
-                  <path d="M12 12v9" />
-                  <path d="M16 16l-4-4-4 4" />
-                </svg>
-                <p id="utxt" style="font-weight:600;font-size:15px;color:#000">Choose a file or drag &amp; drop it here
-                </p>
-                <p style="font-size:13px;color:#E8A020;margin-top:6px">JPEG, PNG, and PDF, up to 50MB</p>
-                <p style="font-size:12px;color:#8a6a2a;margin-top:8px">Examples: DTI registration, business permit, or other proof of operations.</p>
-                <div style="margin-top:20px"><span class="brw-btn">Browse File</span></div>
+                <div id="uz-inner">
+                  <svg style="margin:0 auto 12px;display:block" width="24" height="24" fill="none" stroke="#E8A020"
+                    stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z" />
+                    <path d="M12 12v9" />
+                    <path d="M16 16l-4-4-4 4" />
+                  </svg>
+                  <p id="utxt" style="font-weight:600;font-size:15px;color:#000">Choose a file or drag &amp; drop it here
+                  </p>
+                  <p id="uhint" style="font-size:13px;color:#E8A020;margin-top:6px">JPEG, PNG, and PDF, up to 50MB</p>
+                  <p id="uex" style="font-size:12px;color:#8a6a2a;margin-top:8px">Examples: DTI registration, business permit, or other proof of operations.</p>
+                  <div style="margin-top:20px"><span class="brw-btn">Browse File</span></div>
+                </div>
+                <div id="flist"></div>
               </div>
-              <div id="flist"></div>
               <input type="file" name="documentation" id="fi" class="hidden" accept=".jpg,.jpeg,.png,.pdf"
                 onchange="uF(this)">
             </div>
             {% include 'frontend/includes/registration_agreement_content.html' with agreement_role_title='TUAB (Business)' %}
             <div class="agreement-checks">
-              <label><input type="checkbox" id="terms_accepted" name="terms_accepted"> I agree to the <button type="button" class="agreement-link" onclick="event.preventDefault();event.stopPropagation();openAgreement('terms')">Terms and Conditions</button>.</label>
-              <label><input type="checkbox" id="privacy_accepted" name="privacy_accepted"> I agree to the <button type="button" class="agreement-link" onclick="event.preventDefault();event.stopPropagation();openAgreement('privacy')">Privacy Agreement</button>.</label>
+              <label><input type="checkbox" id="terms_accepted" name="terms_accepted" {% if form_data.terms_accepted %}checked{% endif %}> I agree to the <button type="button" class="agreement-link" onclick="event.preventDefault();event.stopPropagation();openAgreement('terms')">Terms and Conditions</button>.</label>
+              <label><input type="checkbox" id="privacy_accepted" name="privacy_accepted" {% if form_data.privacy_accepted %}checked{% endif %}> I agree to the <button type="button" class="agreement-link" onclick="event.preventDefault();event.stopPropagation();openAgreement('privacy')">Privacy Agreement</button>.</label>
             </div>
             <div class="sub-wrap">
               <button type="button" class="btn" style="padding:16px 80px;font-weight:600;font-size:18px"
@@ -791,8 +800,10 @@
 
     document.addEventListener('click', e => {
       if (!e.target.closest('.ss-wrap')) {
+        const wasOpen = document.querySelector('.ss-wrap.open');
         document.querySelectorAll('.ss-list').forEach(l => l.classList.add('hidden'));
         document.querySelectorAll('.ss-wrap').forEach(w => w.classList.remove('open'));
+        if (wasOpen) validateAddress();
       }
     });
 
@@ -900,8 +911,22 @@
     // Validate address after map interaction
     function validateAddress() {
       const ncrOk = gE('city').value && gE('brgy').value;
-      if (gE('addr').value && !ncrOk) { showErr('display_address', 'Address must be within Metro Manila.'); updateSubmitBtn(); return false; }
-      const ok = validateField('display_address'); updateSubmitBtn(); return ok;
+      const t = document.querySelector('.mat-trigger');
+      const hasAddr = !!gE('addr').value;
+      [gE('city'), gE('brgy')].forEach(el => {
+        if (!el) return;
+        el.classList.toggle('valid', hasAddr && ncrOk);
+        el.classList.toggle('invalid', hasAddr && !ncrOk);
+      });
+      if (hasAddr && !ncrOk) {
+        showErr('display_address', 'Address must be within Metro Manila.');
+        t?.classList.remove('valid'); t?.classList.add('invalid');
+        updateSubmitBtn(); return false;
+      }
+      const ok = validateField('display_address'); updateSubmitBtn();
+      t?.classList.toggle('valid', ok && hasAddr);
+      t?.classList.toggle('invalid', !ok && hasAddr);
+      return ok;
     }
     const _slAddr = slAddr; slAddr = async function(i) { await _slAddr(i); };
     const _cfMap = cfMap; cfMap = async function() { await _cfMap(); };
@@ -1052,7 +1077,7 @@
         gE('subt').textContent = st.s;
         gE('subt').style.fontSize = st.sz;
         gE('fwrap').classList.toggle('form-wrap-lg', cS === 2);
-        updateArrows();
+    updateArrows(); updateSubmitBtn();
         return;
       }
       cS = Math.min(3, Math.max(1, cS + d));
@@ -1167,30 +1192,42 @@
     gE('fiber-search').addEventListener('input', filterFiberList);
     document.addEventListener('click', e => {
       if (!e.target.closest('#fiber-trigger') && !e.target.closest('#fiber-dd')) {
+        const wasOpen = !gE('fiber-dd').classList.contains('hidden');
         gE('fiber-dd').classList.add('hidden');
+        if (wasOpen) validateFibers();
       }
     });
     renderTags();
 
     // File upload
     function uF(input) {
+      const f = input.files?.[0];
+      if (!f) return;
+      const ext = f.name.split('.').pop().toLowerCase();
+      if (!['jpg','jpeg','png','pdf'].includes(ext)) {
+        Swal.fire({ icon: 'error', title: 'Invalid file type', text: 'Only PDF, JPG, and PNG files are accepted.', confirmButtonColor: '#E86338' });
+        input.value = '';
+        return;
+      }
+      if (f.size > 50 * 1024 * 1024) {
+        Swal.fire({ icon: 'error', title: 'File too large', text: 'Maximum file size is 50 MB.', confirmButtonColor: '#E86338' });
+        input.value = '';
+        return;
+      }
+      gE('uz-inner').style.display = 'none';
       const list = gE('flist'); list.innerHTML = '';
-      Array.from(input.files).forEach(f => {
-        if (f.size > 50 * 1024 * 1024) return alert('File too large (max 50MB)');
-        const ext = f.name.split('.').pop().toLowerCase();
-        const cls = ext === 'pdf' ? 'f-icon-pdf' : ext === 'png' ? 'f-icon-png' : 'f-icon-jpg';
-        const sz = (f.size / 1024).toFixed(0) + ' KB';
-        list.innerHTML += `
-        <div class="f-row">
-          <div class="f-icon ${cls}"></div>
-          <div class="f-meta">
-            <div class="f-name" title="${escapeHTML(f.name)}">${escapeHTML(f.name)}</div>
-            <div style="font-size:13px;color:#E8A020;opacity:0.7">${sz} • <span style="font-size:12px">●</span> Completed</div>
-          </div>
-          <div style="color:#E8A020;cursor:pointer;font-size:18px" onclick="gE('fi').value='';gE('flist').innerHTML=''">🗑</div>
-          <div class="p-bar"></div>
-        </div>`;
-      });
+      const cls = ext === 'pdf' ? 'f-icon-pdf' : ext === 'png' ? 'f-icon-png' : 'f-icon-jpg';
+      const sz = (f.size / 1024).toFixed(0) + ' KB';
+      list.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;padding:4px 0">
+        <svg width="22" height="22" fill="#47b881" stroke="#fff" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>
+        <div class="f-icon ${cls}"></div>
+        <div class="f-meta">
+          <div class="f-name" title="${escapeHTML(f.name)}">${escapeHTML(f.name)}</div>
+          <div style="font-size:12px;color:#47b881">${sz} • Uploaded</div>
+        </div>
+        <div style="color:#c0392b;cursor:pointer;font-size:20px;font-weight:600;line-height:1;padding:4px" onclick="event.stopPropagation();gE('fi').value='';gE('uz-inner').style.display='';gE('flist').innerHTML=''">×</div>
+      </div>`;
     }
 
     function initUploadDrop(zoneId, inputId) {
@@ -1216,7 +1253,29 @@
     function subFrm() {
       if (!agreementsOk()) return;
       if (!validateStep1() || !validateStep2() || !validateStep3()) return;
-      gE('reg-form').submit();
+      gE('sub-btn').disabled = true;
+      const fd = new FormData(gE('reg-form'));
+      fetch(window.location.pathname, {
+        method: 'POST', body: fd,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      }).then(r => r.json()).then(d => {
+        if (d.redirect) { window.location.href = d.redirect; return; }
+        if (d.errors) {
+          const errDiv = gE('ajax-err');
+          const list = errDiv.querySelector('ul');
+          list.innerHTML = Object.entries(d.errors).map(([k, v]) =>
+            `<li><strong>${k}</strong>: ${[].concat(v).join(', ')}</li>`
+          ).join('');
+          errDiv.style.display = '';
+          errDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        gE('sub-btn').disabled = false;
+      }).catch(() => {
+        const errDiv = gE('ajax-err');
+        errDiv.querySelector('ul').innerHTML = '<li><strong>Network error</strong>: Please try again.</li>';
+        errDiv.style.display = '';
+        gE('sub-btn').disabled = false;
+      });
     }
   </script>
   <script>

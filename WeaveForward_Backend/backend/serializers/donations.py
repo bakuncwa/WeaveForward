@@ -131,7 +131,7 @@ class DonationDetailSerializer(serializers.ModelSerializer):
         return build_upload_url(obj.upload, self.context)
 
     def _get_active_order(self, obj):
-        return obj.orders.filter(status__in=['ASSIGNING_DRIVER', 'ON_GOING', 'PICKED_UP']).first() or obj.orders.exclude(status__in=['CANCELLED', 'FAILED']).first()
+        return obj.orders.filter(status__in=['ASSIGNING_DRIVER', 'ON_GOING', 'PICKED_UP', 'CANCELLED']).first() or obj.orders.exclude(status__in=['FAILED']).first()
 
     def get_dropoff_display_address(self, obj):
         request = self.context.get('request')

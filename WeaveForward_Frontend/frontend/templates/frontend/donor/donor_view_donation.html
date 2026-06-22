@@ -172,7 +172,7 @@
                 </div>
                 <div class="restored-group">
                     <label class="up-label">Estimated Weight (kg)</label>
-                    <input class="restored-in" value="{{ item.weight_kg }}" readonly />
+                    <input class="restored-in" value="{{ item.weight_kg|floatformat:2 }}" readonly />
                 </div>
             </div>
             <div class="restored-group" style="margin-bottom:14px">

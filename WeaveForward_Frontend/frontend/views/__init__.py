@@ -338,11 +338,14 @@ async def donor_registration(request):
 async def tuab_registration(request):
     fibers = await get_fiber_choices(request)
     if request.method == 'POST':
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         raw_data = request.POST
         password = raw_data.get('password')
         confirm_password = raw_data.get('confirm_password')
 
         if password != confirm_password:
+            if is_ajax:
+                return JsonResponse({'errors': {'password': ['Passwords do not match.']}, 'error_step': 1, 'form_data': dict(raw_data)})
             return render(request, 'frontend/tuab_registration.html', {
                 'errors': {'password': ["Passwords do not match."]},
                 'error_step': 1,
@@ -401,6 +404,8 @@ async def tuab_registration(request):
                 },
             )
             if response.status_code == 201:
+                if is_ajax:
+                    return JsonResponse({'redirect': reverse('login')})
                 messages.success(request, "TUAB Application Submitted! Please check your email for a verification link.")
                 return redirect('login')
             else:
@@ -420,6 +425,8 @@ async def tuab_registration(request):
                     error_step = 2
                 else:
                     error_step = 3
+                if is_ajax:
+                    return JsonResponse({'errors': errors, 'error_step': error_step, 'form_data': dict(raw_data)})
                 return render(request, 'frontend/tuab_registration.html', {
                     'errors': errors,
                     'error_step': error_step,
@@ -427,6 +434,8 @@ async def tuab_registration(request):
                     'fibers': fibers
                 })
         except Exception:
+            if is_ajax:
+                return JsonResponse({'errors': {'__all__': ['Backend API is offline or unreachable.']}})
             messages.error(request, "Backend API is offline or unreachable.")
 
     return render(request, 'frontend/tuab_registration.html', {'fibers': fibers})

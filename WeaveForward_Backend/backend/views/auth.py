@@ -180,10 +180,11 @@ class VerifyEmailView(APIView):
         if not default_token_generator.check_token(user, token):
             return Response({'error': 'Invalid or expired token'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if user.role == UserRole.DONOR:
-            user.status = UserAccountStatus.ACTIVE
-        else:
-            user.status = UserAccountStatus.UNDER_REVIEW
+        # if user.role == UserRole.DONOR:
+        #     user.status = UserAccountStatus.ACTIVE
+        # else:
+        #     user.status = UserAccountStatus.UNDER_REVIEW
+        user.status = UserAccountStatus.ACTIVE
         user.save(update_fields=['status'])
 
         return Response({'message': 'Email verified successfully.'}, status=status.HTTP_200_OK)

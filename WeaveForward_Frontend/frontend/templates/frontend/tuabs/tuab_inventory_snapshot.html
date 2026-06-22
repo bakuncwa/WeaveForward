@@ -349,11 +349,11 @@
             <td>
               <div class="inv-actions">
                 <button class="act-btn act-update"
-                  onclick="openUpdateModal({{ item.inventory_id }}, {{ item.current_weight_kg }}, {{ item.low_stock_threshold }})">
+                  onclick="openUpdateModal({{ item.inventory_id }}, {{ item.current_weight_kg|floatformat:2 }}, {{ item.low_stock_threshold }})">
                   Update
                 </button>
                 <button class="act-btn act-delete"
-                  onclick="openArchiveModal({{ item.inventory_id }}, {{ item.current_weight_kg }})">
+                  onclick="openArchiveModal({{ item.inventory_id }}, {{ item.current_weight_kg|floatformat:2 }})">
                   Delete
                 </button>
               </div>
@@ -448,6 +448,7 @@
   /* ── Update Modal ── */
   function openUpdateModal(id, currentKg, threshold) {
     activeInventoryId = id;
+    if (window._hideInvHoverCard) window._hideInvHoverCard();
     document.getElementById('update-current-weight').textContent = `Current Weight: ${parseFloat(currentKg).toFixed(2)} kg`;
     document.getElementById('usage-input').value = '';
     document.getElementById('update-error').style.display = 'none';
@@ -464,23 +465,24 @@
     errEl.style.display = 'none';
     if (!usage || usage <= 0) { errEl.textContent = 'Enter a valid usage amount.'; errEl.style.display = 'block'; return; }
 
+    const invId = activeInventoryId;
+    closeUpdateModal();
     try {
-      const res = await fetch(PROXY_URLS[activeInventoryId].update, {
+      const res = await fetch(PROXY_URLS[invId].update, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf(), 'X-Requested-With': 'XMLHttpRequest' },
         body: JSON.stringify({ usage_amount_kg: usage })
       });
       const data = await res.json();
-      if (!res.ok) { errEl.textContent = data.error || 'Update failed.'; errEl.style.display = 'block'; return; }
-
-      closeUpdateModal();
+      if (!res.ok) { wfToast(data.error || 'Update failed.', 'error'); return; }
       window.location.reload();
-    } catch { errEl.textContent = 'Network error. Please try again.'; errEl.style.display = 'block'; }
+    } catch { wfToast('Network error. Please try again.', 'error'); }
   }
 
   /* ── Archive Modal ── */
   function openArchiveModal(id, currentKg) {
     activeInventoryId = id;
+    if (window._hideInvHoverCard) window._hideInvHoverCard();
     const warn = document.getElementById('archive-warn');
     warn.classList.toggle('hidden', parseFloat(currentKg) <= 0);
     document.getElementById('exit-state-select').value = 'UPCYCLED';
@@ -496,18 +498,18 @@
     const errEl = document.getElementById('archive-error');
     errEl.style.display = 'none';
 
+    const invId = activeInventoryId;
+    closeArchiveModal();
     try {
-      const res = await fetch(PROXY_URLS[activeInventoryId].archive, {
+      const res = await fetch(PROXY_URLS[invId].archive, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf(), 'X-Requested-With': 'XMLHttpRequest' },
         body: JSON.stringify({ exit_state: exitState })
       });
       const data = await res.json();
-      if (!res.ok) { errEl.textContent = data.error || 'Archive failed.'; errEl.style.display = 'block'; return; }
-
-      closeArchiveModal();
+      if (!res.ok) { wfToast(data.error || 'Archive failed.', 'error'); return; }
       window.location.reload();
-    } catch { errEl.textContent = 'Network error. Please try again.'; errEl.style.display = 'block'; }
+    } catch { wfToast('Network error. Please try again.', 'error'); }
   }
 
   /* ── Undo ── */
@@ -773,6 +775,13 @@
       if (top < 0) top = 4;
       card.style.left = left + 'px'; card.style.top = top + 'px';
     }
+
+    window._hideInvHoverCard = function () {
+      if (hcTimer) clearTimeout(hcTimer);
+      hcTimer = null;
+      card.classList.remove('visible');
+      hcDonation = null;
+    };
   })();
 
   /* Close modals on backdrop click */

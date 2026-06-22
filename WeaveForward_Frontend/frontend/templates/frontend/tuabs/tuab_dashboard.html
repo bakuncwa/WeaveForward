@@ -352,6 +352,8 @@
     document.getElementById('flag-reason-input').value = '';
     document.getElementById('flag-error').style.display = 'none';
     document.getElementById('flag-modal').classList.remove('hidden');
+    const card = document.getElementById('dash-hover-card');
+    if (card) { card.classList.remove('visible'); card._hcContent = null; _hcDonation = null; }
   }
 
   function closeFlagModal() {

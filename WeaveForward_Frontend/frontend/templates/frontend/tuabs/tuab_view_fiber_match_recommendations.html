@@ -637,7 +637,7 @@
 
                     <div class="rec-field">
                         <span class="rec-field-label">Weight</span>
-                        <span class="rec-field-value">{{ rec.item.weight_kg }} kg</span>
+                        <span class="rec-field-value">{{ rec.item.weight_kg|floatformat:2 }} kg</span>
                     </div>
 
                     <div class="rec-field">
@@ -714,7 +714,7 @@
             marker.bindPopup(
                 `<strong>${rec.donor.name}</strong><br/>` +
                 `${parseFloat(rec.match_confidence).toFixed(1)}%<br/>` +
-                `${rec.item.weight_kg} kg`
+                `${parseFloat(rec.item.weight_kg).toFixed(2)} kg`
             );
             marker.on('click', () => selectRecommendation(rec.pair_id, lat, lng));
             markerMap[rec.pair_id] = marker;
@@ -738,7 +738,7 @@
         if (!rec || !markerMap[pairId]) return;
         const mk = markerMap[pairId];
         const fiber = rec.item?.dominant_fiber || '—';
-        const weight = rec.item?.weight_kg || '—';
+        const weight = rec.item?.weight_kg != null ? parseFloat(rec.item.weight_kg).toFixed(2) : '—';
         const biodeg = rec.biodeg_tier === 'HIGH' ? 'High' : rec.biodeg_tier === 'MEDIUM' ? 'Medium' : 'Low';
         const biodegScore = rec.item?.biodeg_score != null ? ` (${parseFloat(rec.item.biodeg_score).toFixed(0)}%)` : '';
         const loc = `Brgy. ${rec.donation?.pickup_barangay || '—'}, ${rec.donation?.pickup_city || '—'}`;

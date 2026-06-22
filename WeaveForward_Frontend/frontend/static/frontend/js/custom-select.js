@@ -230,32 +230,24 @@
     filterBrandsByType(sel.value, brandSel, card.querySelector('.mat-in'), card);
   }, true);
 
-  /* ── Weight → Condition → Brand ── */
+  /* ── Weight → Condition ── */
   document.addEventListener('input', (e) => {
     if (!e.target.matches('.weight-in')) return;
     const card = e.target.closest('.restored-card');
     const cond = card?.querySelector('.cond-sel');
-    if (!cond || !e.target.value) return;
-    cond.disabled = false;
-    if (cond.value) {
-      const brandSel = card.querySelector('.brand-sel');
-      if (!brandSel) return;
-      brandSel.disabled = false;
-      const type = card.querySelector('.type-sel')?.value;
-      if (type) filterBrandsByType(type, brandSel, card.querySelector('.mat-in'), card);
-    }
+    if (!cond) return;
+    cond.disabled = !e.target.value;
+    const brandSel = card.querySelector('.brand-sel');
+    if (brandSel) brandSel.disabled = !cond.value || !e.target.value || cond.disabled;
   });
 
   /* ── Condition → Brand ── */
   document.addEventListener('change', (e) => {
     if (!e.target.matches('.cond-sel')) return;
     const card = e.target.closest('.restored-card');
+    const weight = card?.querySelector('.weight-in');
     if (!card) return;
     const brandSel = card.querySelector('.brand-sel');
-    if (!brandSel || !e.target.value) return;
-    brandSel.disabled = false;
-    const type = card.querySelector('.type-sel')?.value;
-    const matIn = card.querySelector('.mat-in');
-    if (type) filterBrandsByType(type, brandSel, matIn, card);
+    if (brandSel) brandSel.disabled = !e.target.value || !weight?.value;
   });
 })();
