@@ -1,0 +1,75 @@
+name: Deploy to GCP
+
+on:
+  push:
+    branches:
+      - main
+      - 'deploy-v*'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy-backend:
+    name: Build & Deploy Backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/44782254933/locations/global/workloadIdentityPools/github-actions-pool/providers/github-provider
+          service_account: github-actions-deploy@weaveforward-system.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build and push backend image
+        run: |
+          gcloud builds submit WeaveForward_Backend \
+            --tag gcr.io/weaveforward-system/weaveforward-backend \
+            --project weaveforward-system
+
+      - name: Deploy backend to Cloud Run
+        run: |
+          gcloud run deploy weaveforward-backend \
+            --image gcr.io/weaveforward-system/weaveforward-backend \
+            --region asia-southeast1 \
+            --platform managed \
+            --project weaveforward-system
+
+  deploy-frontend:
+    name: Build & Deploy Frontend
+    runs-on: ubuntu-latest
+    needs: deploy-backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/44782254933/locations/global/workloadIdentityPools/github-actions-pool/providers/github-provider
+          service_account: github-actions-deploy@weaveforward-system.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build and push frontend image
+        run: |
+          gcloud builds submit WeaveForward_Frontend \
+            --tag gcr.io/weaveforward-system/weaveforward-frontend \
+            --project weaveforward-system
+
+      - name: Deploy frontend to Cloud Run
+        run: |
+          gcloud run deploy weaveforward-frontend \
+            --image gcr.io/weaveforward-system/weaveforward-frontend \
+            --region asia-southeast1 \
+            --platform managed \
+            --project weaveforward-system
