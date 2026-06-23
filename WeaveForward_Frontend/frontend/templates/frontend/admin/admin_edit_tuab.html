@@ -476,26 +476,31 @@
 
     <!-- Business Info -->
     <div class="group"><label class="up">Business Name *</label><input class="in" name="business_name"
-        value="{{ tuab.business_name }}" required></div>
+        value="{{ tuab.business_name }}" maxlength="125" required></div>
     <div class="group"><label class="up">Description</label><input class="in" name="description"
-        value="{{ tuab.description }}"></div>
+        value="{{ tuab.description }}" required></div>
     <div class="group"><label class="up">Social / Website Link</label><input class="in" name="social_link"
         value="{{ tuab.social_link }}"></div>
-    <div class="group"><label class="up">Contact Number</label><input class="in" type="tel" name="contact_no"
-        value="{{ tuab.contact_no }}"></div>
+    <div class="group"><label class="up">Contact Number</label>
+      <div style="display:grid;grid-template-columns:60px 1fr;gap:8px">
+        <input value="+63" class="in" style="pointer-events:none;background:#f9f9f9" tabindex="-1">
+        <input class="in" type="tel" name="contact_no" inputmode="numeric"
+          value="{{ form_data.contact_no|default:tuab.contact_no|default:'' }}" maxlength="10" pattern="\d{10}" title="Enter 10 digits after +63." required>
+      </div>
+    </div>
 
     <hr>
 
     <!-- Operational Settings -->
     <div class="g2">
-      <div class="group"><label class="up">Max Active Claims</label><input class="in" type="number" step="1" min="0"
-          name="max_active_claims" value="{{ tuab.max_active_claims }}"></div>
+      <div class="group"><label class="up">Max Active Claims</label><input class="in" type="number" step="1" min="1" max="255"
+          name="max_active_claims" value="{{ tuab.max_active_claims }}" required></div>
       <div class="group"><label class="up">Max Distance (km)</label><input class="in" type="number" step="0.01" min="0"
-          max="100" name="max_distance_km" value="{{ tuab.max_distance_km }}"></div>
+          max="1000" name="max_distance_km" value="{{ tuab.max_distance_km }}" required></div>
     </div>
     <div class="g2" style="margin-top:14px">
       <div class="group"><label class="up">Min. Biodegradability Score</label><input class="in" type="number"
-          step="0.01" min="0" max="100" name="min_biodeg_score" value="{{ tuab.min_biodeg_score }}"></div>
+          step="0.01" min="0" max="100" name="min_biodeg_score" value="{{ tuab.min_biodeg_score }}" required></div>
       <div class="group"><label class="up">Operational Status</label>
         <select class="in" name="operational_status">
           <option value="ACTIVE" {% if tuab.operational_status == 'ACTIVE' %}selected{% endif %}>Active</option>
@@ -539,9 +544,9 @@
 
     <!-- Password -->
     <div class="group"><label class="up">New Password (leave blank to keep current)</label><input class="in"
-        type="password" name="password" autocomplete="new-password"></div>
+        type="password" name="password" autocomplete="new-password" minlength="8" maxlength="70" pattern="(?=.*[A-Za-z])(?=.*\d).{8,70}" title="At least 8 characters with one letter and one number."></div>
     <div class="group"><label class="up">Confirm New Password</label><input class="in" type="password"
-        name="confirm_password" autocomplete="new-password"></div>
+        name="confirm_password" autocomplete="new-password" maxlength="70"></div>
 
     <hr>
 
@@ -588,6 +593,12 @@
       <input id="lat" name="latitude" type="hidden" value="{{ tuab.latitude }}">
       <input id="lng" name="longitude" type="hidden" value="{{ tuab.longitude }}">
     </div>
+    <div class="g2">
+      <div class="group"><label class="up">City</label><input id="city" class="in" name="city"
+          value="{{ form_data.city|default:tuab.city|default:'' }}" maxlength="50" required></div>
+      <div class="group"><label class="up">Barangay</label><input id="brgy" class="in" name="barangay"
+          value="{{ form_data.barangay|default:tuab.barangay|default:'' }}" maxlength="50" required></div>
+    </div>
 
     <button type="submit" class="btn-submit">Save Changes</button>
   </div>
@@ -628,7 +639,7 @@
   // --- 1. Config ---
   const UID = '{{ tuab.user_id|escapejs }}';
   const ENDPOINT = window.location.pathname;
-  const API_LOCATION_DETAILS = '/api/get-location-details/';
+  const API_LOCATION_DETAILS = '/api/location/lookup/';
   const API_FIBER_OPTIONS = '';
   const FALLBACK_FIBERS = JSON.parse(document.getElementById('fibers-data').textContent);
   let FIBERS = FALLBACK_FIBERS;
@@ -721,10 +732,25 @@
     }
   }
 
-  async function syncLocationMetadata(lat, lng, skipAddr = false) {
+  async function syncLocationMetadata(lat, lng, skipAddr = false, syncFields = true) {
     if (!lat || !lng) return;
-    if (!skipAddr) { const d = await safeFetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, { headers: { 'Accept-Language': 'en-US' } }); if (d?.display_name) setAddressValue(d.display_name); else setAddressValue(`${Number(lat).toFixed(7)}, ${Number(lng).toFixed(7)}`); }
-    const d = await safeFetch(`${API_LOCATION_DETAILS}?lat=${lat}&lng=${lng}`);
+    let resolvedAddress = true;
+    if (!skipAddr) {
+      const d = await safeFetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, { headers: { 'Accept-Language': 'en-US' } });
+      if (d?.display_name) setAddressValue(d.display_name);
+      else {
+        setAddressValue('');
+        resolvedAddress = false;
+      }
+    }
+    if (syncFields) {
+      const d = await safeFetch(`${API_LOCATION_DETAILS}?lat=${lat}&lng=${lng}`);
+      if (d) {
+        getEl('city').value = d.city || '';
+        getEl('brgy').value = d.barangay || '';
+      }
+    }
+    if (!resolvedAddress) alert('Could not resolve a display address. Search for the address or pick another map point.');
   }
 
   function srchAddr(v) {
@@ -732,7 +758,7 @@
     if (v.length < 3) { items.innerHTML = ''; return; }
     clearTimeout(acTmr);
     acTmr = setTimeout(async () => {
-      try { acRes = await (await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(v + ', Philippines')}&limit=5&countrycodes=ph`, { headers: { 'Accept-Language': 'en-US' } })).json(); items.innerHTML = acRes.map((r, i) => `<div class="mat-item" onmousedown="event.preventDefault();selAddr(${i})">${escapeHTML(r.display_name)}</div>`).join(''); ac.classList.remove('hidden'); ac.closest('.ss-wrap')?.classList.add('open'); } catch { }
+      try { acRes = await (await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(v)}&limit=5&countrycodes=ph`, { headers: { 'Accept-Language': 'en-US' } })).json(); items.innerHTML = acRes.map((r, i) => `<div class="mat-item" onmousedown="event.preventDefault();selAddr(${i})">${escapeHTML(r.display_name)}</div>`).join(''); ac.classList.remove('hidden'); ac.closest('.ss-wrap')?.classList.add('open'); } catch { }
     }, 350);
   }
 
@@ -773,6 +799,11 @@
 
   getEl('frm').onsubmit = e => {
     const addrEl = getEl('addr');
+    if (!addrEl.value.trim()) {
+      e.preventDefault();
+      alert('Please select a display address.');
+      return;
+    }
     const addressChanged = norm(addrEl) !== (initial.display_address || '');
     if (addressChanged && (!getEl('lat').value.trim() || !getEl('lng').value.trim())) {
       e.preventDefault();
@@ -795,7 +826,7 @@
     if (API_FIBER_OPTIONS) { const d = await safeFetch(API_FIBER_OPTIONS); if (Array.isArray(d)) FIBERS = d; else if (Array.isArray(d?.fibers)) FIBERS = d.fibers; }
     renderTags(); syncAll();
     initial.lat = initLat; initial.lng = initLng;
-    if (hasLoc) { await syncLocationMetadata(rawLat, rawLng, false); const el = getEl('addr'); if (el) syncInit(el); }
+    if (hasLoc) { await syncLocationMetadata(rawLat, rawLng, false, false); const el = getEl('addr'); if (el) syncInit(el); }
   });
 </script>
 {% endblock %}

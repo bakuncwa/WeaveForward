@@ -44,14 +44,14 @@
       <div class="sec">
         <div class="sec-lbl">Personal Information</div>
         <div class="g2">
-          <div class="field"><label>First Name</label><input name="first_name" class="wf-in" value="{{ user.first_name }}" required/></div>
-          <div class="field"><label>Middle Name</label><input name="middle_name" class="wf-in" value="{{ user.middle_name|default:'' }}" /></div>
+          <div class="field"><label>First Name</label><input name="first_name" class="wf-in" value="{{ user.first_name }}" maxlength="50" required/></div>
+          <div class="field"><label>Middle Name</label><input name="middle_name" class="wf-in" value="{{ user.middle_name|default:'' }}" maxlength="50" /></div>
         </div>
         <div class="g2" style="margin-bottom:0">
-          <div class="field"><label>Last Name</label><input name="last_name" class="wf-in" value="{{ user.last_name }}" required/></div>
+          <div class="field"><label>Last Name</label><input name="last_name" class="wf-in" value="{{ user.last_name }}" maxlength="50" required/></div>
           <div class="field"><label>Contact Number</label>
             <div style="display:grid;grid-template-columns:60px 1fr;gap:8px">
-              <input value="+63" class="wf-in" style="pointer-events:none; background:#f9f9f9" tabindex="-1" /><input name="contact_no" class="wf-in" value="{{ user.contact_no|default:'' }}" required />
+              <input value="+63" class="wf-in" style="pointer-events:none; background:#f9f9f9" tabindex="-1" /><input name="contact_no" class="wf-in" value="{{ user.contact_no|default:'' }}" inputmode="numeric" maxlength="10" pattern="\d{10}" title="Enter 10 digits after +63." required />
             </div>
           </div>
         </div>
@@ -81,8 +81,8 @@
           </div>
         </div>
         <div class="g2" style="margin-bottom:0">
-          <div class="field"><label>Barangay</label><div class="readonly-tip-wrap" data-tip="This is auto-filled. Change the display address above to update barangay."><input id="brgy" class="wf-in" value="{{ user.barangay|default:'' }}" readonly style="background:#f9f9f9" /></div></div>
-          <div class="field"><label>City</label><div class="readonly-tip-wrap" data-tip="This is auto-filled. Change the display address above to update city."><input id="city" class="wf-in" value="{{ user.city|default:'' }}" readonly style="background:#f9f9f9" /></div></div>
+          <div class="field"><label>Barangay</label><input id="brgy" name="barangay" class="wf-in" value="{{ user.barangay|default:'' }}" maxlength="50" required /></div>
+          <div class="field"><label>City</label><input id="city" name="city" class="wf-in" value="{{ user.city|default:'' }}" maxlength="50" required /></div>
         </div>
       </div>
       <div class="sep"></div>
@@ -91,8 +91,8 @@
       <div class="sec">
         <div class="sec-lbl">Security</div>
         <div class="g2" style="margin-bottom:16px">
-          <div class="field"><label>New Password</label><input type="password" class="wf-in" name="new_password" placeholder="Leave blank to keep current" /></div>
-          <div class="field"><label>Confirm Password</label><input type="password" class="wf-in" name="confirm_password" /></div>
+          <div class="field"><label>New Password</label><input type="password" class="wf-in" name="new_password" placeholder="Leave blank to keep current" minlength="8" maxlength="70" pattern="(?=.*[A-Za-z])(?=.*\d).{8,70}" title="At least 8 characters with one letter and one number." /></div>
+          <div class="field"><label>Confirm Password</label><input type="password" class="wf-in" name="confirm_password" maxlength="70" /></div>
         </div>
         <input type="hidden" id="init-2fa" value="{{ user.is_2fa_enabled|yesno:'true,false' }}" />
         <div class="f-row" style="margin-bottom:24px">
@@ -320,12 +320,18 @@
         $('lat').value = p.lat.toFixed(7); $('lng').value = p.lng.toFixed(7);
         closeMap();
         updateLocationDetails(p.lat, p.lng);
+        let resolved = false;
         try {
-            const d = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${p.lat}&lon=${p.lng}`).then(r => r.json());
-            setAddressValue(d.display_name || `${p.lat.toFixed(7)}, ${p.lng.toFixed(7)}`);
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${p.lat}&lon=${p.lng}`, { headers: { 'Accept-Language': 'en-US' } });
+            if (!res.ok) throw new Error('reverse failed');
+            const d = await res.json();
+            if (!d.display_name) throw new Error('missing display name');
+            setAddressValue(d.display_name);
+            resolved = true;
         } catch {
-            setAddressValue(`${p.lat.toFixed(7)}, ${p.lng.toFixed(7)}`);
+            setAddressValue('');
         }
+        if (!resolved) showFlash('Could not resolve a display address. Search for the address or pick another map point.', 'error');
     }
     function searchAddress(q) {
         if (q.length < 3) { $('addr-items').innerHTML = ''; return; }

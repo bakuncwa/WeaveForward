@@ -310,7 +310,9 @@ async def donor_registration(request):
             'contact_no': raw_data.get('contact_no', ''),
             'display_address': raw_data.get('display_address'),
             'latitude': "{:.7f}".format(float(lat)),
-            'longitude': "{:.7f}".format(float(lng))
+            'longitude': "{:.7f}".format(float(lng)),
+            'city': raw_data.get('city'),
+            'barangay': raw_data.get('barangay')
         }
         if payload['contact_no'].startswith('0'):
             payload['contact_no'] = '+63' + payload['contact_no'][1:]
@@ -384,6 +386,8 @@ async def tuab_registration(request):
             'display_address': raw_data.get('display_address'),
             'latitude': "{:.7f}".format(float(lat)),
             'longitude': "{:.7f}".format(float(lng)),
+            'city': raw_data.get('city'),
+            'barangay': raw_data.get('barangay'),
             'target_fibers': target_fibers,
             'max_distance_km': max_distance_km,
             'min_biodeg_score': min_biodeg_score,

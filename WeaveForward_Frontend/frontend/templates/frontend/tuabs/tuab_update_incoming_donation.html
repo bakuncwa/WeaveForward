@@ -747,6 +747,10 @@
         window.location.href = '/tuab/dashboard/?tab=claimed';
         return;
       }
+      if (data.order_status === 'COMPLETED') {
+        window.location.reload();
+        return;
+      }
       // Donor name
       var donorEl = document.getElementById('donor-name');
       if (donorEl && data.donor) {

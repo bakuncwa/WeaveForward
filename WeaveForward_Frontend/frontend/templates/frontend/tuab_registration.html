@@ -566,10 +566,6 @@
     .in.valid:focus { border-color: #27ae60 !important; box-shadow: 0 0 0 2px rgba(39,174,96,.15); }
     .t-box.invalid { border-color: #e74c3c !important; }
     .t-box.valid { border-color: #27ae60 !important; }
-    .readonly-tip-wrap { position: relative; }
-    .readonly-tip-wrap::after { content: attr(data-tip); position: absolute; left: 0; bottom: calc(100% + 8px); width: max-content; max-width: min(280px, 80vw); padding: 8px 10px; border-radius: 8px; background: #222; color: #fff; font-size: 12px; line-height: 1.4; box-shadow: 0 6px 18px rgba(0,0,0,.18); opacity: 0; pointer-events: none; transform: translateY(4px); transition: opacity .15s, transform .15s; z-index: 20; }
-    .readonly-tip-wrap::before { content: ''; position: absolute; left: 16px; bottom: calc(100% + 2px); border: 6px solid transparent; border-top-color: #222; opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 21; }
-    .readonly-tip-wrap:hover::after, .readonly-tip-wrap:focus-within::after, .readonly-tip-wrap:hover::before, .readonly-tip-wrap:focus-within::before { opacity: 1; transform: translateY(0); }
   </style>
 </head>
 
@@ -620,7 +616,7 @@
             <div class="group"><label class="cap-lbl">Email Address<span class="req">*</span></label><input class="in" type="email" name="email"
                 id="em" value="{{ form_data.email }}" autocomplete="off"><span class="field-err" id="err-email"></span></div>
             <div class="group"><label class="cap-lbl">Phone Number<span class="req">*</span></label>
-              <div class="p-row"><input class="in" value="+63" readonly><input class="in" name="contact_no" id="ph" value="{{ form_data.contact_no }}">
+              <div class="p-row"><input class="in" value="+63" readonly><input class="in" name="contact_no" id="ph" value="{{ form_data.contact_no }}" inputmode="numeric" maxlength="10" pattern="\d{10}">
               </div><span class="field-err" id="err-contact_no"></span>
             </div>
             <div class="pw-wrap"><div class="group"><div class="pw-label-row"><label class="cap-lbl">Password<span class="req">*</span></label><button type="button" class="pw-toggle" onclick="toggleRegistrationPasswords('pw','cp','tuab-pw-toggle-text')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg><span id="tuab-pw-toggle-text">Show</span></button></div><input class="in" type="password" name="password"
@@ -669,10 +665,10 @@
               <p class="hint" style="margin-bottom:14px">Shown to donors. Must be within Metro Manila (NCR).</p>
               <input type="hidden" id="lat" name="latitude" value="{{ form_data.latitude }}"><input type="hidden" id="lng" name="longitude" value="{{ form_data.longitude }}">
               <div class="g2" style="gap:14px">
-                <div class="group"><label class="cap-lbl">Barangay *</label><div class="readonly-tip-wrap" data-tip="This is auto-filled. Change the display address above to update barangay."><input id="brgy" name="brgy" class="in"
-                    value="{{ form_data.brgy }}" readonly></div></div>
-                <div class="group"><label class="cap-lbl">City *</label><div class="readonly-tip-wrap" data-tip="This is auto-filled. Change the display address above to update city."><input id="city" name="city" class="in"
-                    value="{{ form_data.city }}" readonly></div></div>
+                <div class="group"><label class="cap-lbl">Barangay *</label><input id="brgy" name="barangay" class="in"
+                    value="{{ form_data.barangay }}" maxlength="50"><span class="field-err" id="err-barangay"></span></div>
+                <div class="group"><label class="cap-lbl">City *</label><input id="city" name="city" class="in"
+                    value="{{ form_data.city }}" maxlength="50"><span class="field-err" id="err-city"></span></div>
               </div>
             </div>
             <div class="col">
@@ -689,17 +685,13 @@
                 <input type="hidden" id="fibs" name="target_fibers" value="{{ form_data.target_fibers }}">
               <span class="field-err" id="err-target_fibers"></span></div>
               <div class="sec-lbl">OPERATIONS</div>
-              <div class="group"><label class="cap-lbl">Max Distance (km)<span class="req">*</span></label>
-                <div style="display:flex;align-items:center;gap:8px">
-                  <input class="in grey-in" type="number" name="max_distance_km" id="md" value="{{ form_data.max_distance_km }}" style="flex:1">
-                  <span style="font-size:13px;font-family:'Poppins',sans-serif;color:#888;white-space:nowrap">km</span>
-                </div>
+              <div class="group"><label class="cap-lbl">Max Distance (km)<span class="req">*</span></label><input class="in" type="number" name="max_distance_km" id="md" value="{{ form_data.max_distance_km|default:'5' }}" min="0">
               <span class="field-err" id="err-max_distance_km"></span>
               <div class="distance-info" id="distance-info"><strong>Pickup radius.</strong> This helps our AI recommend donations that fit the distance you can realistically collect.</div></div>
               <p class="hint">Furthest pickup radius</p>
-              <div class="group"><label class="cap-lbl">Min. Biodegradability Score<span class="req">*</span></label><input class="in grey-in"
-                  type="number" step="0.01" name="min_biodeg_score" id="mbs" value="{{ form_data.min_biodeg_score }}"><span class="field-err" id="err-min_biodeg_score"></span>
-              <div class="biodeg-info" id="biodeg-info"><strong>AI Matching.</strong> This score helps our AI find good donations for you. Higher means materials that are more sustainable.<br><em>Not a hard cap — you may still accept materials below it.</em><br>
+              <div class="group"><label class="cap-lbl">Min. Biodegradability Score<span class="req">*</span></label><input class="in"
+                  type="number" step="0.01" name="min_biodeg_score" id="mbs" value="{{ form_data.min_biodeg_score|default:'50' }}" min="0"><span class="field-err" id="err-min_biodeg_score"></span>
+              <div class="biodeg-info" id="biodeg-info">This score helps our AI find good donations for you. Higher means materials that are more sustainable.<br>
 <div class="spec-wrap"><div class="spec-bar"><div class="spec-dot" style="left:7%"></div><div class="spec-dot" style="left:20%"></div><div class="spec-dot" style="left:30%"></div><div class="spec-dot" style="left:75%"></div><div class="spec-dot" style="left:85%"></div></div><div class="spec-labels"><span style="left:7%">Acrylic<br><small>5–15</small></span><span style="left:20%">Polyester<br><small>10–30</small></span><span style="left:30%">Nylon<br><small>20–40</small></span><span style="left:75%">Jute<br><small>80–90</small></span><span style="left:85%">Cotton<br><small>85–95</small></span></div><div class="spec-ends"><span>Less sustainable</span><span>More sustainable</span></div></div></div></div>
             </div>
           </div>
@@ -829,14 +821,13 @@
 
     // --- REAL-TIME VALIDATION ---
     const EMAIL_RE = /^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/;
-    const PHONE_RE = /^\+63\d{10}$/;
+    const PHONE_RE = /^\d{10}$/;
 
     const VALIDATORS = {
       business_name: v => v.trim() ? (v.length <= 125 ? '' : 'Max 125 characters.') : 'Business name is required.',
       email: v => v.trim() ? (EMAIL_RE.test(v.trim()) ? (v.length <= 100 ? '' : 'Max 100 characters.') : 'Enter a valid email address.') : 'Email is required.',
       contact_no: v => {
-        const raw = v.startsWith('+63') ? v : '+63' + v.replace(/^0?/, '');
-        return v.trim() ? (PHONE_RE.test(raw) ? '' : 'Enter 10 digits after +63 (e.g., 9150814395).') : 'Phone number is required.';
+        return v.trim() ? (PHONE_RE.test(v.trim()) ? '' : 'Enter 10 digits after +63 (e.g., 9150814395).') : 'Phone number is required.';
       },
       password: v => {
         if (!v) return 'Password is required.';
@@ -850,6 +841,8 @@
       description: v => v.trim() ? '' : 'Description is required.',
       social_link: v => v.trim() ? '' : '',
       display_address: v => v.trim() ? '' : 'Display address is required.',
+      city: v => v.trim() ? (v.length <= 50 ? '' : 'Max 50 characters.') : 'City is required.',
+      barangay: v => v.trim() ? (v.length <= 50 ? '' : 'Max 50 characters.') : 'Barangay is required.',
       target_fibers: v => tgs.length ? '' : 'Select at least one fiber type.',
       max_distance_km: v => {
         const n = parseFloat(v);
@@ -907,10 +900,18 @@
       _da.addEventListener('blur', () => validateAddress());
       _da.addEventListener('input', () => { gE('lat').value = ''; gE('lng').value = ''; gE('city').value = ''; gE('brgy').value = ''; validateAddress(); });
     }
+    ['city','barangay'].forEach(f => {
+      const el = document.querySelector(`[name="${f}"]`);
+      if (!el) return;
+      el.addEventListener('blur', () => validateAddress());
+      el.addEventListener('input', () => validateAddress());
+    });
 
     // Validate address after map interaction
     function validateAddress() {
-      const ncrOk = gE('city').value && gE('brgy').value;
+      const cityOk = validateField('city');
+      const barangayOk = validateField('barangay');
+      const ncrOk = cityOk && barangayOk;
       const t = document.querySelector('.mat-trigger');
       const hasAddr = !!gE('addr').value;
       [gE('city'), gE('brgy')].forEach(el => {
@@ -940,7 +941,7 @@
     }
 
     function validateStep2() {
-      return ['description','social_link','target_fibers','max_distance_km','min_biodeg_score'].every(validateField) && validateAddress();
+      return ['description','city','barangay','target_fibers','max_distance_km','min_biodeg_score'].every(validateField) && validateAddress();
     }
 
     function validateStep3() {
@@ -981,7 +982,7 @@
         const el = document.querySelector(`[name="${f}"]`);
         return el && el.value.trim();
       }) && checkPw(gE('pw').value) && gE('pw').value === gE('cp').value;
-      const s2 = gE('desc').value.trim() && gE('addr').value.trim() && gE('city').value && gE('brgy').value && tgs.length > 0
+      const s2 = gE('desc').value.trim() && gE('addr').value.trim() && validateFieldSilent('city') && validateFieldSilent('barangay') && tgs.length > 0
         && (parseFloat(gE('md').value) >= 0 && parseFloat(gE('md').value) <= 1000)
         && (parseFloat(gE('mbs').value) >= 0 && parseFloat(gE('mbs').value) <= 100);
       const s3 = gE('fi').files.length > 0;
@@ -1001,7 +1002,7 @@
       if (cS === 3) { nb.disabled = true; return; }
       const ok = cS === 1
         ? ['business_name','email','contact_no','password','confirm_password'].every(validateFieldSilent)
-        : validateFieldSilent('description') && gE('addr').value.trim() && gE('city').value && gE('brgy').value
+        : validateFieldSilent('description') && gE('addr').value.trim() && validateFieldSilent('city') && validateFieldSilent('barangay')
           && validateFieldSilent('target_fibers') && validateFieldSilent('max_distance_km') && validateFieldSilent('min_biodeg_score');
       nb.disabled = !ok;
     }
@@ -1102,7 +1103,7 @@
       clearTimeout(aT);
       aT = setTimeout(async () => {
         try {
-          const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${v}, Philippines&limit=5&countrycodes=ph`);
+          const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(v)}&limit=5&countrycodes=ph`);
           aR = await r.json();
           items.innerHTML = aR.map((r, i) => `<div class="mat-item" onmousedown="event.preventDefault();slAddr(${i})">${escapeHTML(r.display_name)}</div>`).join('');
           ac.classList.remove('hidden');
@@ -1147,14 +1148,22 @@
       gE('lat').value = (+tLt).toFixed(7); gE('lng').value = (+tLg).toFixed(7);
       const lt = gE('lat').value, lg = gE('lng').value;
       clMap();
+      let resolved = false;
       try {
-        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lt}&lon=${lg}`);
-        const name = (await r.json()).display_name || `${lt}, ${lg}`;
+        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lt}&lon=${lg}`, { headers: { 'Accept-Language': 'en-US' } });
+        if (!r.ok) throw new Error('reverse failed');
+        const name = (await r.json()).display_name;
+        if (!name) throw new Error('missing display name');
         gE('addr').value = name;
         const t = gE('addr-text'); if (t) t.textContent = name;
-      } catch { gE('addr').value = `${lt}, ${lg}`; const t = gE('addr-text'); if (t) t.textContent = `${lt}, ${lg}` }
+        resolved = true;
+      } catch {
+        gE('addr').value = '';
+        const t = gE('addr-text'); if (t) t.textContent = 'Address lookup failed';
+      }
       await fLD(lt, lg);
       validateAddress();
+      if (!resolved) showErr('display_address', 'Could not resolve a display address. Search for the address or pick another map point.');
     }
 
     function clMap() { gE('map-modal').classList.add('hidden') }

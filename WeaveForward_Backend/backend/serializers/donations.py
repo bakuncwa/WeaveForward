@@ -124,6 +124,7 @@ class DonationDetailSerializer(serializers.ModelSerializer):
     dropoff_latitude = serializers.SerializerMethodField()
     dropoff_longitude = serializers.SerializerMethodField()
     driver_details = serializers.SerializerMethodField()
+    order_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Donation
@@ -134,6 +135,11 @@ class DonationDetailSerializer(serializers.ModelSerializer):
 
     def _get_active_order(self, obj):
         return obj.orders.filter(status__in=['ASSIGNING_DRIVER', 'ON_GOING', 'PICKED_UP', 'CANCELLED']).first() or obj.orders.exclude(status__in=['FAILED']).first()
+
+    def _get_latest_order(self, obj):
+        return obj.orders.filter(
+            lalamove_order_id__isnull=False
+        ).order_by('-created_at').first()
 
     def _fetch_driver_details(self, order):
         if not order or not order.lalamove_order_id:
@@ -179,12 +185,20 @@ class DonationDetailSerializer(serializers.ModelSerializer):
         ).order_by('-created_at').first()
         return self._fetch_driver_details(order)
 
+    def get_order_status(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user or request.user.role not in ['TUAB', 'Admin']:
+            return None
+        order = self._get_latest_order(obj)
+        return order.status if order else None
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         request = self.context.get('request')
         role = request.user.role if request and request.user else None
         if role not in ('TUAB', 'Admin'):
             data.pop('driver_details', None)
+            data.pop('order_status', None)
         if role != 'Admin':
             data.pop('dropoff_display_address', None)
             data.pop('dropoff_latitude', None)

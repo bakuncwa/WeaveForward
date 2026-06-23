@@ -89,7 +89,7 @@ function srchAddr(v, prefix = '') {
   lockSubmit();
   acTmr = setTimeout(async () => {
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(v + ', Philippines')}&limit=5&countrycodes=ph`);
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(v)}&limit=5&countrycodes=ph`);
       acRes = await res.json();
       getEl(itemsId).innerHTML = acRes.map((r, i) => `<div class="mat-item" onmousedown="event.preventDefault(); selAddr(${i})">${escapeHTML(r.display_name)}</div>`).join('');
       getEl(acId).classList.remove('hidden');
@@ -196,18 +196,23 @@ async function confirmMap() {
   
   lockSubmit();
   try {
-    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${tmpLat}&lon=${tmpLng}`);
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${tmpLat}&lon=${tmpLng}`, {
+      headers: { 'Accept-Language': 'en-US' }
+    });
+    if (!res.ok) throw new Error('Reverse geocode failed');
     const data = await res.json();
     if (data.display_name) {
       setAddressValue(prefix, data.display_name);
     } else {
-      setAddressValue(prefix, `${tmpLat.toFixed(7)}, ${tmpLng.toFixed(7)}`);
+      throw new Error('Missing display address');
     }
   } catch (e) { 
     console.error("Reverse geocode failed", e);
-    setAddressValue(prefix, `${tmpLat.toFixed(7)}, ${tmpLng.toFixed(7)}`);
+    setAddressValue(prefix, '');
     if (typeof showFlash === 'function') {
-      showFlash('Location resolution services are unavailable.', 'error');
+      showFlash('Could not resolve a display address. Search for the address or pick another map point.', 'error');
+    } else {
+      alert('Could not resolve a display address. Search for the address or pick another map point.');
     }
   } finally {
     unlockSubmit();

@@ -5,6 +5,7 @@
 <link rel="stylesheet" href="{% static 'frontend/css/tuab-tables.css' %}" />
 <link rel="stylesheet" href="{% static 'frontend/css/badges.css' %}" />
 <link rel="stylesheet" href="{% static 'frontend/css/pagination.css' %}" />
+<link rel="stylesheet" href="{% static 'frontend/css/tuab-tour.css' %}" />
 {% endblock %}
 
 {% block content %}
@@ -521,7 +522,9 @@
   document.addEventListener('click', e => {
     if (e.target === document.getElementById('flag-modal')) closeFlagModal();
   });
+
 </script>
+<script src="{% static 'frontend/js/tuab-tour.js' %}"></script>
 {% endblock %}
 
 

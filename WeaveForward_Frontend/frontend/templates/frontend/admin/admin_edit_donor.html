@@ -393,16 +393,21 @@
       <hr>
 
       <div class="group"><label class="up">First Name</label><input class="in" name="first_name"
-          value="{{ donor.first_name|default:'' }}" required></div>
+          value="{{ donor.first_name|default:'' }}" maxlength="50" required></div>
       <div class="group"><label class="up">Middle Name</label><input class="in" name="middle_name"
-          value="{{ donor.middle_name|default:'' }}"></div>
+          value="{{ donor.middle_name|default:'' }}" maxlength="50"></div>
       <div class="group"><label class="up">Last Name</label><input class="in" name="last_name"
-          value="{{ donor.last_name|default:'' }}" required></div>
+          value="{{ donor.last_name|default:'' }}" maxlength="50" required></div>
 
       <hr>
 
-      <div class="group"><label class="up">Phone Number</label><input class="in" type="tel" name="contact_no" autocomplete="tel"
-          value="{{ donor.contact_no|default:'' }}" required></div>
+      <div class="group"><label class="up">Phone Number</label>
+        <div style="display:grid;grid-template-columns:60px 1fr;gap:8px">
+          <input value="+63" class="in" style="pointer-events:none;background:#f9f9f9" tabindex="-1">
+          <input class="in" type="tel" name="contact_no" autocomplete="tel" inputmode="numeric"
+            value="{{ form_data.contact_no|default:donor.contact_no|default:'' }}" maxlength="10" pattern="\d{10}" title="Enter 10 digits after +63." required>
+        </div>
+      </div>
 
       <div class="group">
         <label class="up">Two-Factor Authentication</label>
@@ -421,9 +426,9 @@
       <hr>
 
       <div class="group"><label class="up">New Password (leave blank to keep current)</label><input class="in"
-          type="password" name="password" autocomplete="new-password" minlength="8"></div>
+          type="password" name="password" autocomplete="new-password" minlength="8" maxlength="70" pattern="(?=.*[A-Za-z])(?=.*\d).{8,70}" title="At least 8 characters with one letter and one number."></div>
       <div class="group"><label class="up">Confirm New Password</label><input class="in" type="password"
-          name="confirm_password" autocomplete="new-password" minlength="8"></div>
+          name="confirm_password" autocomplete="new-password" maxlength="70"></div>
 
       <hr>
 
@@ -451,6 +456,10 @@
         <input id="lat" name="latitude" type="hidden" value="{{ donor.latitude|default:'' }}">
         <input id="lng" name="longitude" type="hidden" value="{{ donor.longitude|default:'' }}">
       </div>
+      <div class="group"><label class="up">City</label><input id="city" class="in" name="city"
+          value="{{ form_data.city|default:donor.city|default:'' }}" maxlength="50" required></div>
+      <div class="group"><label class="up">Barangay</label><input id="brgy" class="in" name="barangay"
+          value="{{ form_data.barangay|default:donor.barangay|default:'' }}" maxlength="50" required></div>
 
       <button type="submit" class="btn-submit">Save Changes</button>
     </div>
@@ -550,11 +559,24 @@
   async function syncAddressFromCoords(latitude, longitude, syncInitial = false) {
     try {
       const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+      if (!response.ok) throw new Error('reverse failed');
       const data = await response.json();
       if (data.display_name) {
         setAddressValue(data.display_name);
         if (syncInitial) syncInitialNamedFieldValue(getEl('addr'));
+        return true;
       }
+    } catch { }
+    setAddressValue('');
+    return false;
+  }
+  async function syncLocationFields(latitude, longitude) {
+    try {
+      const response = await fetch(`/api/location/lookup/?lat=${latitude}&lng=${longitude}`);
+      if (!response.ok) return;
+      const data = await response.json();
+      getEl('city').value = data.city || '';
+      getEl('brgy').value = data.barangay || '';
     } catch { }
   }
 
@@ -583,7 +605,7 @@
     clearTimeout(acTmr);
     acTmr = setTimeout(async () => {
       try {
-        acRes = await (await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${v}, Philippines&limit=5&countrycodes=ph`)).json();
+        acRes = await (await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(v)}&limit=5&countrycodes=ph`)).json();
         items.innerHTML = acRes.map((r, i) => `<div class="mat-item" onmousedown="event.preventDefault();selAddr(${i})">${esc(r.display_name)}</div>`).join('');
         ac.classList.remove('hidden');
         ac.closest('.ss-wrap')?.classList.add('open');
@@ -597,6 +619,7 @@
     getEl('lng').value = (+acRes[i].lon).toFixed(7);
     getEl('ac').classList.add('hidden');
     getEl('ac').closest('.ss-wrap')?.classList.remove('open');
+    syncLocationFields(getEl('lat').value, getEl('lng').value);
   }
 
   function openMap() {
@@ -622,7 +645,9 @@
     getEl('lat').value = (+tmpLat).toFixed(7);
     getEl('lng').value = (+tmpLng).toFixed(7);
     closeMap();
-    await syncAddressFromCoords(getEl('lat').value, getEl('lng').value);
+    const resolved = await syncAddressFromCoords(getEl('lat').value, getEl('lng').value);
+    await syncLocationFields(getEl('lat').value, getEl('lng').value);
+    if (!resolved) alert('Could not resolve a display address. Search for the address or pick another map point.');
   }
 
   function closeMap() { getEl('map-modal').classList.add('hidden'); }
@@ -640,6 +665,11 @@
   getEl('frm').onsubmit = e => {
     const form = e.target;
     const addrEl = getEl('addr');
+    if (!addrEl.value.trim()) {
+      e.preventDefault();
+      alert('Please select a display address.');
+      return;
+    }
     const addressChanged = snapshotNamedFieldValue(addrEl) !== (initialNamedFieldValues.display_address || '');
     if (addressChanged && (!getEl('lat').value.trim() || !getEl('lng').value.trim())) {
       e.preventDefault();

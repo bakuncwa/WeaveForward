@@ -14,6 +14,35 @@ from ..services.location_service import get_city_and_barangay
 from ..services.brand_fiber_lookup_service import get_allowed_fibers
 
 
+def _require_or_autofill_city_barangay(data):
+    lat, lng = data.get('latitude'), data.get('longitude')
+    city = (data.get('city') or '').strip()
+    barangay = (data.get('barangay') or '').strip()
+
+    if (lat is None) != (lng is None):
+        raise serializers.ValidationError({'location': "Latitude and longitude must be provided together."})
+
+    if lat is not None and lng is not None:
+        loc = get_city_and_barangay(lat, lng)
+        if not loc:
+            raise serializers.ValidationError({'location': "Location must be within Metro Manila."})
+        data.update({'city': city or loc['city'], 'barangay': barangay or loc['barangay']})
+        return
+
+    errors = {}
+    if 'city' in data and not city:
+        errors['city'] = "City is required."
+    if 'barangay' in data and not barangay:
+        errors['barangay'] = "Barangay is required."
+    if errors:
+        raise serializers.ValidationError(errors)
+
+    if 'city' in data:
+        data['city'] = city
+    if 'barangay' in data:
+        data['barangay'] = barangay
+
+
 class AdminUserDetailSerializer(serializers.ModelSerializer):
     """Full user profile serializer used exclusively by Admins for viewing details."""
     is_subscribed = serializers.SerializerMethodField(read_only=True)
@@ -24,7 +53,7 @@ class AdminUserDetailSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False, allow_blank=False, max_length=User._meta.get_field('password').max_length)
     distance_km = serializers.FloatField(read_only=True, required=False)
     blocked_patch_fields = {
-        'email', 'user_id', 'city', 'barangay', 'role',
+        'email', 'user_id', 'role',
         'is_2fa_enabled',
         'documentation', 'status', 'created_at', 'updated_at'
     }
@@ -108,7 +137,6 @@ class DonorUpdateSerializer(serializers.ModelSerializer):
             'display_address', 'latitude', 'longitude', 'password', 'upload',
             'city', 'barangay'
         ]
-        read_only_fields = ['city', 'barangay']
 
     def validate(self, data):
         # 1. Password
@@ -126,12 +154,7 @@ class DonorUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'contact_no': "Enter a valid Philippine mobile number starting with +63 (e.g., +639171234567)."})
 
         # 4. Location
-        lat, lng = data.get('latitude'), data.get('longitude')
-        if lat is not None and lng is not None:
-            loc = get_city_and_barangay(lat, lng)
-            if not loc:
-                raise serializers.ValidationError({'location': "Location must be within Metro Manila."})
-            data.update({'city': loc['city'], 'barangay': loc['barangay']})
+        _require_or_autofill_city_barangay(data)
 
         return data
 
@@ -184,7 +207,6 @@ class TuabUpdateSerializer(serializers.ModelSerializer):
             'operational_status', 'target_fibers', 'latitude', 'longitude', 
             'display_address', 'password', 'upload', 'city', 'barangay'
         ]
-        read_only_fields = ['city', 'barangay']
 
     def validate(self, data):
         # 1. Password
@@ -213,12 +235,7 @@ class TuabUpdateSerializer(serializers.ModelSerializer):
             data['target_fibers'] = ','.join(input_fibers)
 
         # 5. Location
-        lat, lng = data.get('latitude'), data.get('longitude')
-        if lat is not None and lng is not None:
-            loc = get_city_and_barangay(lat, lng)
-            if not loc:
-                raise serializers.ValidationError({'location': "Location must be within Metro Manila."})
-            data.update({'city': loc['city'], 'barangay': loc['barangay']})
+        _require_or_autofill_city_barangay(data)
 
         return data
 
@@ -413,7 +430,6 @@ class DonorUpdateSelfSerializer(serializers.ModelSerializer):
             'display_address', 'latitude', 'longitude', 'password', 'upload',
             'city', 'barangay'
         ]
-        read_only_fields = ['city', 'barangay']
 
     def validate(self, data):
         # 1. Password
@@ -431,12 +447,7 @@ class DonorUpdateSelfSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'contact_no': "Enter a valid Philippine mobile number starting with +63 (e.g., +639171234567)."})
 
         # 4. Location
-        lat, lng = data.get('latitude'), data.get('longitude')
-        if lat is not None and lng is not None:
-            loc = get_city_and_barangay(lat, lng)
-            if not loc:
-                raise serializers.ValidationError({'location': "Location must be within Metro Manila."})
-            data.update({'city': loc['city'], 'barangay': loc['barangay']})
+        _require_or_autofill_city_barangay(data)
 
         return data
 
@@ -491,7 +502,6 @@ class TuabUpdateSelfSerializer(serializers.ModelSerializer):
             'operational_status', 'target_fibers', 'latitude', 'longitude', 
             'display_address', 'password', 'upload', 'city', 'barangay'
         ]
-        read_only_fields = ['city', 'barangay']
 
     def validate(self, data):
         # 1. Password
@@ -520,12 +530,7 @@ class TuabUpdateSelfSerializer(serializers.ModelSerializer):
             data['target_fibers'] = ','.join(input_fibers)
 
         # 5. Location
-        lat, lng = data.get('latitude'), data.get('longitude')
-        if lat is not None and lng is not None:
-            loc = get_city_and_barangay(lat, lng)
-            if not loc:
-                raise serializers.ValidationError({'location': "Location must be within Metro Manila."})
-            data.update({'city': loc['city'], 'barangay': loc['barangay']})
+        _require_or_autofill_city_barangay(data)
 
         return data
 

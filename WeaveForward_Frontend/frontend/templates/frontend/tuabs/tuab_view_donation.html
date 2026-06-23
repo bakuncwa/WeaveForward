@@ -690,7 +690,7 @@
       clearTimeout(acTimer);
       acTimer = setTimeout(async () => {
         try {
-          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(v + ', Philippines')}&limit=5&countrycodes=ph`);
+          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(v)}&limit=5&countrycodes=ph`);
           acRes = await res.json();
           list.innerHTML = acRes.length
             ? acRes.map((r, i) => `<div class="ac-item" onmousedown="selectAutocomplete(${i})">${escapeHTML(r.display_name)}</div>`).join('')

@@ -164,6 +164,8 @@ async def admin_edit_donor(request, user_id):
             messages.error(request, "Donor not found.")
             return redirect('admin_view_donors')
         donor = response.json()
+        if donor.get('contact_no', '').startswith('+63'):
+            donor['contact_no'] = donor['contact_no'][3:]
         current_etag = response.headers.get('ETag')
         if donor.get('status') != 'ACTIVE':
             messages.error(request, "Only active donors can be edited.")
@@ -179,7 +181,7 @@ async def admin_edit_donor(request, user_id):
             })
 
         payload = {}
-        for field in ['first_name', 'middle_name', 'last_name', 'contact_no', 'display_address', 'latitude', 'longitude']:
+        for field in ['first_name', 'middle_name', 'last_name', 'contact_no', 'display_address', 'latitude', 'longitude', 'city', 'barangay']:
             if field in raw_data:
                 payload[field] = raw_data.get(field)
 
@@ -246,6 +248,8 @@ async def admin_edit_donor(request, user_id):
         messages.error(request, "Donor not found.")
         return redirect('admin_view_donors')
     donor = response.json()
+    if donor.get('contact_no', '').startswith('+63'):
+        donor['contact_no'] = donor['contact_no'][3:]
     current_etag = response.headers.get('ETag')
     if donor.get('status') != 'ACTIVE':
         messages.error(request, "Only active donors can be edited.")
@@ -333,6 +337,8 @@ async def admin_edit_tuab(request, user_id):
         if password and password != confirm_password:
             response = await api_call(request, 'GET', f'users/{user_id}')
             tuab = response.json()
+            if tuab.get('contact_no', '').startswith('+63'):
+                tuab['contact_no'] = tuab['contact_no'][3:]
             return render(request, 'frontend/admin/admin_edit_tuab.html', {
                 'page_title': 'Edit TUAB', 
                 'user': profile,
@@ -349,6 +355,13 @@ async def admin_edit_tuab(request, user_id):
         
         if not payload.get('password'):
             payload.pop('password', None)
+
+        if 'contact_no' in payload and payload['contact_no']:
+            c = payload['contact_no']
+            if c.startswith('0'):
+                payload['contact_no'] = '+63' + c[1:]
+            elif not c.startswith('+63'):
+                payload['contact_no'] = '+63' + c
 
         files = {}
         if request.FILES.get('upload'):
@@ -390,6 +403,8 @@ async def admin_edit_tuab(request, user_id):
         detail_message = response_data.get('detail') if isinstance(response_data, dict) and isinstance(response_data.get('detail'), str) else None
         get_res = await api_call(request, 'GET', f'users/{user_id}')
         tuab = get_res.json()
+        if tuab.get('contact_no', '').startswith('+63'):
+            tuab['contact_no'] = tuab['contact_no'][3:]
         
         return render(request, 'frontend/admin/admin_edit_tuab.html', {
             'page_title': 'Edit TUAB', 
@@ -412,6 +427,8 @@ async def admin_edit_tuab(request, user_id):
         return redirect('admin_view_tuabs')
 
     tuab = response.json()
+    if tuab.get('contact_no', '').startswith('+63'):
+        tuab['contact_no'] = tuab['contact_no'][3:]
     if tuab.get('status') != 'ACTIVE':
         messages.error(request, "Only active TUABs can be edited.")
         return redirect('admin_view_tuabs')

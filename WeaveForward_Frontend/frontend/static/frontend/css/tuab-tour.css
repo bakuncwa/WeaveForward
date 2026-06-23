@@ -1,0 +1,70 @@
+.wf-tour-spotlight {
+  position: fixed; z-index: 10001;
+  border-radius: 10px; pointer-events: none;
+  transition: all .35s ease;
+  box-shadow: 0 0 0 3px #e8a020, 0 4px 20px rgba(0,0,0,.2);
+}
+
+.wf-tour-card {
+  position: fixed; z-index: 10002;
+  background: #fff; border-radius: 16px;
+  padding: 28px 30px; width: 380px; max-width: 90vw;
+  box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  font-family: 'Poppins', sans-serif; pointer-events: auto;
+}
+
+.wf-tour-step-num {
+  font-size: 10px; font-weight: 700; color: #e8a020;
+  text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 4px;
+}
+
+.wf-tour-title {
+  font-size: 17px; font-weight: 700; color: #222; margin-bottom: 6px;
+}
+
+.wf-tour-desc {
+  font-size: 12.5px; color: #666; line-height: 1.7; margin-bottom: 18px;
+}
+
+.wf-tour-actions {
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+.wf-tour-skip {
+  font-size: 12px; color: #aaa; cursor: pointer;
+  font-family: 'Poppins', sans-serif; border: none;
+  background: none; padding: 0; text-decoration: underline dotted;
+}
+.wf-tour-skip:hover { color: #888; }
+
+.wf-tour-nav { display: flex; gap: 8px; }
+
+.wf-tour-btn {
+  font-family: 'Poppins', sans-serif; font-size: 12px; font-weight: 600;
+  padding: 8px 20px; border-radius: 999px; border: none; cursor: pointer;
+  transition: all .2s;
+}
+
+.wf-tour-btn-prev { background: #f0ede8; color: #666; }
+.wf-tour-btn-prev:hover { background: #e5e0d8; }
+
+.wf-tour-btn-next { background: #e8a020; color: #fff; }
+.wf-tour-btn-next:hover { background: #d4911c; }
+
+.wf-tour-btn-finish { background: #4a7c59; color: #fff; }
+.wf-tour-btn-finish:hover { background: #3d6a4a; }
+
+.wf-tour-hidden { display: none !important; }
+
+@media (max-width: 767px) {
+  .wf-tour-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    top: auto !important;
+    border-radius: 16px 16px 0 0 !important;
+    padding: 20px 20px 24px !important;
+    box-shadow: 0 -4px 30px rgba(0,0,0,.18) !important;
+  }
+}

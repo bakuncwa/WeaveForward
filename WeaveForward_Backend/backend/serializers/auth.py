@@ -22,7 +22,7 @@ class DonorRegisterSerializer(serializers.ModelSerializer):
         fields = [
             'first_name', 'middle_name', 'last_name', 'email',
             'contact_no', 'password',
-            'display_address', 'latitude', 'longitude'
+            'display_address', 'latitude', 'longitude', 'city', 'barangay'
         ]
 
     def validate(self, data):
@@ -50,7 +50,7 @@ class DonorRegisterSerializer(serializers.ModelSerializer):
         loc = get_city_and_barangay(lat, lng)
         if not loc:
             raise serializers.ValidationError({'latitude': "Location must be within Metro Manila."})
-        data['city'], data['barangay'] = loc['city'], loc['barangay']
+        data['city'], data['barangay'] = data.get('city') or loc['city'], data.get('barangay') or loc['barangay']
 
         return data
 
@@ -69,7 +69,7 @@ class TUABRegisterSerializer(serializers.ModelSerializer):
         fields = [
             'business_name', 'email', 'contact_no', 'password',
             'description', 'social_link', 'display_address', 'latitude', 'longitude',
-            'target_fibers', 'max_distance_km', 'min_biodeg_score', 'documentation'
+            'city', 'barangay', 'target_fibers', 'max_distance_km', 'min_biodeg_score', 'documentation'
         ]
 
     def validate(self, data):
@@ -109,7 +109,7 @@ class TUABRegisterSerializer(serializers.ModelSerializer):
         loc = get_city_and_barangay(lat, lng)
         if not loc:
             raise serializers.ValidationError({'latitude': "Location must be within Metro Manila."})
-        data['city'], data['barangay'] = loc['city'], loc['barangay']
+        data['city'], data['barangay'] = data.get('city') or loc['city'], data.get('barangay') or loc['barangay']
 
         # Max Distance
         if data['max_distance_km'] < 0 or data['max_distance_km'] > 1000:

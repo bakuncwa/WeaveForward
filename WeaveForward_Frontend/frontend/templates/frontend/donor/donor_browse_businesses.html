@@ -3,6 +3,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'frontend/css/pagination.css' %}" />
+<link rel="stylesheet" href="{% static 'frontend/css/tuab-tour.css' %}" />
 {% endblock %}
 
 {% block content %}
@@ -458,6 +459,7 @@
         const url = new URL(window.location.href);
         url.searchParams.set('lat', pos.coords.latitude.toFixed(7));
         url.searchParams.set('lng', pos.coords.longitude.toFixed(7));
+        if (window.__wfTourActive) { window.__wfPendingGeo = () => { window.location.href = url.toString(); }; return; }
         window.location.href = url.toString();
       }, () => { }, {
         enableHighAccuracy: false,
@@ -492,7 +494,7 @@
     clearTimeout(nominatimTimers[acId]);
     nominatimTimers[acId] = setTimeout(async () => {
       try {
-        const q = encodeURIComponent(val + ', Philippines');
+        const q = encodeURIComponent(val);
         const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}&limit=5&countrycodes=ph&addressdetails=1`, { headers: { 'Accept-Language': 'en-US,en;q=0.9' } });
         const data = await res.json();
         if (!data.length) { ac.classList.add('hidden'); return; }
@@ -522,6 +524,7 @@
     });
   });
 </script>
+<script src="{% static 'frontend/js/donor-tour.js' %}"></script>
 {% endblock %}
 
 
