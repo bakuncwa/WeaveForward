@@ -467,7 +467,7 @@
       <div class="pfp-area">
         <img id="pfp-preview" class="pfp-img" src="{{ tuab.upload }}" alt="Profile">
         <button type="button" class="pfp-change" onclick="getEl('pfp-in').click()">Change Photo</button>
-        <input id="pfp-in" name="upload" type="file" accept="image/*" class="hidden"
+        <input id="pfp-in" name="upload" type="file" accept=".png,.jpeg,.jpg" class="hidden"
           onchange="previewPfp(this.files[0])">
       </div>
     </div>
@@ -662,7 +662,18 @@
 
   // --- 3. Profile Photo ---
   function previewPfp(file) {
-    if (!file?.type.startsWith('image/')) return;
+    if (!file) return;
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+    if (!validTypes.includes(file.type)) {
+      showFlash('Invalid file type. Please upload a PNG or JPEG image.', 'error');
+      getEl('pfp-in').value = '';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showFlash('File is too large. Maximum size is 5MB.', 'error');
+      getEl('pfp-in').value = '';
+      return;
+    }
     const r = new FileReader();
     r.onload = e => getEl('pfp-preview').src = e.target.result;
     r.readAsDataURL(file);
@@ -750,7 +761,7 @@
         getEl('brgy').value = d.barangay || '';
       }
     }
-    if (!resolvedAddress) alert('Could not resolve a display address. Search for the address or pick another map point.');
+    if (!resolvedAddress) showFlash('Could not resolve a display address. Search for the address or pick another map point.', 'error');
   }
 
   function srchAddr(v) {
@@ -801,13 +812,13 @@
     const addrEl = getEl('addr');
     if (!addrEl.value.trim()) {
       e.preventDefault();
-      alert('Please select a display address.');
+      showFlash('Please select a display address.', 'error');
       return;
     }
     const addressChanged = norm(addrEl) !== (initial.display_address || '');
     if (addressChanged && (!getEl('lat').value.trim() || !getEl('lng').value.trim())) {
       e.preventDefault();
-      alert('Please reselect the display address so fresh coordinates are saved.');
+      showFlash('Please reselect the display address so fresh coordinates are saved.', 'error');
     }
   };
 

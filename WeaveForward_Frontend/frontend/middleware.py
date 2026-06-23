@@ -152,9 +152,13 @@ class TokenRefreshMiddleware:
                  (path.startswith("/donor/") and role != "Donor"):
                 return redirect("/admin/donors/" if role == "Admin" else "tuab_dashboard" if role == "TUAB" else "donor_browse_businesses")
 
-        try:
-            response = await self.get_response(request)
-        except PermissionError:
+        response = await self.get_response(request)
+        return response
+
+    def process_exception(self, request, exception):
+        if isinstance(exception, httpx.RequestError):
+            return JsonResponse({"error": "Service unavailable."}, status=503) if request.headers.get("X-Requested-With") == "XMLHttpRequest" else render(request, "frontend/503.html", status=503)
+        if isinstance(exception, PermissionError):
             response = JsonResponse(
                 {"error": "Your session has expired or your account is no longer active. Please log in again."},
                 status=401,
@@ -162,12 +166,6 @@ class TokenRefreshMiddleware:
             for c in AUTH_COOKIE_NAMES:
                 response.delete_cookie(c, path="/")
             return response
-
-        return response
-
-    def process_exception(self, request, exception):
-        if isinstance(exception, httpx.RequestError):
-            return JsonResponse({"error": "Service unavailable."}, status=503) if request.headers.get("X-Requested-With") == "XMLHttpRequest" else render(request, "frontend/503.html", status=503)
         return None
 
 

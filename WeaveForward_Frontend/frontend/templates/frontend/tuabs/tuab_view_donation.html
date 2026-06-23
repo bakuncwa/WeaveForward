@@ -791,9 +791,11 @@
       try {
         const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
         const j = await res.json();
-        getEl('dropoff-display-address').value = j.display_name || `${lat}, ${lng}`;
+        getEl('dropoff-display-address').value = j.display_name || '';
+        if (!j.display_name) showFlash('Could not resolve a display address. Search for the address or pick another map point.', 'error');
       } catch {
-        getEl('dropoff-display-address').value = `${lat}, ${lng}`;
+        getEl('dropoff-display-address').value = '';
+        showFlash('Could not resolve a display address. Search for the address or pick another map point.', 'error');
       }
       closeMap();
     }

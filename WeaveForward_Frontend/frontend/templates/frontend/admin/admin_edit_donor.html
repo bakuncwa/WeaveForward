@@ -584,12 +584,12 @@
     if (!file) return;
     const validTypes = ['image/png', 'image/jpeg', 'image/jpg'];
     if (!validTypes.includes(file.type)) {
-      alert('Invalid file type. Please upload a PNG or JPEG image.');
+      showFlash('Invalid file type. Please upload a PNG or JPEG image.', 'error');
       getEl('pfp-in').value = '';
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      alert('File is too large. Maximum size is 5MB.');
+      showFlash('File is too large. Maximum size is 5MB.', 'error');
       getEl('pfp-in').value = '';
       return;
     }
@@ -647,7 +647,7 @@
     closeMap();
     const resolved = await syncAddressFromCoords(getEl('lat').value, getEl('lng').value);
     await syncLocationFields(getEl('lat').value, getEl('lng').value);
-    if (!resolved) alert('Could not resolve a display address. Search for the address or pick another map point.');
+    if (!resolved) showFlash('Could not resolve a display address. Search for the address or pick another map point.', 'error');
   }
 
   function closeMap() { getEl('map-modal').classList.add('hidden'); }
@@ -667,13 +667,13 @@
     const addrEl = getEl('addr');
     if (!addrEl.value.trim()) {
       e.preventDefault();
-      alert('Please select a display address.');
+      showFlash('Please select a display address.', 'error');
       return;
     }
     const addressChanged = snapshotNamedFieldValue(addrEl) !== (initialNamedFieldValues.display_address || '');
     if (addressChanged && (!getEl('lat').value.trim() || !getEl('lng').value.trim())) {
       e.preventDefault();
-      alert('Please reselect the pickup location after editing the address so fresh coordinates are saved.');
+      showFlash('Please reselect the pickup location after editing the address so fresh coordinates are saved.', 'error');
       return;
     }
 

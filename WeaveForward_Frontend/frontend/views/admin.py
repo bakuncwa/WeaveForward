@@ -283,6 +283,8 @@ async def admin_add_donor(request):
             'password': raw_data.get('password'),
             'contact_no': raw_data.get('contact_no'),
             'display_address': raw_data.get('display_address'),
+            'city': raw_data.get('city'),
+            'barangay': raw_data.get('barangay'),
             'latitude': "{:.7f}".format(float(lat)),
             'longitude': "{:.7f}".format(float(lng)),
         }

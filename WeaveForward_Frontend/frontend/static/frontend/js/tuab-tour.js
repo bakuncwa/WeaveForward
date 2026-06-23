@@ -6,12 +6,12 @@
   var steps = [
     { target: '#tuab-dash-map', title: 'Map', desc: 'Each donation appears as a marker. Click a marker to preview, or click a table row to zoom to it.' },
     { target: '#dash-table-wrap', title: 'Donation List', desc: 'Every available donation is listed here as a row with the key details you need.' },
-    { target: '.tuab-dashboard-table th:nth-child(2)', fallback: '#dash-table-wrap', title: 'Donor Name', desc: 'See who donated so you know who you\'d coordinate with.' },
-    { target: '.tuab-dashboard-table th:nth-child(3)', fallback: '#dash-table-wrap', title: 'Address', desc: 'Where the donation is located — decide if it\'s within your service area.' },
-    { target: '.tuab-dashboard-table th:nth-child(4)', fallback: '#dash-table-wrap', title: 'Pick-Up Date', desc: 'When the donor wants the items picked up.' },
-    { target: '.tuab-dashboard-table th:nth-child(5)', fallback: '#dash-table-wrap', title: 'Items', desc: 'How many clothing items are in the donation.' },
-    { target: '.tuab-dashboard-table .btn-tuab', fallback: '#dash-table-wrap', title: 'Claim', desc: 'Click to view the full donation and choose to claim it.' },
-    { target: '.btn-flag', fallback: function() { var th = document.querySelector('.tuab-dashboard-table th:nth-child(6)'); return th ? th.closest('table') : '#dash-table-wrap'; }, title: 'Flag', desc: 'Report a donation to admins if it looks suspicious.' },
+    { target: '.tuab-dashboard-table th:nth-child(2)', title: 'Donor Name', desc: 'See who donated so you know who you\'d coordinate with.' },
+    { target: '.tuab-dashboard-table th:nth-child(3)', title: 'Address', desc: 'Where the donation is located — decide if it\'s within your service area.' },
+    { target: '.tuab-dashboard-table th:nth-child(4)', title: 'Pick-Up Date', desc: 'When the donor wants the items picked up.' },
+    { target: '.tuab-dashboard-table th:nth-child(5)', title: 'Items', desc: 'How many clothing items are in the donation.' },
+    { target: '.tuab-dashboard-table .btn-tuab', title: 'Claim', desc: 'Click to view the full donation and choose to claim it.' },
+    { target: '.btn-flag', title: 'Flag', desc: 'Report a donation to admins if it looks suspicious.' },
     { target: '#tab-claimed', title: 'Claimed Tab', desc: 'Switch here to track and manage donations you\'ve already claimed.' },
     { target: '#tnav-dashboard', title: 'Dashboard', desc: 'The main dashboard — browse and claim donations.' },
     { target: '#tnav-fiber', title: 'Fiber-Match', desc: 'AI that tells you which donations suit your preferences.' },
@@ -108,7 +108,8 @@
     table.innerHTML = '<thead><tr>'
       + '<th>Donation ID</th><th>Donor</th><th>Address</th><th>Preffered Pick-Up Date</th><th>Items</th><th>Actions</th>'
       + '</tr></thead><tbody>'
-      + '<tr style="opacity:0.3"><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td><div class="tuab-dashboard-actions"><span class="btn btn-tuab" style="opacity:0.3">Claim</span><button class="btn-flag" style="opacity:0.3">Flag</button></div></td></tr>'
+      + '<tr><td>1001</td><td>Maria Santos</td><td>123 Rizal St, Makati</td><td>2025-07-15</td><td>12</td><td><div class="tuab-dashboard-actions"><span class="btn btn-tuab">Claim</span><button class="btn-flag">Flag</button></div></td></tr>'
+      + '<tr><td>1002</td><td>Juan Dela Cruz</td><td>456 Mabini Ave, Manila</td><td>2025-07-18</td><td>8</td><td><div class="tuab-dashboard-actions"><span class="btn btn-tuab">Claim</span><button class="btn-flag">Flag</button></div></td></tr>'
       + '</tbody>';
     var old = wrap.querySelector('p');
     if (old) old.remove();
@@ -205,9 +206,14 @@
   createElements();
   window.addEventListener('scroll', onScroll, { passive: true, capture: true });
 
-  if (document.readyState === 'complete') {
+  function start() {
+    if (!document.querySelector('.tuab-dashboard-table')) ensureTable();
     renderStep(0);
+  }
+
+  if (document.readyState === 'complete') {
+    start();
   } else {
-    window.addEventListener('load', function() { renderStep(0); });
+    window.addEventListener('load', start);
   }
 })();

@@ -96,7 +96,7 @@
     var html = '';
     for (var i = 0; i < cards.length; i++) {
       var c = cards[i];
-      html += '<a class="biz-card" href="#" style="opacity:0.4;pointer-events:none">'
+      html += '<a class="biz-card" href="#">'
         + '<div class="biz-avatar" style="display:flex;align-items:center;justify-content:center;background:#eee;color:#aaa">'
         + '<svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">'
         + '<path d="M3 21h18M3 7v1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7H3m2 4h14v10H5V11z"/></svg></div>'
@@ -117,8 +117,6 @@
   function renderStep(index) {
     var step = steps[index];
     if (!step) return finish();
-
-    if (!document.querySelector('.biz-card') && index === 1) ensureBizCards();
 
     var el = getTargetEl(step);
     currentEl = el;
@@ -204,9 +202,14 @@
   createElements();
   window.addEventListener('scroll', onScroll, { passive: true, capture: true });
 
-  if (document.readyState === 'complete') {
+  function start() {
+    if (!document.querySelector('.biz-card')) ensureBizCards();
     renderStep(0);
+  }
+
+  if (document.readyState === 'complete') {
+    start();
   } else {
-    window.addEventListener('load', function() { renderStep(0); });
+    window.addEventListener('load', start);
   }
 })();
