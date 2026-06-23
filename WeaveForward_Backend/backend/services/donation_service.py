@@ -10,6 +10,7 @@ from io import BytesIO
 from PIL import Image as PILImage
 from datetime import timedelta
 from django.db import transaction
+from .email_service import send_donation_claimed_notification
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.utils import timezone
@@ -678,6 +679,14 @@ def claim_donation(user, donation, claim_params, ip_address=None):
             donation.status, donation.claimed_by_tuab, donation.delivery_method = DonationStatus.CLAIMED, user, DonationDeliveryMethod.PICKUP
             donation.save()
             log_audit(user, 'donations', 'STATUS_CHANGE', ip_address, ['status', 'claimed_by_tuab', 'delivery_method'])
+            donor = donation.donor
+            send_donation_claimed_notification(
+                donor_email=donor.email,
+                donor_name=f"{donor.first_name} {donor.last_name}".strip() or donor.email,
+                donation_id=donation.donation_id,
+                tuab_name=user.business_name or f"{user.first_name} {user.last_name}".strip(),
+                delivery_method="PICKUP",
+            )
             return {"detail": "Donation successfully claimed for pickup."}
 
     quotation_token = claim_params.get('quotation_token')
@@ -900,6 +909,14 @@ def claim_donation(user, donation, claim_params, ip_address=None):
         cancel_lalamove_order(lalamove_order_id)
         raise
 
+    donor = donation.donor
+    send_donation_claimed_notification(
+        donor_email=donor.email,
+        donor_name=f"{donor.first_name} {donor.last_name}".strip() or donor.email,
+        donation_id=donation.donation_id,
+        tuab_name=user.business_name or f"{user.first_name} {user.last_name}".strip(),
+        delivery_method="DELIVERY",
+    )
     return {"detail": "Donation successfully claimed and delivery scheduled.", "lalamove_order_id": lalamove_order_id}
 
 

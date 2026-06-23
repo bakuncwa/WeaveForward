@@ -572,6 +572,7 @@
   }
   async function syncLocationFields(latitude, longitude) {
     try {
+      getEl('city').value = ''; getEl('brgy').value = '';
       const response = await fetch(`/api/location/lookup/?lat=${latitude}&lng=${longitude}`);
       if (!response.ok) return;
       const data = await response.json();

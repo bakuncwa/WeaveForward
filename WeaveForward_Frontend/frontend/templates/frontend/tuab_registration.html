@@ -461,8 +461,8 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 16px 48px;
-      border-top: 1px solid #f0ede8
+      padding: 16px 0;
+      grid-column: 1 / -1;
     }
 
     .s-dot {
@@ -542,10 +542,16 @@
     .pw-label-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
     .pw-toggle { border: 0; background: none; color: var(--g); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-family: 'Poppins', sans-serif; padding: 0; }
     .pw-toggle svg { width: 15px; height: 15px; }
-    .pw-rules { position: absolute; top: 100%; left: 0; right: 0; z-index: 1; display: none; flex-direction: column; gap: 4px; padding: 10px 12px; background: #faf8f5; border: 1px solid #e0dbd4; border-radius: 8px; }
+    .pw-rules { display: none; flex-direction: row; flex-wrap: wrap; gap: 6px 16px; padding: 8px 12px; background: #faf8f5; border: 1px solid #e0dbd4; border-radius: 6px; margin: 6px 0 0 0; }
     .pw-rules.visible { display: flex; }
-    .pw-rule { font-size: 11px; font-family: 'Poppins', sans-serif; color: #aaa; transition: color 0.2s; }
-    .pw-rule.met { color: #2d7a4f; }
+    .pw-rule { font-size: 12px; font-family: 'Poppins', sans-serif; display: inline-flex; align-items: center; gap: 4px; color: #e74c3c; transition: color 0.2s; }
+    .pw-rule .icon { font-size: 13px; font-weight: 700; }
+    .pw-rule .icon::before { content: '\2715'; }
+    .pw-rule.met .icon::before { content: '\2714'; }
+    .pw-rule.met { color: #1a6d3a; }
+    .pw-rule.met .icon { color: #27ae60; }
+    .pw-rule:not(.met) .icon { color: #e74c3c; }
+    .pw-strength { display: none; }
     .biodeg-info, .distance-info { display: none; font-size: 11px; line-height: 1.5; color: #3C6591; background: #eef4fa; border: 1px solid #c5d5e8; border-radius: 8px; padding: 10px 12px; }
     .biodeg-info.visible, .distance-info.visible { display: block; }
     .spec-wrap { margin-top: 8px; }
@@ -562,6 +568,7 @@
     .field-err { font-size: 11px; color: #c0392b; margin-top: 2px; min-height: 0; display: block; }
     .in.invalid { border-color: #e74c3c !important; }
     .in.valid { border-color: #27ae60 !important; }
+    .in:focus { outline: none; border-color: #aaa; box-shadow: 0 0 0 2px rgba(0,0,0,.08); }
     .in.invalid:focus { border-color: #e74c3c !important; box-shadow: 0 0 0 2px rgba(231,76,60,.15); }
     .in.valid:focus { border-color: #27ae60 !important; box-shadow: 0 0 0 2px rgba(39,174,96,.15); }
     .t-box.invalid { border-color: #e74c3c !important; }
@@ -622,9 +629,9 @@
             <div class="pw-wrap"><div class="group"><div class="pw-label-row"><label class="cap-lbl">Password<span class="req">*</span></label><button type="button" class="pw-toggle" onclick="toggleRegistrationPasswords('pw','cp','tuab-pw-toggle-text')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg><span id="tuab-pw-toggle-text">Show</span></button></div><input class="in" type="password" name="password"
                 id="pw" value="{{ form_data.password }}" autocomplete="new-password"><span class="field-err" id="err-password"></span></div>
             <div class="pw-rules" id="pw-rules">
-              <div class="pw-rule" id="r-len">&#x25CF; At least 8 characters</div>
-              <div class="pw-rule" id="r-letter">&#x25CF; At least 1 letter</div>
-              <div class="pw-rule" id="r-digit">&#x25CF; At least 1 number</div>
+              <div class="pw-rule" id="r-len"><span class="icon"></span> 8+ chars</div>
+              <div class="pw-rule" id="r-letter"><span class="icon"></span> 1 letter</div>
+              <div class="pw-rule" id="r-digit"><span class="icon"></span> 1 number</div>
             </div></div>
             <div class="group"><label class="cap-lbl">Confirm Password<span class="req">*</span></label><input class="in" type="password"
                 name="confirm_password" id="cp" value="{{ form_data.confirm_password }}" autocomplete="new-password"><span class="field-err" id="err-confirm_password"></span></div>
@@ -638,7 +645,7 @@
                   id="desc" style="height:110px;resize:none" placeholder="What do you do with the waste?">{{ form_data.description }}</textarea><span class="field-err" id="err-description"></span></div>
               <p class="hint">Displayed publicly on your TUAB profile card.</p>
               <div class="group"><label class="cap-lbl">Social / Website Link</label><input class="in"
-                  name="social_link" value="{{ form_data.social_link }}"><span class="field-err" id="err-social_link">
+                  name="social_link" value="{{ form_data.social_link|default:'' }}"><span class="field-err" id="err-social_link">
               </span></div>
               <p class="hint">Optional — helps donors learn more about you.</p>
               <div class="sec-lbl">LOCATION</div>
@@ -691,7 +698,7 @@
               <p class="hint">Furthest pickup radius</p>
               <div class="group"><label class="cap-lbl">Min. Biodegradability Score<span class="req">*</span></label><input class="in"
                   type="number" step="0.01" name="min_biodeg_score" id="mbs" value="{{ form_data.min_biodeg_score|default:'50' }}" min="0"><span class="field-err" id="err-min_biodeg_score"></span>
-              <div class="biodeg-info" id="biodeg-info">This score helps our AI find good donations for you. Higher means materials that are more sustainable.<br>
+               <div class="biodeg-info" id="biodeg-info">This score helps our AI find good donations for you. A higher score means you prefer fibers that are more sustainable.<br>
 <div class="spec-wrap"><div class="spec-bar"><div class="spec-dot" style="left:7%"></div><div class="spec-dot" style="left:20%"></div><div class="spec-dot" style="left:30%"></div><div class="spec-dot" style="left:75%"></div><div class="spec-dot" style="left:85%"></div></div><div class="spec-labels"><span style="left:7%">Acrylic<br><small>5–15</small></span><span style="left:20%">Polyester<br><small>10–30</small></span><span style="left:30%">Nylon<br><small>20–40</small></span><span style="left:75%">Jute<br><small>80–90</small></span><span style="left:85%">Cotton<br><small>85–95</small></span></div><div class="spec-ends"><span>Less sustainable</span><span>More sustainable</span></div></div></div></div>
             </div>
           </div>
@@ -712,7 +719,7 @@
                   </div>
                   <div>
                     <div style="font-weight:500;font-size:16px;color:#E8A020">Upload files *</div>
-                    <div style="font-size:13px;color:#E8A020">Select and upload the files of your choice</div>
+                    <div style="font-size:13px;color:#E8A020">Select and upload a file</div>
                   </div>
                 </div>
               </div>
@@ -745,10 +752,9 @@
                 id="sub-btn" disabled onclick="subFrm()">Submit</button>
             </div>
           </div>
-        </div>
       </div>
 
-      <div class="s-bar">
+      <div class="s-bar" id="s-bar">
         <button type="button" class="s-btn" id="pb" onclick="go(-1)">❮</button>
         <div style="display:flex;gap:10px" id="dots"></div>
         <button type="button" class="s-btn" id="nb" onclick="go(1)">❯</button>
@@ -772,7 +778,7 @@
   <script>
     const gE = i => document.getElementById(i);
     const escapeHTML = str => !str ? '' : str.replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c] || c));
-    let cS = {% if errors %}{{ error_step|default:1 }}{% else %}1{% endif %}, aT, aR = [], m, mk, tLt, tLg, tgs = (document.getElementById('fibs')?.value || '').split(',').filter(x => x);
+    let cS = {% if errors %}{{ error_step|default:1 }}{% else %}1{% endif %}, aT, aR = [], m, mk, tLt, tLg, tgs = (document.getElementById('fibs')?.value || '').split(',').filter(x => x), ncrOk = false;
 
     function toggleAddrDropdown(trigger) {
       const wrap = trigger.closest('.ss-wrap');
@@ -805,12 +811,15 @@
       { id: 'r-digit',   test: v => /\d/.test(v) },
     ];
     function checkPw(v) {
-      const rules = gE('pw-rules');
-      const results = PW_RULES.map(r => { const ok = r.test(v); gE(r.id).classList.toggle('met', ok); return ok; });
-      if (v && !results.every(Boolean)) rules.classList.add('visible'); else rules.classList.remove('visible');
+       const rules = gE('pw-rules');
+      const results = PW_RULES.map(r => { const ok = r.test(v); const el = gE(r.id); el.classList.toggle('met', ok); return ok; });
+      if (v) rules.classList.add('visible'); else if (!document.activeElement || document.activeElement !== gE('pw')) rules.classList.remove('visible');
+      const met = results.filter(Boolean).length;
       return results.every(Boolean);
     }
     gE('pw')?.addEventListener('input', () => checkPw(gE('pw').value));
+    gE('pw')?.addEventListener('focus', () => { if (gE('pw').value) checkPw(gE('pw').value); });
+    gE('pw')?.addEventListener('blur', () => { setTimeout(() => { if (!gE('pw').value) gE('pw-rules').classList.remove('visible'); }, 150); });
     function toggleRegistrationPasswords(passwordId, confirmId, textId) {
       const pw = gE(passwordId), cp = gE(confirmId), text = gE(textId);
       const show = pw.type === 'password';
@@ -841,8 +850,8 @@
       description: v => v.trim() ? '' : 'Description is required.',
       social_link: v => v.trim() ? '' : '',
       display_address: v => v.trim() ? '' : 'Display address is required.',
-      city: v => v.trim() ? (v.length <= 50 ? '' : 'Max 50 characters.') : 'City is required.',
-      barangay: v => v.trim() ? (v.length <= 50 ? '' : 'Max 50 characters.') : 'Barangay is required.',
+      city: v => v.trim() ? '' : 'City is required.',
+      barangay: v => v.trim() ? '' : 'Barangay is required.',
       target_fibers: v => tgs.length ? '' : 'Select at least one fiber type.',
       max_distance_km: v => {
         const n = parseFloat(v);
@@ -864,7 +873,7 @@
         return;
       }
       const inp = document.querySelector(`[name="${field}"]`) || document.querySelector(`#${field}`);
-      if (inp) { inp.classList.toggle('invalid', !!msg); inp.classList.toggle('valid', !msg && (inp.value || '').trim()); }
+      if (inp) { inp.classList.toggle('invalid', !!msg); inp.classList.toggle('valid', !msg); }
     }
 
     function validateField(field) {
@@ -898,7 +907,7 @@
     const _da = document.querySelector('[name="display_address"]');
     if (_da) {
       _da.addEventListener('blur', () => validateAddress());
-      _da.addEventListener('input', () => { gE('lat').value = ''; gE('lng').value = ''; gE('city').value = ''; gE('brgy').value = ''; validateAddress(); });
+      _da.addEventListener('input', () => { gE('lat').value = ''; gE('lng').value = ''; gE('city').value = ''; gE('brgy').value = ''; ncrOk = false; validateAddress(); });
     }
     ['city','barangay'].forEach(f => {
       const el = document.querySelector(`[name="${f}"]`);
@@ -911,23 +920,17 @@
     function validateAddress() {
       const cityOk = validateField('city');
       const barangayOk = validateField('barangay');
-      const ncrOk = cityOk && barangayOk;
-      const t = document.querySelector('.mat-trigger');
+      const daOk = validateField('display_address');
       const hasAddr = !!gE('addr').value;
-      [gE('city'), gE('brgy')].forEach(el => {
-        if (!el) return;
-        el.classList.toggle('valid', hasAddr && ncrOk);
-        el.classList.toggle('invalid', hasAddr && !ncrOk);
-      });
+      const t = document.querySelector('.mat-trigger');
       if (hasAddr && !ncrOk) {
         showErr('display_address', 'Address must be within Metro Manila.');
         t?.classList.remove('valid'); t?.classList.add('invalid');
         updateSubmitBtn(); return false;
       }
-      const ok = validateField('display_address'); updateSubmitBtn();
-      t?.classList.toggle('valid', ok && hasAddr);
-      t?.classList.toggle('invalid', !ok && hasAddr);
-      return ok;
+      t?.classList.toggle('valid', daOk && hasAddr);
+      t?.classList.toggle('invalid', !daOk || !hasAddr);
+      updateSubmitBtn(); return daOk && cityOk && barangayOk;
     }
     const _slAddr = slAddr; slAddr = async function(i) { await _slAddr(i); };
     const _cfMap = cfMap; cfMap = async function() { await _cfMap(); };
@@ -1018,6 +1021,13 @@
       el.addEventListener('input', updateSubmitBtn);
       el.addEventListener('change', updateSubmitBtn);
     });
+    ['social_link','max_distance_km','min_biodeg_score'].forEach(f => validateField(f));
+    if (gE('pw')?.value) checkPw(gE('pw').value);
+    document.querySelectorAll('[name="max_distance_km"],[name="min_biodeg_score"]').forEach(el => {
+      el.addEventListener('keydown', function(e) {
+        if (e.key === '-' || e.key === '+') e.preventDefault();
+      });
+    });
     gE('terms_accepted')?.addEventListener('change', updateSubmitBtn);
     gE('privacy_accepted')?.addEventListener('change', updateSubmitBtn);
     gE('addr')?.addEventListener('input', updateSubmitBtn);
@@ -1054,6 +1064,7 @@
     gE('subt').style.fontSize = initSt.sz;
     gE('fwrap').classList.toggle('form-wrap-lg', cS === 2);
     updateArrows();
+    placeNav();
 
     function go(d) {
       if (cS === 1 && d === -1) {
@@ -1079,6 +1090,7 @@
         gE('subt').style.fontSize = st.sz;
         gE('fwrap').classList.toggle('form-wrap-lg', cS === 2);
     updateArrows(); updateSubmitBtn();
+        placeNav();
         return;
       }
       cS = Math.min(3, Math.max(1, cS + d));
@@ -1093,6 +1105,11 @@
       gE('subt').style.fontSize = st.sz;
       gE('fwrap').classList.toggle('form-wrap-lg', cS === 2);
       updateArrows();
+      placeNav();
+    }
+    function placeNav() {
+      const nav = gE('s-bar');
+      gE('st' + cS).appendChild(nav);
     }
 
     // Address & Map
@@ -1125,9 +1142,9 @@
     async function fLD(lt, lg) {
       try {
         const r = await fetch(`/api/location/lookup/?lat=${lt}&lng=${lg}`);
-        gE('city').value = ''; gE('brgy').value = '';
-        if (r.ok) { const d = await r.json(); gE('city').value = d.city || ''; gE('brgy').value = d.barangay || '' }
-      } catch { }
+        gE('city').value = ''; gE('brgy').value = ''; ncrOk = false;
+        if (r.ok) { const d = await r.json(); gE('city').value = d.city || ''; gE('brgy').value = d.barangay || ''; ncrOk = true; }
+      } catch { ncrOk = false; }
     }
 
     function opMap() {

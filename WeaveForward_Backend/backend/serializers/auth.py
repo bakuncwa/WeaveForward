@@ -49,7 +49,7 @@ class DonorRegisterSerializer(serializers.ModelSerializer):
         lat, lng = data.get('latitude'), data.get('longitude')
         loc = get_city_and_barangay(lat, lng)
         if not loc:
-            raise serializers.ValidationError({'latitude': "Location must be within Metro Manila."})
+            raise serializers.ValidationError({'location': "Location must be within Metro Manila."})
         data['city'], data['barangay'] = data.get('city') or loc['city'], data.get('barangay') or loc['barangay']
 
         return data
@@ -108,7 +108,7 @@ class TUABRegisterSerializer(serializers.ModelSerializer):
         lat, lng = data.get('latitude'), data.get('longitude')
         loc = get_city_and_barangay(lat, lng)
         if not loc:
-            raise serializers.ValidationError({'latitude': "Location must be within Metro Manila."})
+            raise serializers.ValidationError({'location': "Location must be within Metro Manila."})
         data['city'], data['barangay'] = data.get('city') or loc['city'], data.get('barangay') or loc['barangay']
 
         # Max Distance
@@ -136,6 +136,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token = super().get_token(user)
         token['role'] = user.role
         token['status'] = user.status
+        token['created_at'] = user.created_at.isoformat()
         return token
 
     default_error_messages = {

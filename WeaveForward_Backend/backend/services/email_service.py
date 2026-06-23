@@ -144,6 +144,33 @@ def send_match_reject_notification(donor_email, donor_name, tuab_name,
         return None
 
 
+def send_donation_claimed_notification(donor_email, donor_name, donation_id, tuab_name, delivery_method):
+    resend.api_key = settings.RESEND_API_KEY
+
+    method_label = "Pick-Up" if delivery_method == "PICKUP" else "Delivery"
+
+    params = {
+        "from": "WeaveForward <no-reply@weaveforward.online>",
+        "to": [donor_email],
+        "subject": f"Your Donation #{donation_id} Has Been Claimed",
+        "html": f"""
+            <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                <h2 style="color: #2D3748;">Your Donation Has Been Claimed!</h2>
+                <p>Hello {donor_name},</p>
+                <p>Great news! <strong>{tuab_name}</strong> has claimed your donation <strong>#{donation_id}</strong> via <strong>{method_label}</strong>.</p>
+                <p>Log in to your account to view the details and see its status.</p>
+                <p>Best regards,<br>The WeaveForward Team</p>
+            </div>
+        """,
+    }
+
+    try:
+        return resend.Emails.send(params)
+    except Exception as e:
+        logger.error("Failed to send claimed notification for donation #%s: %s", donation_id, e)
+        return None
+
+
 def send_flag_notification(admin_emails, donation_id, flag_reason, flagged_by_name, donor_name, pickup_city):
     resend.api_key = settings.RESEND_API_KEY
 

@@ -61,15 +61,15 @@
         <div class="g2" style="margin-bottom:14px">
           <div class="field">
             <label>Business Name</label>
-            <input name="business_name" class="wf-in" value="{{ user.business_name }}" maxlength="125" required />
+            <input name="business_name" class="wf-in" value="{{ user.business_name|default:'' }}" maxlength="125" required />
           </div>
           <div class="field">
             <label>Description</label>
-            <input name="description" class="wf-in" value="{{ user.description }}" required />
+            <input name="description" class="wf-in" value="{{ user.description|default:'' }}" required />
           </div>
         </div>
         <div class="g2" style="margin-bottom:14px">
-          <div class="field"><label>Social / Website Link</label><input name="social_link" class="wf-in" value="{{ user.social_link }}" /></div>
+          <div class="field"><label>Social / Website Link</label><input name="social_link" class="wf-in" value="{{ user.social_link|default:'' }}" /></div>
           <div class="field" style="position:relative">
             <label>Target Fiber Types</label>
             <div class="t-box" id="fiber-trigger">
@@ -279,7 +279,7 @@
         form.querySelectorAll('[name]').forEach(el => {
             if (['csrfmiddlewaretoken', 'current_etag', 'user_id', 'confirm_password'].includes(el.name)) return;
             const val = el.type === 'file' ? el.files[0] : el.value;
-            if (val && val !== initialData[el.name]) {
+            if (val != null && val !== initialData[el.name]) {
                 toSend.append(el.name, val);
                 changed = true;
             }

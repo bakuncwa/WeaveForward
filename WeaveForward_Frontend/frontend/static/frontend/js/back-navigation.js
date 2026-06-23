@@ -4,7 +4,7 @@
   const backRoutes = [
     {
       key: 'wfBack:tuab:donations',
-      listPaths: ['/tuab/dashboard/'],
+      listPaths: ['/tuab/dashboard/', '/tuab/inventory/'],
       detailPrefixes: ['/tuab/donations/'],
       fallbackPath: '/tuab/dashboard/',
     },

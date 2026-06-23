@@ -1,5 +1,10 @@
 (function() {
   if (localStorage.getItem('wf_tour_done_donor')) return;
+  if (window.__wfUserCreatedAt) {
+    var created = new Date(window.__wfUserCreatedAt).getTime();
+    var fiveDaysAgo = Date.now() - 5 * 86400000;
+    if (created < fiveDaysAgo) return;
+  }
 
   window.__wfTourActive = true;
   var isMobile = window.innerWidth < 768;

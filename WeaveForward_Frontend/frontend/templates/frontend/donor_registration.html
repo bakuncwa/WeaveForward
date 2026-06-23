@@ -339,10 +339,15 @@
     .pw-label-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
     .pw-toggle { border: 0; background: none; color: var(--g); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-family: 'Poppins', sans-serif; padding: 0; }
     .pw-toggle svg { width: 15px; height: 15px; }
-    .pw-rules { position: absolute; top: 100%; left: 0; right: 0; z-index: 1; display: none; flex-direction: column; gap: 4px; padding: 10px 12px; background: #faf8f5; border: 1px solid #e0dbd4; border-radius: 8px; }
+    .pw-rules { display: none; flex-direction: row; flex-wrap: wrap; gap: 6px 16px; padding: 8px 12px; background: #faf8f5; border: 1px solid #e0dbd4; border-radius: 6px; margin: 6px 0 0 0; }
     .pw-rules.visible { display: flex; }
-    .pw-rule { font-size: 11px; font-family: 'Poppins', sans-serif; color: #aaa; transition: color 0.2s; }
-    .pw-rule.met { color: #2d7a4f; }
+    .pw-rule { font-size: 12px; font-family: 'Poppins', sans-serif; display: inline-flex; align-items: center; gap: 4px; color: #e74c3c; transition: color 0.2s; }
+    .pw-rule .icon { font-size: 13px; font-weight: 700; }
+    .pw-rule .icon::before { content: '\2715'; }
+    .pw-rule.met .icon::before { content: '\2714'; }
+    .pw-rule.met { color: #1a6d3a; }
+    .pw-rule.met .icon { color: #27ae60; }
+    .pw-rule:not(.met) .icon { color: #e74c3c; }
     .agreement-checks { display: grid; gap: 8px; margin: 14px 0 4px; font-size: 12px; color: #555; }
     .agreement-checks label { display: flex; align-items: flex-start; gap: 8px; line-height: 1.5; }
     .agreement-checks input { margin-top: 2px; accent-color: var(--g); }
@@ -387,11 +392,11 @@
             <div class="phone-row"><input class="in" value="+63" readonly><input class="in" name="contact_no" id="donor-phone" value="{{ form_data.contact_no }}" inputmode="numeric" maxlength="10" pattern="\d{10}"></div><span class="field-err" id="err-contact_no"></span>
           </div>
             <div class="pw-wrap"><div class="group"><div class="pw-label-row"><label class="up">Password<span class="req">*</span></label><button type="button" class="pw-toggle" onclick="toggleRegistrationPasswords('donor-pw','donor-cp','donor-pw-toggle-text')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg><span id="donor-pw-toggle-text">Show</span></button></div><input class="in" type="password" name="password" id="donor-pw" value="{{ form_data.password }}" autocomplete="new-password"><span class="field-err" id="err-password"></span></div>
-           <div class="pw-rules" id="pw-rules">
-            <div class="pw-rule" id="r-len">&#x25CF; At least 8 characters</div>
-            <div class="pw-rule" id="r-letter">&#x25CF; At least 1 letter</div>
-            <div class="pw-rule" id="r-digit">&#x25CF; At least 1 number</div>
-          </div></div>
+            <div class="pw-rules" id="pw-rules">
+              <div class="pw-rule" id="r-len"><span class="icon"></span> 8+ chars</div>
+              <div class="pw-rule" id="r-letter"><span class="icon"></span> 1 letter</div>
+              <div class="pw-rule" id="r-digit"><span class="icon"></span> 1 number</div>
+           </div></div>
            <div class="group"><label class="up">Confirm Password<span class="req">*</span></label><input class="in" type="password"
                name="confirm_password" id="donor-cp" value="{{ form_data.confirm_password }}" autocomplete="new-password"><span class="field-err" id="err-confirm_password"></span></div>
          </div>
@@ -427,17 +432,21 @@
             <label><input type="checkbox" id="terms_accepted" name="terms_accepted" {% if form_data.terms_accepted %}checked{% endif %}> I agree to the <button type="button" class="agreement-link" onclick="event.preventDefault();event.stopPropagation();openAgreement('terms')">Terms and Conditions</button>.</label>
             <label><input type="checkbox" id="privacy_accepted" name="privacy_accepted" {% if form_data.privacy_accepted %}checked{% endif %}> I agree to the <button type="button" class="agreement-link" onclick="event.preventDefault();event.stopPropagation();openAgreement('privacy')">Privacy Agreement</button>.</label>
           </div>
-          <button type="submit" class="btn" id="reg-btn" disabled>Register</button>
+          <button type="button" class="btn" id="reg-btn" disabled onclick="subFrm()">Register</button>
         </div>
         {% if errors %}
-        <div
-          style="background:#fff5f5;border:1px solid #ff4d4d;color:#ff4d4d;border-radius:8px;padding:16px;margin-top:16px;font-size:14px;">
+        <div id="ajax-err" style="background:#fff5f5;border:1px solid #ff4d4d;color:#c0392b;border-radius:8px;padding:16px;margin-top:16px;font-size:13px;">
           <strong style="display:block;margin-bottom:5px;">Please fix these errors:</strong>
-          <ul style="padding-left:20px;">
+          <ul style="padding-left:20px;margin:0;">
             {% for field, error_list in errors.items %}
             <li><strong>{{ field|title }}</strong>: {{ error_list.0 }}</li>
             {% endfor %}
           </ul>
+        </div>
+        {% else %}
+        <div id="ajax-err" style="display:none;background:#fff5f5;border:1px solid #ff4d4d;color:#c0392b;border-radius:8px;padding:16px;margin-top:16px;font-size:13px;">
+          <strong style="display:block;margin-bottom:5px;">Please fix these errors:</strong>
+          <ul style="padding-left:20px;margin:0;"></ul>
         </div>
         {% endif %}
         <div class="step-nav">
@@ -466,7 +475,7 @@
   <script>
     const gE = i => document.getElementById(i);
     const esc = str => !str ? '' : str.replace(/[&<>'"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]||c));
-    let cS = {% if errors %}2{% else %} 1{% endif %}, aT, aR = [], m, mk, tLt = 14.589, tLg = 120.982;
+    let cS = {% if errors %}2{% else %} 1{% endif %}, aT, aR = [], m, mk, tLt = 14.589, tLg = 120.982, ncrOk = false;
 
     function toggleAddrDropdown(trigger) {
       const wrap = trigger.closest('.ss-wrap');
@@ -500,12 +509,14 @@
     ];
     function checkPw(v) {
       const rules = gE('pw-rules');
-      const results = PW_RULES.map(r => { const ok = r.test(v); gE(r.id).classList.toggle('met', ok); return ok; });
-      if (v && !results.every(Boolean)) rules.classList.add('visible'); else rules.classList.remove('visible');
+      const results = PW_RULES.map(r => { const ok = r.test(v); const el = gE(r.id); el.classList.toggle('met', ok); return ok; });
+      if (v) rules.classList.add('visible'); else if (!document.activeElement || document.activeElement !== gE('donor-pw')) rules.classList.remove('visible');
       return results.every(Boolean);
     }
     function pwValid() { return checkPw(gE('donor-pw')?.value || ''); }
     gE('donor-pw')?.addEventListener('input', () => checkPw(gE('donor-pw').value));
+    gE('donor-pw')?.addEventListener('focus', () => { if (gE('donor-pw').value) checkPw(gE('donor-pw').value); });
+    gE('donor-pw')?.addEventListener('blur', () => { setTimeout(() => { if (!gE('donor-pw').value) gE('pw-rules').classList.remove('visible'); }, 150); });
     function toggleRegistrationPasswords(passwordId, confirmId, textId) {
       const pw = gE(passwordId), cp = gE(confirmId), text = gE(textId);
       const show = pw.type === 'password';
@@ -537,8 +548,8 @@
         return v === gE('donor-pw').value ? '' : 'Passwords do not match.';
       },
       display_address: v => v.trim() ? '' : 'Pickup address is required.',
-      city: v => v.trim() ? (v.length <= 50 ? '' : 'Max 50 characters.') : 'City is required.',
-      barangay: v => v.trim() ? (v.length <= 50 ? '' : 'Max 50 characters.') : 'Barangay is required.',
+      city: v => v.trim() ? '' : 'City is required.',
+      barangay: v => v.trim() ? '' : 'Barangay is required.',
     };
 
     function showErr(field, msg) {
@@ -575,10 +586,11 @@
     gE('donor-pw')?.addEventListener('input', () => {
       if (gE('donor-cp')?.value) validateField('confirm_password');
     });
+    if (gE('donor-pw')?.value) checkPw(gE('donor-pw').value);
     const _da = document.querySelector('[name="display_address"]');
     if (_da) {
       _da.addEventListener('blur', () => validateAddress());
-      _da.addEventListener('input', () => { gE('lat').value = ''; gE('lng').value = ''; gE('city').value = ''; gE('brgy').value = ''; validateAddress(); });
+      _da.addEventListener('input', () => { gE('lat').value = ''; gE('lng').value = ''; gE('city').value = ''; gE('brgy').value = ''; ncrOk = false; validateAddress(); });
     }
     ['city','barangay'].forEach(f => {
       const el = document.querySelector(`[name="${f}"]`);
@@ -591,23 +603,17 @@
     function validateAddress() {
       const cityOk = validateField('city');
       const barangayOk = validateField('barangay');
-      const ncrOk = cityOk && barangayOk;
-      const t = document.querySelector('.mat-trigger');
+      const daOk = validateField('display_address');
       const hasAddr = !!gE('addr').value;
-      [gE('city'), gE('brgy')].forEach(el => {
-        if (!el) return;
-        el.classList.toggle('valid', hasAddr && ncrOk);
-        el.classList.toggle('invalid', hasAddr && !ncrOk);
-      });
+      const t = document.querySelector('.mat-trigger');
       if (hasAddr && !ncrOk) {
         showErr('display_address', 'Address must be within Metro Manila.');
         t?.classList.remove('valid'); t?.classList.add('invalid');
         updateSubmitBtn(); return false;
       }
-      const ok = validateField('display_address'); updateSubmitBtn();
-      t?.classList.toggle('valid', ok && hasAddr);
-      t?.classList.toggle('invalid', !ok && hasAddr);
-      return ok;
+      t?.classList.toggle('valid', daOk && hasAddr);
+      t?.classList.toggle('invalid', !daOk || !hasAddr);
+      updateSubmitBtn(); return daOk && cityOk && barangayOk;
     }
     const _slAddr = slAddr; slAddr = async function(i) { await _slAddr(i); };
     const _cfMap = cfMap; cfMap = async function() { await _cfMap(); };
@@ -657,10 +663,32 @@
       (terms.checked ? privacy : terms).focus();
       return false;
     }
-    gE('frm')?.addEventListener('submit', e => {
-      if (!agreementsOk() || !validateStep1() || !validateAddress()) { e.preventDefault(); return; }
+    function subFrm() {
+      if (!agreementsOk() || !validateStep1() || !validateAddress()) return;
       gE('reg-btn').disabled = true;
-    });
+      const fd = new FormData(gE('frm'));
+      fetch(window.location.pathname, {
+        method: 'POST', body: fd,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      }).then(r => r.json()).then(d => {
+        if (d.redirect) { window.location.href = d.redirect; return; }
+        if (d.errors) {
+          const errDiv = gE('ajax-err');
+          const list = errDiv.querySelector('ul');
+          list.innerHTML = Object.entries(d.errors).map(([k, v]) =>
+            `<li><strong>${k}</strong>: ${[].concat(v).join(', ')}</li>`
+          ).join('');
+          errDiv.style.display = '';
+          errDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        gE('reg-btn').disabled = false;
+      }).catch(() => {
+        const errDiv = gE('ajax-err');
+        errDiv.querySelector('ul').innerHTML = '<li><strong>Network error</strong>: Please try again.</li>';
+        errDiv.style.display = '';
+        gE('reg-btn').disabled = false;
+      });
+    }
     function go(d) {
       if (cS == 1 && d == -1) { window.location.href = "{% url 'login' %}"; return; }
       if (cS == 1 && d == 1) {
@@ -675,7 +703,7 @@
     gE('step1').classList.toggle('hidden', cS != 1); gE('step2').classList.toggle('hidden', cS != 2); gE('d1').style.background = cS == 1 ? 'var(--g)' : '#ccc'; gE('d2').style.background = cS == 2 ? 'var(--g)' : '#ccc'; updateArrows(); updateSubmitBtn();
     function srAddr(v) { const items = gE('addr-items'), ac = gE('ac'); if (!items) return; if (v.length < 3) { items.innerHTML = ''; return; } clearTimeout(aT); aT = setTimeout(async () => { try { const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(v)}&limit=5&countrycodes=ph`); aR = await r.json(); items.innerHTML = aR.map((r, i) => `<div class="mat-item" onmousedown="event.preventDefault();slAddr(${i})">${esc(r.display_name)}</div>`).join(''); ac.classList.remove('hidden') } catch { } }, 350) }
     async function slAddr(i) { const lt = (+aR[i].lat).toFixed(7), lg = (+aR[i].lon).toFixed(7); gE('addr').value = aR[i].display_name; const t = gE('addr-text'); if (t) t.textContent = aR[i].display_name; gE('lat').value = lt; gE('lng').value = lg; gE('ac').classList.add('hidden'); const w = gE('addr')?.closest('.ss-wrap'); if (w) w.classList.remove('open'); await fLD(lt, lg); validateAddress() }
-    async function fLD(lt, lg) { try { const r = await fetch(`/api/location/lookup/?lat=${lt}&lng=${lg}`); gE('city').value = ''; gE('brgy').value = ''; if (r.ok) { const d = await r.json(); gE('city').value = d.city || ''; gE('brgy').value = d.barangay || '' } } catch { } }
+    async function fLD(lt, lg) { try { const r = await fetch(`/api/location/lookup/?lat=${lt}&lng=${lg}`); gE('city').value = ''; gE('brgy').value = ''; ncrOk = false; if (r.ok) { const d = await r.json(); gE('city').value = d.city || ''; gE('brgy').value = d.barangay || ''; ncrOk = true; } } catch { ncrOk = false; } }
     function opMap() { gE('map-modal').classList.remove('hidden'); let lt = +gE('lat').value || 14.589, lg = +gE('lng').value || 120.982; tLt = lt; tLg = lg; if (!m) { m = L.map('picker-map').setView([lt, lg], 15); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m); mk = L.marker([lt, lg], { draggable: !0 }).addTo(m); mk.on('dragend', e => { tLt = e.target.getLatLng().lat; tLg = e.target.getLatLng().lng }); m.on('click', e => { tLt = e.latlng.lat; tLg = e.latlng.lng; mk.setLatLng(e.latlng) }) } else { m.setView([lt, lg]); mk.setLatLng([lt, lg]) } setTimeout(() => m.invalidateSize(), 100) }
     async function cfMap() {
       gE('lat').value = (+tLt).toFixed(7); gE('lng').value = (+tLg).toFixed(7);

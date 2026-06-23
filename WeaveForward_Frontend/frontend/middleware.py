@@ -115,6 +115,7 @@ class TokenRefreshMiddleware:
                         'role': payload.get('role'),
                         'status': payload.get('status'),
                         'upload': payload.get('upload'),
+                        'created_at': payload.get('created_at'),
                     }
                 else:
                     request.session.pop("user_profile", None)

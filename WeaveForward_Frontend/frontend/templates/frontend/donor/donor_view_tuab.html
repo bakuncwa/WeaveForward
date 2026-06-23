@@ -89,14 +89,17 @@
       <span class="empty-text">No business description provided.</span>
     {% endif %}
   </p>
-  {% if business.social_link %}
+   {% if business.social_link and business.social_link != 'None' %}
     {% if business.social_link|slice:":7" == "http://" or business.social_link|slice:":8" == "https://" %}
     <a href="{{ business.social_link }}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#000;text-decoration:underline">
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
       {{ business.social_link }}
     </a>
     {% else %}
-    <span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#000;">{{ business.social_link }}</span>
+    <a href="https://{{ business.social_link }}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#000;text-decoration:underline">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+      {{ business.social_link }}
+    </a>
     {% endif %}
   {% endif %}
   

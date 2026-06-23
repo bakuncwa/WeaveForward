@@ -329,7 +329,7 @@
           {% with pct=item.current_weight_kg|floatformat:0 %}
           <tr id="row-{{ item.inventory_id }}" data-search="{{ item.donor_name|lower }} {{ item.donation_id }} {{ item.inventory_id }}" data-donor="{{ item.donor_name }}" data-address="{{ item.address }}" data-items="{{ item.item_details_json }}">
             <td>{{ item.inventory_id }}</td>
-            <td>{{ item.donation_id }}</td>
+            <td><a href="{% url 'tuab_view_donation' item.donation_id %}">{{ item.donation_id }}</a></td>
             <td>
               <div class="weight-cell">
                 <div class="weight-bar-wrap">

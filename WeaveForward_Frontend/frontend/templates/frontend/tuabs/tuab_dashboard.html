@@ -169,10 +169,10 @@
     </tr></thead><tbody>
     ${list.map(d => `<tr onclick="zoomDonation(${escapeHTML(String(d.id))})" style="cursor:pointer">
       <td>${escapeHTML(String(d.id))}</td>
-      <td title="${escapeHTML(d.donor)}">${escapeHTML(truncateText(d.donor))}</td>
-      <td title="${escapeHTML(d.address)}" style="color:#666">${escapeHTML(truncateText(d.address))}</td>
+      <td>${escapeHTML(truncateText(d.donor))}</td>
+      <td style="color:#666">${escapeHTML(truncateText(d.address))}</td>
       <td>${escapeHTML(d.pickupDate)}</td>
-      <td title="${escapeHTML(String(d.items))}">${escapeHTML(truncateText(String(d.items)))}</td>
+      <td>${escapeHTML(truncateText(String(d.items)))}</td>
       <td><div class="tuab-dashboard-actions">
         <a href="${d.status === 'IN_TRANSIT' ? `/tuab/donations/${escapeHTML(String(d.id))}/edit/` : `/tuab/donations/${escapeHTML(String(d.id))}/`}" class="btn btn-tuab" onclick="event.stopPropagation()">${actionLabel}</a>
         ${(d.status === 'PENDING' || d.status === 'FLAGGED') ? `<button class="btn-flag" data-id="${escapeHTML(String(d.id))}" data-tab="${escapeHTML(tab)}" onclick="event.stopPropagation();openFlagModal(this.getAttribute('data-id'), this.getAttribute('data-tab'))">Flag</button>` : ''}
@@ -524,6 +524,7 @@
   });
 
 </script>
+<script>window.__wfUserCreatedAt = "{{ user.created_at|default:'' }}";</script>
 <script src="{% static 'frontend/js/tuab-tour.js' %}"></script>
 {% endblock %}
 

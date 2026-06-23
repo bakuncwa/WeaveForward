@@ -1,5 +1,10 @@
 (function() {
   if (localStorage.getItem('wf_tour_done')) return;
+  if (window.__wfUserCreatedAt) {
+    var created = new Date(window.__wfUserCreatedAt).getTime();
+    var fiveDaysAgo = Date.now() - 5 * 86400000;
+    if (created < fiveDaysAgo) return;
+  }
 
   var isMobile = window.innerWidth < 768;
 

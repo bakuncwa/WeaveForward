@@ -293,10 +293,7 @@ async def donor_registration(request):
         confirm_password = raw_data.get('confirm_password')
 
         if password != confirm_password:
-            return render(request, 'frontend/donor_registration.html', {
-                'errors': {'password': ["Passwords do not match."]}, 
-                'form_data': raw_data
-            })
+            return JsonResponse({'errors': {'password': ['Passwords do not match.']}, 'form_data': dict(raw_data)})
 
         lat = raw_data.get('latitude') or 0
         lng = raw_data.get('longitude') or 0
@@ -330,11 +327,11 @@ async def donor_registration(request):
             )
             if response.status_code == 201:
                 messages.success(request, "Registration successful! Please check your email for a verification link before logging in.")
-                return redirect('login')
+                return JsonResponse({'redirect': reverse('login')})
             else:
-                return render(request, 'frontend/donor_registration.html', {'errors': format_errors(response.json()), 'form_data': raw_data})
+                return JsonResponse({'errors': format_errors(response.json()), 'form_data': dict(raw_data)})
         except Exception:
-            messages.error(request, "Backend API is offline or unreachable.")
+            return JsonResponse({'errors': {'__all__': ['Backend API is offline or unreachable.']}})
     return render(request, 'frontend/donor_registration.html')
 
 async def tuab_registration(request):
@@ -371,11 +368,6 @@ async def tuab_registration(request):
         max_distance_km = raw_data.get('max_distance_km') or 0
         min_biodeg_score = raw_data.get('min_biodeg_score') or 0
 
-        # URL Cleaning (Auto-prefix https:// if missing)
-        social_link = raw_data.get('social_link', '').strip()
-        if social_link and not social_link.startswith(('http://', 'https://')):
-            social_link = 'https://' + social_link
-
         payload = {
             'role': 'TUAB',
             'business_name': raw_data.get('business_name'),
@@ -391,7 +383,7 @@ async def tuab_registration(request):
             'target_fibers': target_fibers,
             'max_distance_km': max_distance_km,
             'min_biodeg_score': min_biodeg_score,
-            'social_link': social_link if social_link else None
+            'social_link': raw_data.get('social_link') or None
         }
 
         files = {'documentation': request.FILES.get('documentation')} if request.FILES.get('documentation') else None

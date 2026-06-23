@@ -476,11 +476,11 @@
 
     <!-- Business Info -->
     <div class="group"><label class="up">Business Name *</label><input class="in" name="business_name"
-        value="{{ tuab.business_name }}" maxlength="125" required></div>
+        value="{{ tuab.business_name|default:'' }}" maxlength="125" required></div>
     <div class="group"><label class="up">Description</label><input class="in" name="description"
-        value="{{ tuab.description }}" required></div>
+        value="{{ tuab.description|default:'' }}" required></div>
     <div class="group"><label class="up">Social / Website Link</label><input class="in" name="social_link"
-        value="{{ tuab.social_link }}"></div>
+        value="{{ tuab.social_link|default:'' }}"></div>
     <div class="group"><label class="up">Contact Number</label>
       <div style="display:grid;grid-template-columns:60px 1fr;gap:8px">
         <input value="+63" class="in" style="pointer-events:none;background:#f9f9f9" tabindex="-1">
@@ -755,6 +755,7 @@
       }
     }
     if (syncFields) {
+      getEl('city').value = ''; getEl('brgy').value = '';
       const d = await safeFetch(`${API_LOCATION_DETAILS}?lat=${lat}&lng=${lng}`);
       if (d) {
         getEl('city').value = d.city || '';
