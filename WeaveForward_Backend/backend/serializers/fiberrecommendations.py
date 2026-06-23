@@ -8,18 +8,8 @@ from ..services.upload_service import build_upload_url
 def _biodeg_tier_from_fibers(fiber_json):
     if not fiber_json:
         return 'MEDIUM'
-    if MatchPredictionService._metadata:
-        score = MatchPredictionService._compute_biodeg_score(fiber_json)
-        return MatchPredictionService._compute_biodeg_tier(score).upper()
-    dominant = max(fiber_json, key=fiber_json.get)
-    if dominant.lower() in BIO_FIBERS:
-        pct = fiber_json.get(dominant, 0)
-        if pct >= 80:
-            return 'HIGH'
-        if pct >= 50:
-            return 'MEDIUM'
-        return 'LOW'
-    return 'LOW'
+    score = MatchPredictionService._compute_biodeg_score(fiber_json)
+    return MatchPredictionService._compute_biodeg_tier(score).upper()
 
 
 class DonationPreviewSerializer(serializers.ModelSerializer):
@@ -74,12 +64,12 @@ class DonationItemPreviewSerializer(serializers.ModelSerializer):
 
     def get_biodeg_score(self, obj):
         fibers = self._parse_fibers(obj)
-        if fibers and MatchPredictionService._metadata:
-            try:
-                return round(MatchPredictionService._compute_biodeg_score(fibers), 2)
-            except (TypeError, KeyError):
-                pass
-        return None
+        if not fibers:
+            return None
+        try:
+            return round(MatchPredictionService._compute_biodeg_score(fibers), 2)
+        except (TypeError, KeyError):
+            return None
 
     def get_biodeg_tier(self, obj):
         try:
