@@ -739,7 +739,7 @@
   (function pollDonation() {
     fetch(window.location.pathname, {
       headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-      credentials: 'same-origin'
+      cache: 'no-cache', credentials: 'same-origin'
     })
     .then(function (r) { return r.json(); })
     .then(function (data) {

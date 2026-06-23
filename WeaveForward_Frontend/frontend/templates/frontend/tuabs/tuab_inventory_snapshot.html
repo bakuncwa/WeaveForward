@@ -687,7 +687,7 @@
   }
 
   pollInventoryChanges();
-  setInterval(pollInventoryChanges, 5000);
+  setInterval(pollInventoryChanges, 15000);
 
   const escapeHTML = str => !str ? '' : str.replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c] || c));
 

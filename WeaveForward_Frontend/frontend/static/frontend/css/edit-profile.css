@@ -93,6 +93,7 @@
 .btn { border-radius: 8px; padding: 10px 20px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; transition: 0.2s; }
 .btn-gold { background: var(--gold); color: #fff; }
 .btn-gold:hover { background: #d89018; }
+.btn-gold:disabled { opacity: .5; cursor: not-allowed; }
 .btn-ol { background: #fff; color: #444; border: 1.5px solid #ccc; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
 .btn-ol:hover { background: #f9f9f9; }
 

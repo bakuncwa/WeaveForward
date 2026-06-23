@@ -40,7 +40,6 @@
       .btn-primary { width: 100%; }
     }
 
-    /* Modal Backdrop & Animation Styles matching Archive TUAB Modal */
     .modal-backdrop {
       position: fixed;
       inset: 0;
@@ -107,6 +106,28 @@
     .modal-btn-yes:hover {
       background: #d49019 !important;
     }
+
+    /* Hover card */
+    .dash-hover-card {
+      position: fixed; z-index: 9999;
+      background: var(--card, #fff);
+      color: var(--text, #222);
+      border: 1.5px solid var(--border, #e0dbd4);
+      border-radius: 12px; padding: 14px 18px;
+      font-family: 'Poppins', sans-serif; font-size: 12px;
+      min-width: 260px; max-width: 340px;
+      box-shadow: 0 8px 30px rgba(0,0,0,.12);
+      pointer-events: none; opacity: 0; transition: opacity .12s;
+      line-height: 1.6;
+    }
+    .dash-hover-card.visible { opacity: 1; }
+    .dash-hover-card .hc-hdr { font-size: 13px; font-weight: 600; color: var(--text, #222); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .dash-hover-card .hc-row { display: flex; gap: 8px; padding: 1px 0; }
+    .dash-hover-card .hc-lbl { color: var(--muted, #888); min-width: 64px; flex-shrink: 0; }
+    .dash-hover-card .hc-items { list-style: none; padding: 0; margin: 4px 0 0 0; }
+    .dash-hover-card .hc-items li { padding: 1px 0 1px 14px; position: relative; font-size: 11px; color: var(--text, #222); }
+    .dash-hover-card .hc-items li::before { content: '•'; position: absolute; left: 0; color: var(--gold, #e8a020); }
+    .dash-hover-card .hc-more { font-size: 10px; color: var(--muted, #888); padding-left: 14px; }
 </style>
 
 <p class="count" id="don-count">{{ count }} Donation Request{{ count|pluralize }}</p>
@@ -136,70 +157,20 @@
         <th>Uploaded Image</th>
       </tr>
     </thead>
-    <tbody id="don-tbody">
-      {% for donation in donations %}
-      <tr>
-        <td style="white-space:nowrap">{{ donation.preferred_pickup_date|date:"m-d-Y" }}</td>
-        <td style="white-space:nowrap">{{ donation.preferred_pickup_window_start|time:"g:i A" }} – {{ donation.preferred_pickup_window_end|time:"g:i A" }}</td>
-        <td title="{{ donation.pickup_display_address }}">{{ donation.pickup_display_address|truncatechars:50 }}</td>
-        <td class="items-col">
-            {% for item in donation.items %}
-                {% with fiber=item.lookup_details.dominant_fiber|capfirst %}
-                {% with item_label=item.lookup_details.clothing_type|add:" - "|add:item.lookup_details.brand|add:" "|add:fiber %}
-                <span title="{{ item_label }}">{{ item_label|truncatechars:50 }}</span>{% if not forloop.last %}, {% endif %}
-                {% endwith %}
-                {% endwith %}
-            {% empty %}
-                -
-            {% endfor %}
-        </td>
-        <td>
-            <span class="badge 
-                {% if donation.status == 'IN_TRANSIT' or donation.status == 'CLAIMED' %}badge-claimed
-                {% elif donation.status == 'PENDING' %}badge-pending
-                {% elif donation.status == 'RECEIVED' %}badge-received
-                {% elif donation.status == 'REJECTED' %}badge-rejected
-                {% elif donation.status == 'CANCELLED' %}badge-cancelled
-                {% endif %}">
-                {{ donation.status }}
-            </span>
-        </td>
-        <td title="{{ donation.claimed_by_tuab.business_name|default:'—' }}">{{ donation.claimed_by_tuab.business_name|default:"—"|truncatechars:50 }}</td>
-        <td>
-          <div class="action-btns">
-            <a href="{% url 'donor_view_donation' donation.donation_id %}" class="btn btn-outline">View</a>
-            {% if donation.status == 'PENDING' %}
-                <a href="{% url 'donor_edit_donation' donation.donation_id %}" class="btn btn-outline">Edit</a>
-                <button type="button" class="btn btn-outline cancel-btn" data-api-url="{% url 'donor_cancel_donation' donation.donation_id %}">Cancel</button>
-            {% endif %}
-          </div>
-        </td>
-        <td>
-            {% if donation.upload %}
-                <img src="{{ donation.upload }}" class="thumb" alt="Donation"/>
-            {% else %}
-                <div class="thumb" style="display: flex; align-items: center; justify-content: center; font-size: 10px; color: #aaa;">No Image</div>
-            {% endif %}
-        </td>
-      </tr>
-      {% empty %}
-      <tr>
-        <td colspan="8" style="text-align: center; padding: 40px; color: #999;">You haven't made any donation requests yet.</td>
-      </tr>
-      {% endfor %}
-    </tbody>
+    <tbody id="don-tbody"></tbody>
   </table>
   </div>
 </div>
 
-<div class="pagination-wrap">
+<div class="pagination-wrap" id="don-pagination">
   <div class="pg-info">Page {{ current_page }} of {{ total_pages }}</div>
   <div class="pg-btns">
     {% if has_prev %}
-    <a href="?page={{ current_page|add:-1 }}{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline">❮ Previous</a>
+    <a href="?page={{ current_page|add:-1 }}{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline" id="prev-btn">❮ Previous</a>
     {% endif %}
+    <span id="page-indicator">Page {{ current_page }}</span>
     {% if has_next %}
-    <a href="?page={{ current_page|add:1 }}{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline">Next ❯</a>
+    <a href="?page={{ current_page|add:1 }}{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline" id="next-btn">Next ❯</a>
     {% endif %}
   </div>
 </div>
@@ -217,7 +188,209 @@
   </div>
 </div>
 
+<div id="dash-hover-card" class="dash-hover-card"></div>
+
+{{ donations_json|json_script:"donations-data" }}
 <script>
+  var escapeHTML = function(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>'"]/g, function(c) {
+      return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' })[c];
+    });
+  };
+
+  const META = {
+    count: {{ count }},
+    total_pages: {{ total_pages }},
+    current_page: {{ current_page }},
+    has_next: {% if has_next %}true{% else %}false{% endif %},
+    has_prev: {% if has_prev %}true{% else %}false{% endif %},
+    q: "{{ q|escapejs }}",
+  };
+
+  function renderRows(list) {
+    if (!list.length) return '<tr><td colspan="8" style="text-align:center;padding:40px;color:#999;">You haven\'t made any donation requests yet.</td></tr>';
+    return list.map(function(d) {
+      var badgeCls = '';
+      var s = (d.status || '').toUpperCase();
+      if (s === 'IN_TRANSIT') badgeCls = 'badge-transit';
+      else if (s === 'CLAIMED') badgeCls = 'badge-claimed';
+      else if (s === 'PENDING') badgeCls = 'badge-pending';
+      else if (s === 'RECEIVED') badgeCls = 'badge-received';
+      else if (s === 'REJECTED') badgeCls = 'badge-rejected';
+      else if (s === 'CANCELLED') badgeCls = 'badge-cancelled';
+      var itemHtml = d.items.map(function(it) { return escapeHTML(it.label); }).join(', ');
+      if (!itemHtml) itemHtml = '-';
+      var windowHtml = d.pickupStart ? escapeHTML(d.pickupStart) + ' &ndash; ' + escapeHTML(d.pickupEnd) : '-';
+      var statusLabel = d.status ? d.status.split('_').map(function(w) { return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(); }).join(' ') : '';
+      var cancelEditBtns = (s === 'PENDING') ? '<a href="/donor/my-donations/' + d.donation_id + '/edit/" class="btn btn-outline">Edit</a><button type="button" class="btn btn-outline cancel-btn" data-api-url="/donor/my-donations/' + d.donation_id + '/cancel/">Cancel</button>' : '';
+      var imgHtml = d.upload ? '<img src="' + escapeHTML(d.upload) + '" class="thumb" alt="Donation"/>' : '<div class="thumb" style="display:flex;align-items:center;justify-content:center;font-size:10px;color:#aaa;">No Image</div>';
+      return '<tr data-id="' + d.donation_id + '">' +
+        '<td style="white-space:nowrap">' + escapeHTML(d.pickupDate) + '</td>' +
+        '<td style="white-space:nowrap">' + windowHtml + '</td>' +
+        '<td title="' + escapeHTML(d.address) + '">' + escapeHTML(d.address.length > 50 ? d.address.slice(0, 47) + '...' : d.address) + '</td>' +
+        '<td class="items-col">' + escapeHTML(itemHtml.length > 50 ? itemHtml.slice(0, 47) + '...' : itemHtml) + '</td>' +
+        '<td><span class="badge ' + badgeCls + '">' + escapeHTML(statusLabel) + '</span></td>' +
+        '<td title="' + escapeHTML(d.business_name || '\u2014') + '">' + escapeHTML((d.business_name || '\u2014').length > 50 ? (d.business_name || '\u2014').slice(0, 47) + '...' : (d.business_name || '\u2014')) + '</td>' +
+        '<td><div class="action-btns"><a href="/donor/my-donations/' + d.donation_id + '/" class="btn btn-outline">View</a>' + cancelEditBtns + '</div></td>' +
+        '<td>' + imgHtml + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function updateDonations(data, meta) {
+    donationsGlobal = data;
+    document.getElementById('don-tbody').innerHTML = renderRows(data);
+    var countEl = document.getElementById('don-count');
+    var n = meta ? meta.count : META.count;
+    countEl.textContent = n + ' Donation Request' + (n === 1 ? '' : 's');
+    if (meta) {
+      var pInfo = document.querySelector('.pg-info');
+      if (pInfo) pInfo.textContent = 'Page ' + meta.current_page + ' of ' + meta.total_pages;
+      var pBtns = document.querySelector('.pg-btns');
+      if (!pBtns) return;
+      var pInd = document.getElementById('page-indicator');
+      if (!pInd) { pInd = document.createElement('span'); pInd.id = 'page-indicator'; pBtns.appendChild(pInd); }
+      pInd.textContent = 'Page ' + meta.current_page;
+      var prevBtn = document.getElementById('prev-btn');
+      if (meta.has_prev && !prevBtn) {
+        prevBtn = document.createElement('a');
+        prevBtn.id = 'prev-btn'; prevBtn.className = 'btn btn-outline';
+        prevBtn.href = '?page=' + (meta.current_page - 1) + (meta.q ? '&q=' + encodeURIComponent(meta.q) : '');
+        prevBtn.innerHTML = '\u276e Previous';
+        pBtns.insertBefore(prevBtn, pInd);
+      }
+      if (prevBtn) {
+        prevBtn.style.display = meta.has_prev ? '' : 'none';
+        if (meta.has_prev) prevBtn.href = '?page=' + (meta.current_page - 1) + (meta.q ? '&q=' + encodeURIComponent(meta.q) : '');
+      }
+      var nextBtn = document.getElementById('next-btn');
+      if (meta.has_next && !nextBtn) {
+        nextBtn = document.createElement('a');
+        nextBtn.id = 'next-btn'; nextBtn.className = 'btn btn-outline';
+        nextBtn.href = '?page=' + (meta.current_page + 1) + (meta.q ? '&q=' + encodeURIComponent(meta.q) : '');
+        nextBtn.innerHTML = 'Next \u276f';
+        pBtns.appendChild(nextBtn);
+      }
+      if (nextBtn) {
+        nextBtn.style.display = meta.has_next ? '' : 'none';
+        if (meta.has_next) nextBtn.href = '?page=' + (meta.current_page + 1) + (meta.q ? '&q=' + encodeURIComponent(meta.q) : '');
+      }
+    }
+    bindCancelButtons();
+  }
+
+  function bindCancelButtons() {
+    document.querySelectorAll('.cancel-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        document.getElementById('cancel-modal').classList.add('is-open');
+        document.getElementById('cancel-modal').setAttribute('aria-hidden', 'false');
+        document.getElementById('cancel-form').action = btn.getAttribute('data-api-url');
+      });
+    });
+  }
+
+  // ---- Hover card ----
+  let donationsGlobal = [];
+  let _hcTimer = null, _hcDonation = null;
+  function findDonationById(id) {
+    for (var i = 0; i < donationsGlobal.length; i++) {
+      if (donationsGlobal[i].donation_id == id) return donationsGlobal[i];
+    }
+    return null;
+  }
+  function showHoverCard(e, d) {
+    if (_hcTimer) { clearTimeout(_hcTimer); _hcTimer = null; }
+    _hcDonation = d;
+    const card = document.getElementById('dash-hover-card');
+    if (card._hcContent === d.donation_id) { card.classList.add('visible'); positionCard(e); return; }
+    var s = (d.status || '').toUpperCase();
+    var cls = s === 'IN_TRANSIT' ? 'transit' : s.toLowerCase();
+    const label = d.status ? d.status.split('_').map(function(w) { return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(); }).join(' ') : '';
+    const items = d.items || [];
+    let itemsHtml = '<ul class="hc-items">';
+    const maxItems = 5;
+    const show = items.slice(0, maxItems);
+    show.forEach(function(it) { itemsHtml += '<li>' + escapeHTML(it.label) + '</li>'; });
+    if (items.length > maxItems) itemsHtml += '<li class="hc-more">+' + (items.length - maxItems) + ' more</li>';
+    itemsHtml += '</ul>';
+    var windowHtml = d.pickupStart && d.pickupEnd ? '<div class="hc-row"><span class="hc-lbl">Window</span><span>' + escapeHTML(d.pickupStart) + ' &ndash; ' + escapeHTML(d.pickupEnd) + '</span></div>' : '';
+    const tuabHtml = d.business_name ? '<div class="hc-row"><span class="hc-lbl">Claimed By</span><span>' + escapeHTML(d.business_name) + '</span></div>' : '';
+    card.innerHTML = '<div class="hc-hdr">Donation #' + escapeHTML(String(d.donation_id)) + ' <span class="badge badge-' + escapeHTML(cls) + '">' + escapeHTML(label) + '</span></div>' +
+      '<div class="hc-row"><span class="hc-lbl">Address</span><span>' + escapeHTML(d.address) + '</span></div>' +
+      tuabHtml + windowHtml +
+      '<div style="margin-top:6px;border-top:1px solid var(--border,#e0dbd4);padding-top:6px;font-size:11px;color:var(--muted,#888)">Items</div>' +
+      itemsHtml;
+    card._hcContent = d.donation_id;
+    card.classList.add('visible');
+    positionCard(e);
+  }
+  function positionCard(e) {
+    const card = document.getElementById('dash-hover-card');
+    if (!card.classList.contains('visible')) return;
+    var left = e.clientX + 16;
+    var top = e.clientY + 12;
+    if (left + 360 > window.innerWidth) left = Math.max(8, e.clientX - 360);
+    if (top + card.offsetHeight > window.innerHeight) top = window.innerHeight - card.offsetHeight - 8;
+    if (top < 0) top = 4;
+    card.style.left = left + 'px';
+    card.style.top = top + 'px';
+  }
+  function hideHoverCard() {
+    if (_hcTimer) clearTimeout(_hcTimer);
+    _hcTimer = setTimeout(function() {
+      document.getElementById('dash-hover-card').classList.remove('visible');
+      document.getElementById('dash-hover-card')._hcContent = null;
+      _hcDonation = null;
+    }, 80);
+  }
+
+  // ---- Initial render ----
+  (function init() {
+    var data = JSON.parse(document.getElementById('donations-data').textContent);
+    updateDonations(data, null);
+  })();
+
+  // ---- Polling ----
+  (function pollDonations() {
+    fetch(window.location.pathname + window.location.search, {
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      cache: 'no-cache',
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.donations) updateDonations(d.donations, d.meta);
+    })
+    .catch(function() {});
+    setTimeout(pollDonations, 15000);
+  })();
+
+  // ---- Hover events ----
+  (function hoverInit() {
+    const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const tableWrap = document.querySelector('.table-wrap');
+    if (!tableWrap) return;
+    tableWrap.addEventListener('mouseover', function(e) {
+      if (isTouch) return;
+      const tr = e.target.closest('tr');
+      if (!tr || tr._hcActive) return;
+      const id = tr.getAttribute('data-id');
+      if (!id) return;
+      const d = findDonationById(id);
+      if (d) { tr._hcActive = true; showHoverCard(e, d); }
+    }, true);
+    tableWrap.addEventListener('mousemove', function(e) {
+      if (_hcDonation) positionCard(e);
+    }, true);
+    tableWrap.addEventListener('mouseout', function(e) {
+      const tr = e.target.closest('tr');
+      if (!tr) return;
+      tr._hcActive = false;
+      hideHoverCard();
+    }, true);
+  })();
+
+  // ---- Cancel modal ----
   const cancelModal = document.getElementById('cancel-modal');
   const cancelCancel = document.getElementById('cancel-cancel');
   const cancelForm = document.getElementById('cancel-form');
@@ -226,7 +399,6 @@
 
   function resetModalBox() {
     modalBox.innerHTML = originalModalBoxHtml;
-    // Rebind events on the newly restored HTML
     document.getElementById('cancel-cancel')?.addEventListener('click', closeModal);
     document.getElementById('cancel-form')?.addEventListener('submit', handleFormSubmit);
   }
@@ -234,20 +406,8 @@
   function closeModal() {
     cancelModal.classList.remove('is-open');
     cancelModal.setAttribute('aria-hidden', 'true');
-    // Wait for the CSS transition to finish before resetting the HTML
     setTimeout(resetModalBox, 300);
   }
-
-  document.querySelectorAll('.cancel-btn').forEach((button) => {
-    button.addEventListener('click', () => {
-      cancelModal.classList.add('is-open');
-      cancelModal.setAttribute('aria-hidden', 'false');
-      const form = document.getElementById('cancel-form');
-      if (form) {
-        form.action = button.dataset.apiUrl;
-      }
-    });
-  });
 
   cancelCancel?.addEventListener('click', closeModal);
 
@@ -256,16 +416,12 @@
     const form = event.target;
     const url = form.action;
     const csrfToken = form.querySelector('[name=csrfmiddlewaretoken]').value;
-
     try {
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'X-CSRFToken': csrfToken,
-          'X-Requested-With': 'XMLHttpRequest'
-        }
+        headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' }
       });
-      const body = await response.json().catch(() => null);
+      const body = await response.json().catch(function() { return null; });
       if (response.ok && body?.success) {
         window.location.reload();
       } else {
@@ -277,32 +433,10 @@
   }
 
   function showFailureScreen() {
-    modalBox.innerHTML = `
-      <div class="modal-title" style="text-align: center; font-size: 13px; color: #666666; font-weight: 300; font-family: 'Poppins', sans-serif;">
-        This donation can no longer be cancelled.
-      </div>
-      <div style="display: flex; justify-content: center; margin-top: 16px;">
-        <button type="button" id="close-modal-btn" class="btn modal-btn-yes">
-          Close
-        </button>
-      </div>
-    `;
+    modalBox.innerHTML = '<div class="modal-title" style="text-align:center;font-size:13px;color:#666666;font-weight:300;font-family:\'Poppins\',sans-serif;">This donation can no longer be cancelled.</div><div class="modal-actions"><button type="button" id="close-modal-btn" class="btn modal-btn-yes">Close</button></div>';
     document.getElementById('close-modal-btn').addEventListener('click', closeModal);
   }
 
   document.getElementById('cancel-form')?.addEventListener('submit', handleFormSubmit);
-
-  document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll('.badge').forEach(function (el) {
-        var v = el.textContent.trim();
-        if (v) {
-            el.textContent = v.split('_').map(function (w) {
-                return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
-            }).join(' ');
-        }
-    });
-  });
 </script>
 {% endblock %}
-
-

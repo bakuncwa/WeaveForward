@@ -60,6 +60,64 @@ async def tuab_dashboard(request):
         claimed_meta['has_next'] = data.get('next') is not None
         claimed_meta['count'] = data.get('count', 0)
 
+    donations_json = {
+        'available': [
+            {
+                'id': d['donation_id'],
+                'donor': f"{d['donor']['first_name']} {d['donor']['last_name']}",
+                'address': d['pickup_display_address'],
+                'pickupDate': format_date(d['preferred_pickup_date']),
+                'status': d.get('status', ''),
+                'delivery_method': d.get('delivery_method', ''),
+                'items': len(d['items']),
+                'lat': float(d['pickup_latitude']),
+                'lng': float(d['pickup_longitude']),
+                'item_details': [
+                    {
+                        'type': i.get('lookup_details', {}).get('clothing_type', ''),
+                        'brand': i.get('lookup_details', {}).get('brand', ''),
+                        'fiber': i.get('lookup_details', {}).get('dominant_fiber', ''),
+                    } for i in d.get('items', [])
+                ],
+                'pickup_window_start': d.get('preferred_pickup_window_start', ''),
+                'pickup_window_end': d.get('preferred_pickup_window_end', ''),
+            } for d in available_donations
+        ],
+        'claimed': [
+            {
+                'id': d['donation_id'],
+                'donor': f"{d['donor']['first_name']} {d['donor']['last_name']}",
+                'address': d['pickup_display_address'],
+                'pickupDate': format_date(d['preferred_pickup_date']),
+                'status': d.get('status', ''),
+                'delivery_method': d.get('delivery_method', ''),
+                'items': len(d['items']),
+                'lat': float(d['pickup_latitude']),
+                'lng': float(d['pickup_longitude']),
+                'item_details': [
+                    {
+                        'type': i.get('lookup_details', {}).get('clothing_type', ''),
+                        'brand': i.get('lookup_details', {}).get('brand', ''),
+                        'fiber': i.get('lookup_details', {}).get('dominant_fiber', ''),
+                    } for i in d.get('items', [])
+                ],
+                'pickup_window_start': d.get('preferred_pickup_window_start', ''),
+                'pickup_window_end': d.get('preferred_pickup_window_end', ''),
+            } for d in my_claimed_donations
+        ]
+    }
+
+    if 'application/json' in request.headers.get('Accept', ''):
+        resp = JsonResponse({
+            'donations': donations_json,
+            'meta': {
+                'available': {**avail_meta, 'total': avail_meta.get('count', 0)},
+                'claimed': {**claimed_meta, 'total': claimed_meta.get('count', 0)},
+            }
+        })
+        resp['Cache-Control'] = 'no-store'
+        return resp
+
     return render(request, 'frontend/tuabs/tuab_dashboard.html', {
         'page_title': 'Dashboard',
         'user': profile,
@@ -69,52 +127,7 @@ async def tuab_dashboard(request):
         'claimed_meta': claimed_meta,
         'active_tab': request.GET.get('tab', 'available'),
         'search_query': search_query,
-        'donations_json': {
-            'available': [
-                {
-                    'id': d['donation_id'],
-                    'donor': f"{d['donor']['first_name']} {d['donor']['last_name']}",
-                    'address': d['pickup_display_address'],
-                    'pickupDate': format_date(d['preferred_pickup_date']),
-                    'status': d.get('status', ''),
-                    'delivery_method': d.get('delivery_method', ''),
-                    'items': len(d['items']),
-                    'lat': float(d['pickup_latitude']),
-                    'lng': float(d['pickup_longitude']),
-                    'item_details': [
-                        {
-                            'type': i.get('lookup_details', {}).get('clothing_type', ''),
-                            'brand': i.get('lookup_details', {}).get('brand', ''),
-                            'fiber': i.get('lookup_details', {}).get('dominant_fiber', ''),
-                        } for i in d.get('items', [])
-                    ],
-                    'pickup_window_start': d.get('preferred_pickup_window_start', ''),
-                    'pickup_window_end': d.get('preferred_pickup_window_end', ''),
-                } for d in available_donations
-            ],
-            'claimed': [
-                {
-                    'id': d['donation_id'],
-                    'donor': f"{d['donor']['first_name']} {d['donor']['last_name']}",
-                    'address': d['pickup_display_address'],
-                    'pickupDate': format_date(d['preferred_pickup_date']),
-                    'status': d.get('status', ''),
-                    'delivery_method': d.get('delivery_method', ''),
-                    'items': len(d['items']),
-                    'lat': float(d['pickup_latitude']),
-                    'lng': float(d['pickup_longitude']),
-                    'item_details': [
-                        {
-                            'type': i.get('lookup_details', {}).get('clothing_type', ''),
-                            'brand': i.get('lookup_details', {}).get('brand', ''),
-                            'fiber': i.get('lookup_details', {}).get('dominant_fiber', ''),
-                        } for i in d.get('items', [])
-                    ],
-                    'pickup_window_start': d.get('preferred_pickup_window_start', ''),
-                    'pickup_window_end': d.get('preferred_pickup_window_end', ''),
-                } for d in my_claimed_donations
-            ]
-        }
+        'donations_json': donations_json,
     })
 
 

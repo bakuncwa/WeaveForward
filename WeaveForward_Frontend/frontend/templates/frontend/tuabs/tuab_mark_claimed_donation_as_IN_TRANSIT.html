@@ -267,7 +267,9 @@
     <form id="mark-in-transit-form" method="post" action="{% url 'tuab_view_donation' donation.donation_id %}">
       {% csrf_token %}
       {% if donation.status == 'CLAIMED' and donation.delivery_method == 'PICKUP' %}
-      <input type="hidden" name="action" value="transit">
+      <input type="hidden" name="action" value="transit" id="action-transit">
+      {% else %}
+      <input type="hidden" name="action" value="transit" id="action-transit" style="display:none">
       {% endif %}
       <input type="hidden" name="current_etag" value="{{ current_etag }}">
 
@@ -326,8 +328,7 @@
               style="font-size:12px;color:#999;margin-top:6px" id="donation-no-img-text">No donation image uploaded.</div>
             <div class="sep-line"></div>
 
-            {% if donation.delivery_method == 'DELIVERY' %}
-            <div id="driver-section">
+            <div id="driver-section"{% if donation.delivery_method != 'DELIVERY' %} style="display:none"{% endif %}>
               <div class="sub">Driver Details</div>
               <div id="driver-info">
                 {% if donation.driver_details %}
@@ -339,13 +340,12 @@
                 {% endif %}
               </div>
             </div>
-            {% endif %}
 
-            {% if donation.status == 'CLAIMED' and donation.delivery_method == 'PICKUP' %}
-            <div class="claim-tip" data-tip="Mark as In-Transit means you are now on your way to pick up the donation. The donor will be notified that you are in transit.">
-              <button type="submit" class="btn btn-tuab">Mark as In-Transit</button>
+            <div id="mark-transit-section"{% if donation.status != 'CLAIMED' or donation.delivery_method != 'PICKUP' %} style="display:none"{% endif %}>
+              <div class="claim-tip" data-tip="Mark as In-Transit means you are now on your way to pick up the donation. The donor will be notified that you are in transit.">
+                <button type="submit" class="btn btn-tuab">Mark as In-Transit</button>
+              </div>
             </div>
-            {% endif %}
           </div>
         </div>
       </div>
@@ -353,6 +353,8 @@
   </div>
 
   <script>
+    document.documentElement.setAttribute('data-script-version', '2');
+    console.log('transit script loaded');
     // --- Standardization: Prettify ENUMs ---
     document.addEventListener('DOMContentLoaded', function () {
       document.querySelectorAll('.condition-val').forEach(function (el) {
@@ -368,6 +370,10 @@
     function escapeHtml(str) {
       if (!str) return '';
       return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function prettifyCondition(v) {
+      if (!v) return '';
+      return String(v).split('_').map(function(w) { return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(); }).join(' ');
     }
     function fmtDT(iso) {
       if (!iso) return '-';
@@ -396,7 +402,7 @@
         headers: {
           'Accept': 'application/json',
           'X-Requested-With': 'XMLHttpRequest',
-        },
+        }, cache: 'no-cache',
         credentials: 'same-origin'
       })
       .then(function (r) { return r.json(); })
@@ -456,15 +462,34 @@
             noImgEl.classList.remove('hidden');
           }
         }
-        // Items (left card) — NOT rebuilt by polling; no external changes
+        // Items (left card)
+        if (data.items) {
+          var container = document.getElementById('donation-items-left');
+          console.log('Poll items:', JSON.stringify(data.items));
+          container.innerHTML = data.items.map(function(it, i) {
+            var ld = it.lookup_details || {};
+            var raw = it.condition_rating;
+            var pretty = prettifyCondition(raw);
+            console.log('Item ' + i + ' condition_raw:', raw, 'pretty:', pretty);
+            return '<div class="card">' +
+              '<div class="head"><div class="num">' + (i + 1) + '</div><span style="font-weight:400;font-size:15px">Clothing ' + (i + 1) + '</span></div>' +
+              '<div class="row"><div class="group"><label class="up">Clothing</label><input class="in" value="' + escapeHtml(ld.clothing_type || '') + '" readonly></div>' +
+              '<div class="group"><label class="up">Estimated Weight (kg)</label><input class="in" value="' + (it.weight_kg != null ? it.weight_kg : '') + '" readonly></div></div>' +
+              '<div class="group" style="margin-bottom:14px"><label class="up">Condition</label><input class="in condition-val" value="' + prettifyCondition(it.condition_rating) + '" readonly></div>' +
+              '<div class="row" style="margin-bottom:0"><div class="group"><label class="up">Brand</label><input class="in" value="' + escapeHtml(ld.brand || '') + '" readonly></div>' +
+              '<div class="group"><label class="up">Material</label><input class="in" value="' + escapeHtml(ld.fiber_json || 'Will be approximated') + '" readonly></div></div></div>';
+          }).join('');
+        }
         // Driver details
-        var dd = data.driver_details;
         var section = document.getElementById('driver-section');
-        if (!section) return;
-        var infoEl = document.getElementById('driver-info');
-        if (dd) {
+        var infoEl = section && document.getElementById('driver-info');
+        if (section) {
+          section.style.display = data.delivery_method === 'DELIVERY' ? '' : 'none';
+        }
+        var dd = data.driver_details;
+        if (infoEl && dd) {
           var nameEl = document.getElementById('driver-name');
-          if (!nameEl && infoEl) {
+          if (!nameEl) {
             infoEl.innerHTML = '<div class="drow"><span class="lbl">Name</span><span class="val" id="driver-name"></span></div><div class="drow"><span class="lbl">Phone</span><span class="val" id="driver-phone"></span></div><div class="drow"><span class="lbl">Plate No.</span><span class="val" id="driver-plate"></span></div>';
             nameEl = document.getElementById('driver-name');
           }
@@ -475,8 +500,17 @@
           if (plateEl) { plateEl.textContent = dd.plateNumber || '-'; }
           var waiting = document.getElementById('driver-waiting');
           if (waiting) waiting.remove();
-        } else if (document.getElementById('driver-name')) {
+        } else if (infoEl && document.getElementById('driver-name')) {
           infoEl.innerHTML = '<div style="font-size:13px;color:#999" id="driver-waiting">Waiting for driver assignment...</div>';
+        }
+        // Mark as In-Transit button visibility
+        var transitBtn = document.getElementById('mark-transit-section');
+        if (transitBtn) {
+          transitBtn.style.display = (data.status === 'CLAIMED' && data.delivery_method === 'PICKUP') ? '' : 'none';
+        }
+        var actionInput = document.getElementById('action-transit');
+        if (actionInput) {
+          actionInput.style.display = (data.status === 'CLAIMED' && data.delivery_method === 'PICKUP') ? '' : 'none';
         }
       })
       .catch(function () { /* silent */ })

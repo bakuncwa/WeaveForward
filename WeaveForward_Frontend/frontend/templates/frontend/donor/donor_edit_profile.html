@@ -320,6 +320,8 @@
         $('lat').value = p.lat.toFixed(7); $('lng').value = p.lng.toFixed(7);
         closeMap();
         updateLocationDetails(p.lat, p.lng);
+        const btn = $('save-btn');
+        btn.disabled = true;
         let resolved = false;
         try {
             const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${p.lat}&lon=${p.lng}`, { headers: { 'Accept-Language': 'en-US' } });
@@ -330,6 +332,8 @@
             resolved = true;
         } catch {
             setAddressValue('');
+        } finally {
+            btn.disabled = false;
         }
         if (!resolved) showFlash('Could not resolve a display address. Search for the address or pick another map point.', 'error');
     }

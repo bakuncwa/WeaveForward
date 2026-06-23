@@ -1,8 +1,10 @@
 {% extends 'frontend/base.html' %}
+{% load static %}
 
 {% block content %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="{% static 'frontend/css/fiber-dropdown.css' %}">
 
 <style>
     /* Override .wf-content so map can go edge-to-edge */
@@ -160,12 +162,14 @@
         background: #faf8f5;
         max-height: 0;
         overflow: hidden;
-        transition: max-height 0.3s ease;
+        transition: max-height 0.3s ease, overflow 0s 0.3s;
         flex-shrink: 0;
     }
 
     .filter-drawer.open {
         max-height: 420px;
+        overflow: visible;
+        transition: max-height 0.3s ease, overflow 0s 0s;
     }
 
     .filter-drawer-inner {
@@ -238,6 +242,25 @@
         display: flex;
         align-items: center;
         justify-content: center;
+    }
+
+    /* Fiber chip tags inside filter */
+    #filter-fiber-trigger.t-box {
+        display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+        border: 1.5px solid var(--border); border-radius: 6px;
+        padding: 6px 10px; min-height: 36px; cursor: pointer; background: #fff;
+        font-family: 'Poppins', sans-serif; font-size: 12px;
+    }
+    #filter-fiber-trigger.t-box:focus-within { border-color: var(--gold); }
+    #filter-fiber-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    #filter-fiber-tags .t-chip {
+        background: #FFF1D8; color: #E8A020; border-radius: 5px;
+        padding: 2px 8px; font-size: 10px; font-weight: 400;
+        display: flex; align-items: center; gap: 4px;
+        font-family: 'Poppins', sans-serif;
+    }
+    #filter-fiber-tags .t-chip span {
+        cursor: pointer; font-size: 11px; line-height: 1; color: #E8A020;
     }
 
     /* ── Cards scroll area ── */
@@ -508,10 +531,97 @@
         display: none !important;
     }
 
+    /* Compact inline bar (biodeg) */
+    .bd-meter {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .bd-meter .bd-track {
+        flex: 1;
+        height: 4px;
+        background: #e8e5e0;
+        border-radius: 2px;
+        overflow: hidden;
+    }
+    .bd-meter .bd-fill {
+        height: 100%;
+        border-radius: 2px;
+        background: #5a9e6f;
+        width: 0%;
+    }
+    .bd-meter .bd-label {
+        font-size: 10px;
+        color: #999;
+        min-width: 36px;
+        text-align: right;
+    }
+
+    /* Match score bar */
+    .fm-score-meter {
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid var(--border, #e0dbd4);
+    }
+    .fm-score-meter .sm-label {
+        font-size: 9px;
+        font-weight: 600;
+        color: #999;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 6px;
+    }
+    .fm-score-meter .sm-track {
+        height: 6px;
+        background: #e8e5e0;
+        border-radius: 3px;
+        overflow: hidden;
+    }
+    .fm-score-meter .sm-fill {
+        height: 100%;
+        border-radius: 3px;
+        background: var(--gold, #e8a020);
+        width: 0%;
+        transition: width 0.6s ease;
+    }
+    .fm-score-meter .sm-pct {
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--text, #222);
+        line-height: 1.2;
+        margin-top: 4px;
+    }
+    .fm-score-meter .sm-pct-small {
+        font-size: 13px;
+        font-weight: 400;
+        color: #999;
+    }
+
+    /* Minimal popup */
+    .leaflet-popup-content-wrapper {
+        border-radius: 8px !important;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.10) !important;
+        padding: 16px !important;
+    }
+    .leaflet-popup-content {
+        margin: 0 !important;
+        font-size: 12px !important;
+        line-height: 1.5 !important;
+    }
+    .leaflet-popup-tip {
+        box-shadow: none !important;
+    }
+    .leaflet-popup-close-button {
+        top: 4px !important;
+        right: 4px !important;
+        color: #ccc !important;
+        font-size: 14px !important;
+    }
+
     @media (max-width: 640px), (max-aspect-ratio: 1/1) {
         .fm-panel { width: 100%; height: 45%; top: auto; bottom: 0; border-left: none; border-top: 1px solid var(--border); }
         .filter-drawer.open { max-height: 320px; }
-        /* Push Leaflet bottom controls (attribution) above the 45% panel */
         .leaflet-bottom { bottom: 45% !important; }
     }
 </style>
@@ -562,9 +672,17 @@
                 <form method="GET" id="filtersForm">
                     <div class="filter-group">
                         <label class="filter-label">Fiber Type</label>
-                        <input type="text" name="fiber_type" class="filter-input"
-                            placeholder="e.g., Cotton, Denim"
-                            value="{{ active_filters.fiber_type }}"/>
+                        <div style="position:relative">
+                            <input type="hidden" id="filter-fibs" name="fiber_type" value="{{ active_filters.fiber_type }}">
+                            <div class="t-box" id="filter-fiber-trigger">
+                                <div id="filter-fiber-tags"></div>
+                                <span id="filter-fiber-ph" style="color:#bbb;font-size:12px">Select fibers</span>
+                            </div>
+                            <div id="filter-fiber-dd" class="fiber-dropdown hidden">
+                                <input id="filter-fiber-search" class="fiber-search" placeholder="Search fibers…" autocomplete="off">
+                                <div id="filter-fiber-list" class="fiber-list"></div>
+                            </div>
+                        </div>
                     </div>
                     <div class="filter-group">
                         <label class="filter-label">Biodegradability</label>
@@ -616,14 +734,14 @@
                     data-lng="{{ rec.donation.location.longitude }}"
                     data-confidence="{{ rec.match_confidence|floatformat:4 }}"
                 >
-                    <span class="rec-badge">{{ rec.match_confidence|floatformat:1 }}%</span>
+                    <span class="rec-badge">{{ rec.match_confidence|floatformat:0 }}%</span>
 
                     <div class="rec-name-row">
                         <span class="rec-dot"></span>
                         <p class="rec-donor">{{ rec.donor.name }}</p>
                     </div>
                     <p class="rec-location">
-                        Brgy. {{ rec.donation.pickup_barangay }}, {{ rec.donation.pickup_city }}{% if rec.distance_km %} &middot; {{ rec.distance_km }} km{% endif %}
+                        Brgy. {{ rec.donation.pickup_barangay }}, {{ rec.donation.pickup_city }}{% if rec.distance_km %} &middot; {{ rec.distance_km|floatformat:1 }} km{% endif %}
                     </p>
 
                     <div class="rec-field">
@@ -688,15 +806,53 @@
 </div>
 
 {{ recommendations|json_script:"recommendations-data" }}
+{{ available_fibers|json_script:"filter-fibers-data" }}
+<link rel="stylesheet" href="{% static 'frontend/css/fiber-swatches.css' %}">
+<script src="{% static 'frontend/js/fiber-swatches.js' %}"></script>
+<script>
+var _fibers = JSON.parse(document.getElementById('filter-fibers-data').textContent);
+var _fiberTags = (document.getElementById('filter-fibs').value || '').split(',').map(function(s){return s.trim()}).filter(Boolean);
+function _renderFiberTags(){
+    document.getElementById('filter-fiber-tags').innerHTML = _fiberTags.map(function(f){return '<div class="t-chip">'+f+'<span data-fiber="'+f.replace(/"/g,'&quot;')+'" onclick="_fiberToggle(this.getAttribute(\'data-fiber\'))">\u00d7</span></div>'}).join('');
+    document.getElementById('filter-fibs').value = _fiberTags.join(',');
+    document.getElementById('filter-fiber-ph').style.display = _fiberTags.length ? 'none' : '';
+    _filterFiberList();
+}
+function _fiberToggle(f){
+    var i = _fiberTags.indexOf(f);
+    if(i>-1) _fiberTags.splice(i,1); else _fiberTags.push(f);
+    _renderFiberTags();
+}
+function _filterFiberList(){
+    var q = document.getElementById('filter-fiber-search').value.trim().toLowerCase();
+    document.getElementById('filter-fiber-list').innerHTML = _fibers.map(function(f){
+        var sel = _fiberTags.indexOf(f) > -1;
+        var hide = q && f.toLowerCase().indexOf(q) === -1;
+        return '<div class="fiber-dd-item'+(sel?' selected':'')+(hide?' hidden':'')+'" data-fiber="'+f.replace(/"/g,'&quot;')+'" onclick="_fiberToggle(this.getAttribute(\'data-fiber\'))">'+f+'</div>';
+    }).join('');
+}
+document.getElementById('filter-fiber-trigger').addEventListener('click', function(e){
+    var dd = document.getElementById('filter-fiber-dd');
+    dd.classList.toggle('hidden');
+    if(!dd.classList.contains('hidden')){
+        document.getElementById('filter-fiber-search').value='';
+        document.getElementById('filter-fiber-search').focus();
+        _filterFiberList();
+    }
+});
+document.getElementById('filter-fiber-search').addEventListener('input', _filterFiberList);
+document.addEventListener('click', function(e){
+    if(!e.target.closest('#filter-fiber-trigger') && !e.target.closest('#filter-fiber-dd')){
+        document.getElementById('filter-fiber-dd').classList.add('hidden');
+    }
+});
+_renderFiberTags();
+</script>
 <script>
     const recommendations = JSON.parse(document.getElementById('recommendations-data').textContent);
     let map = null;
-    let markerMap = {};        // pair_id (number) → L.Marker
+    let markerMap = {};
     let rejectingPairId = null;
-
-    function getCsrf() {
-        return '{{ csrf_token }}';
-    }
 
     function initMap() {
         map = L.map('recommendations-map').setView([14.5995, 121.0437], 11);
@@ -721,9 +877,30 @@
         });
 
         const pts = Object.values(markerMap).map(m => m.getLatLng());
+
         if (pts.length > 0) {
             map.fitBounds(L.latLngBounds(pts), { paddingTopLeft: [0, 0], paddingBottomRight: [320, 0] });
         }
+    }
+
+    function biodegMeterHtml(score) {
+        var pct = score != null ? Math.round(parseFloat(score)) : 0;
+        return '<div class="bd-meter">' +
+            '<div class="bd-track"><div class="bd-fill" style="width:' + pct + '%"></div></div>' +
+            '<span class="bd-label">' + pct + '%</span>' +
+        '</div>';
+    }
+
+    function scoreMeterHtml(scoreVal) {
+        var pct = parseFloat(scoreVal);
+        var fmt = pct.toFixed(0);
+        return '<div class="fm-score-meter">' +
+            '<div class="sm-label">Match Score</div>' +
+            '<div class="sm-track">' +
+                '<div class="sm-fill" style="width:' + fmt + '%"></div>' +
+            '</div>' +
+            '<div class="sm-pct">' + fmt + '<span class="sm-pct-small">%</span></div>' +
+        '</div>';
     }
 
     function selectRecommendation(pairId, lat, lng) {
@@ -739,18 +916,21 @@
         const mk = markerMap[pairId];
         const fiber = rec.item?.dominant_fiber || '—';
         const weight = rec.item?.weight_kg != null ? parseFloat(rec.item.weight_kg).toFixed(2) : '—';
+        var dist = rec.distance_km;
+        var distLabel = dist != null ? (dist < 1 ? (dist * 1000).toFixed(0) + ' m' : parseFloat(dist).toFixed(1) + ' km') : '';
         const biodeg = rec.biodeg_tier === 'HIGH' ? 'High' : rec.biodeg_tier === 'MEDIUM' ? 'Medium' : 'Low';
-        const biodegScore = rec.item?.biodeg_score != null ? ` (${parseFloat(rec.item.biodeg_score).toFixed(0)}%)` : '';
         const loc = `Brgy. ${rec.donation?.pickup_barangay || '—'}, ${rec.donation?.pickup_city || '—'}`;
         const score = parseFloat(rec.match_confidence).toFixed(1);
         const popupHtml = `
-            <div style="font-family:'Poppins',sans-serif;font-size:12px;line-height:1.6;min-width:220px">
-                <div style="font-size:13px;font-weight:700;color:#222;margin-bottom:6px">${escHtml(rec.donor.name)}</div>
-                <div style="display:flex;gap:8px;padding:1px 0"><span style="color:#888;min-width:60px">Location</span><span>${escHtml(loc)}</span></div>
-                <div style="display:flex;gap:8px;padding:1px 0"><span style="color:#888;min-width:60px">Fiber</span><span style="background:#1e2a3a;color:#fff;font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;text-transform:uppercase">${escHtml(fiber)}</span></div>
-                <div style="display:flex;gap:8px;padding:1px 0"><span style="color:#888;min-width:60px">Weight</span><span>${escHtml(weight)} kg</span></div>
-                <div style="display:flex;gap:8px;padding:1px 0"><span style="color:#888;min-width:60px">Biodeg</span><span>${escHtml(biodeg)}${escHtml(biodegScore)}</span></div>
-                <div style="margin-top:6px;padding-top:6px;border-top:1px solid #e0dbd4;font-weight:600;color:#e8a020">Match Score: ${score}%</div>
+            <div style="font-family:Poppins,sans-serif;min-width:210px">
+                <div style="font-size:13px;font-weight:600;color:#111;margin-bottom:6px">${escHtml(rec.donor.name)}</div>
+                ${rec.donation?.upload ? `<img src="${escHtml(rec.donation.upload)}" style="width:100%;max-height:120px;object-fit:cover;border-radius:4px;margin-bottom:6px">` : ''}
+                <div style="display:flex;gap:6px;padding:1px 0"><span style="color:#999;min-width:52px">Location</span><span style="color:#333">${escHtml(loc)}</span></div>
+                ${distLabel ? '<div style="display:flex;gap:6px;padding:1px 0"><span style="color:#999;min-width:52px">Distance</span><span style="color:#333">' + escHtml(distLabel) + '</span></div>' : ''}
+                <div style="display:flex;gap:6px;padding:1px 0"><span style="color:#999;min-width:52px">Fiber</span><span style="color:#333">${fiberSwatchHtml(fiber)}${escHtml(fiber)}</span></div>
+                <div style="display:flex;gap:6px;padding:1px 0"><span style="color:#999;min-width:52px">Weight</span><span style="color:#333">${escHtml(weight)} kg</span></div>
+                <div style="display:flex;gap:6px;padding:1px 0;align-items:center"><span style="color:#999;min-width:52px">Bio Score</span>${biodegMeterHtml(rec.item?.biodeg_score)}</div>
+                ${scoreMeterHtml(score)}
             </div>
         `;
         mk.bindPopup(popupHtml, { closeButton: true, maxWidth: 320 });

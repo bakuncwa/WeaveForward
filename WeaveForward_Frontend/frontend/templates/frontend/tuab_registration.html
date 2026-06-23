@@ -545,12 +545,7 @@
     .pw-rules { display: none; flex-direction: row; flex-wrap: wrap; gap: 6px 16px; padding: 8px 12px; background: #faf8f5; border: 1px solid #e0dbd4; border-radius: 6px; margin: 6px 0 0 0; }
     .pw-rules.visible { display: flex; }
     .pw-rule { font-size: 12px; font-family: 'Poppins', sans-serif; display: inline-flex; align-items: center; gap: 4px; color: #e74c3c; transition: color 0.2s; }
-    .pw-rule .icon { font-size: 13px; font-weight: 700; }
-    .pw-rule .icon::before { content: '\2715'; }
-    .pw-rule.met .icon::before { content: '\2714'; }
     .pw-rule.met { color: #1a6d3a; }
-    .pw-rule.met .icon { color: #27ae60; }
-    .pw-rule:not(.met) .icon { color: #e74c3c; }
     .pw-strength { display: none; }
     .biodeg-info, .distance-info { display: none; font-size: 11px; line-height: 1.5; color: #3C6591; background: #eef4fa; border: 1px solid #c5d5e8; border-radius: 8px; padding: 10px 12px; }
     .biodeg-info.visible, .distance-info.visible { display: block; }
@@ -629,9 +624,9 @@
             <div class="pw-wrap"><div class="group"><div class="pw-label-row"><label class="cap-lbl">Password<span class="req">*</span></label><button type="button" class="pw-toggle" onclick="toggleRegistrationPasswords('pw','cp','tuab-pw-toggle-text')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg><span id="tuab-pw-toggle-text">Show</span></button></div><input class="in" type="password" name="password"
                 id="pw" value="{{ form_data.password }}" autocomplete="new-password"><span class="field-err" id="err-password"></span></div>
             <div class="pw-rules" id="pw-rules">
-              <div class="pw-rule" id="r-len"><span class="icon"></span> 8+ chars</div>
-              <div class="pw-rule" id="r-letter"><span class="icon"></span> 1 letter</div>
-              <div class="pw-rule" id="r-digit"><span class="icon"></span> 1 number</div>
+              <div class="pw-rule" id="r-len">8+ chars</div>
+              <div class="pw-rule" id="r-letter">1 letter</div>
+              <div class="pw-rule" id="r-digit">1 number</div>
             </div></div>
             <div class="group"><label class="cap-lbl">Confirm Password<span class="req">*</span></label><input class="in" type="password"
                 name="confirm_password" id="cp" value="{{ form_data.confirm_password }}" autocomplete="new-password"><span class="field-err" id="err-confirm_password"></span></div>
@@ -1203,7 +1198,7 @@
       gE('fiber-list').innerHTML = fiberLookup.map(f => {
         const sel = tgs.includes(f);
         const hide = q && !f.toLowerCase().includes(q);
-        return `<div class="fiber-dd-item${sel?' selected':''}${hide?' hidden':''}" data-f="${escapeHTML(f)}" onclick="fiberToggle(this.getAttribute('data-f'))">${escapeHTML(f)}${sel?' ✓':''}</div>`;
+        return `<div class="fiber-dd-item${sel?' selected':''}${hide?' hidden':''}" data-f="${escapeHTML(f)}" onclick="fiberToggle(this.getAttribute('data-f'))">${escapeHTML(f)}</div>`;
       }).join('');
     }
     gE('fiber-trigger').addEventListener('click', e => {

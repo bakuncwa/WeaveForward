@@ -383,6 +383,8 @@
         $('lat').value = p.lat.toFixed(7); $('lng').value = p.lng.toFixed(7);
         closeMap();
         updateLocationDetails(p.lat, p.lng);
+        const btn = $('save-btn');
+        btn.disabled = true;
         let resolved = false;
         try {
             const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${p.lat}&lon=${p.lng}`, { headers: { 'Accept-Language': 'en-US' } });
@@ -393,6 +395,8 @@
             resolved = true;
         } catch {
             setAddressValue('');
+        } finally {
+            btn.disabled = false;
         }
         if (!resolved) showFlash('Could not resolve a display address. Search for the address or pick another map point.', 'error');
     }
@@ -439,7 +443,7 @@
         $('fiber-list').innerHTML = fiberData.map(f => {
             const sel = fiberTags.includes(f);
             const hide = q && !f.toLowerCase().includes(q);
-            return `<div class="fiber-dd-item${sel?' selected':''}${hide?' hidden':''}" data-f="${escapeHTML(f)}" onclick="fiberToggle(this.getAttribute('data-f'))">${escapeHTML(f)}${sel?' ✓':''}</div>`;
+            return `<div class="fiber-dd-item${sel?' selected':''}${hide?' hidden':''}" data-f="${escapeHTML(f)}" onclick="fiberToggle(this.getAttribute('data-f'))">${escapeHTML(f)}</div>`;
         }).join('');
     }
     $('fiber-trigger').addEventListener('click', e => {

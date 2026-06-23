@@ -342,12 +342,7 @@
     .pw-rules { display: none; flex-direction: row; flex-wrap: wrap; gap: 6px 16px; padding: 8px 12px; background: #faf8f5; border: 1px solid #e0dbd4; border-radius: 6px; margin: 6px 0 0 0; }
     .pw-rules.visible { display: flex; }
     .pw-rule { font-size: 12px; font-family: 'Poppins', sans-serif; display: inline-flex; align-items: center; gap: 4px; color: #e74c3c; transition: color 0.2s; }
-    .pw-rule .icon { font-size: 13px; font-weight: 700; }
-    .pw-rule .icon::before { content: '\2715'; }
-    .pw-rule.met .icon::before { content: '\2714'; }
     .pw-rule.met { color: #1a6d3a; }
-    .pw-rule.met .icon { color: #27ae60; }
-    .pw-rule:not(.met) .icon { color: #e74c3c; }
     .agreement-checks { display: grid; gap: 8px; margin: 14px 0 4px; font-size: 12px; color: #555; }
     .agreement-checks label { display: flex; align-items: flex-start; gap: 8px; line-height: 1.5; }
     .agreement-checks input { margin-top: 2px; accent-color: var(--g); }
@@ -393,9 +388,9 @@
           </div>
             <div class="pw-wrap"><div class="group"><div class="pw-label-row"><label class="up">Password<span class="req">*</span></label><button type="button" class="pw-toggle" onclick="toggleRegistrationPasswords('donor-pw','donor-cp','donor-pw-toggle-text')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg><span id="donor-pw-toggle-text">Show</span></button></div><input class="in" type="password" name="password" id="donor-pw" value="{{ form_data.password }}" autocomplete="new-password"><span class="field-err" id="err-password"></span></div>
             <div class="pw-rules" id="pw-rules">
-              <div class="pw-rule" id="r-len"><span class="icon"></span> 8+ chars</div>
-              <div class="pw-rule" id="r-letter"><span class="icon"></span> 1 letter</div>
-              <div class="pw-rule" id="r-digit"><span class="icon"></span> 1 number</div>
+              <div class="pw-rule" id="r-len">8+ chars</div>
+              <div class="pw-rule" id="r-letter">1 letter</div>
+              <div class="pw-rule" id="r-digit">1 number</div>
            </div></div>
            <div class="group"><label class="up">Confirm Password<span class="req">*</span></label><input class="in" type="password"
                name="confirm_password" id="donor-cp" value="{{ form_data.confirm_password }}" autocomplete="new-password"><span class="field-err" id="err-confirm_password"></span></div>

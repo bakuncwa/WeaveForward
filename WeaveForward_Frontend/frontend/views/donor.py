@@ -106,10 +106,56 @@ async def donor_my_donations(request):
         if d.get('preferred_pickup_window_end'):
             d['preferred_pickup_window_end'] = parse_time(d['preferred_pickup_window_end'])
 
+    def fmt_date(dt):
+        return dt.strftime('%m-%d-%Y') if dt else ''
+    def fmt_time(t):
+        return t.strftime('%I:%M %p').lstrip('0') if t else ''
+
+    donations_json = [
+        {
+            'donation_id': d['donation_id'],
+            'pickupDate': fmt_date(d.get('preferred_pickup_date')),
+            'pickupStart': fmt_time(d.get('preferred_pickup_window_start')),
+            'pickupEnd': fmt_time(d.get('preferred_pickup_window_end')),
+            'address': d.get('pickup_display_address', ''),
+            'status': d.get('status', ''),
+            'business_name': (d.get('claimed_by_tuab') or {}).get('business_name', ''),
+            'upload': d.get('upload', ''),
+            'items': [
+                {
+                    'label': '{} - {} {}'.format(
+                        i.get('lookup_details', {}).get('clothing_type', ''),
+                        i.get('lookup_details', {}).get('brand', ''),
+                        (i.get('lookup_details', {}).get('dominant_fiber', '') or ''),
+                    )
+                } for i in d.get('items', [])
+            ],
+        }
+        for d in donations_list
+    ]
+
+    meta = {
+        'count': page_data['count'],
+        'total_pages': page_data['total_pages'],
+        'current_page': page_data['current_page'],
+        'has_next': page_data['has_next'],
+        'has_prev': page_data['has_prev'],
+        'q': page_data['search_query'],
+    }
+
+    if 'application/json' in request.headers.get('Accept', ''):
+        resp = JsonResponse({
+            'donations': donations_json,
+            'meta': meta,
+        })
+        resp['Cache-Control'] = 'no-store'
+        return resp
+
     return render(request, 'frontend/donor/donor_my_donations.html', {
         'page_title': 'My Donations',
         'user': profile,
         'donations': donations_list,
+        'donations_json': donations_json,
         'count': page_data['count'],
         'total_pages': page_data['total_pages'],
         'current_page': page_data['current_page'],

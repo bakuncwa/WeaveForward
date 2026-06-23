@@ -68,6 +68,7 @@
           if (select.disabled) return;
           select.value = opt.value;
           select.dispatchEvent(new Event('change', { bubbles: true }));
+          select.dispatchEvent(new Event('input', { bubbles: true }));
           closeMenu();
         });
         menu.appendChild(item);

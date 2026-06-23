@@ -415,19 +415,9 @@
 
     DONATIONS.available.forEach(d => { d._tab = 'available'; });
     DONATIONS.claimed.forEach(d => { d._tab = 'claimed'; });
-    [...DONATIONS.available, ...DONATIONS.claimed].forEach(d => {
-      if (map && d.lat && d.lng) {
-        const popupEl = document.createElement('div');
-        const b = document.createElement('b');
-        b.textContent = d.donor;
-        popupEl.appendChild(b);
-        popupEl.appendChild(document.createElement('br'));
-        popupEl.appendChild(document.createTextNode(d.address));
-        dashMarkers[d.id] = L.marker([d.lat, d.lng]).addTo(map).bindPopup(popupEl);
-        dashMarkers[d.id]._tab = d._tab;
-      }
-    });
+    rebuildMapMarkers(DONATIONS);
     setTab(activeTab);
+    startPolling();
 
     (function highlightClaimed() {
       const claimedId = new URLSearchParams(window.location.search).get('claimed');
@@ -522,6 +512,54 @@
   document.addEventListener('click', e => {
     if (e.target === document.getElementById('flag-modal')) closeFlagModal();
   });
+
+  // ---------- Polling ----------
+  function rebuildMapMarkers(data) {
+    if (!dashMap) return;
+    Object.values(dashMarkers).forEach(m => dashMap.removeLayer(m));
+    dashMarkers = {};
+    // add new
+    const all = [...(data.available||[]), ...(data.claimed||[])];
+    all.forEach(d => {
+      if (dashMap && d.lat && d.lng) {
+        const el = document.createElement('div');
+        const b = document.createElement('b'); b.textContent = d.donor;
+        el.appendChild(b); el.appendChild(document.createElement('br'));
+        el.appendChild(document.createTextNode(d.address));
+        dashMarkers[d.id] = L.marker([d.lat, d.lng]).addTo(dashMap).bindPopup(el);
+        dashMarkers[d.id]._tab = d._tab;
+      }
+    });
+  }
+
+  let pollTimer = null;
+  function startPolling() {
+    const tick = () => {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('claimed'); // remove flash param
+      fetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, cache: 'no-cache' })
+        .then(r => r.json())
+        .then(d => {
+          if (!d.donations) return;
+          const data = d.donations;
+          data.available.forEach(x => x._tab = 'available');
+          data.claimed.forEach(x => x._tab = 'claimed');
+          // update global DONATIONS + META
+          DONATIONS.available = data.available;
+          DONATIONS.claimed = data.claimed;
+          if (d.meta) {
+            META.available = { ...META.available, ...d.meta.available };
+            META.claimed = { ...META.claimed, ...d.meta.claimed };
+          }
+          if (!document.querySelector('.wf-tour-spotlight')) {
+            rebuildMapMarkers(data);
+            setTab(activeTab);
+          }
+        })
+        .catch(() => {}); // silent
+    };
+    pollTimer = setInterval(tick, 15000);
+  }
 
 </script>
 <script>window.__wfUserCreatedAt = "{{ user.created_at|default:'' }}";</script>

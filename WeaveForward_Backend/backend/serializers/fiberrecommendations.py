@@ -2,6 +2,7 @@ import json
 from rest_framework import serializers
 from ..models import MatchPrediction, Donation, DonationItem, User, BrandFiberLookup
 from ..services.prediction_service import BIO_FIBERS, MatchPredictionService
+from ..services.upload_service import build_upload_url
 
 
 def _biodeg_tier_from_fibers(fiber_json):
@@ -26,10 +27,11 @@ class DonationPreviewSerializer(serializers.ModelSerializer):
     pickup_city = serializers.SerializerMethodField()
     location = serializers.SerializerMethodField()
     pickup_window = serializers.SerializerMethodField()
+    upload = serializers.SerializerMethodField()
 
     class Meta:
         model = Donation
-        fields = ['donation_id', 'pickup_barangay', 'pickup_city', 'location', 'pickup_window', 'preferred_pickup_date']
+        fields = ['donation_id', 'pickup_barangay', 'pickup_city', 'location', 'pickup_window', 'preferred_pickup_date', 'upload']
 
     def get_pickup_barangay(self, obj): return obj.pickup_barangay
     def get_pickup_city(self, obj): return obj.pickup_city
@@ -41,6 +43,9 @@ class DonationPreviewSerializer(serializers.ModelSerializer):
         if obj.preferred_pickup_window_start and obj.preferred_pickup_window_end:
             return {'start': obj.preferred_pickup_window_start.isoformat(), 'end': obj.preferred_pickup_window_end.isoformat()}
         return None
+
+    def get_upload(self, obj):
+        return build_upload_url(obj.upload, self.context)
 
 
 class DonationItemPreviewSerializer(serializers.ModelSerializer):

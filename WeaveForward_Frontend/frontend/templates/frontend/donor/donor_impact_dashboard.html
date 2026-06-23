@@ -297,7 +297,7 @@
   function pollDashboard() {
     const q = new URLSearchParams(window.location.search);
     q.set('format', 'json');
-    fetch(window.location.pathname + '?' + q.toString()).then(r => r.ok && r.json()).then(d => {
+    fetch(window.location.pathname + '?' + q.toString(), {headers:{'X-Requested-With':'XMLHttpRequest'}}).then(r => r.ok && r.json()).then(d => {
       if (!d) return;
       document.getElementById('dash-stat-don').textContent = d.total_donations;
       document.getElementById('dash-stat-donors').textContent = d.claimed_count;

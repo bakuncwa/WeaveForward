@@ -82,11 +82,9 @@ function srchAddr(v, prefix = '') {
   if (v.length < 3) {
     getEl(itemsId).innerHTML = '';
     clearTimeout(acTmr);
-    releaseAllLocks();
     return;
   }
   clearTimeout(acTmr);
-  lockSubmit();
   acTmr = setTimeout(async () => {
     try {
       const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(v)}&limit=5&countrycodes=ph`);
@@ -97,8 +95,6 @@ function srchAddr(v, prefix = '') {
       console.error("Search failed", e); 
       getEl(itemsId).innerHTML = `<div style="padding:10px 14px; color:#d9534f; font-weight:500; font-size:12.5px;">Location resolution services are unavailable.</div>`;
       getEl(acId).classList.remove('hidden');
-    } finally {
-      unlockSubmit();
     }
   }, 350);
 }

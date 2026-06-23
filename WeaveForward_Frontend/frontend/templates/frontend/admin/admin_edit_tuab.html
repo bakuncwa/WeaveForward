@@ -693,7 +693,7 @@
     getEl('fiber-list').innerHTML = FIBERS.map(f => {
       const sel = tags.includes(f);
       const hide = q && !f.toLowerCase().includes(q);
-      return `<div class="fiber-dd-item${sel?' selected':''}${hide?' hidden':''}" data-f="${escapeHTML(f)}" onclick="fiberToggle(this.getAttribute('data-f'))">${escapeHTML(f)}${sel?' ✓':''}</div>`;
+      return `<div class="fiber-dd-item${sel?' selected':''}${hide?' hidden':''}" data-f="${escapeHTML(f)}" onclick="fiberToggle(this.getAttribute('data-f'))">${escapeHTML(f)}</div>`;
     }).join('');
   };
   getEl('fiber-trigger').addEventListener('click', e => {
