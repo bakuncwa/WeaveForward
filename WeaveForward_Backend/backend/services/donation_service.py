@@ -239,6 +239,8 @@ def donor_update_donation(*, request, donation):
             hashed_filename = f"{uuid.uuid4().hex}.jpg"
             path = default_storage.save(f"donations/{hashed_filename}", ContentFile(buffer.read(), name=hashed_filename))
             donation.upload = Upload.objects.create(file_path=path, name=hashed_filename)
+        elif request.data.get('clear_image') in ('true', 'True', '1'):
+            donation.upload = None
 
         # 2. Update Header (This will save the donation once)
         donation = serializer.save()
@@ -378,6 +380,8 @@ def admin_update_donation(*, request, donation) -> Donation:
             hashed_filename = f"{uuid.uuid4().hex}.jpg"
             path = default_storage.save(f"donations/{hashed_filename}", ContentFile(buffer.read(), name=hashed_filename))
             donation.upload = Upload.objects.create(file_path=path, name=hashed_filename)
+        elif request.data.get('clear_image') in ('true', 'True', '1'):
+            donation.upload = None
 
         if 'is_flagged' in v_data and not v_data['is_flagged']:
             v_data['flag_reason'] = None

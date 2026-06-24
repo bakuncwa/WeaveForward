@@ -192,6 +192,8 @@ class DonorUpdateSerializer(serializers.ModelSerializer):
                 file_path=stored_path,
                 name=os.path.basename(optimized_filename)
             )
+        elif self.initial_data.get('clear_upload') in ('true', 'True', '1'):
+            instance.upload = None
 
         instance.save()
         return instance
@@ -273,6 +275,8 @@ class TuabUpdateSerializer(serializers.ModelSerializer):
                 file_path=stored_path,
                 name=os.path.basename(optimized_filename)
             )
+        elif self.initial_data.get('clear_upload') in ('true', 'True', '1'):
+            instance.upload = None
 
         instance.save()
         return instance
@@ -515,6 +519,8 @@ class DonorUpdateSelfSerializer(serializers.ModelSerializer):
                 file_path=stored_path,
                 name=os.path.basename(optimized_filename)
             )
+        elif self.initial_data.get('clear_upload') in ('true', 'True', '1'):
+            instance.upload = None
 
         instance.save()
         return instance
@@ -525,7 +531,6 @@ class DonorUpdateSelfSerializer(serializers.ModelSerializer):
             data['upload'] = build_upload_url(instance.upload, self.context)
         data.pop('password', None)
         return data
-
 
 
 
@@ -598,6 +603,8 @@ class TuabUpdateSelfSerializer(serializers.ModelSerializer):
                 file_path=stored_path,
                 name=os.path.basename(optimized_filename)
             )
+        elif self.initial_data.get('clear_upload') in ('true', 'True', '1'):
+            instance.upload = None
 
         instance.save()
         return instance

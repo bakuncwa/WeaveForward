@@ -149,6 +149,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['role'] = user.role
         token['status'] = user.status
         token['created_at'] = user.created_at.isoformat()
+        token['first_name'] = user.first_name or ''
+        token['last_name'] = user.last_name or ''
+        token['business_name'] = user.business_name or ''
         return token
 
     default_error_messages = {

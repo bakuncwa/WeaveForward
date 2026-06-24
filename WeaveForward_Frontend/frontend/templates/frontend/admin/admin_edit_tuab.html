@@ -124,6 +124,10 @@
     background: none;
   }
 
+  .img-wrap { position:relative; display:inline-block; }
+  .img-x { position:absolute; top:-6px; right:-6px; width:22px; height:22px; border-radius:50%; background:#c0392b; color:#fff; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; line-height:1; padding:0; z-index:2; }
+  .img-x:hover { background:#a93226; }
+
   .tfa-row {
     display: flex;
     justify-content: space-between;
@@ -465,7 +469,14 @@
     <div class="group">
       <label class="up">Profile Picture</label>
       <div class="pfp-area">
-        <img id="pfp-preview" class="pfp-img" src="{{ tuab.upload }}" alt="Profile">
+        <div id="pfp-pvw" class="img-wrap" style="{% if not tuab.upload %}display:none{% endif %}">
+          <img id="pfp-preview" class="pfp-img" src="{{ tuab.upload|default:'' }}" alt="Profile">
+          <button type="button" class="img-x" onclick="event.stopPropagation();clearProfilePhoto()">✕</button>
+        </div>
+        <div id="pfp-ph" style="{% if tuab.upload %}display:none{% endif %}">
+          <div class="pfp-img" style="display:flex;align-items:center;justify-content:center;background:#f0e8d8;color:var(--g);font-weight:700;font-size:20px">{{ tuab.business_name|slice:":2" }}</div>
+        </div>
+        <input type="hidden" name="clear_upload" id="clear-upload" value="">
         <button type="button" class="pfp-change" onclick="getEl('pfp-in').click()">Change Photo</button>
         <input id="pfp-in" name="upload" type="file" accept=".png,.jpeg,.jpg" class="hidden"
           onchange="previewPfp(this.files[0])">
@@ -663,6 +674,13 @@
   const syncAll = () => document.querySelectorAll('#frm [name]').forEach(syncInit);
 
   // --- 3. Profile Photo ---
+  function clearProfilePhoto() {
+    getEl('pfp-in').value = '';
+    getEl('clear-upload').value = '1';
+    getEl('pfp-pvw').style.display = 'none';
+    getEl('pfp-ph').style.display = '';
+  }
+
   function previewPfp(file) {
     if (!file) return;
     const validTypes = ['image/png', 'image/jpeg', 'image/jpg'];
@@ -676,8 +694,9 @@
       getEl('pfp-in').value = '';
       return;
     }
+    getEl('clear-upload').value = '';
     const r = new FileReader();
-    r.onload = e => getEl('pfp-preview').src = e.target.result;
+    r.onload = e => { getEl('pfp-preview').src = e.target.result; getEl('pfp-pvw').style.display = ''; getEl('pfp-ph').style.display = 'none'; };
     r.readAsDataURL(file);
   }
 

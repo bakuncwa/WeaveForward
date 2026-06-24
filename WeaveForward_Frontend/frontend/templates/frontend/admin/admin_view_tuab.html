@@ -40,7 +40,7 @@
     border-radius: 50%;
     object-fit: cover;
     flex-shrink: 0;
-    background: #ead9b0;
+    background: #f0e8d8;
   }
 
   .biz-avatar-fallback {
@@ -48,11 +48,11 @@
     height: 72px;
     border-radius: 50%;
     flex-shrink: 0;
-    background: #ead9b0;
-    color: #8b6914;
+    background: #f0e8d8;
+    color: var(--gold);
     font-family: 'Poppins', sans-serif;
     font-size: 22px;
-    font-weight: 600;
+    font-weight: 700;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -275,7 +275,7 @@
     {% if tuab.upload %}
       <img class="biz-avatar" src="{{ tuab.upload }}" alt="{{ tuab.business_name|default:'TUAB' }}"/>
     {% else %}
-      <div class="biz-avatar-fallback">{{ tuab.business_name|default:"TUAB"|slice:":1"|upper }}</div>
+      <div class="biz-avatar-fallback">{{ tuab.business_name|default:"TUAB"|slice:":2"|lower }}</div>
     {% endif %}
 
     <div>

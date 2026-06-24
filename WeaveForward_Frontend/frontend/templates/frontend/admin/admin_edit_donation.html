@@ -96,6 +96,9 @@
     background: #fff;
   }
   .btn-browse:hover { } /* Hover disabled */
+  .img-wrap { position:relative; display:inline-block; max-width:100%; }
+  .img-x { position:absolute; top:4px; right:4px; width:24px; height:24px; border-radius:50%; background:rgba(0,0,0,0.5); color:#fff; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; line-height:1; padding:0; z-index:2; }
+  .img-x:hover { background:rgba(0,0,0,0.7); }
 </style>
 
 <div class="wf-content-inner">
@@ -259,7 +262,7 @@
           </div>
           {% endif %}
 
-          <button type="submit" class="btn-submit">Submit Donation</button>
+          <button type="submit" class="btn-submit">Save Donation</button>
           <button type="button" class="btn-cancel" onclick="cancelDonation()">Cancel Donation</button>
         </div>
 
@@ -276,8 +279,12 @@
                 <path d="M32 30L32 42M32 30L28 34M32 30L36 34" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </div>
-            <img id="img-prv" src="" style="max-width:100%; border-radius:8px; display:none">
+            <div id="img-wrap" class="img-wrap" style="{% if not donation.upload %}display:none{% endif %}">
+              <img id="img-prv" src="{% if donation.upload %}{{ donation.upload }}{% endif %}" style="max-width:100%; border-radius:8px;">
+              <button type="button" class="img-x" onclick="event.stopPropagation();clearFileInput()">✕</button>
+            </div>
             <input id="img-in" name="donation_image" type="file" accept=".jpg,.jpeg,.png" class="hidden" onchange="previewImg(this)">
+            <input type="hidden" name="clear_image" id="clear-img-hidden" value="">
           </div>
         </div>
       </div>
@@ -537,7 +544,7 @@
     
     const btn = e.target.querySelector('.btn-submit');
     const oldText = btn.innerText;
-    btn.innerText = 'Submitting...';
+    btn.innerText = 'Saving...';
     btn.disabled = true;
  
     try {
@@ -593,14 +600,73 @@
     }
   };
 
-  function previewImg(inp) {
-    const f = inp.files[0];
-    if (f) {
-      document.getElementById('img-prv').src = URL.createObjectURL(f);
-      document.getElementById('img-prv').style.display = 'block';
-      document.getElementById('img-ph').style.display = 'none';
+  function clearFileInput() {
+    const inp = document.getElementById('img-in');
+    const wrap = document.getElementById('img-wrap');
+    const prv = document.getElementById('img-prv');
+    const ph = document.getElementById('img-ph');
+    const hidden = document.getElementById('clear-img-hidden');
+    inp.value = '';
+    const isServerImg = prv.getAttribute('src') && !prv.src.startsWith('blob:');
+    if (isServerImg) {
+      hidden.value = 'true';
+      wrap.style.display = 'none';
+      ph.innerHTML = 'Image will be removed';
+      ph.style.cssText = 'font-size:13px;color:#999;font-family:Poppins,sans-serif;text-align:center;padding:20px';
+    } else {
+      hidden.value = '';
+      wrap.style.display = 'none';
+      ph.innerHTML = '<svg class="drop-icon" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M54 18H34.8L28.8 12H10C7.8 12 6.02 13.8 6.02 16L6 48C6 50.2 7.8 52 10 52H54C56.2 52 58 50.2 58 48V22C58 19.8 56.2 18 54 18Z" fill="#FBBF24"/><circle cx="32" cy="36" r="8" fill="white" fill-opacity="0.2"/><path d="M32 30L32 42M32 30L28 34M32 30L36 34" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      ph.style.cssText = '';
     }
   }
+
+  const ALLOWED_EXTS = ['.jpg', '.jpeg', '.png'];
+  const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
+  function previewImg(inp) {
+    const f = inp.files[0];
+    const wrap = document.getElementById('img-wrap');
+    const prv = document.getElementById('img-prv');
+    const ph = document.getElementById('img-ph');
+    const hidden = document.getElementById('clear-img-hidden');
+    if (f) {
+      const ext = f.name.substring(f.name.lastIndexOf('.')).toLowerCase();
+      if (!ALLOWED_EXTS.includes(ext)) {
+        showFlash('Please upload a JPG or PNG image.', 'error');
+        inp.value = '';
+        return;
+      }
+      if (f.size > MAX_FILE_SIZE) {
+        showFlash('Image must be under 5 MB.', 'error');
+        inp.value = '';
+        return;
+      }
+      prv.src = URL.createObjectURL(f);
+      wrap.style.display = '';
+      ph.style.display = 'none';
+      hidden.value = '';
+    } else {
+      const existingSrc = prv.getAttribute('src');
+      if (existingSrc) {
+        wrap.style.display = '';
+        ph.style.display = 'none';
+      } else {
+        wrap.style.display = 'none';
+        ph.style.display = '';
+      }
+    }
+  }
+
+  // On load: show existing image instead of placeholder
+  (function() {
+    const wrap = document.getElementById('img-wrap');
+    const ph = document.getElementById('img-ph');
+    if (document.getElementById('img-prv').getAttribute('src')) {
+      wrap.style.display = '';
+      ph.style.display = 'none';
+    }
+  })();
 
   async function cancelDonation() {
     const btn = document.querySelector('.btn-cancel');

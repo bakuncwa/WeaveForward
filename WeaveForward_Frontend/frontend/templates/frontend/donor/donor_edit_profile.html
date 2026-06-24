@@ -14,6 +14,9 @@
     .sec-lbl { letter-spacing: .8px; margin-bottom: 18px; }
     .av-img { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; }
     .av-ph { width: 60px; height: 60px; border-radius: 50%; background: #f0e8d8; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; color: var(--gold); }
+    .img-wrap { position:relative; display:inline-block; }
+    .img-x { position:absolute; top:-6px; right:-6px; width:22px; height:22px; border-radius:50%; background:#c0392b; color:#fff; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; line-height:1; padding:0; z-index:2; }
+    .img-x:hover { background:#a93226; }
 </style>
 
 <div class="donor-edit-wrap">
@@ -30,10 +33,14 @@
         <div class="sec-lbl">Profile Photo</div>
         <div class="sep" style="margin-bottom:18px"></div>
         <div class="f-row">
-          <div id="photo-pvw">
-            {% if user.upload %}<img src="{{ user.upload }}" class="av-img" />
-            {% else %}<div class="av-ph">{{ user.first_name|slice:":1" }}{{ user.last_name|slice:":1" }}</div>{% endif %}
+          <div id="photo-pvw" class="img-wrap" style="{% if not user.upload %}display:none{% endif %}">
+            <img id="photo-img" class="av-img" src="{{ user.upload|default:'' }}" />
+            <button type="button" class="img-x" onclick="event.stopPropagation();clearProfilePhoto()">✕</button>
           </div>
+          <div id="photo-ph" style="{% if user.upload %}display:none{% endif %}">
+            <div class="av-ph">{{ user.first_name|slice:":1"|lower }}{{ user.last_name|slice:":1"|lower }}</div>
+          </div>
+          <input type="hidden" name="clear_upload" id="clear-upload" value="">
           <input type="file" name="upload" accept="image/*" id="photo-input" class="hidden" onchange="previewPhoto(this)" />
           <button type="button" class="btn btn-ol" onclick="$('photo-input').click()">Change Photo</button>
         </div>
@@ -132,7 +139,7 @@
 <div id="twofa-modal" class="modal-bg hidden">
   <div class="modal-box">
     <h3 style="font-weight:600;font-size:20px;margin-bottom:12px;color:#1a1a1a">Set Up 2FA</h3>
-    <p style="font-size:13px;color:#666;margin-bottom:20px;line-height:1.5">Scan this QR code with your authenticator app, or enter the secret key manually below.</p>
+    <p style="font-size:13px;color:#666;margin-bottom:20px;line-height:1.5">Scan this QR code with your authenticator app, or enter the secret key manually below.<br><span style="font-size:11px;color:#999">e.g. Google Authenticator, Authy, or Microsoft Authenticator</span></p>
     <div id="qrcode" style="display:flex;justify-content:center;margin-bottom:16px;"></div>
     <div id="totp-secret-display" class="totp-sec">Loading...</div>
     <input id="totp-in" type="text" inputmode="numeric" maxlength="6" placeholder="000000" class="totp-in" />
@@ -157,7 +164,25 @@
         });
     };
 
-    function previewPhoto(el) { if (el.files[0]) $('photo-pvw').innerHTML = `<img src="${URL.createObjectURL(el.files[0])}" class="av-img"/>`; }
+    function clearProfilePhoto() {
+      $('photo-input').value = '';
+      $('clear-upload').value = '1';
+      $('photo-pvw').style.display = 'none';
+      $('photo-ph').style.display = '';
+    }
+
+    function previewPhoto(el) {
+      const f = el.files[0];
+      if (!f) return;
+      const ALLOWED = ['.jpg', '.jpeg', '.png'];
+      const ext = f.name.substring(f.name.lastIndexOf('.')).toLowerCase();
+      if (!ALLOWED.includes(ext)) { showFlash('Please upload a JPG or PNG image.', 'error'); el.value = ''; return; }
+      if (f.size > 5 * 1024 * 1024) { showFlash('Image must be under 5 MB.', 'error'); el.value = ''; return; }
+      $('clear-upload').value = '';
+      $('photo-img').src = URL.createObjectURL(f);
+      $('photo-pvw').style.display = '';
+      $('photo-ph').style.display = 'none';
+    }
 
     const onToggle2FA = () => {
         staged2FA = !staged2FA;

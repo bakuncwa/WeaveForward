@@ -41,6 +41,9 @@
 
   .drop { border: 2px dashed #e8a020; border-radius: 16px; padding: 30px 20px; text-align: center; cursor: pointer; position: relative; }
   .drop-icon { width: 56px; height: 56px; margin: 0 auto 16px; display: block; }
+  .img-wrap { position:relative; display:inline-block; max-width:100%; }
+  .img-x { position:absolute; top:4px; right:4px; width:24px; height:24px; border-radius:50%; background:rgba(0,0,0,0.5); color:#fff; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; line-height:1; padding:0; z-index:2; }
+  .img-x:hover { background:rgba(0,0,0,0.7); }
 </style>
 
 <div class="wf-content-inner">
@@ -126,7 +129,10 @@
                 <path d="M32 30L32 42M32 30L28 34M32 30L36 34" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </div>
-            <img id="img-prv" src="" style="max-width:100%; border-radius:8px; display:none">
+            <div id="img-wrap" class="img-wrap" style="display:none">
+              <img id="img-prv" src="" style="max-width:100%; border-radius:8px;">
+              <button type="button" class="img-x" onclick="event.stopPropagation();clearFileInput()">✕</button>
+            </div>
             <input id="img-in" name="donation_image" type="file" accept=".jpg,.jpeg,.png" class="hidden" onchange="previewImg(this)">
           </div>
         </div>
@@ -437,11 +443,32 @@
     }
   };
 
+  const ALLOWED_EXTS = ['.jpg', '.jpeg', '.png'];
+  const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
+  function clearFileInput() {
+    const inp = document.getElementById('img-in');
+    inp.value = '';
+    document.getElementById('img-wrap').style.display = 'none';
+    document.getElementById('img-ph').style.display = '';
+  }
+
   function previewImg(inp) {
     const f = inp.files[0];
     if (f) {
+      const ext = f.name.substring(f.name.lastIndexOf('.')).toLowerCase();
+      if (!ALLOWED_EXTS.includes(ext)) {
+        showFlash('Please upload a JPG or PNG image.', 'error');
+        inp.value = '';
+        return;
+      }
+      if (f.size > MAX_FILE_SIZE) {
+        showFlash('Image must be under 5 MB.', 'error');
+        inp.value = '';
+        return;
+      }
       document.getElementById('img-prv').src = URL.createObjectURL(f);
-      document.getElementById('img-prv').style.display = 'block';
+      document.getElementById('img-wrap').style.display = '';
       document.getElementById('img-ph').style.display = 'none';
     }
   }
