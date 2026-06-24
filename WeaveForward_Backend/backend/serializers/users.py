@@ -358,12 +358,15 @@ class TuabListSerializer(serializers.ModelSerializer):
     """Slim serializer for non-admin TUAB list views."""
     upload = serializers.SerializerMethodField()
     distance_km = serializers.FloatField(read_only=True, required=False)
+    latitude = serializers.DecimalField(max_digits=9, decimal_places=7, required=False, allow_null=True)
+    longitude = serializers.DecimalField(max_digits=10, decimal_places=7, required=False, allow_null=True)
 
     class Meta:
         model = User
         fields = [
             'user_id', 'email', 'role', 'business_name', 'description',
-            'barangay', 'city', 'upload', 'distance_km', 'target_fibers'
+            'barangay', 'city', 'upload', 'distance_km', 'target_fibers',
+            'latitude', 'longitude'
         ]
 
     def get_upload(self, obj):

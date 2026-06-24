@@ -33,7 +33,7 @@ def get_lalamove_quotation(pickup_lat, pickup_lng, pickup_address, dropoff_lat, 
     data = {
         "data": {
             "scheduleAt": schedule_at,
-            "serviceType": "SEDAN",
+            "serviceType": "MOTORCYCLE",
             "language": "en_PH",
             "stops": [
                 {

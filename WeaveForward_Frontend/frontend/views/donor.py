@@ -12,63 +12,17 @@ async def donor_browse_businesses(request):
     """Donor Dashboard - Browsing active TUABs."""
     profile = request.user_profile
     
-    # Categories for filter from Service (Matches Registration)
-    categories = await get_fiber_choices(request)
+    params = {'role': 'TUAB', 'status': 'ACTIVE', 'nopaginate': 'true'}
     
-    # Capture filter params
-    params = {'role': 'TUAB', 'status': 'ACTIVE'}
-    lat = request.GET.get('lat')
-    lng = request.GET.get('lng')
-    category = request.GET.get('category')
+    categories_resp, users_resp = await asyncio.gather(
+        get_fiber_choices(request),
+        api_call(request, 'GET', 'users', params=params),
+    )
     
-    # Validate filter inputs defensively to prevent ValueErrors
-    invalid_filters = False
-    if lat and lng:
-        try:
-            float(lat)
-            float(lng)
-            params['lat'] = lat
-            params['lng'] = lng
-        except ValueError:
-            invalid_filters = True
-    elif lat or lng:
-        # Incomplete coordinates are invalid
-        invalid_filters = True
-        
-    if category:
-        params['category'] = category
-
-    # Inline paginated api_call to capture raw response status and catch network outages locally
-    page = request.GET.get('page', 1)
-    try:
-        current_page = int(page)
-        if current_page < 1:
-            current_page = 1
-    except ValueError:
-        current_page = 1
-        page = '1'
-        
-    search_query = request.GET.get('q', '')
+    categories = categories_resp
+    has_error = users_resp.status_code != 200
+    businesses = users_resp.json() if not has_error else []
     
-    api_params = params.copy()
-    api_params.update({'page': page, 'search': search_query})
-    
-    has_error = False
-    if invalid_filters:
-        has_error = True
-        data = {}
-    else:
-        response = await api_call(request, 'GET', 'users', params=api_params)
-        has_error = response.status_code != 200
-        data = response.json() if not has_error else {}
-    
-    businesses = data.get('results', [])
-    count = data.get('count', 0)
-    total_pages = (count + 9) // 10  # 10 items per page
-    has_next = data.get('next') is not None
-    has_prev = data.get('previous') is not None
-        
-    # Process target_fibers into lists for template
     for biz in businesses:
         fibers = biz.get('target_fibers', '')
         if fibers:
@@ -80,16 +34,9 @@ async def donor_browse_businesses(request):
         'page_title': 'Browse Businesses', 
         'user': profile,
         'businesses': businesses,
+        'businesses_json': json.dumps(businesses),
         'categories': categories,
-        'count': count,
-        'total_pages': total_pages,
-        'current_page': current_page,
-        'has_next': has_next,
-        'has_prev': has_prev,
-        'page_range': range(1, total_pages + 1),
-        'q': search_query,
         'has_error': has_error,
-        'invalid_filters': invalid_filters
     })
 
 async def donor_my_donations(request):

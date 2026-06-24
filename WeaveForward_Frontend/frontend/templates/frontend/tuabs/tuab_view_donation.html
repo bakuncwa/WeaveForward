@@ -5,6 +5,8 @@
     rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  {% load static %}
+  <script src="{% static 'frontend/js/location-picker.js' %}"></script>
   <style>
     :root {
       --tuab: #e8a020;
@@ -278,6 +280,32 @@
       padding-right: 40px;
     }
 
+    .pin-wrap.mat-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      min-width: 0;
+    }
+    .pin-wrap.mat-wrap .ss-wrap {
+      flex: 1 1 0;
+      min-width: 0;
+      position: relative;
+    }
+    .pin-wrap.mat-wrap .pin {
+      position: static;
+      transform: none;
+      flex-shrink: 0;
+      width: 44px;
+      height: 44px;
+      border: 1.5px solid #d5d5d5;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+
     .pin {
       position: absolute;
       right: 10px;
@@ -289,30 +317,43 @@
       cursor: pointer;
     }
 
-    .ac {
-      position: relative;
-    }
-
-    .ac-list {
+    .ss-list {
       position: absolute;
-      z-index: 60;
+      z-index: 100;
       top: 100%;
       left: 0;
       width: 100%;
-      max-height: 180px;
-      overflow: auto;
+      max-height: 200px;
+      overflow-y: auto;
       background: #fff;
       border: 1.5px solid var(--brd);
       border-radius: 8px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, .1);
+      box-shadow: 0 8px 24px rgba(0,0,0,.15);
     }
-
-    .ac-item {
-      padding: 10px 14px;
-      font-size: 13px;
-      cursor: pointer;
-      border-bottom: 1px solid #f5f5f5;
+    .mat-trigger {
+      display: flex; justify-content: space-between; align-items: center;
+      width: 100%; height: 44px; border: 1.5px solid #d5d5d5; border-radius: 8px;
+      padding: 0 14px; font-size: 14px; font-family: 'Poppins', sans-serif;
+      color: #666; background: #fff; cursor: pointer; user-select: none;
+      transition: border-color 0.2s, box-shadow 0.2s; overflow: hidden;
     }
+    .mat-trigger:hover { border-color: var(--tuab); }
+    .mat-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mat-arrow { display: flex; align-items: center; color: var(--tuab); transition: transform .2s; flex-shrink: 0; margin-left: 8px; }
+    .ss-wrap.open .mat-arrow { transform: rotate(180deg); }
+    .ss-wrap.open .mat-trigger { border-color: var(--tuab); box-shadow: 0 0 0 3px rgba(232,160,32,.15); }
+    .mat-search {
+      width: 100%; border: none; border-bottom: 1.5px solid #d5d5d5;
+      padding: 10px 14px; font-family: 'Poppins', sans-serif; font-size: 13px;
+      outline: none; border-radius: 8px 8px 0 0; background: #fff;
+    }
+    .mat-item {
+      padding: 10px 14px; font-size: 13px; cursor: pointer;
+      border-bottom: 1px solid #f5f5f5; color: #666;
+      font-family: 'Poppins', sans-serif; transition: background .15s;
+    }
+    .mat-item:last-child { border-bottom: none; }
+    .mat-item:hover { background: #f5f4f0; }
 
     .ac-item:hover {
       background: var(--lt);
@@ -471,9 +512,9 @@
     <input type="hidden" id="preferred-date" value="{{ donation.preferred_pickup_date|slice:':10' }}">
     <input type="hidden" id="current-etag" name="current_etag" value="{{ current_etag|default:'' }}">
     <input type="hidden" id="quotation-token" name="quotation_token" value="">
-    <input type="hidden" id="dropoff-latitude" name="dropoff_latitude"
+    <input type="hidden" id="dropoff_lat" name="dropoff_latitude"
       value="{{ default_dropoff_latitude|default:'' }}">
-    <input type="hidden" id="dropoff-longitude" name="dropoff_longitude"
+    <input type="hidden" id="dropoff_lng" name="dropoff_longitude"
       value="{{ default_dropoff_longitude|default:'' }}">
 
     <div class="layout">
@@ -544,19 +585,24 @@
 
             <div class="sub">Delivery Location</div>
             <div class="delivery-wrap">
-              <div class="ac">
-                <div class="pin-wrap">
-                  <input id="dropoff-display-address" class="in" name="dropoff_display_address"
-                    value="{{ default_dropoff_address|default:'' }}" placeholder="Drop-off display address"
-                    oninput="nominatimSearch(this.value)">
-                  <button type="button" class="pin" onclick="openPicker()" aria-label="Pick on map">
-                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                      <circle cx="12" cy="10" r="3" />
-                    </svg>
-                  </button>
+              <div class="pin-wrap mat-wrap">
+                <div class="ss-wrap" style="flex:1;position:relative">
+                  <div class="mat-trigger" onclick="toggleAddrDropdown(this)">
+                    <span class="mat-text" id="dropoff_addr-text">{{ default_dropoff_address|default:'Address' }}</span>
+                    <svg class="mat-arrow" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg>
+                  </div>
+                  <input id="dropoff_addr" type="hidden" name="dropoff_display_address" value="{{ default_dropoff_address|default:'' }}">
+                  <div id="dropoff_ac" class="ss-list hidden">
+                    <input type="text" class="mat-search" id="dropoff_addr-search" placeholder="Search address..." oninput="srchAddr(this.value, 'dropoff')" onclick="event.stopPropagation()" autocomplete="off">
+                    <div class="mat-items" id="dropoff_items"></div>
+                  </div>
                 </div>
-                <div id="dropoff-ac" class="ac-list hidden"></div>
+                <button type="button" class="pin" onclick="openMap('dropoff')" aria-label="Pick on map">
+                  <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                </button>
               </div>
             </div>
 
@@ -623,16 +669,14 @@
 
   <script>
     // --- 1. Data & Utils ---
-    const getEl = id => document.getElementById(id);
-    const escapeHTML = str => !str ? '' : str.replace(/[&<>'"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[c]||c));
     const quotationUrl = '{% url "tuab_quotation_proxy" donation.donation_id %}';
     const csrfToken = document.querySelector('#claim-form [name=csrfmiddlewaretoken]').value;
     const userLatRaw = '{{ users.latitude|default:""|escapejs }}';
     const userLngRaw = '{{ users.longitude|default:""|escapejs }}';
     const defaultLat = Number.isFinite(parseFloat(userLatRaw)) ? parseFloat(userLatRaw) : 14.589;
     const defaultLng = Number.isFinite(parseFloat(userLngRaw)) ? parseFloat(userLngRaw) : 120.9822;
-    if (getEl('dropoff-latitude').value) getEl('dropoff-latitude').value = (+getEl('dropoff-latitude').value).toFixed(7);
-    if (getEl('dropoff-longitude').value) getEl('dropoff-longitude').value = (+getEl('dropoff-longitude').value).toFixed(7);
+    if (getEl('dropoff_lat').value) getEl('dropoff_lat').value = (+getEl('dropoff_lat').value).toFixed(7);
+    if (getEl('dropoff_lng').value) getEl('dropoff_lng').value = (+getEl('dropoff_lng').value).toFixed(7);
 
     function responseMessage(data, fallback) {
       if (typeof data?.detail === 'string') return data.detail;
@@ -670,135 +714,8 @@
       return { response, data };
     }
 
-    // --- 2. Autocomplete Logic ---
-    let acRes = [];
-    let acTimer;
+    // --- 2. Address Dropdown + Map (handled by location-picker.js) ---
     let pendingDeliveryClaim = null;
-
-    function selectAutocomplete(i) {
-      const r = acRes[i];
-      if (!r) return;
-      getEl('dropoff-display-address').value = r.display_name || '';
-      getEl('dropoff-latitude').value = r.lat ? (+r.lat).toFixed(7) : '';
-      getEl('dropoff-longitude').value = r.lon ? (+r.lon).toFixed(7) : '';
-      getEl('dropoff-ac').classList.add('hidden');
-    }
-
-    function nominatimSearch(v) {
-      const list = getEl('dropoff-ac');
-      if (!v || v.length < 3) return list.classList.add('hidden');
-      clearTimeout(acTimer);
-      acTimer = setTimeout(async () => {
-        try {
-          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(v)}&limit=5&countrycodes=ph`);
-          acRes = await res.json();
-          list.innerHTML = acRes.length
-            ? acRes.map((r, i) => `<div class="ac-item" onmousedown="selectAutocomplete(${i})">${escapeHTML(r.display_name)}</div>`).join('')
-            : '<div class="ac-item">No results</div>';
-          list.classList.remove('hidden');
-        } catch {
-          list.classList.add('hidden');
-        }
-      }, 350);
-    }
-
-    // --- 3. Map Picker Logic ---
-    let map;
-    let marker;
-    let tmpLat = parseFloat(getEl('dropoff-latitude').value) || defaultLat;
-    let tmpLng = parseFloat(getEl('dropoff-longitude').value) || defaultLng;
-
-    function openPicker() {
-      tmpLat = parseFloat(getEl('dropoff-latitude').value) || defaultLat;
-      tmpLng = parseFloat(getEl('dropoff-longitude').value) || defaultLng;
-      getEl('map-modal').classList.remove('hidden');
-
-      setTimeout(() => {
-        if (map) map.remove();
-        map = L.map('picker-map').setView([tmpLat, tmpLng], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        marker = L.marker([tmpLat, tmpLng], { draggable: true }).addTo(map);
-        marker.on('dragend', e => {
-          tmpLat = e.target.getLatLng().lat;
-          tmpLng = e.target.getLatLng().lng;
-        });
-        map.on('click', e => {
-          tmpLat = e.latlng.lat;
-          tmpLng = e.latlng.lng;
-          marker.setLatLng([tmpLat, tmpLng]);
-        });
-      }, 120);
-    }
-
-    function closeMap() {
-      getEl('map-modal').classList.add('hidden');
-      if (!map) return;
-      map.remove();
-      map = null;
-    }
-
-    function closeDeliveryConfirm() {
-      pendingDeliveryClaim = null;
-      const btn = getEl('delivery-confirm-submit');
-      if (btn) {
-        btn.textContent = 'Confirm';
-        btn.disabled = false;
-      }
-      getEl('delivery-confirm-modal').classList.add('hidden');
-    }
-
-    function openDeliveryConfirm(totalPrice, scheduleAt, quotationToken) {
-      pendingDeliveryClaim = quotationToken;
-      const submitBtn = getEl('delivery-confirm-submit');
-      if (submitBtn) {
-        submitBtn.textContent = 'Confirm';
-        submitBtn.disabled = false;
-      }
-      const copy = getEl('delivery-confirm-copy');
-      copy.innerHTML = '';
-      const row1 = document.createElement('div');
-      row1.className = 'confirm-row';
-      row1.innerHTML = `Total Price: <span class="covered-price"><span class="original">? ${escapeHTML(totalPrice)}</span><span class="covered">Covered by subscription</span></span>`;
-      copy.appendChild(row1);
-      const row2 = document.createElement('div');
-      row2.className = 'confirm-row';
-      row2.textContent = `Scheduled at: ${(() => { try { const d = new Date(scheduleAt); return isNaN(d.getTime()) ? scheduleAt : d.toLocaleString('en-US', {timeZone: 'Asia/Manila', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true}); } catch(e) { return scheduleAt; } })()}`;
-      copy.appendChild(row2);
-      const row3 = document.createElement('div');
-      row3.className = 'confirm-row';
-      row3.textContent = `Drop off: ${getEl('dropoff-display-address').value.trim()}`;
-      copy.appendChild(row3);
-      getEl('delivery-confirm-modal').classList.remove('hidden');
-    }
-
-    function confirmDeliveryClaim() {
-      if (!pendingDeliveryClaim) return closeDeliveryConfirm();
-      const btn = getEl('delivery-confirm-submit');
-      btn.textContent = 'Submitting...';
-      btn.disabled = true;
-      getEl('delivery-method').value = 'DELIVERY';
-      getEl('quotation-token').value = pendingDeliveryClaim;
-      getEl('delivery-confirm-modal').classList.add('hidden');
-      getEl('claim-form').requestSubmit();
-    }
-
-    async function confirmMap() {
-      getEl('dropoff-latitude').value = Number(tmpLat).toFixed(7);
-      getEl('dropoff-longitude').value = Number(tmpLng).toFixed(7);
-      const lat = getEl('dropoff-latitude').value;
-      const lng = getEl('dropoff-longitude').value;
-
-      try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
-        const j = await res.json();
-        getEl('dropoff-display-address').value = j.display_name || '';
-        if (!j.display_name) showFlash('Could not resolve a display address. Search for the address or pick another map point.', 'error');
-      } catch {
-        getEl('dropoff-display-address').value = '';
-        showFlash('Could not resolve a display address. Search for the address or pick another map point.', 'error');
-      }
-      closeMap();
-    }
 
     // --- 4. Claim Logic ---
     function submitPickupClaim() {
@@ -815,9 +732,9 @@
       const deliveryBtn = getEl('delivery-claim-btn');
       const currentEtag = getEl('current-etag').value;
       if (!currentEtag) return showFlash('The current donation version is missing. Refresh the page and try again.');
-      const addr = (getEl('dropoff-display-address').value || '').trim();
-      const lat = (getEl('dropoff-latitude').value || '').trim();
-      const lng = (getEl('dropoff-longitude').value || '').trim();
+      const addr = (getEl('dropoff_addr').value || '').trim();
+      const lat = (getEl('dropoff_lat').value || '').trim();
+      const lng = (getEl('dropoff_lng').value || '').trim();
       const scheduledTime = (getEl('delivery-scheduled-time').value || '').trim();
       if (!addr || !lat || !lng) return showFlash('Please provide complete drop-off location for delivery.');
       if (!scheduledTime) return showFlash('Please choose a scheduled delivery time within the donation window.');
@@ -857,15 +774,58 @@
       openDeliveryConfirm(totalPrice, scheduleAt, quotationToken);
     }
 
+    function openDeliveryConfirm(totalPrice, scheduleAt, quotationToken) {
+      pendingDeliveryClaim = quotationToken;
+      const submitBtn = getEl('delivery-confirm-submit');
+      if (submitBtn) {
+        submitBtn.textContent = 'Confirm';
+        submitBtn.disabled = false;
+      }
+      const copy = getEl('delivery-confirm-copy');
+      copy.innerHTML = '';
+      const row1 = document.createElement('div');
+      row1.className = 'confirm-row';
+      row1.innerHTML = `Total Price: <span class="covered-price"><span class="original">? ${escapeHTML(totalPrice)}</span><span class="covered">Covered by subscription</span></span>`;
+      copy.appendChild(row1);
+      const row2 = document.createElement('div');
+      row2.className = 'confirm-row';
+      row2.textContent = `Scheduled at: ${(() => { try { const d = new Date(scheduleAt); return isNaN(d.getTime()) ? scheduleAt : d.toLocaleString('en-US', {timeZone: 'Asia/Manila', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true}); } catch(e) { return scheduleAt; } })()}`;
+      copy.appendChild(row2);
+      const row3 = document.createElement('div');
+      row3.className = 'confirm-row';
+      row3.textContent = `Drop off: ${getEl('dropoff_addr').value.trim()}`;
+      copy.appendChild(row3);
+      getEl('delivery-confirm-modal').classList.remove('hidden');
+    }
+
+    function closeDeliveryConfirm() {
+      pendingDeliveryClaim = null;
+      const btn = getEl('delivery-confirm-submit');
+      if (btn) {
+        btn.textContent = 'Confirm';
+        btn.disabled = false;
+      }
+      getEl('delivery-confirm-modal').classList.add('hidden');
+    }
+
+    function confirmDeliveryClaim() {
+      if (!pendingDeliveryClaim) return closeDeliveryConfirm();
+      const btn = getEl('delivery-confirm-submit');
+      btn.textContent = 'Submitting...';
+      btn.disabled = true;
+      getEl('delivery-method').value = 'DELIVERY';
+      getEl('quotation-token').value = pendingDeliveryClaim;
+      getEl('delivery-confirm-modal').classList.add('hidden');
+      getEl('claim-form').requestSubmit();
+    }
+
     // --- 5. Init ---
     // Normalize saved coordinates
-    ['dropoff-latitude', 'dropoff-longitude'].forEach(function (id) {
+    ['dropoff_lat', 'dropoff_lng'].forEach(function (id) {
       if (getEl(id) && getEl(id).value) getEl(id).value = (+getEl(id).value).toFixed(7);
     });
 
     document.addEventListener('click', e => {
-      if (!getEl('dropoff-ac').closest('.ac').contains(e.target)) getEl('dropoff-ac').classList.add('hidden');
-      if (e.target === getEl('map-modal')) closeMap();
       if (e.target === getEl('delivery-confirm-modal')) closeDeliveryConfirm();
     });
 

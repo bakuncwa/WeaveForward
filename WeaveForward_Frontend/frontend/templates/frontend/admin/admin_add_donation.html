@@ -405,6 +405,11 @@
       e.preventDefault();
       return false;
     }
+    if (items.length === 0) {
+      showFlash('At least one item is required.', 'error');
+      e.preventDefault();
+      return false;
+    }
     document.getElementById('items-json').value = JSON.stringify(items);
     return true;
   }

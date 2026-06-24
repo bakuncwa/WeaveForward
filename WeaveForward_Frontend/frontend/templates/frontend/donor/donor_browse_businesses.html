@@ -68,6 +68,13 @@
     border-color: #999;
   }
 
+  .pagination-wrap .btn,
+  .pagination-wrap .btn-outline {
+    height: auto;
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
   /* --- Forms --- */
   .form-label-upper {
     font-size: 13px;
@@ -287,7 +294,7 @@
       min-width: unset;
     }
 
-    .biz-card {
+  .biz-card {
       flex-wrap: wrap;
     }
 
@@ -345,171 +352,159 @@
   </form>
 
   <p class="results-header">
-    <strong>{{ count }} Businesses found</strong>
-    <span style="margin-left:14px;color:#999">{% if request.GET.lat %}Sorted by nearest{% else %}Discover our partners{% endif %}</span>
+    <strong id="results-count">Businesses</strong>
+    <span id="results-sub" style="margin-left:14px;color:#999">Discover our partners</span>
   </p>
 
   <div id="biz-list">
-    {% if has_error %}
-    <div style="text-align:center; padding:60px 0; color:#d9534f; font-weight:500;">
-      <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom:12px; color:#d9534f; display:inline-block;">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
-      </svg>
-      {% if invalid_filters %}
-      <p style="font-size:16px; margin:0;">Invalid location parameters or filter criteria. Please try searching again.</p>
-      {% else %}
-      <p style="font-size:16px; margin:0;">Textile Upcycling Artisan Businesses cannot be retrieved.</p>
-      {% endif %}
-    </div>
-    {% else %}
-    {% for biz in businesses %}
-    <a class="biz-card" href="{% url 'donor_view_tuab' biz.user_id %}">
-      {% if biz.upload %}
-      <img class="biz-avatar" src="{{ biz.upload }}" alt="{{ biz.business_name }}" />
-      {% else %}
-      <div class="biz-avatar"
-        style="display:flex; align-items:center; justify-content:center; background:#f0e8d8; color:var(--gold); font-weight:700; font-size:20px; font-family:Poppins,sans-serif">
-        {{ biz.business_name|slice:":2"|lower }}
-      </div>
-      {% endif %}
-
-      <div class="biz-info">
-        <div class="biz-name">{{ biz.business_name|default:biz.email }}</div>
-        <div class="biz-loc">
-          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-            <circle cx="12" cy="10" r="3" />
-          </svg>
-          {{ biz.barangay|default:"" }} {{ biz.city|default:"Unknown Location" }}
-        </div>
-        <div class="biz-tags">
-          {% for fiber in biz.fiber_list %}
-          <span class="tag">{{ fiber }}</span>
-          {% endfor %}
-        </div>
-      </div>
-
-      <div class="biz-desc">{{ biz.description|default:"No description available for this partner yet." }}</div>
-
-      {% if biz.distance_km %}
-      <span class="distance-badge">{{ biz.distance_km|floatformat:1 }}km</span>
-      {% endif %}
-    </a>
-    {% empty %}
-    <div style="text-align:center; padding:60px 0; color:#888;">
-      <p>No businesses found matching your criteria.</p>
-    </div>
-    {% endfor %}
-    {% endif %}
+    <div style="text-align:center;padding:60px 0;color:#888"><p>Finding your location...</p></div>
   </div>
 
-  {% if total_pages > 1 %}
-  <div class="pagination-wrap">
-    <div class="pg-info">Page {{ current_page }} of {{ total_pages }}</div>
-    <div class="pg-btns">
-      {% if has_prev %}
-      <a href="?page={{ current_page|add:'-1' }}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.lat %}&lat={{ request.GET.lat }}{% endif %}{% if request.GET.lng %}&lng={{ request.GET.lng }}{% endif %}{% if request.GET.address %}&address={{ request.GET.address }}{% endif %}"
-        class="btn btn-outline">
-        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path d="M15 19l-7-7 7-7" />
-        </svg> Previous
-      </a>
-      {% else %}
-      <button class="btn btn-outline" disabled>
-        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path d="M15 19l-7-7 7-7" />
-        </svg> Previous
-      </button>
-      {% endif %}
 
-      {% if has_next %}
-      <a href="?page={{ current_page|add:'1' }}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.lat %}&lat={{ request.GET.lat }}{% endif %}{% if request.GET.lng %}&lng={{ request.GET.lng }}{% endif %}{% if request.GET.address %}&address={{ request.GET.address }}{% endif %}"
-        class="btn btn-outline">
-        Next <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path d="M9 5l7 7-7 7" />
-        </svg>
-      </a>
-      {% else %}
-      <button class="btn btn-outline" disabled>
-        Next <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path d="M9 5l7 7-7 7" />
-        </svg>
-      </button>
-      {% endif %}
-    </div>
-  </div>
-  {% endif %}
 </div>
 
+  <div id="pagination"></div>
+
 <script>
-  function allowLocation() {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition((pos) => {
-        const lat = pos.coords.latitude.toFixed(7);
-        const lng = pos.coords.longitude.toFixed(7);
-        const dropdownOpen = document.getElementById('loc-ac') && !document.getElementById('loc-ac').classList.contains('hidden');
-        if (dropdownOpen) {
-          document.getElementById('browse-lat').value = lat;
-          document.getElementById('browse-lng').value = lng;
-          return;
-        }
-        const url = new URL(window.location.href);
-        url.searchParams.set('lat', lat);
-        url.searchParams.set('lng', lng);
-        if (window.__wfTourActive) { window.__wfPendingGeo = () => { window.location.href = url.toString(); }; return; }
-        window.location.href = url.toString();
-      }, () => { }, {
-        enableHighAccuracy: false,
-        maximumAge: 3600000
-      });
-    }
-  }
+  var _geoDone = false;
 
-  // Monitor permission and trigger bar/detection
-  (function () {
-    const urlParams = new URLSearchParams(window.location.search);
-    const needsLoc = !urlParams.has('lat') || !urlParams.has('lng');
-
-    if (needsLoc) {
-      allowLocation();
-    }
-  })();
-
-  let _acResults = [];
-  let _acTmr = null;
+  var _acResults = [];
+  var _acTmr = null;
+  var _allBusinesses = {{ businesses_json|safe }};
+  var _filtered = _allBusinesses;
+  var _page = 1;
+  var _perPage = 10;
 
   function toggleLocDropdown(trigger) {
-    const wrap = trigger.closest('.ss-wrap');
-    const list = wrap.querySelector('.ss-list');
-    const isOpen = !list.classList.contains('hidden');
-    document.querySelectorAll('.ss-list').forEach(l => l.classList.add('hidden'));
-    document.querySelectorAll('.mat-trigger').forEach(t => t.classList.remove('open'));
+    var wrap = trigger.closest('.ss-wrap');
+    var list = wrap.querySelector('.ss-list');
+    var isOpen = !list.classList.contains('hidden');
+    document.querySelectorAll('.ss-list').forEach(function(l) { l.classList.add('hidden'); });
+    document.querySelectorAll('.mat-trigger').forEach(function(t) { t.classList.remove('open'); });
     if (!isOpen) {
       list.classList.remove('hidden');
       trigger.classList.add('open');
-      const search = list.querySelector('.mat-search');
+      var search = list.querySelector('.mat-search');
       if (search) { search.value = ''; search.focus(); }
     }
   }
 
-  async function nominatimSearch(val) {
-    const items = document.getElementById('loc-items');
-    const ac = document.getElementById('loc-ac');
-    const errorEl = document.getElementById('nominatim-error');
+  function haversine(lat1, lng1, lat2, lng2) {
+    var R = 6371;
+    var dLat = (lat2 - lat1) * Math.PI / 180;
+    var dLng = (lng2 - lng1) * Math.PI / 180;
+    var a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)*Math.sin(dLng/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  function renderPage() {
+    var container = document.getElementById('biz-list');
+    var header = document.getElementById('results-count');
+    var total = _filtered.length;
+    var totalPages = Math.ceil(total / _perPage) || 1;
+    if (_page > totalPages) _page = totalPages;
+    var start = (_page - 1) * _perPage;
+    var pageItems = _filtered.slice(start, start + _perPage);
+
+    header.textContent = total + ' Businesses found';
+
+    if (!pageItems.length) {
+      container.innerHTML = '<div style="text-align:center; padding:60px 0; color:#888;"><p>No businesses found matching your criteria.</p></div>';
+    } else {
+      container.innerHTML = pageItems.map(function(biz) {
+        var avatar = biz.upload
+          ? '<img class="biz-avatar" src="' + biz.upload + '" alt="' + biz.business_name + '" />'
+          : '<div class="biz-avatar" style="display:flex;align-items:center;justify-content:center;background:#f0e8d8;color:var(--gold);font-weight:700;font-size:20px;font-family:Poppins,sans-serif">' + (biz.business_name||'').slice(0,2).toLowerCase() + '</div>';
+        var tags = (biz.fiber_list||[]).map(function(f) { return '<span class="tag">' + f + '</span>'; }).join('');
+        var dist = biz.distance_km != null ? '<span class="distance-badge">' + Number(biz.distance_km).toFixed(1) + 'km</span>' : '';
+        return '<a class="biz-card" href="/donor/tuabs/' + biz.user_id + '/">' + avatar + '<div class="biz-info"><div class="biz-name">' + (biz.business_name||biz.email) + '</div><div class="biz-loc"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> ' + (biz.barangay||'') + ' ' + (biz.city||'Unknown Location') + '</div><div class="biz-tags">' + tags + '</div></div><div class="biz-desc">' + (biz.description||'No description available for this partner yet.') + '</div>' + dist + '</a>';
+      }).join('');
+    }
+
+    var sub = document.getElementById('results-sub');
+    if (sub) {
+      var hasLoc = !isNaN(parseFloat(document.getElementById('browse-lat').value)) && !isNaN(parseFloat(document.getElementById('browse-lng').value));
+      sub.textContent = hasLoc ? 'Sorted by nearest' : 'Discover our partners';
+    }
+
+    var pg = document.getElementById('pagination');
+    if (totalPages <= 1) { pg.innerHTML = ''; return; }
+    pg.innerHTML = '<div class="pagination-wrap" id="don-pagination"><div class="pg-info">Page ' + _page + ' of ' + totalPages + '</div><div class="pg-btns">'
+      + (_page > 1 ? '<a class="btn btn-outline" id="prev-btn" href="javascript:goPage(' + (_page-1) + ')">\u276E Previous</a>' : '')
+      + '<span id="page-indicator">Page ' + _page + '</span>'
+      + (_page < totalPages ? '<a class="btn btn-outline" id="next-btn" href="javascript:goPage(' + (_page+1) + ')">Next \u276F</a>' : '')
+      + '</div></div>';
+  }
+
+  function goPage(p) {
+    _page = p;
+    renderPage();
+    var up = new URLSearchParams(window.location.search);
+    if (p > 1) up.set('page', p); else up.delete('page');
+    var qs = up.toString();
+    var url = qs ? '/donor/browse-businesses/?' + qs : '/donor/browse-businesses/';
+    history.replaceState(null, '', url);
+    try { sessionStorage.setItem('wfBack:donor:tuabs', url); } catch(e) {}
+  }
+
+  function filterAndRender(page) {
+    var cat = document.getElementById('cat-filter').value;
+    var lat = parseFloat(document.getElementById('browse-lat').value);
+    var lng = parseFloat(document.getElementById('browse-lng').value);
+    var hasLoc = !isNaN(lat) && !isNaN(lng);
+    if (hasLoc) _geoDone = true;
+
+    _filtered = _allBusinesses;
+    if (cat) {
+      _filtered = _filtered.filter(function(b) {
+        return (b.target_fibers||'').toLowerCase().indexOf(cat.toLowerCase()) !== -1;
+      });
+    }
+    if (hasLoc) {
+      _filtered = _filtered.map(function(b) {
+        var bl = parseFloat(b.latitude), bn = parseFloat(b.longitude);
+        if (!isNaN(bl) && !isNaN(bn)) b.distance_km = haversine(lat, lng, bl, bn);
+        else b.distance_km = null;
+        return b;
+      }).filter(function(b) { return b.distance_km != null; }).sort(function(a, b) { return a.distance_km - b.distance_km; });
+    } else {
+      _filtered.forEach(function(b) { delete b.distance_km; });
+    }
+    _page = page || 1;
+    renderPage();
+
+    var params = new URLSearchParams();
+    var addr = document.getElementById('loc-addr').value;
+    if (cat) params.set('category', cat);
+    if (addr) params.set('address', addr);
+    if (hasLoc) { params.set('lat', document.getElementById('browse-lat').value); params.set('lng', document.getElementById('browse-lng').value); }
+    if (_page > 1) params.set('page', _page);
+    var qs = params.toString();
+    var url = qs ? '/donor/browse-businesses/?' + qs : '/donor/browse-businesses/';
+    history.replaceState(null, '', url);
+    try { sessionStorage.setItem('wfBack:donor:tuabs', url); } catch(e) {}
+  }
+
+  document.querySelector('.filter-row')?.addEventListener('submit', function(e) { e.preventDefault(); filterAndRender(); });
+
+  function nominatimSearch(val) {
+    var items = document.getElementById('loc-items');
+    var ac = document.getElementById('loc-ac');
+    var errorEl = document.getElementById('nominatim-error');
     if (errorEl) errorEl.classList.add('hidden');
     if (!items) return;
     if (!val || val.length < 3) { items.innerHTML = ''; return; }
     clearTimeout(_acTmr);
-    _acTmr = setTimeout(async () => {
+    _acTmr = setTimeout(async function() {
       try {
-        const q = encodeURIComponent(val);
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}&limit=5&countrycodes=ph`);
-        const data = await res.json();
+        var q = encodeURIComponent(val);
+        var res = await fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + q + '&limit=5&countrycodes=ph');
+        var data = await res.json();
         if (!data.length) { items.innerHTML = '<div class="mat-item" style="color:#999;cursor:default">No results found</div>'; return; }
         _acResults = data;
-        items.innerHTML = data.map((r, i) =>
-          `<div class="mat-item" onmousedown="event.preventDefault();selectAC(${i})">${r.display_name}</div>`
-        ).join('');
+        items.innerHTML = data.map(function(r, i) {
+          return '<div class="mat-item" onmousedown="event.preventDefault();selectAC(' + i + ')">' + r.display_name + '</div>';
+        }).join('');
         ac.classList.remove('hidden');
       } catch (err) {
         items.innerHTML = '';
@@ -520,7 +515,8 @@
   }
 
   function selectAC(i) {
-    const r = _acResults[i];
+    _geoDone = true;
+    var r = _acResults[i];
     document.getElementById('addr-text').textContent = r.display_name;
     document.getElementById('loc-addr').value = r.display_name;
     document.getElementById('browse-lat').value = (+r.lat).toFixed(7);
@@ -529,14 +525,64 @@
     document.querySelector('.mat-trigger')?.classList.remove('open');
   }
 
-  document.addEventListener('click', e => {
-    document.querySelectorAll('.ss-list').forEach(l => {
+  document.addEventListener('click', function(e) {
+    document.querySelectorAll('.ss-list').forEach(function(l) {
       if (!l.closest('.ss-wrap')?.contains(e.target)) l.classList.add('hidden');
     });
-    document.querySelectorAll('.mat-trigger').forEach(t => {
+    document.querySelectorAll('.mat-trigger').forEach(function(t) {
       if (!t.closest('.ss-wrap')?.contains(e.target)) t.classList.remove('open');
     });
   });
+
+  (function() {
+    var up = new URLSearchParams(window.location.search);
+    var urlCat = up.get('category');
+    var urlAddr = up.get('address');
+    var urlLat = up.get('lat');
+    var urlLng = up.get('lng');
+    if (urlCat) document.getElementById('cat-filter').value = urlCat;
+    if (urlAddr) {
+      document.getElementById('addr-text').textContent = urlAddr;
+      document.getElementById('loc-addr').value = urlAddr;
+    }
+    if (urlLat && urlLng) {
+      document.getElementById('browse-lat').value = urlLat;
+      document.getElementById('browse-lng').value = urlLng;
+      filterAndRender(parseInt(up.get('page')) || 0);
+      return;
+    }
+    var ts = localStorage.getItem('wf_browse_ts');
+    var storedLat = localStorage.getItem('wf_browse_lat');
+    var storedLng = localStorage.getItem('wf_browse_lng');
+    if (storedLat && storedLng && ts && Date.now() - parseInt(ts) < 3600000 && !urlCat) {
+      document.getElementById('addr-text').textContent = 'Current Location';
+      document.getElementById('loc-addr').value = 'Current Location';
+      document.getElementById('browse-lat').value = storedLat;
+      document.getElementById('browse-lng').value = storedLng;
+      filterAndRender();
+      _geoDone = false;
+    } else if (urlCat) {
+      filterAndRender(parseInt(up.get('page')) || 0);
+    } else {
+      filterAndRender();
+    }
+  })();
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(function(pos) {
+      if (_geoDone) return;
+      _geoDone = true;
+      var lat = pos.coords.latitude.toFixed(7);
+      var lng = pos.coords.longitude.toFixed(7);
+      localStorage.setItem('wf_browse_lat', lat);
+      localStorage.setItem('wf_browse_lng', lng);
+      localStorage.setItem('wf_browse_ts', Date.now());
+      document.getElementById('addr-text').textContent = 'Current Location';
+      document.getElementById('loc-addr').value = 'Current Location';
+      document.getElementById('browse-lat').value = lat;
+      document.getElementById('browse-lng').value = lng;
+      filterAndRender();
+    }, function() { }, { enableHighAccuracy: false, maximumAge: 3600000 });
+  }
 </script>
 <script>window.__wfUserCreatedAt = "{{ user.created_at|default:'' }}";</script>
 <script src="{% static 'frontend/js/donor-tour.js' %}"></script>
