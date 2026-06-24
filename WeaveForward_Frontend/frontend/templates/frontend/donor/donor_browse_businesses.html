@@ -167,7 +167,7 @@
   .mat-text { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .mat-arrow { flex-shrink:0; transition:transform .2s; }
   .mat-trigger.open .mat-arrow { transform:rotate(180deg); }
-  .ss-list { position:absolute; top:100%; left:0; width:100%; background:#fff; border:1.5px solid var(--gold); border-top:none; border-radius:0 0 8px 8px; z-index:200; box-shadow:0 8px 24px rgba(0,0,0,.12); max-height:260px; display:flex; flex-direction:column; }
+  .ss-list { position:absolute; top:100%; left:0; width:100%; background:#fff; border-radius:0 0 8px 8px; z-index:200; box-shadow:0 8px 24px rgba(0,0,0,.12); max-height:260px; display:flex; flex-direction:column; }
   .ss-list.hidden { display:none !important; }
   .mat-search { width:100%; border:none; border-bottom:1px solid #eee; padding:10px 14px; font-family:'Poppins',sans-serif; font-size:16px; outline:none; box-sizing:border-box; }
   .mat-items { overflow-y:auto; max-height:200px; }
@@ -331,7 +331,7 @@
         <input type="hidden" id="browse-lat" name="lat" value="{{ request.GET.lat }}" />
         <input type="hidden" id="browse-lng" name="lng" value="{{ request.GET.lng }}" />
         <div id="loc-ac" class="ss-list hidden">
-          <input type="text" class="mat-search" id="loc-search" placeholder="Search address..." oninput="nominatimSearch(this.value)" onclick="event.stopPropagation()" onkeydown="if(event.key==='Enter')event.preventDefault()" autocomplete="off">
+          <input type="text" class="mat-search" id="loc-search" placeholder="Type and select an address to find businesses near it" oninput="nominatimSearch(this.value)" onclick="event.stopPropagation()" onkeydown="if(event.key==='Enter')event.preventDefault()" autocomplete="off">
           <div class="mat-items" id="loc-items"></div>
         </div>
       </div>
@@ -505,7 +505,7 @@
         const q = encodeURIComponent(val);
         const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}&limit=5&countrycodes=ph`);
         const data = await res.json();
-        if (!data.length) { items.innerHTML = '<div class="mat-item" style="color:#999;cursor:default;font-size:12px">No results found</div>'; return; }
+        if (!data.length) { items.innerHTML = '<div class="mat-item" style="color:#999;cursor:default">No results found</div>'; return; }
         _acResults = data;
         items.innerHTML = data.map((r, i) =>
           `<div class="mat-item" onmousedown="event.preventDefault();selectAC(${i})">${r.display_name}</div>`

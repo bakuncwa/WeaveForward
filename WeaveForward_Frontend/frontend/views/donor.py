@@ -520,6 +520,8 @@ async def donor_impact_dashboard(request):
     )
     if response.status_code == 200:
         dashboard_data = response.json()
+    elif request.GET.get('format') == 'json':
+        pass
     else:
         try:
             response_data = response.json()
