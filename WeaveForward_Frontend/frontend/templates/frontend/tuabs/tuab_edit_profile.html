@@ -69,7 +69,9 @@
           </div>
         </div>
         <div class="g2" style="margin-bottom:14px">
-          <div class="field"><label>Social / Website Link</label><input name="social_link" class="wf-in" value="{{ user.social_link|default:'' }}" /></div>
+          <div class="field"><label>Social / Website Link</label><input name="social_link" class="wf-in" type="url" value="{{ user.social_link|default:'' }}"
+            onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||!/[<>\'\"\s]/.test(event.key)||event.preventDefault()"
+            oninput="this.value=this.value.replace(/[<>\'\"\s]/g,'')" /></div>
           <div class="field" style="position:relative">
             <label>Target Fiber Types</label>
             <div class="t-box" id="fiber-trigger">
@@ -126,7 +128,7 @@
         <div class="field" style="margin-bottom:0">
           <label>Contact Number</label>
           <div style="display:grid;grid-template-columns:60px 1fr;gap:8px">
-            <input value="+63" class="wf-in" style="pointer-events:none; background:#f9f9f9" tabindex="-1" /><input name="contact_no" class="wf-in" value="{{ user.contact_no|default:'' }}" inputmode="numeric" maxlength="10" pattern="\d{10}" title="Enter 10 digits after +63." required />
+            <input value="+63" class="wf-in" style="pointer-events:none; background:#f9f9f9" tabindex="-1" /><input name="contact_no" class="wf-in" value="{{ user.contact_no|default:'' }}" inputmode="numeric" maxlength="10" pattern="9\d{9}" title="Enter 10 digits starting with 9." onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||/^\d$/.test(event.key)||event.preventDefault()" oninput="this.value=this.value.replace(/\D/g,'')" required />
           </div>
         </div>
       </div>

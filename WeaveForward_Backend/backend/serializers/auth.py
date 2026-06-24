@@ -14,6 +14,9 @@ from ..services.location_service import get_city_and_barangay
 from ..services.brand_fiber_lookup_service import get_allowed_fibers
 
 
+NAME_RGX = re.compile(r"^[a-zA-Z\s'\-\.]+$")
+
+
 class DonorRegisterSerializer(serializers.ModelSerializer):
     middle_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
@@ -26,6 +29,15 @@ class DonorRegisterSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, data):
+        # Names
+        for field in ['first_name', 'last_name']:
+            v = data.get(field, '')
+            if v and not NAME_RGX.match(v):
+                raise serializers.ValidationError({field: "Name must not contain numbers or special characters."})
+        mn = data.get('middle_name', '')
+        if mn and not NAME_RGX.match(mn):
+            raise serializers.ValidationError({'middle_name': "Name must not contain numbers or special characters."})
+
         # Email
         email = data.get('email', '')
         if not re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', email):
@@ -35,7 +47,7 @@ class DonorRegisterSerializer(serializers.ModelSerializer):
 
         # Phone
         contact_no = data.get('contact_no', '')
-        if not re.match(r'^\+63\d{10}$', contact_no):
+        if not re.match(r'^\+639\d{9}$', contact_no):
             raise serializers.ValidationError({'contact_no': "Enter a valid Philippine mobile number starting with +63 (e.g., +639171234567)."})
         if User.objects.filter(contact_no=contact_no).exists():
             raise serializers.ValidationError({'contact_no': "Phone already taken."})
@@ -82,7 +94,7 @@ class TUABRegisterSerializer(serializers.ModelSerializer):
 
         # Phone
         contact_no = data.get('contact_no', '')
-        if not re.match(r'^\+63\d{10}$', contact_no):
+        if not re.match(r'^\+639\d{9}$', contact_no):
             raise serializers.ValidationError({'contact_no': "Enter a valid Philippine mobile number starting with +63 (e.g., +639171234567)."})
         if User.objects.filter(contact_no=contact_no).exists():
             raise serializers.ValidationError({'contact_no': "Phone already taken."})

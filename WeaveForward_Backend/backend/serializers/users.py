@@ -13,6 +13,15 @@ from ..services.upload_service import build_upload_url
 from ..services.location_service import get_city_and_barangay
 from ..services.brand_fiber_lookup_service import get_allowed_fibers
 
+NAME_RGX = re.compile(r"^[a-zA-Z\s'\-\.]+$$")
+
+
+def _validate_name_fields(data, *fields):
+    for field in fields:
+        v = data.get(field, '')
+        if v and not NAME_RGX.match(v):
+            raise serializers.ValidationError({field: "Name must not contain numbers or special characters."})
+
 
 def _require_or_autofill_city_barangay(data):
     lat, lng = data.get('latitude'), data.get('longitude')
@@ -150,7 +159,7 @@ class DonorUpdateSerializer(serializers.ModelSerializer):
 
         # 3. Contact No
         contact_no = data.get('contact_no')
-        if contact_no and not re.match(r'^\+63\d{10}$', contact_no):
+        if contact_no and not re.match(r'^\+639\d{9}$', contact_no):
             raise serializers.ValidationError({'contact_no': "Enter a valid Philippine mobile number starting with +63 (e.g., +639171234567)."})
 
         # 4. Location
@@ -220,7 +229,7 @@ class TuabUpdateSerializer(serializers.ModelSerializer):
 
         # 3. Contact No
         contact_no = data.get('contact_no')
-        if contact_no and not re.match(r'^\+63\d{10}$', contact_no):
+        if contact_no and not re.match(r'^\+639\d{9}$', contact_no):
             raise serializers.ValidationError({'contact_no': "Enter a valid Philippine mobile number starting with +63 (e.g., +639171234567)."})
 
         # 4. Target Fibers
@@ -412,11 +421,38 @@ class MayaCardSerializer(serializers.Serializer):
     expYear = serializers.CharField()
     cvc = serializers.CharField()
 
+    def validate_number(self, value):
+        if not re.match(r'^\d{13,19}' + '$', value):
+            raise serializers.ValidationError("Card number must contain 13-19 digits only.")
+        return value
+
+    def validate_expMonth(self, value):
+        if not re.match(r'^(0[1-9]|1[0-2])' + '$', value):
+            raise serializers.ValidationError("Expiry month must be 01-12.")
+        return value
+
+    def validate_expYear(self, value):
+        if not re.match(r'^\d{4}' + '$', value):
+            raise serializers.ValidationError("Expiry year must be 4 digits.")
+        return value
+
+    def validate_cvc(self, value):
+        if not re.match(r'^\d{3,4}' + '$', value):
+            raise serializers.ValidationError("CVV must be 3 or 4 digits.")
+        return value
+
 
 class SubscribeSetupSerializer(serializers.Serializer):
     firstName = serializers.CharField()
     lastName = serializers.CharField()
     card = MayaCardSerializer()
+
+    def validate(self, data):
+        for field in ['firstName', 'lastName']:
+            v = data.get(field, '')
+            if v and not NAME_RGX.match(v):
+                raise serializers.ValidationError({field: "Name must not contain numbers or special characters."})
+        return data
 
 
 class DonorUpdateSelfSerializer(serializers.ModelSerializer):
@@ -432,6 +468,9 @@ class DonorUpdateSelfSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, data):
+        # 0. Names
+        _validate_name_fields(data, 'first_name', 'middle_name', 'last_name')
+
         # 1. Password
         pw = data.get('password')
         if pw and not re.match(r'^(?=.*[A-Za-z])(?=.*\d).{8,}$', pw):
@@ -443,7 +482,7 @@ class DonorUpdateSelfSerializer(serializers.ModelSerializer):
 
         # 3. Contact No
         contact_no = data.get('contact_no')
-        if contact_no and not re.match(r'^\+63\d{10}$', contact_no):
+        if contact_no and not re.match(r'^\+639\d{9}$', contact_no):
             raise serializers.ValidationError({'contact_no': "Enter a valid Philippine mobile number starting with +63 (e.g., +639171234567)."})
 
         # 4. Location
@@ -515,7 +554,7 @@ class TuabUpdateSelfSerializer(serializers.ModelSerializer):
 
         # 3. Contact No
         contact_no = data.get('contact_no')
-        if contact_no and not re.match(r'^\+63\d{10}$', contact_no):
+        if contact_no and not re.match(r'^\+639\d{9}$', contact_no):
             raise serializers.ValidationError({'contact_no': "Enter a valid Philippine mobile number starting with +63 (e.g., +639171234567)."})
 
         # 4. Target Fibers

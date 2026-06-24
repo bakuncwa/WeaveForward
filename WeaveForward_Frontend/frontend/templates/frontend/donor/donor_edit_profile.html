@@ -17,7 +17,7 @@
 </style>
 
 <div class="donor-edit-wrap">
-  <form id="ep-form" method="post" action="{% url 'edit_profile' %}" enctype="multipart/form-data">
+  <form id="ep-form" method="post" action="{% url 'edit_profile' %}" enctype="multipart/form-data" onsubmit="return false">
     {% csrf_token %}
     <input type="hidden" name="user_id" value="{{ user.user_id }}">
     <input type="hidden" name="current_etag" value="{{ current_etag }}">
@@ -44,14 +44,14 @@
       <div class="sec">
         <div class="sec-lbl">Personal Information</div>
         <div class="g2">
-          <div class="field"><label>First Name</label><input name="first_name" class="wf-in" value="{{ user.first_name|default:'' }}" maxlength="50" required/></div>
-          <div class="field"><label>Middle Name</label><input name="middle_name" class="wf-in" value="{{ user.middle_name|default:'' }}" maxlength="50" /></div>
+          <div class="field"><label>First Name</label><input name="first_name" class="wf-in" value="{{ user.first_name|default:'' }}" maxlength="50" onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||/^[a-zA-Z\s'\-\.]$/.test(event.key)||event.preventDefault()" oninput="this.value=this.value.replace(/[^a-zA-Z\s'\-\.]/g,'')" required/></div>
+          <div class="field"><label>Middle Name</label><input name="middle_name" class="wf-in" value="{{ user.middle_name|default:'' }}" maxlength="50" onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||/^[a-zA-Z\s'\-\.]$/.test(event.key)||event.preventDefault()" oninput="this.value=this.value.replace(/[^a-zA-Z\s'\-\.]/g,'')" /></div>
         </div>
         <div class="g2" style="margin-bottom:0">
-          <div class="field"><label>Last Name</label><input name="last_name" class="wf-in" value="{{ user.last_name|default:'' }}" maxlength="50" required/></div>
+          <div class="field"><label>Last Name</label><input name="last_name" class="wf-in" value="{{ user.last_name|default:'' }}" maxlength="50" onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||/^[a-zA-Z\s'\-\.]$/.test(event.key)||event.preventDefault()" oninput="this.value=this.value.replace(/[^a-zA-Z\s'\-\.]/g,'')" required/></div>
           <div class="field"><label>Contact Number</label>
             <div style="display:grid;grid-template-columns:60px 1fr;gap:8px">
-              <input value="+63" class="wf-in" style="pointer-events:none; background:#f9f9f9" tabindex="-1" /><input name="contact_no" class="wf-in" value="{{ user.contact_no|default:'' }}" inputmode="numeric" maxlength="10" pattern="\d{10}" title="Enter 10 digits after +63." required />
+              <input value="+63" class="wf-in" style="pointer-events:none; background:#f9f9f9" tabindex="-1" /><input name="contact_no" class="wf-in" value="{{ user.contact_no|default:'' }}" inputmode="numeric" maxlength="10" pattern="9\d{9}" title="Enter 10 digits starting with 9." onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||/^\d$/.test(event.key)||event.preventDefault()" oninput="this.value=this.value.replace(/\D/g,'')" required />
             </div>
           </div>
         </div>

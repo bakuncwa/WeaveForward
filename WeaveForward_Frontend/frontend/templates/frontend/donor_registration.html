@@ -378,13 +378,13 @@
 
         <div id="step1">
           <div class="grid-3">
-            <div class="group"><label class="up">First Name<span class="req">*</span></label><input class="in" name="first_name" id="donor-fn" value="{{ form_data.first_name }}"><span class="field-err" id="err-first_name"></span></div>
-            <div class="group"><label class="up">Middle Name</label><input class="in" name="middle_name" value="{{ form_data.middle_name }}"><span class="field-err" id="err-middle_name"></span></div>
-            <div class="group"><label class="up">Last Name<span class="req">*</span></label><input class="in" name="last_name" id="donor-ln" value="{{ form_data.last_name }}"><span class="field-err" id="err-last_name"></span></div>
+            <div class="group"><label class="up">First Name<span class="req">*</span></label><input class="in" name="first_name" id="donor-fn" value="{{ form_data.first_name }}" onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||/^[a-zA-Z\s'\-\.]$/.test(event.key)||event.preventDefault()" oninput="this.value=this.value.replace(/[^a-zA-Z\s'\-\.]/g,'')"><span class="field-err" id="err-first_name"></span></div>
+            <div class="group"><label class="up">Middle Name</label><input class="in" name="middle_name" value="{{ form_data.middle_name }}" onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||/^[a-zA-Z\s'\-\.]$/.test(event.key)||event.preventDefault()" oninput="this.value=this.value.replace(/[^a-zA-Z\s'\-\.]/g,'')"><span class="field-err" id="err-middle_name"></span></div>
+            <div class="group"><label class="up">Last Name<span class="req">*</span></label><input class="in" name="last_name" id="donor-ln" value="{{ form_data.last_name }}" onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||/^[a-zA-Z\s'\-\.]$/.test(event.key)||event.preventDefault()" oninput="this.value=this.value.replace(/[^a-zA-Z\s'\-\.]/g,'')"><span class="field-err" id="err-last_name"></span></div>
           </div>
           <div class="group"><label class="up">Email Address<span class="req">*</span></label><input class="in" type="email" name="email" id="donor-email" value="{{ form_data.email }}" autocomplete="off"><span class="field-err" id="err-email"></span></div>
           <div class="group"><label class="up">Phone Number<span class="req">*</span></label>
-            <div class="phone-row"><input class="in" value="+63" readonly><input class="in" name="contact_no" id="donor-phone" value="{{ form_data.contact_no }}" inputmode="numeric" maxlength="10" pattern="\d{10}"></div><span class="field-err" id="err-contact_no"></span>
+            <div class="phone-row"><input class="in" value="+63" readonly><input class="in" name="contact_no" id="donor-phone" value="{{ form_data.contact_no }}" inputmode="numeric" maxlength="10" pattern="9\d{9}" title="Enter 10 digits starting with 9." onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||/^\d$/.test(event.key)||event.preventDefault()" oninput="this.value=this.value.replace(/\D/g,'')"></div><span class="field-err" id="err-contact_no"></span>
           </div>
             <div class="pw-wrap"><div class="group"><div class="pw-label-row"><label class="up">Password<span class="req">*</span></label><button type="button" class="pw-toggle" onclick="toggleRegistrationPasswords('donor-pw','donor-cp','donor-pw-toggle-text')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg><span id="donor-pw-toggle-text">Show</span></button></div><input class="in" type="password" name="password" id="donor-pw" value="{{ form_data.password }}" autocomplete="new-password"><span class="field-err" id="err-password"></span></div>
             <div class="pw-rules" id="pw-rules">
@@ -522,7 +522,7 @@
 
     // --- REAL-TIME VALIDATION ---
     const EMAIL_RE = /^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/;
-    const PHONE_RE = /^\d{10}$/;
+    const PHONE_RE = /^9\d{9}$/;
 
     const MAXLEN = { first_name: 50, last_name: 50, email: 100, middle_name: 50 };
     const VALIDATORS = {
@@ -531,7 +531,11 @@
       last_name: v => v.trim() ? (v.length <= MAXLEN.last_name ? '' : `Max ${MAXLEN.last_name} characters.`) : 'Last name is required.',
       email: v => v.trim() ? (EMAIL_RE.test(v.trim()) ? (v.length <= MAXLEN.email ? '' : `Max ${MAXLEN.email} characters.`) : 'Enter a valid email address.') : 'Email is required.',
       contact_no: v => {
-        return v.trim() ? (PHONE_RE.test(v.trim()) ? '' : 'Enter 10 digits after +63 (e.g., 9150814395).') : 'Phone number is required.';
+        const t = v.trim();
+        if (!t) return 'Phone number is required.';
+        if (!/^9/.test(t)) return 'Enter 10 digits starting with 9 (e.g., 9150814395).';
+        if (t.length < 10) return 'Enter 10 digits after +63 (e.g., 9150814395).';
+        return PHONE_RE.test(t) ? '' : 'Enter 10 digits starting with 9 (e.g., 9150814395).';
       },
       password: v => {
         if (!v) return 'Password is required.';

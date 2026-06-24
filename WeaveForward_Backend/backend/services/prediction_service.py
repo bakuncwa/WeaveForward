@@ -294,10 +294,37 @@ def run_predictions_for_donation(donation_id):
         for index in sorted_indexes
     ]
 
+    def _same_pred(a, b):
+        return (
+            round(float(a.match_prob or 0), 5) == round(float(b.match_prob or 0), 5)
+            and a.is_match == b.is_match
+            and round(float(a.pct_target_fiber or 0), 2) == round(float(b.pct_target_fiber or 0), 2)
+            and round(float(a.biodeg_target_fiber or 0), 2) == round(float(b.biodeg_target_fiber or 0), 2)
+            and round(float(a.distance_km or 0), 3) == round(float(b.distance_km or 0), 3)
+        )
     item_ids = [item["item_id"] for item in items]
+    existing = {
+        (p.item_id, p.tuab_id): p
+        for p in MatchPrediction.objects.filter(
+            item_id__in=item_ids, is_archived_version=False
+        )
+    }
+    to_archive = set()
+    to_create = []
+    for p in preds:
+        key = (p.item_id, p.tuab_id)
+        old = existing.get(key)
+        if old and _same_pred(old, p):
+            continue
+        if old:
+            to_archive.add(old.pk)
+        to_create.append(p)
+
     with transaction.atomic():
-        MatchPrediction.objects.filter(item_id__in=item_ids, is_archived_version=False).update(is_archived_version=True)
-        MatchPrediction.objects.bulk_create(preds, batch_size=2000)
+        if to_archive:
+            MatchPrediction.objects.filter(pk__in=to_archive).update(is_archived_version=True)
+        if to_create:
+            MatchPrediction.objects.bulk_create(to_create, batch_size=2000)
 
     return preds
 

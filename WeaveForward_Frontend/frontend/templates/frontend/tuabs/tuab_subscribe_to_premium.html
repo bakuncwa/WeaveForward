@@ -190,28 +190,28 @@
         {% csrf_token %}
         <div class="field-group">
           <label class="form-label">First Name</label>
-          <input class="form-input" name="first_name" value="{{ user.first_name|default:'Juan' }}" required />
+          <input class="form-input" name="first_name" value="{{ user.first_name|default:'Juan' }}" maxlength="50" onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||/^[a-zA-Z\s'\-\.]$/.test(event.key)||event.preventDefault()" oninput="this.value=this.value.replace(/[^a-zA-Z\s'\-\.]/g,'')" required />
         </div>
         <div class="field-group">
           <label class="form-label">Last Name</label>
-          <input class="form-input" name="last_name" value="{{ user.last_name|default:'Dela Cruz' }}" required />
+          <input class="form-input" name="last_name" value="{{ user.last_name|default:'Dela Cruz' }}" maxlength="50" onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||/^[a-zA-Z\s'\-\.]$/.test(event.key)||event.preventDefault()" oninput="this.value=this.value.replace(/[^a-zA-Z\s'\-\.]/g,'')" required />
         </div>
         <div class="field-group">
           <label class="form-label">Card Number</label>
-          <input class="form-input" name="card_number" value="5123456789012346" required />
+          <input class="form-input" name="card_number" value="5123456789012346" inputmode="numeric" onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||/^\d$/.test(event.key)||event.preventDefault()" oninput="this.value=this.value.replace(/\D/g,'')" pattern="\d{13,19}" title="13–19 digits." required />
         </div>
         <div class="card-meta">
           <div>
             <label class="form-label">Exp Month</label>
-            <input class="form-input" name="exp_month" value="12" required />
+            <input class="form-input" name="exp_month" value="12" inputmode="numeric" onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||/^\d$/.test(event.key)||event.preventDefault()" oninput="this.value=this.value.replace(/\D/g,'')" pattern="0[1-9]|1[0-2]" title="01–12." required />
           </div>
           <div>
             <label class="form-label">Exp Year</label>
-            <input class="form-input" name="exp_year" value="2030" required />
+            <input class="form-input" name="exp_year" value="2030" inputmode="numeric" onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||/^\d$/.test(event.key)||event.preventDefault()" oninput="this.value=this.value.replace(/\D/g,'')" pattern="\d{4}" title="4 digits." required />
           </div>
           <div>
             <label class="form-label">CVV</label>
-            <input class="form-input" name="cvv" value="111" required />
+            <input class="form-input" name="cvv" value="111" inputmode="numeric" onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||/^\d$/.test(event.key)||event.preventDefault()" oninput="this.value=this.value.replace(/\D/g,'')" pattern="\d{3,4}" title="3 or 4 digits." required />
           </div>
         </div>
         <button type="submit" class="btn-subscribe">Subscribe for ₱499.00</button>
@@ -232,5 +232,7 @@
     document.getElementById('payment-view').classList.add('hidden');
     document.getElementById('plan-view').classList.remove('hidden');
   }
+
+
 </script>
 {% endblock %}

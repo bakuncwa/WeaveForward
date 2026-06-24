@@ -393,11 +393,11 @@
       <hr>
 
       <div class="group"><label class="up">First Name</label><input class="in" name="first_name"
-          value="{{ donor.first_name|default:'' }}" maxlength="50" required></div>
+          value="{{ donor.first_name|default:'' }}" maxlength="50" onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||/^[a-zA-Z\s'\-\.]$/.test(event.key)||event.preventDefault()" oninput="this.value=this.value.replace(/[^a-zA-Z\s'\-\.]/g,'')" required></div>
       <div class="group"><label class="up">Middle Name</label><input class="in" name="middle_name"
-          value="{{ donor.middle_name|default:'' }}" maxlength="50"></div>
+          value="{{ donor.middle_name|default:'' }}" maxlength="50" onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||/^[a-zA-Z\s'\-\.]$/.test(event.key)||event.preventDefault()" oninput="this.value=this.value.replace(/[^a-zA-Z\s'\-\.]/g,'')"></div>
       <div class="group"><label class="up">Last Name</label><input class="in" name="last_name"
-          value="{{ donor.last_name|default:'' }}" maxlength="50" required></div>
+          value="{{ donor.last_name|default:'' }}" maxlength="50" onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||/^[a-zA-Z\s'\-\.]$/.test(event.key)||event.preventDefault()" oninput="this.value=this.value.replace(/[^a-zA-Z\s'\-\.]/g,'')" required></div>
 
       <hr>
 
@@ -405,7 +405,7 @@
         <div style="display:grid;grid-template-columns:60px 1fr;gap:8px">
           <input value="+63" class="in" style="pointer-events:none;background:#f9f9f9" tabindex="-1">
           <input class="in" type="tel" name="contact_no" autocomplete="tel" inputmode="numeric"
-            value="{{ form_data.contact_no|default:donor.contact_no|default:'' }}" maxlength="10" pattern="\d{10}" title="Enter 10 digits after +63." required>
+            value="{{ form_data.contact_no|default:donor.contact_no|default:'' }}" maxlength="10" pattern="9\d{9}" title="Enter 10 digits starting with 9." onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||/^\d$/.test(event.key)||event.preventDefault()" oninput="this.value=this.value.replace(/\D/g,'')" required>
         </div>
       </div>
 
