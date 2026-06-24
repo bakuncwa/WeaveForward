@@ -505,7 +505,7 @@
         const q = encodeURIComponent(val);
         const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}&limit=5&countrycodes=ph`);
         const data = await res.json();
-        if (!data.length) { items.innerHTML = ''; ac.classList.add('hidden'); return; }
+        if (!data.length) { items.innerHTML = '<div class="mat-item" style="color:#999;cursor:default;font-size:12px">No results found</div>'; return; }
         _acResults = data;
         items.innerHTML = data.map((r, i) =>
           `<div class="mat-item" onmousedown="event.preventDefault();selectAC(${i})">${r.display_name}</div>`

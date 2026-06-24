@@ -512,7 +512,11 @@
     if (el?.type === 'file') return '';
     if (el?.type === 'checkbox' || el?.type === 'radio') return String(!!el.checked);
     if (value === '' || value == null) return '';
-    if (['latitude', 'longitude'].includes(name) || el?.type === 'number') {
+    if (['latitude', 'longitude'].includes(name)) {
+      const numericValue = Number(value);
+      return Number.isNaN(numericValue) ? '' : numericValue.toFixed(7);
+    }
+    if (el?.type === 'number') {
       const numericValue = Number(value);
       return Number.isNaN(numericValue) ? '' : String(numericValue);
     }
@@ -736,7 +740,7 @@
     syncInitialNamedFields();
     initialNamedFieldValues.latitude = normalizedInitialLat;
     initialNamedFieldValues.longitude = normalizedInitialLng;
-    if (hasValidLocation) await syncAddressFromCoords(rawLat, rawLng, true);
+    if (hasValidLocation && !getEl('addr').value) await syncAddressFromCoords(rawLat, rawLng, true);
     if (getEl('disable-2fa')?.value === '1') {
       const disableButton = getEl('disable-2fa-btn');
       const statusLabel = getEl('tfa-status');

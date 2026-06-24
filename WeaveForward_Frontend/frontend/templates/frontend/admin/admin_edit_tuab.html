@@ -668,7 +668,9 @@
     if (el.type === 'checkbox' || el.type === 'radio') return String(!!el.checked);
     const v = el.value?.trim() ?? '';
     if (v === '') return '';
-    return ['latitude', 'longitude'].includes(el.name) || el.type === 'number' ? (isNaN(+v) ? '' : String(Number(v))) : v;
+    if (['latitude', 'longitude'].includes(el.name)) return isNaN(+v) ? '' : (+v).toFixed(7);
+    if (el.type === 'number') return isNaN(+v) ? '' : String(Number(v));
+    return v;
   };
   const syncInit = el => { if (el?.name) initial[el.name] = norm(el); };
   const syncAll = () => document.querySelectorAll('#frm [name]').forEach(syncInit);
@@ -859,7 +861,7 @@
     if (API_FIBER_OPTIONS) { const d = await safeFetch(API_FIBER_OPTIONS); if (Array.isArray(d)) FIBERS = d; else if (Array.isArray(d?.fibers)) FIBERS = d.fibers; }
     renderTags(); syncAll();
     initial.lat = initLat; initial.lng = initLng;
-    if (hasLoc) { await syncLocationMetadata(rawLat, rawLng, false, false); const el = getEl('addr'); if (el) syncInit(el); }
+    if (hasLoc) { if (!getEl('addr').value) await syncLocationMetadata(rawLat, rawLng, false, false); const el = getEl('addr'); if (el) syncInit(el); }
   });
 </script>
 {% endblock %}
