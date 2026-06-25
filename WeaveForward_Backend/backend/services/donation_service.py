@@ -260,12 +260,14 @@ def donor_update_donation(*, request, donation):
 
                     if is_archived:
                         item_obj.is_archived = True
+                        item_obj.save()
+                        MatchPrediction.objects.filter(item_id=item_obj.item_id, is_archived_version=False).update(is_archived_version=True)
                     else:
                         if 'lookup' in item_patch: item_obj.lookup = item_patch['lookup']
                         if 'weight_kg' in item_patch: item_obj.weight_kg = item_patch['weight_kg']
                         if 'condition_rating' in item_patch: 
                             item_obj.condition_rating = item_patch['condition_rating'].upper().replace(" ", "_")
-                    item_obj.save()
+                        item_obj.save()
                 elif not is_archived:
                     # Create New
                     DonationItem.objects.create(
@@ -402,6 +404,8 @@ def admin_update_donation(*, request, donation) -> Donation:
 
                     if is_archived:
                         item_obj.is_archived = True
+                        item_obj.save()
+                        MatchPrediction.objects.filter(item_id=item_obj.item_id, is_archived_version=False).update(is_archived_version=True)
                     else:
                         if 'lookup' in item_patch: 
                             item_obj.lookup = item_patch['lookup']
@@ -409,7 +413,7 @@ def admin_update_donation(*, request, donation) -> Donation:
                             item_obj.weight_kg = item_patch['weight_kg']
                         if 'condition_rating' in item_patch: 
                             item_obj.condition_rating = item_patch['condition_rating'].upper().replace(" ", "_")
-                    item_obj.save()
+                        item_obj.save()
                 elif not is_archived:
                     DonationItem.objects.create(
                         donation=donation,
@@ -973,6 +977,7 @@ def resolve_donation(*, user, donation, validated_data, ip_address=None):
                 if item_obj and is_archived:
                     item_obj.is_archived = True
                     item_obj.save()
+                    MatchPrediction.objects.filter(item_id=item_obj.item_id, is_archived_version=False).update(is_archived_version=True)
                 elif item_obj:
                     if 'lookup' in item_patch:
                         item_obj.lookup = item_patch['lookup']
@@ -981,6 +986,7 @@ def resolve_donation(*, user, donation, validated_data, ip_address=None):
                     if 'condition_rating' in item_patch:
                         item_obj.condition_rating = item_patch['condition_rating'].upper().replace(" ", "_")
                     item_obj.save()
+                    MatchPrediction.objects.filter(item_id=item_obj.item_id, is_archived_version=False).update(is_archived_version=True)
                 elif not item_id and not is_archived:
                     DonationItem.objects.create(
                         donation=donation,
@@ -1015,13 +1021,6 @@ def resolve_donation(*, user, donation, validated_data, ip_address=None):
             ip_address=ip_address,
             fields_modified=list(validated_data.keys())
         )
-
-        # Archive prediction records for the resolved donation only if items were modified
-        if items_data is not None:
-            try:
-                run_predictions_for_donation(donation.donation_id)
-            except Exception:
-                pass  # Fail-safe to ensure resolution still completes even if prediction archiving errors out
 
     return {"detail": f"Donation successfully resolved as {validated_data['status'].lower()}."}
 
