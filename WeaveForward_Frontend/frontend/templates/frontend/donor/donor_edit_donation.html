@@ -47,8 +47,8 @@
   .btn-submit:hover { } /* Hover disabled */
   .trash { background: none; border: none; color: var(--gold); cursor: pointer; }
 
-  .ac-list { position: absolute; z-index: 100; top: 100%; left: 0; width: 100%; max-height: 200px; overflow-y: auto; background: #fff; border: 1.5px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.15); }
-  .ac-item { padding: 10px 14px; font-size: 13px; cursor: pointer; border-bottom: 1px solid #f5f5f5; color: #666666; font-family: 'Poppins', sans-serif; }
+  .ss-list { position: absolute; z-index: 100; top: 100%; left: 0; width: 100%; max-height: 200px; overflow-y: auto; background: #fff; border: 1.5px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.15); }
+  .mat-item { padding: 10px 14px; font-size: 13px; cursor: pointer; border-bottom: 1px solid #f5f5f5; color: #666666; font-family: 'Poppins', sans-serif; }
 
   #picker-map { width: 100%; height: 350px; }
   
@@ -112,12 +112,13 @@
               <div class="restored-row">
                 <div class="restored-group">
                   <label class="up-label">Clothing*</label>
-                  <select class="restored-sel type-sel" onchange="loadMaterials(this)">
-                    <option value="">Choose...</option>
-                    {% for t in clothing_types %}
-                    <option value="{{ t }}" {% if t|lower == item.lookup_details.clothing_type|lower %}selected{% endif %}>{{ t|capfirst }}</option>
-                    {% endfor %}
-                  </select>
+                  <div class="ss-wrap" style="position:relative">
+                    <input type="text" class="restored-in type-sel" maxlength="200" required value="{{ item.lookup_details.clothing_type }}" autocomplete="off">
+                    <svg class="mat-arrow" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none"><polyline points="6,9 12,15 18,9"/></svg>
+                    <div class="ss-list hidden">
+                      {% for t in clothing_types %}<div class="mat-item">{{ t|title }}</div>{% endfor %}
+                    </div>
+                  </div>
                 </div>
                 <div class="restored-group">
                   <label class="up-label">Estimated Weight (kg)</label>
@@ -137,23 +138,25 @@
               <div class="restored-row" style="margin-bottom:0">
                 <div class="restored-group">
                   <label class="up-label">Brand</label>
-                  <select class="restored-sel brand-sel" onchange="loadMaterials(this)">
-                    <option value="">Select...</option>
-                    {% for b in all_brands %}
-                    <option value="{{ b }}" {% if b == item.lookup_details.brand %}selected{% endif %}>{{ b }}</option>
-                    {% endfor %}
-                  </select>
+                  <div class="ss-wrap" style="position:relative">
+                    <input type="text" class="restored-in brand-sel" maxlength="200" required value="{{ item.lookup_details.brand }}" autocomplete="off">
+                    <svg class="mat-arrow" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none"><polyline points="6,9 12,15 18,9"/></svg>
+                    <div class="ss-list hidden">
+                      {% for b in all_brands %}<div class="mat-item">{{ b }}</div>{% endfor %}
+                    </div>
+                  </div>
                 </div>
                 <div class="restored-group">
                   <label class="up-label">Material</label>
-                  <div class="ss-wrap" style="position:relative">
+                  <div class="ss-wrap mat-search-wrap" style="position:relative" data-api-url="{% url "material_search_proxy" %}">
                     <div class="mat-trigger" onclick="toggleMatDropdown(this)">
                       <span class="mat-text">{{ item.lookup_details.fiber_json }} - {{ item.lookup_details.product_name }}</span>
                       <svg class="mat-arrow" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg>
+                      <div class="mat-clear" onclick="event.stopPropagation();clearMat(this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
                     </div>
                     <input type="hidden" class="lookup-id" value="{{ item.lookup_details.lookup_id }}">
                     <div class="ss-list hidden">
-                      <input type="text" class="mat-search" placeholder="Search materials…" oninput="filterMatList(this)" onclick="event.stopPropagation()" autocomplete="off">
+                      <input type="text" class="mat-search" placeholder="Search or leave empty" oninput="filterMatList(this)" onclick="event.stopPropagation()" autocomplete="off">
                       <div class="mat-items"></div>
                     </div>
                   </div>
@@ -250,10 +253,13 @@
       <div class="restored-row">
         <div class="restored-group">
           <label class="up-label">Clothing*</label>
-          <select class="restored-sel type-sel" onchange="loadMaterials(this)">
-            <option value="">Choose...</option>
-            {% for t in clothing_types %}<option value="{{ t }}">{{ t|capfirst }}</option>{% endfor %}
-          </select>
+          <div class="ss-wrap" style="position:relative">
+            <input type="text" class="restored-in type-sel" maxlength="200" required placeholder="Choose or type clothing type" autocomplete="off">
+            <svg class="mat-arrow" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none"><polyline points="6,9 12,15 18,9"/></svg>
+            <div class="ss-list hidden">
+              {% for t in clothing_types %}<div class="mat-item">{{ t|title }}</div>{% endfor %}
+            </div>
+          </div>
         </div>
         <div class="restored-group"><label class="up-label">Estimated Weight (kg)</label><input type="number" step="0.01" min="0.01" max="254" class="restored-in weight-in" required></div>
       </div>
@@ -266,21 +272,25 @@
       <div class="restored-row" style="margin-bottom:0">
         <div class="restored-group">
           <label class="up-label">Brand</label>
-          <select class="restored-sel brand-sel" onchange="loadMaterials(this)">
-            <option value="">Select...</option>
-            {% for b in all_brands %}<option value="{{ b }}">{{ b }}</option>{% endfor %}
-          </select>
+          <div class="ss-wrap" style="position:relative">
+            <input type="text" class="restored-in brand-sel" maxlength="200" required placeholder="Choose or type brand" autocomplete="off">
+            <svg class="mat-arrow" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none"><polyline points="6,9 12,15 18,9"/></svg>
+            <div class="ss-list hidden">
+              {% for b in all_brands %}<div class="mat-item">{{ b }}</div>{% endfor %}
+            </div>
+          </div>
         </div>
         <div class="restored-group">
           <label class="up-label">Material</label>
-          <div class="ss-wrap" style="position:relative">
+          <div class="ss-wrap mat-search-wrap" style="position:relative" data-api-url="{% url "material_search_proxy" %}">
             <div class="mat-trigger disabled" onclick="toggleMatDropdown(this)">
-              <span class="mat-text">Please select a brand and clothing type</span>
+              <span class="mat-text">Please enter a brand and clothing type</span>
               <svg class="mat-arrow" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg>
+              <div class="mat-clear" onclick="event.stopPropagation();clearMat(this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
             </div>
             <input type="hidden" class="lookup-id">
             <div class="ss-list hidden">
-              <input type="text" class="mat-search" placeholder="Search materials…" oninput="filterMatList(this)" onclick="event.stopPropagation()" autocomplete="off">
+              <input type="text" class="mat-search" placeholder="Search or leave empty" oninput="filterMatList(this)" onclick="event.stopPropagation()" autocomplete="off">
               <div class="mat-items"></div>
             </div>
           </div>
@@ -313,7 +323,6 @@
 </div>
 
 <script>
-  let isInit = true;
   const initialData = {};
 
   function snapshotInitialData() {
@@ -343,85 +352,9 @@
     document.getElementById('cards').appendChild(tpl);
   }
 
-  const MATERIAL_SEARCH_URL = '{% url "material_search_proxy" %}';
-
-  // --- 2. Material Search ---
-  async function loadMaterials(el) {
-    const card = el.closest('.restored-card');
-    const typeSel = card.querySelector('.type-sel');
-    const brandSel = card.querySelector('.brand-sel');
-    const type = typeSel.value;
-    const brand = brandSel.value;
-    const wrap = card.querySelector('.ss-wrap');
-    const trigger = wrap.querySelector('.mat-trigger');
-    const matText = trigger.querySelector('.mat-text');
-    const list = wrap.querySelector('.ss-list');
-    const itemsContainer = wrap.querySelector('.mat-items');
-    const wasInit = isInit;
-
-    if (!wasInit) {
-      matText.textContent = 'Please select a brand and clothing type';
-      card.querySelector('.lookup-id').value = '';
-    }
-    list.classList.add('hidden');
-    wrap.classList.remove('open');
-
-    if (!type || !brand) {
-      trigger.classList.add('disabled');
-      return;
-    }
-
-    typeSel.disabled = true;
-    brandSel.disabled = true;
-    try {
-      const res = await fetch(`${MATERIAL_SEARCH_URL}?clothing_type=${type}&brand=${brand}`);
-      if (!res.ok) throw new Error("HTTP error " + res.status);
-      const materials = await res.json();
-
-      itemsContainer.innerHTML = '';
-      if (!materials.length) {
-        matText.textContent = 'No combinations found';
-        trigger.classList.add('disabled');
-      } else {
-        trigger.classList.remove('disabled');
-        if (!wasInit) matText.textContent = 'Search materials...';
-        for (const m of materials) {
-          const productName = m.product_name || '';
-          const div = document.createElement('div');
-          div.className = 'mat-item';
-          const b = document.createElement('b');
-          b.textContent = productName;
-          div.append(b, document.createTextNode(' ' + (m.fiber_json || '')));
-          div.dataset.lookupId = m.lookup_id;
-          div.dataset.display = `${m.fiber_json} - ${productName}`;
-          div.addEventListener('click', function () {
-            selectMat(this, this.dataset.lookupId, this.dataset.display);
-          });
-          itemsContainer.appendChild(div);
-        }
-      }
-    } catch (e) {
-      console.error(e);
-      showFlash("Donation records could not be retrieved.", "error");
-    } finally {
-      typeSel.disabled = false;
-      brandSel.disabled = false;
-    }
-  }
-
-  function selectMat(el, id, text) {
-    const wrap = el.closest('.ss-wrap');
-    wrap.querySelector('.mat-text').textContent = text;
-    wrap.querySelector('.lookup-id').value = id;
-    wrap.querySelector('.ss-list').classList.add('hidden');
-    wrap.classList.remove('open');
-    wrap.closest('.restored-card')?.setAttribute('data-changed', 'true');
-  }
-
-  // --- 3. Form Submission ---
+  // --- 2. Form Submission ---
   function prepareSubmit(e) {
     const items = [];
-    let isValid = true;
     let nonArchivedCount = 0;
     
     document.querySelectorAll('#cards .restored-card').forEach(card => {
@@ -438,29 +371,21 @@
         return;
       }
       
-      const lid = card.querySelector('.lookup-id').value;
-      if (!lid) { 
-        if (isValid) {
-          showFlash('Please select a material for all items.', 'error'); 
-        }
-        isValid = false;
-        return; 
-      }
+      const brand = card.querySelector('.brand-sel').value;
+      const type = card.querySelector('.type-sel').value;
+      if (!brand || !type) { return; }
       
       const item = {
-        lookup: Number(lid),
+        brand, clothing_type: type,
         weight_kg: Number(card.querySelector('.weight-in').value),
         condition_rating: card.querySelector('.cond-sel').value
       };
+      item.lookup = Number(card.querySelector('.lookup-id').value) || undefined;
       if (itemId) item.item_id = Number(itemId);
       nonArchivedCount++;
       items.push(item);
     });
 
-    if (!isValid) {
-      e.preventDefault();
-      return false;
-    }
     if (nonArchivedCount === 0) {
       showFlash('At least one item is required.', 'error');
       e.preventDefault();
@@ -601,17 +526,18 @@
     }
   })();
 
+</script>
+<script src="{% static 'frontend/js/combo-box.js' %}"></script>
+<script src="{% static 'frontend/js/material-search.js' %}"></script>
+<script src="{% static 'frontend/js/donation-form.js' %}"></script>
+<script>
+  // Track changes on items: mark card container with data-changed when any input or select changes inside it.
+  document.getElementById('cards').addEventListener('input', e => e.target.closest('.restored-card')?.setAttribute('data-changed', 'true'));
   // Init existing cards
   document.querySelectorAll('#cards .restored-card').forEach(card => {
     const bSel = card.querySelector('.brand-sel');
-    if (bSel.value) loadMaterials(bSel);
+    if (bSel.value) loadMaterials(bSel, true);
   });
   window.addEventListener('load', snapshotInitialData);
-  isInit = false;
-
-  // Track changes on items: mark card container with data-changed when any input or select changes inside it.
-  document.getElementById('cards').addEventListener('input', e => e.target.closest('.restored-card')?.setAttribute('data-changed', 'true'));
 </script>
-<script src="{% static 'frontend/js/custom-select.js' %}"></script>
-<script src="{% static 'frontend/js/donation-form.js' %}"></script>
 {% endblock %}

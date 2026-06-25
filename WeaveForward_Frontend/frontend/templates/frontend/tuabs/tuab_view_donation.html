@@ -580,7 +580,7 @@
 
           {% if donation.status == 'PENDING' %}
             <div class="claim-tip" style="margin-bottom:12px" data-tip="Claim for Pick-Up means you claim this donation and pick it up yourself. The donor will be notified that it has been claimed by you.">
-              <button type="button" class="btn btn-tuab" onclick="submitPickupClaim()">Claim for Pick-Up</button>
+              <button type="button" class="btn btn-tuab" id="pickup-claim-btn" onclick="submitPickupClaim()">Claim for Pick-Up</button>
             </div>
 
             <div class="sub">Delivery Location</div>
@@ -719,9 +719,13 @@
 
     // --- 4. Claim Logic ---
     function submitPickupClaim() {
+      const btn = getEl('pickup-claim-btn');
+      if (btn.disabled) return;
+      btn.disabled = true;
+      btn.textContent = 'Claiming...';
       clearFlashes();
       const currentEtag = getEl('current-etag').value;
-      if (!currentEtag) return showFlash('The current donation version is missing. Refresh the page and try again.');
+      if (!currentEtag) { btn.disabled = false; return showFlash('The current donation version is missing. Refresh the page and try again.'); }
       getEl('delivery-method').value = 'PICKUP';
       getEl('quotation-token').value = '';
       getEl('claim-form').requestSubmit();

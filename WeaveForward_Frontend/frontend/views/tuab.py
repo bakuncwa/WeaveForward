@@ -183,6 +183,10 @@ async def tuab_view_donation(request, donation_id):
             messages.success(request, data.get('detail') or 'Donation claim submitted successfully.')
             return redirect(f'/tuab/dashboard/?tab=claimed&claimed={donation_id}')
 
+        if hasattr(response, 'status_code') and response.status_code == 412:
+            messages.error(request, 'This donation was modified. Refresh and try again.')
+            return redirect('tuab_dashboard')
+
         messages.error(request, data.get('detail') or 'Unable to submit the donation claim.')
         return redirect('tuab_view_donation', donation_id=donation_id)
 
