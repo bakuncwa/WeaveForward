@@ -613,7 +613,10 @@
           value="{{ form_data.barangay|default:tuab.barangay|default:'' }}" maxlength="50" required></div>
     </div>
 
-    <button type="submit" class="btn-submit">Save Changes</button>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button type="submit" class="btn-submit">Save Changes</button>
+      <button type="button" class="btn-submit" style="background:#888;color:#fff" onclick="history.back()">Cancel</button>
+    </div>
   </div>
 </form>
 
@@ -832,17 +835,53 @@
     }
   }
 
-  getEl('frm').onsubmit = e => {
+  getEl('frm').onsubmit = async e => {
+    e.preventDefault();
+    const submitBtn = e.target.querySelector('.btn-submit');
+    submitBtn.disabled = true;
+
     const addrEl = getEl('addr');
     if (!addrEl.value.trim()) {
-      e.preventDefault();
       showFlash('Please select a display address.', 'error');
+      submitBtn.disabled = false;
       return;
     }
     const addressChanged = norm(addrEl) !== (initial.display_address || '');
     if (addressChanged && (!getEl('lat').value.trim() || !getEl('lng').value.trim())) {
-      e.preventDefault();
       showFlash('Please reselect the display address so fresh coordinates are saved.', 'error');
+      submitBtn.disabled = false;
+      return;
+    }
+
+    const fd = new FormData(e.target);
+    try {
+      const res = await fetch(e.target.action || window.location.pathname, {
+        method: 'POST',
+        body: fd,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        redirect: 'manual'
+      });
+
+      if (res.ok || res.status === 201 || res.type === 'opaqueredirect') {
+        window.location.href = '{% url "admin_view_tuabs" %}';
+        return;
+      }
+
+      const data = await res.json().catch(() => ({}));
+      const errors = data.errors || data;
+      let msg = '';
+      if (typeof errors === 'string') {
+        msg = errors;
+      } else if (typeof errors === 'object') {
+        for (const [k, v] of Object.entries(errors)) {
+          msg += (Array.isArray(v) ? v.join(', ') : v) + '<br>';
+        }
+      }
+      showFlash(msg || 'Save failed.', 'error');
+    } catch {
+      showFlash('Backend is unreachable.', 'error');
+    } finally {
+      submitBtn.disabled = false;
     }
   };
 

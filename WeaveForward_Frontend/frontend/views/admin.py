@@ -90,7 +90,7 @@ async def admin_add_tuab(request):
             response_data = response.json() if hasattr(response, 'json') else {}
             messages.error(request, response_data.get('detail', f'Unable to {action} TUAB.'))
 
-        return redirect('admin_add_tuab')
+        return redirect('admin_view_tuabs')
 
     page_data = await get_paginated_data(request, 'users', params={'role': 'TUAB', 'status': 'UNDER_REVIEW'})
 
@@ -172,6 +172,8 @@ async def admin_edit_donor(request, user_id):
             return redirect('admin_view_donors')
 
         if password != confirm_password:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'errors': {'Password': ['Passwords do not match.']}}, status=400)
             return render(request, 'frontend/admin/admin_edit_donor.html', {
                 'page_title': 'Edit Donor',
                 'user': profile,
@@ -233,6 +235,9 @@ async def admin_edit_donor(request, user_id):
         except Exception:
             response_data = {}
         detail_message = response_data.get('detail') if isinstance(response_data, dict) and isinstance(response_data.get('detail'), str) else None
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            errors = format_errors(response_data) if response.status_code in {400, 409} and not detail_message else (detail_message or 'Save failed.')
+            return JsonResponse({'errors': errors}, status=response.status_code if response.status_code < 500 else 400)
         return render(request, 'frontend/admin/admin_edit_donor.html', {
             'page_title': 'Edit Donor',
             'user': profile,
@@ -337,6 +342,8 @@ async def admin_edit_tuab(request, user_id):
         submitted_etag = raw_data.get('current_etag')
 
         if password and password != confirm_password:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'errors': {'Password': ['Passwords do not match.']}}, status=400)
             response = await api_call(request, 'GET', f'users/{user_id}')
             tuab = response.json()
             if tuab.get('contact_no', '').startswith('+63'):
@@ -403,6 +410,9 @@ async def admin_edit_tuab(request, user_id):
         except Exception:
             response_data = {}
         detail_message = response_data.get('detail') if isinstance(response_data, dict) and isinstance(response_data.get('detail'), str) else None
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            errors = format_errors(response_data) if response.status_code in {400, 409} and not detail_message else (detail_message or 'Save failed.')
+            return JsonResponse({'errors': errors}, status=response.status_code if response.status_code < 500 else 400)
         get_res = await api_call(request, 'GET', f'users/{user_id}')
         tuab = get_res.json()
         if tuab.get('contact_no', '').startswith('+63'):
@@ -548,7 +558,7 @@ async def admin_edit_donation(request, donation_id):
         response = await api_call(request, 'PATCH', f'donations/{donation_id}', **patch_kwargs)
         if 200 <= response.status_code < 300:
             messages.success(request, "Donation updated successfully!")
-            return JsonResponse({'redirect': f'/admin/donations/{donation_id}/'})
+            return JsonResponse({'redirect': '/admin/donations/'})
         elif response.status_code == 412:
             return JsonResponse({'error': 'This donation was updated by someone else. Please refresh and try again.'}, status=412)
         elif response.status_code == 428:
@@ -619,6 +629,7 @@ async def admin_cancel_donation(request, donation_id):
 
     response = await api_call(request, 'POST', f'donations/{donation_id}/cancel')
     if response.status_code == 200:
+        messages.success(request, "Donation cancelled successfully.")
         return JsonResponse({'redirect': reverse('admin_view_donations')})
 
     try:

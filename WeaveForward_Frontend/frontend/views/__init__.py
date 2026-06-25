@@ -120,6 +120,10 @@ async def login_view(request):
 
                 backend_error = error_data.get('detail', 'Invalid email or password.')
                 error_msg = backend_error[0] if isinstance(backend_error, list) else backend_error
+                if 'under review' in error_msg.lower():
+                    if is_ajax:
+                        return JsonResponse({'under_review': True, 'error': error_msg}, status=401)
+                    return render(request, 'frontend/login.html', {'under_review': True, 'error': error_msg})
                 if is_ajax:
                     return JsonResponse({'error': error_msg}, status=response.status_code)
                 return render(request, 'frontend/login.html', {'error': error_msg, 'email': email})
@@ -129,7 +133,11 @@ async def login_view(request):
                 return JsonResponse({'error': 'Backend API is offline or unreachable.'}, status=503)
             return render(request, 'frontend/login.html', {'error': 'Backend API is offline or unreachable.'})
 
-    return render(request, 'frontend/login.html')
+    ctx = {}
+    if request.GET.get('under_review'):
+        ctx['under_review'] = True
+        ctx['error'] = 'Your account is still under review.'
+    return render(request, 'frontend/login.html', ctx)
 
 async def logout_view(request):
     if request.method != 'POST':

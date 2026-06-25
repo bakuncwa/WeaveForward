@@ -279,7 +279,7 @@ async def tuab_update_incoming_donation(request, donation_id):
         response = await api_call(request, 'POST', f'donations/{donation_id}/resolve', data=payload, headers=headers)
         if response.status_code == 200:
             messages.success(request, "Donation resolved successfully!")
-            return JsonResponse({'redirect': f'/tuab/dashboard/?tab=claimed&claimed={donation_id}'})
+            return JsonResponse({'redirect': '/tuab/dashboard/'})
         elif response.status_code == 412:
             return JsonResponse({'errors': ['Your session has expired. Please refresh the page and try again.']}, status=409)
         else:
@@ -827,6 +827,13 @@ async def tuab_circular_economy(request):
 async def tuab_view_fiber_match_recommendations(request):
     """TUAB Fiber-Match Recommendations - View and act on donation recommendations."""
     profile = request.user_profile
+
+    me_res = await api_call(request, 'GET', 'users/me')
+    if me_res and not isinstance(me_res, Exception) and me_res.status_code == 200:
+        me_data = me_res.json()
+        if not me_data.get('is_subscribed'):
+            messages.error(request, "You need an active subscription to access Donation Recommendations.")
+            return redirect('tuab_subscribe')
 
     filters_param = {
         'fiber_type': request.GET.get('fiber_type', ''),

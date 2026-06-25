@@ -358,7 +358,7 @@ async def donor_edit_donation(request, donation_id):
         response = await api_call(request, 'PATCH', f'donations/{donation_id}', data=payload, files=files, headers=headers)
         if response.status_code == 200:
             messages.success(request, "Donation updated successfully!")
-            return JsonResponse({'redirect': f'/donor/my-donations/{donation_id}/'})
+            return JsonResponse({'redirect': '/donor/my-donations/'})
         elif response.status_code == 412:
             return JsonResponse({'error': "This donation was updated somewhere else. Please refresh."}, status=412)
         else:
@@ -430,6 +430,7 @@ async def donor_cancel_donation(request, donation_id):
     if request.method == 'POST':
         response = await api_call(request, 'POST', f'donations/{donation_id}/cancel')
         if response.status_code == 200:
+            messages.success(request, "Donation cancelled successfully.")
             return JsonResponse({'success': True, 'message': 'Donation cancelled successfully!'})
         else:
             err_data = response.json()

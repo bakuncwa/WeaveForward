@@ -470,7 +470,10 @@
       <div class="group"><label class="up">Barangay</label><input id="brgy" class="in" name="barangay"
           value="{{ form_data.barangay|default:donor.barangay|default:'' }}" maxlength="50" required></div>
 
-      <button type="submit" class="btn-submit">Save Changes</button>
+      <div style="display:flex;gap:10px;margin-top:14px">
+        <button type="submit" class="btn-submit">Save Changes</button>
+        <button type="button" class="btn-submit" style="background:#888;color:#fff" onclick="history.back()">Cancel</button>
+      </div>
     </div>
   </form>
 
@@ -684,24 +687,29 @@
     btn.style.opacity = '0.5';
   }
 
-  getEl('frm').onsubmit = e => {
-    const form = e.target;
+  function getFormData() {
+    const form = getEl('frm');
+    const fd = new FormData(form);
+
     const addrEl = getEl('addr');
     if (!addrEl.value.trim()) {
-      e.preventDefault();
       showFlash('Please select a display address.', 'error');
-      return;
+      return null;
     }
     const addressChanged = snapshotNamedFieldValue(addrEl) !== (initialNamedFieldValues.display_address || '');
     if (addressChanged && (!getEl('lat').value.trim() || !getEl('lng').value.trim())) {
-      e.preventDefault();
       showFlash('Please reselect the pickup location after editing the address so fresh coordinates are saved.', 'error');
-      return;
+      return null;
     }
 
-    const setDisabled = (el, disabled) => {
-      if (el) el.disabled = disabled;
-    };
+    const passwordInput = form.querySelector('[name="password"]');
+    const confirmPasswordInput = form.querySelector('[name="confirm_password"]');
+    if (passwordInput && !passwordInput.value) { fd.delete('password'); }
+    if (confirmPasswordInput && !confirmPasswordInput.value) { fd.delete('confirm_password'); }
+
+    const photoInput = getEl('pfp-in');
+    if (photoInput && photoInput.files.length === 0) { fd.delete('upload'); }
+
     const hasUnchangedValue = el => {
       if (el.type === 'file') return el.files.length === 0;
       const previousValue = Object.prototype.hasOwnProperty.call(initialNamedFieldValues, el.name)
@@ -711,20 +719,52 @@
       return currentValue === previousValue;
     };
 
-    const passwordInput = form.querySelector('[name="password"]');
-    const confirmPasswordInput = form.querySelector('[name="confirm_password"]');
-    if (passwordInput && !passwordInput.value) setDisabled(passwordInput, true);
-    if (confirmPasswordInput && !confirmPasswordInput.value) setDisabled(confirmPasswordInput, true);
-
-    const photoInput = getEl('pfp-in');
-    if (photoInput && photoInput.files.length === 0) setDisabled(photoInput, true);
-
     form.querySelectorAll('input[name], select[name], textarea[name]').forEach(el => {
-      if (el.disabled) return;
       if (el.name === 'csrfmiddlewaretoken') return;
       if (el.name === 'current_etag' || el.name === 'disable_2fa') return;
-      if (hasUnchangedValue(el)) setDisabled(el, true);
+      if (hasUnchangedValue(el)) fd.delete(el.name);
     });
+
+    return fd;
+  }
+
+  getEl('frm').onsubmit = async e => {
+    e.preventDefault();
+    const submitBtn = e.target.querySelector('.btn-submit');
+    submitBtn.disabled = true;
+
+    const fd = getFormData();
+    if (!fd) { submitBtn.disabled = false; return; }
+
+    try {
+      const res = await fetch(e.target.action, {
+        method: 'POST',
+        body: fd,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        redirect: 'manual'
+      });
+
+      if (res.ok || res.status === 201 || res.type === 'opaqueredirect') {
+        window.location.href = '{% url "admin_view_donors" %}';
+        return;
+      }
+
+      const data = await res.json().catch(() => ({}));
+      const errors = data.errors || data;
+      let msg = '';
+      if (typeof errors === 'string') {
+        msg = errors;
+      } else if (typeof errors === 'object') {
+        for (const [k, v] of Object.entries(errors)) {
+          msg += (Array.isArray(v) ? v.join(', ') : v) + '<br>';
+        }
+      }
+      showFlash(msg || 'Save failed.', 'error');
+    } catch {
+      showFlash('Backend is unreachable.', 'error');
+    } finally {
+      submitBtn.disabled = false;
+    }
   };
 
   // --- 4. Init ---

@@ -568,6 +568,7 @@
   function prepareSubmit(e) {
     const items = [];
     let isValid = true;
+    let nonArchivedCount = 0;
     
     document.querySelectorAll('#cards .restored-card').forEach(card => {
       const isDeleted = card.querySelector('.delete-chk')?.checked;
@@ -575,8 +576,10 @@
 
       if (isDeleted) {
         if (itemId) items.push({ item_id: Number(itemId), is_archived: true });
-        return; // Don't add data for deleted cards
+        return;
       }
+      
+      nonArchivedCount++;
       
       if (itemId && !card.hasAttribute('data-changed') && !isDeleted) return;
       
@@ -602,12 +605,12 @@
       if (e && e.preventDefault) e.preventDefault();
       return false;
     }
-    if (items.length === 0 || items.every(item => item.is_archived)) {
+    if (nonArchivedCount === 0) {
       showFlash('At least one item is required.', 'error');
       if (e && e.preventDefault) e.preventDefault();
       return false;
     }
-    document.getElementById('items-json').value = JSON.stringify(items);
+    if (items.length > 0) document.getElementById('items-json').value = JSON.stringify(items);
     return true;
   }
 
@@ -665,11 +668,7 @@
       });
       const data = await res.json();
       if (res.ok) {
-        if (status === 'RECEIVED') {
-          window.location.href = "{% url 'tuab_inventory_snapshot' %}?ingested=" + encodeURIComponent("{{ donation.donation_id }}");
-        } else {
-          window.location.href = data.redirect;
-        }
+        window.location.href = data.redirect;
       } else {
         if (data.errors && Array.isArray(data.errors)) {
           data.errors.forEach(err => showFlash(err, 'error'));
