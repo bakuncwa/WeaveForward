@@ -130,6 +130,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'django_filters',
     'backend',
+    'fiber_match_api.apps.FiberMatchApiConfig',
 ]
 
 if USE_GCS:

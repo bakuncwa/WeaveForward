@@ -20,6 +20,7 @@ from django.views.static import serve
 
 urlpatterns = [
     path('api/', include('backend.urls')),
+    path('api/match-predict/', include('fiber_match_api.urls')),
 ]
 
 if not settings.USE_GCS:

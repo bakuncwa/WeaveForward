@@ -9,7 +9,6 @@ from ..services.subscription_service import (
     process_expired_subscriptions,
 )
 from ..services.donation_service import process_auto_archive_donations
-from ..services.prediction_service import delete_archived_match_predictions
 from ..services.lalamove_service import process_lalamove_webhook
 
 # Webhook uses ngrok: https://raquel-washiest-heike.ngrok-free.dev/api/webhooks/
@@ -33,13 +32,11 @@ def webhooks(request):
     if scheduler_secret and scheduler_secret == settings.SCHEDULER_SECRET:
         cancelled_subs = process_expired_subscriptions()
         archived_donations = process_auto_archive_donations()
-        deleted_predictions = delete_archived_match_predictions()
         return Response({
-            "detail": "Successfully processed subscriptions, auto-archived donations, and cleared predictions.",
+            "detail": "Successfully processed subscriptions and auto-archived donations.",
             "results": {
                 "cancelled_subscriptions_count": cancelled_subs,
                 "archived_donations_count": archived_donations,
-                "deleted_predictions_count": deleted_predictions
             }
         }, status=200)
 
