@@ -19,6 +19,8 @@ def get_allowed_fibers():
 
 def fiber_approximation(brand, clothing_type):
     """Infer fiber composition for unknown (brand, clothing_type) using tiered strategy."""
+    if not brand or not clothing_type:
+        raise ValueError("brand and clothing_type are required")
 
     # Tier 1: Exact brand + clothing_type
     exact = BrandFiberLookup.objects.filter(brand__iexact=brand, clothing_type__iexact=clothing_type).order_by('-scraped_at').first()
@@ -28,15 +30,16 @@ def fiber_approximation(brand, clothing_type):
     # Tier 2: Brand found, any type (scraped only)
     brand_match = BrandFiberLookup.objects.filter(brand__iexact=brand, is_active=True).order_by('-scraped_at').first()
     if brand_match:
-        return _create_lookup(brand, clothing_type, json.loads(brand_match.fiber_json))
+        return _create_lookup(brand_match.brand, clothing_type.lower(), json.loads(brand_match.fiber_json))
 
     # Tier 3: Type found, any brand
     type_qs = BrandFiberLookup.objects.filter(clothing_type__iexact=clothing_type, is_active=True)
-    if type_qs.exists():
-        return _create_lookup(brand, clothing_type, _compute_median(type_qs))
+    first = type_qs.first()
+    if first:
+        return _create_lookup(brand, first.clothing_type, _compute_median(type_qs))
 
     # Tier 4: Global median (scraped records only)
-    return _create_lookup(brand, clothing_type, _compute_median(BrandFiberLookup.objects.filter(is_active=True)))
+    return _create_lookup(brand, clothing_type.lower(), _compute_median(BrandFiberLookup.objects.filter(is_active=True)))
 
 
 def _compute_median(qs):

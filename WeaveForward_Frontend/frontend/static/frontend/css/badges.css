@@ -3,7 +3,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 96px;
+  min-width: 124px;
   border-radius: 6px;
   padding: 4px 12px;
   font-family: 'Poppins', sans-serif;
@@ -38,6 +38,10 @@
 .badge.badge-rejected,
 .badge.badge-archived {
   background: var(--red, #c0392b);
+}
+
+.badge.badge-tuab-rejected {
+  background: var(--orange, #e88d20);
 }
 
 .badge.badge-cancelled,

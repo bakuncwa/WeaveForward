@@ -865,7 +865,7 @@ async def tuab_view_fiber_match_recommendations(request):
                     params['confidence_max'] = float(value)
                 except (ValueError, TypeError):
                     pass
-            elif key != 'biodeg_tier':
+            else:
                 params[key] = value
 
     res = await api_call(request, 'GET', 'match-predict', params=params)

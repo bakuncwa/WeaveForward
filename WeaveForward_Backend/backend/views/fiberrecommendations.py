@@ -156,7 +156,7 @@ class MatchRecommendationViewSet(viewsets.GenericViewSet, PaginatedResponseMixin
                 fiber_types = [f.strip().lower() for f in fiber_types.split(',')]
             q = Q()
             for ft in fiber_types:
-                q |= Q(item__lookup__fiber_json__icontains=ft)
+                q |= Q(item__lookup__dominant_fiber__iexact=ft)
             queryset = queryset.filter(q)
 
         if filters.get('city'):

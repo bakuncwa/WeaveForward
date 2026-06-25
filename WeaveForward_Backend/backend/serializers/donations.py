@@ -281,6 +281,8 @@ class DonationCreateSerializer(serializers.ModelSerializer):
             for i in items:
                 if any(k not in i for k in ['brand', 'clothing_type', 'weight_kg', 'condition_rating']):
                     raise ValueError
+                if not i['brand'] or not i['clothing_type']:
+                    raise ValueError
                 if float(i['weight_kg']) <= 0:
                     raise ValueError
             data['items'] = items
