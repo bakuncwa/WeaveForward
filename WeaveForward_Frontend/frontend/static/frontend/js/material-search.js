@@ -18,7 +18,11 @@ async function loadMaterials(el, preserve = false) {
 
   if (!type || !brand) {
     trigger.classList.add('disabled');
-    if (!preserve) matText.textContent = 'Search or leave empty';
+    if (!preserve) {
+      if (!type && !brand) matText.textContent = 'Please enter a brand and clothing type';
+      else if (!type) matText.textContent = 'Please enter a clothing type';
+      else matText.textContent = 'Please enter a brand';
+    }
     return;
   }
 
@@ -31,12 +35,12 @@ async function loadMaterials(el, preserve = false) {
     itemsContainer.innerHTML = '';
     if (!materials.length) {
       if (!preserve) {
-        matText.textContent = 'No matches — We\'ll guess for you';
+        matText.textContent = 'We\'ll guess the material for you';
         trigger.classList.add('disabled');
       }
     } else {
       trigger.classList.remove('disabled');
-      if (!preserve) matText.textContent = 'Search or leave empty';
+      if (!preserve) matText.textContent = 'Search or leave empty if unknown';
       for (const m of materials) {
         const productName = m.product_name || '';
         const div = document.createElement('div');
@@ -71,7 +75,7 @@ function selectMat(el, id, text) {
 function clearMat(el) {
   const wrap = el.closest('.ss-wrap');
   const card = wrap.closest('.restored-card');
-  wrap.querySelector('.mat-text').textContent = 'Search or leave empty';
+  wrap.querySelector('.mat-text').textContent = 'Search or leave empty if unknown';
   wrap.querySelector('.lookup-id').value = '';
   loadMaterials(card.querySelector('.brand-sel'));
   card?.setAttribute('data-changed', 'true');
