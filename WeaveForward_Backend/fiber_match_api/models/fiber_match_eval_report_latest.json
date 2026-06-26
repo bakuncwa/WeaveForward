@@ -1,5 +1,5 @@
 {
-  "evaluated_at": "2026-05-14T16:05:38.896366",
+  "evaluated_at": "2026-06-26T08:11:15.923949",
   "task": "binary is_match (1=match, 0=no_match)",
   "fiber_match_threshold": 85.0,
   "artisan_count": 109,
@@ -99,21 +99,21 @@
     "artisan_target_fibers_str"
   ],
   "metrics": {
-    "Accuracy": 0.9998,
-    "F1 (binary)": 0.9977,
-    "F1 (macro)": 0.9988,
-    "Precision": 0.9979,
-    "Recall": 0.9975,
+    "Accuracy": 0.9997,
+    "F1 (binary)": 0.9973,
+    "F1 (macro)": 0.9986,
+    "Precision": 0.9972,
+    "Recall": 0.9974,
     "ROC-AUC": 1.0
   },
   "confusion_matrix": [
     [
-      215744,
-      23
+      215736,
+      31
     ],
     [
-      28,
-      11187
+      29,
+      11186
     ]
   ],
   "class_names": [
@@ -121,12 +121,12 @@
     "is_not_match"
   ],
   "fp_per_class": {
-    "is_match": 23,
-    "is_not_match": 28
+    "is_match": 31,
+    "is_not_match": 29
   },
   "fn_per_class": {
-    "is_match": 28,
-    "is_not_match": 23
+    "is_match": 29,
+    "is_not_match": 31
   },
   "match_distribution": {
     "no_match": 1078833,

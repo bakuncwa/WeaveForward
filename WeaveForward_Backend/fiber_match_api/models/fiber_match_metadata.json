@@ -1,5 +1,5 @@
 {
-  "trained_at": "2026-05-14T16:05:38.085174",
+  "trained_at": "2026-06-26T08:11:15.378558",
   "notebook": "fiber_recommendation_model.ipynb",
   "task": "binary is_match classification (1=match, 0=no_match)",
   "target": "is_match",
@@ -1425,12 +1425,12 @@
     }
   ],
   "best_params": {
-    "iterations": 649,
+    "iterations": 633,
     "depth": 10,
-    "learning_rate": 0.21983170053178588,
-    "l2_leaf_reg": 8.209796217422074,
-    "bagging_temperature": 0.4138981163705388,
+    "learning_rate": 0.2660991577784904,
+    "l2_leaf_reg": 8.258117865693816,
+    "bagging_temperature": 0.4234239784010821,
     "border_count": 160
   },
-  "best_cv_f1": 0.9971475483133716
+  "best_cv_f1": 0.9972250191679995
 }

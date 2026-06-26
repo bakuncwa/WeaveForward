@@ -22,6 +22,10 @@ async def donor_browse_businesses(request):
     categories = categories_resp
     has_error = users_resp.status_code != 200
     businesses = users_resp.json() if not has_error else []
+
+    url_cat = request.GET.get('category')
+    if url_cat and url_cat not in categories:
+        messages.error(request, f"Invalid category '{url_cat}' — ignoring filter.")
     
     for biz in businesses:
         fibers = biz.get('target_fibers', '')
@@ -68,15 +72,7 @@ async def donor_my_donations(request):
             'status': d.get('status', ''),
             'business_name': (d.get('claimed_by_tuab') or {}).get('business_name', ''),
             'upload': d.get('upload', ''),
-            'items': [
-                {
-                    'label': '{} - {} {}'.format(
-                        i.get('lookup_details', {}).get('clothing_type', ''),
-                        i.get('lookup_details', {}).get('brand', ''),
-                        (i.get('lookup_details', {}).get('dominant_fiber', '') or ''),
-                    )
-                } for i in d.get('items', [])
-            ],
+            'items': d.get('items', ''),
         }
         for d in donations_list
     ]

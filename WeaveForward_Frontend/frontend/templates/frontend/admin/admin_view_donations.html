@@ -26,6 +26,8 @@
     color: #666;
     margin-bottom: 10px;
   }
+  .items-list { margin:0; padding-left:16px; font-size:12px; line-height:1.5; }
+  .items-list li { list-style:disc; }
   .search-bar-row {
     display: flex;
     align-items: center;
@@ -201,17 +203,7 @@
         <tr>
           <td>{{ donation.donation_id }}</td>
           <td>{{ donation.is_flagged|default:"False" }}</td>
-          <td class="items-col">
-            {% for item in donation.items %}
-              {% with fiber=item.lookup_details.dominant_fiber|capfirst %}
-              {% with item_label=item.lookup_details.clothing_type|add:" - "|add:item.lookup_details.brand|add:" "|add:fiber %}
-              <span title="{{ item_label }}">{{ item_label|truncatechars:50 }}</span>{% if not forloop.last %}, {% endif %}
-              {% endwith %}
-              {% endwith %}
-            {% empty %}
-              No items
-            {% endfor %}
-          </td>
+          <td class="items-col">{% if donation.items %}<ul class="items-list">{% for item in donation.items %}<li>{{ item }}</li>{% endfor %}</ul>{% else %}No items{% endif %}</td>
           <td>
             <span class="badge 
                             {% if donation.status == 'IN_TRANSIT' %}badge-transit

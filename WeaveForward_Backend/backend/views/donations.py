@@ -1,10 +1,12 @@
 ﻿from django.db.models import Prefetch, Q
+from datetime import datetime, time
+from django_filters.rest_framework import DjangoFilterBackend, FilterSet, DateTimeFilter, DateFilter
 from rest_framework import filters, mixins, viewsets, serializers, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from rest_framework.exceptions import PermissionDenied, APIException, NotFound
+from rest_framework.exceptions import PermissionDenied, APIException, NotFound, ValidationError
 
 from datetime import timezone as dt_timezone
 from django.utils import timezone
@@ -31,10 +33,26 @@ from ..services.email_service import send_flag_notification
 from ..services.location_service import get_city_and_barangay
 
 
+class DonationFilterSet(FilterSet):
+    updated_at__gte = DateTimeFilter(field_name='updated_at', lookup_expr='gte')
+    updated_at__lte = DateFilter(method='filter_lte')
+
+    def filter_lte(self, queryset, name, value):
+        gte = self.data.get('updated_at__gte')
+        if gte and gte > value.isoformat():
+            raise ValidationError({"updated_at__lte": "End date cannot be before start date."})
+        return queryset.filter(updated_at__lte=timezone.make_aware(datetime.combine(value, time.max)))
+
+    class Meta:
+        model = Donation
+        fields = ['updated_at__gte', 'updated_at__lte']
+
+
 class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin, PaginatedResponseMixin):
     permission_classes = [IsAuthenticated]
     serializer_class = DonationDetailSerializer
-    filter_backends = [filters.SearchFilter]
+    filter_backends = [filters.SearchFilter, DjangoFilterBackend]
+    filterset_class = DonationFilterSet
     search_fields = [
         'donor__email', 
         'donor__first_name', 

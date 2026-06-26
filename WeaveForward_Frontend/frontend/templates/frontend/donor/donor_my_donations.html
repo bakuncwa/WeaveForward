@@ -21,6 +21,8 @@
     }
 
     .count { font-family:'Poppins',sans-serif; font-weight:300; font-size:13px; color:#666; margin-bottom:10px; }
+    .items-list { margin:0; padding-left:16px; font-size:12px; line-height:1.5; }
+    .items-list li { list-style:disc; }
     .search-bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
     .search-wrap { position: relative; flex: 1; min-width: 220px; }
     .search-wrap input {
@@ -168,7 +170,6 @@
     {% if has_prev %}
     <a href="?page={{ current_page|add:-1 }}{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline" id="prev-btn">❮ Previous</a>
     {% endif %}
-    <span id="page-indicator">Page {{ current_page }}</span>
     {% if has_next %}
     <a href="?page={{ current_page|add:1 }}{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline" id="next-btn">Next ❯</a>
     {% endif %}
@@ -198,6 +199,14 @@
       return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' })[c];
     });
   };
+  var renderItems = function(items) {
+    if (!items || !items.length) return '-';
+    var html = '<ul class="items-list">';
+    for (var i = 0; i < items.length; i++) {
+      html += '<li>' + escapeHTML(items[i]) + '</li>';
+    }
+    return html + '</ul>';
+  };
 
   const META = {
     count: {{ count }},
@@ -219,8 +228,6 @@
       else if (s === 'RECEIVED') badgeCls = 'badge-received';
       else if (s === 'REJECTED') badgeCls = 'badge-rejected';
       else if (s === 'CANCELLED') badgeCls = 'badge-cancelled';
-      var itemHtml = d.items.map(function(it) { return escapeHTML(it.label); }).join(', ');
-      if (!itemHtml) itemHtml = '-';
       var windowHtml = d.pickupStart ? escapeHTML(d.pickupStart) + ' &ndash; ' + escapeHTML(d.pickupEnd) : '-';
       var statusLabel = d.status ? d.status.split('_').map(function(w) { return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(); }).join(' ') : '';
       var cancelEditBtns = (s === 'PENDING') ? '<a href="/donor/my-donations/' + d.donation_id + '/edit/" class="btn btn-outline">Edit</a><button type="button" class="btn btn-outline cancel-btn" data-api-url="/donor/my-donations/' + d.donation_id + '/cancel/">Cancel</button>' : '';
@@ -229,7 +236,7 @@
         '<td style="white-space:nowrap">' + escapeHTML(d.pickupDate) + '</td>' +
         '<td style="white-space:nowrap">' + windowHtml + '</td>' +
         '<td title="' + escapeHTML(d.address) + '">' + escapeHTML(d.address.length > 50 ? d.address.slice(0, 47) + '...' : d.address) + '</td>' +
-        '<td class="items-col">' + escapeHTML(itemHtml.length > 50 ? itemHtml.slice(0, 47) + '...' : itemHtml) + '</td>' +
+        '<td class="items-col">' + renderItems(d.items) + '</td>' +
         '<td><span class="badge ' + badgeCls + '">' + escapeHTML(statusLabel) + '</span></td>' +
         '<td title="' + escapeHTML(d.business_name || '\u2014') + '">' + escapeHTML((d.business_name || '\u2014').length > 50 ? (d.business_name || '\u2014').slice(0, 47) + '...' : (d.business_name || '\u2014')) + '</td>' +
         '<td><div class="action-btns"><a href="/donor/my-donations/' + d.donation_id + '/" class="btn btn-outline">View</a>' + cancelEditBtns + '</div></td>' +
@@ -247,35 +254,10 @@
     if (meta) {
       var pInfo = document.querySelector('.pg-info');
       if (pInfo) pInfo.textContent = 'Page ' + meta.current_page + ' of ' + meta.total_pages;
-      var pBtns = document.querySelector('.pg-btns');
-      if (!pBtns) return;
-      var pInd = document.getElementById('page-indicator');
-      if (!pInd) { pInd = document.createElement('span'); pInd.id = 'page-indicator'; pBtns.appendChild(pInd); }
-      pInd.textContent = 'Page ' + meta.current_page;
       var prevBtn = document.getElementById('prev-btn');
-      if (meta.has_prev && !prevBtn) {
-        prevBtn = document.createElement('a');
-        prevBtn.id = 'prev-btn'; prevBtn.className = 'btn btn-outline';
-        prevBtn.href = '?page=' + (meta.current_page - 1) + (meta.q ? '&q=' + encodeURIComponent(meta.q) : '');
-        prevBtn.innerHTML = '\u276e Previous';
-        pBtns.insertBefore(prevBtn, pInd);
-      }
-      if (prevBtn) {
-        prevBtn.style.display = meta.has_prev ? '' : 'none';
-        if (meta.has_prev) prevBtn.href = '?page=' + (meta.current_page - 1) + (meta.q ? '&q=' + encodeURIComponent(meta.q) : '');
-      }
+      if (prevBtn) prevBtn.style.display = meta.has_prev ? '' : 'none';
       var nextBtn = document.getElementById('next-btn');
-      if (meta.has_next && !nextBtn) {
-        nextBtn = document.createElement('a');
-        nextBtn.id = 'next-btn'; nextBtn.className = 'btn btn-outline';
-        nextBtn.href = '?page=' + (meta.current_page + 1) + (meta.q ? '&q=' + encodeURIComponent(meta.q) : '');
-        nextBtn.innerHTML = 'Next \u276f';
-        pBtns.appendChild(nextBtn);
-      }
-      if (nextBtn) {
-        nextBtn.style.display = meta.has_next ? '' : 'none';
-        if (meta.has_next) nextBtn.href = '?page=' + (meta.current_page + 1) + (meta.q ? '&q=' + encodeURIComponent(meta.q) : '');
-      }
+      if (nextBtn) nextBtn.style.display = meta.has_next ? '' : 'none';
     }
     bindCancelButtons();
   }
@@ -307,13 +289,7 @@
     var s = (d.status || '').toUpperCase();
     var cls = s === 'IN_TRANSIT' ? 'transit' : s.toLowerCase();
     const label = d.status ? d.status.split('_').map(function(w) { return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(); }).join(' ') : '';
-    const items = d.items || [];
-    let itemsHtml = '<ul class="hc-items">';
-    const maxItems = 5;
-    const show = items.slice(0, maxItems);
-    show.forEach(function(it) { itemsHtml += '<li>' + escapeHTML(it.label) + '</li>'; });
-    if (items.length > maxItems) itemsHtml += '<li class="hc-more">+' + (items.length - maxItems) + ' more</li>';
-    itemsHtml += '</ul>';
+    var itemsHtml = d.items && d.items.length ? '<div style="padding:6px 0;font-size:11px;color:var(--text,#222)">' + renderItems(d.items) + '</div>' : '';
     var windowHtml = d.pickupStart && d.pickupEnd ? '<div class="hc-row"><span class="hc-lbl">Window</span><span>' + escapeHTML(d.pickupStart) + ' &ndash; ' + escapeHTML(d.pickupEnd) + '</span></div>' : '';
     const tuabHtml = d.business_name ? '<div class="hc-row"><span class="hc-lbl">Claimed By</span><span>' + escapeHTML(d.business_name) + '</span></div>' : '';
     card.innerHTML = '<div class="hc-hdr">Donation #' + escapeHTML(String(d.donation_id)) + ' <span class="badge badge-' + escapeHTML(cls) + '">' + escapeHTML(label) + '</span></div>' +

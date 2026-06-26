@@ -69,16 +69,9 @@ async def tuab_dashboard(request):
                 'pickupDate': format_date(d['preferred_pickup_date']),
                 'status': d.get('status', ''),
                 'delivery_method': d.get('delivery_method', ''),
-                'items': len(d['items']),
+                'items': d.get('items', ''),
                 'lat': float(d['pickup_latitude']),
                 'lng': float(d['pickup_longitude']),
-                'item_details': [
-                    {
-                        'type': i.get('lookup_details', {}).get('clothing_type', ''),
-                        'brand': i.get('lookup_details', {}).get('brand', ''),
-                        'fiber': i.get('lookup_details', {}).get('dominant_fiber', ''),
-                    } for i in d.get('items', [])
-                ],
                 'pickup_window_start': d.get('preferred_pickup_window_start', ''),
                 'pickup_window_end': d.get('preferred_pickup_window_end', ''),
             } for d in available_donations
@@ -91,16 +84,9 @@ async def tuab_dashboard(request):
                 'pickupDate': format_date(d['preferred_pickup_date']),
                 'status': d.get('status', ''),
                 'delivery_method': d.get('delivery_method', ''),
-                'items': len(d['items']),
+                'items': d.get('items', ''),
                 'lat': float(d['pickup_latitude']),
                 'lng': float(d['pickup_longitude']),
-                'item_details': [
-                    {
-                        'type': i.get('lookup_details', {}).get('clothing_type', ''),
-                        'brand': i.get('lookup_details', {}).get('brand', ''),
-                        'fiber': i.get('lookup_details', {}).get('dominant_fiber', ''),
-                    } for i in d.get('items', [])
-                ],
                 'pickup_window_start': d.get('preferred_pickup_window_start', ''),
                 'pickup_window_end': d.get('preferred_pickup_window_end', ''),
             } for d in my_claimed_donations
@@ -182,6 +168,10 @@ async def tuab_view_donation(request, donation_id):
         if hasattr(response, 'status_code') and 200 <= response.status_code < 300:
             messages.success(request, data.get('detail') or 'Donation claim submitted successfully.')
             return redirect(f'/tuab/dashboard/?tab=claimed&claimed={donation_id}')
+
+        if hasattr(response, 'status_code') and response.status_code == 412:
+            messages.error(request, 'This donation was modified. Refresh and try again.')
+            return redirect('tuab_dashboard')
 
         messages.error(request, data.get('detail') or 'Unable to submit the donation claim.')
         return redirect('tuab_view_donation', donation_id=donation_id)
@@ -603,19 +593,11 @@ async def tuab_inventory_snapshot(request):
                 last_audit = dt.strftime('%-m-%-d-%Y')
             except Exception:
                 last_audit = updated_raw[:10]
-        item_details = []
-        for si in source_donation.get('items', []):
-            ld = si.get('lookup_details', {})
-            if ld:
-                item_details.append({'fiber': ld.get('dominant_fiber', ''), 'type': ld.get('clothing_type', '')})
         formatted_item = {
             'inventory_id': item.get('inventory_id'),
             'donation_id': source_donation.get('donation_id'),
             'donor_name': f"{source_donation.get('donor', {}).get('first_name', '')} {source_donation.get('donor', {}).get('last_name', '')}".strip(),
             'address': source_donation.get('pickup_display_address', ''),
-            'item_details': item_details,
-            'item_details_json': json.dumps(item_details),
-            'items_count': len(source_donation.get('items', [])),
             'current_weight_kg': float(item.get('current_weight_kg', 0)),
             'weight_before_kg': float(item.get('weight_before_kg', 0)),
             'usage_amount_kg': float(item.get('usage_amount_kg', 0)),
@@ -861,7 +843,7 @@ async def tuab_view_fiber_match_recommendations(request):
                     params['confidence_max'] = float(value)
                 except (ValueError, TypeError):
                     pass
-            elif key != 'biodeg_tier':
+            else:
                 params[key] = value
 
     res = await api_call(request, 'GET', 'match-predict', params=params)

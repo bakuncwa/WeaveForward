@@ -43,7 +43,7 @@ jobs:
             --region asia-southeast1 \
             --platform managed \
             --project weaveforward-system \
-            --update-env-vars "DJANGO_ML_DIR=fiber_match_api/ml_models"
+            --update-env-vars DJANGO_ML_DIR=fiber_match_api/models
 
   deploy-frontend:
     name: Build & Deploy Frontend

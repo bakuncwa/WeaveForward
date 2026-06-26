@@ -24,25 +24,6 @@ from .brandfiberlookups import BrandFiberLookupSerializer
 # ## Read-Only Serializers
 # ------------------------------------------------------------------------------
 
-class DonationListLookupSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = BrandFiberLookup
-        fields = ['clothing_type', 'brand', 'dominant_fiber']
-
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        if ret.get('clothing_type'):
-            ret['clothing_type'] = ret['clothing_type'].capitalize()
-        return ret
-
-
-class DonationListItemSerializer(serializers.ModelSerializer):
-    lookup_details = DonationListLookupSerializer(source='lookup', read_only=True)
-
-    class Meta:
-        model = DonationItem
-        fields = ['lookup_details']
-
 class DonationListDonorSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -58,7 +39,7 @@ class DonationListClaimedBySerializer(serializers.ModelSerializer):
 class DonationListSerializer(serializers.ModelSerializer):
     donor = DonationListDonorSerializer(read_only=True)
     claimed_by_tuab = DonationListClaimedBySerializer(read_only=True)
-    items = DonationListItemSerializer(source='active_items', many=True, read_only=True)
+    items = serializers.SerializerMethodField()
     upload = serializers.SerializerMethodField()
     pickup_latitude = serializers.DecimalField(max_digits=9, decimal_places=7, read_only=True)
     pickup_longitude = serializers.DecimalField(max_digits=10, decimal_places=7, read_only=True)
@@ -84,6 +65,24 @@ class DonationListSerializer(serializers.ModelSerializer):
 
     def get_upload(self, obj):
         return build_upload_url(obj.upload, self.context)
+
+    def get_items(self, obj):
+        counts = {}
+        for item in getattr(obj, 'active_items', []):
+            if not item.lookup:
+                continue
+            fiber = (item.lookup.dominant_fiber or '').title()
+            ctype = (item.lookup.clothing_type or '').title()
+            name = f"{fiber} {ctype}" if fiber else ctype
+            if name:
+                counts[name] = counts.get(name, 0) + 1
+        parts = []
+        for name, count in counts.items():
+            parts.append(f"{name} x{count}" if count > 1 else name)
+        MAX_GROUPS = 8
+        if len(parts) > MAX_GROUPS:
+            parts = parts[:MAX_GROUPS] + [f"+{len(parts) - MAX_GROUPS} more"]
+        return parts
 
 class DonationDetailItemSerializer(serializers.ModelSerializer):
     lookup_details = BrandFiberLookupSerializer(source='lookup', read_only=True)
@@ -278,18 +277,16 @@ class DonationCreateSerializer(serializers.ModelSerializer):
             items = json.loads(data['items'])
             if not isinstance(items, list) or not items:
                 raise ValueError
-            lookup_ids = [i['lookup_id'] for i in items if i['lookup_id']]
-            existing_ids = set(BrandFiberLookup.objects.filter(lookup_id__in=lookup_ids, is_active=True).values_list('lookup_id', flat=True))
             for i in items:
-                if any(k not in i for k in ['lookup_id', 'weight_kg', 'condition_rating']):
+                if any(k not in i for k in ['brand', 'clothing_type', 'weight_kg', 'condition_rating']):
                     raise ValueError
-                if i['lookup_id'] not in existing_ids:
+                if not i['brand'] or not i['clothing_type']:
                     raise ValueError
                 if float(i['weight_kg']) <= 0:
                     raise ValueError
             data['items'] = items
         except Exception:
-            raise serializers.ValidationError({'items': "Each item needs a recognized brand/fiber type, a weight greater than 0 kg, and a condition rating."})
+            raise serializers.ValidationError({'items': "Each item needs a brand, clothing type, weight greater than 0 kg, and a condition rating."})
 
         return data
 
@@ -382,10 +379,12 @@ class QuotationRequestSerializer(serializers.ModelSerializer):
 class DonationItemUpdateSerializer(serializers.ModelSerializer):
     """Internal serializer to validate individual item updates."""
     item_id = serializers.IntegerField(required=False)
+    brand = serializers.CharField(required=False, write_only=True)
+    clothing_type = serializers.CharField(required=False, write_only=True)
 
     class Meta:
         model = DonationItem
-        fields = ['item_id', 'lookup', 'weight_kg', 'condition_rating', 'is_archived']
+        fields = ['item_id', 'lookup', 'brand', 'clothing_type', 'weight_kg', 'condition_rating', 'is_archived']
         extra_kwargs = {
             'lookup': {'required': False},
             'weight_kg': {'min_value': Decimal('0.01'), 'required': False},
@@ -396,21 +395,20 @@ class DonationItemUpdateSerializer(serializers.ModelSerializer):
     def validate(self, data):
         item_id = data.get('item_id')
         is_archived = data.get('is_archived', False)
-        
-        # 1. REMOVING (Archive Case)
+        has_brand_type = data.get('brand') and data.get('clothing_type')
+
         if is_archived:
             if not item_id:
                 raise serializers.ValidationError("Please specify which item to remove.")
             return data
 
-        # 2. ADDING (New Item Case)
         if not item_id:
-            if not data.get('lookup') or not data.get('weight_kg') or not data.get('condition_rating'):
-                raise serializers.ValidationError("New items need a brand/fiber type, weight, and condition rating.")
+            has_lookup = bool(data.get('lookup'))
+            if (not has_lookup and not has_brand_type) or not data.get('weight_kg') or not data.get('condition_rating'):
+                raise serializers.ValidationError("New items need a brand/clothing type or lookup, weight, and condition rating.")
             return data
-        
-        # 3. EDITING (Update Case)
-        update_fields = {'lookup', 'weight_kg', 'condition_rating'}
+
+        update_fields = {'lookup', 'brand', 'clothing_type', 'weight_kg', 'condition_rating'}
         if not any(f in data for f in update_fields):
             raise serializers.ValidationError(f"Please provide at least one field to update for item {item_id}.")
 
@@ -512,7 +510,7 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
 
                 data['items'] = items
             except Exception:
-                raise serializers.ValidationError({'items': "Each item needs a recognized brand/fiber type, a weight greater than 0 kg, and a condition rating."})
+                raise serializers.ValidationError({'items': "Each item needs a brand/clothing type or lookup, a weight greater than 0 kg, and a condition rating."})
 
         return data
 
@@ -697,6 +695,6 @@ class AdminDonationUpdateSerializer(serializers.ModelSerializer):
 
                 data['items'] = items
             except Exception:
-                raise serializers.ValidationError({'items': "Each item needs a recognized brand/fiber type, a weight greater than 0 kg, and a condition rating."})
+                raise serializers.ValidationError({'items': "Each item needs a brand/clothing type or lookup, a weight greater than 0 kg, and a condition rating."})
 
         return data
