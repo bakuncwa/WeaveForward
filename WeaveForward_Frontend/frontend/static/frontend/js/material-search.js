@@ -35,7 +35,7 @@ async function loadMaterials(el, preserve = false) {
     itemsContainer.innerHTML = '';
     if (!materials.length) {
       if (!preserve) {
-        matText.textContent = 'We\'ll guess the material for you';
+        matText.textContent = 'No matches — We\'ll guess the material for you';
         trigger.classList.add('disabled');
       }
     } else {
