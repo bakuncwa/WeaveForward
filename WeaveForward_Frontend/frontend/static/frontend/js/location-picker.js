@@ -217,7 +217,7 @@ async function confirmMap() {
 
 document.addEventListener('click', e => {
   if (e.target === getEl('map-modal')) closeMap();
-  if (!e.target.closest('.ss-wrap')) {
+  if (!e.target.closest('.ss-wrap') && !e.target.closest('select')) {
     document.querySelectorAll('.ss-list').forEach(l => l.classList.add('hidden'));
     document.querySelectorAll('.ss-wrap').forEach(w => w.classList.remove('open'));
   }

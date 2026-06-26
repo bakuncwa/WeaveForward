@@ -172,7 +172,6 @@ class TuabCircularEconomyViewSet(viewsets.GenericViewSet):
             .annotate(
                 accepted=Count("donation_id", filter=Q(status=DonationStatus.RECEIVED)),
                 rejected=Count("donation_id", filter=Q(status=DonationStatus.REJECTED)),
-                pending=Count("donation_id", filter=Q(status=DonationStatus.PENDING)),
             )
             .order_by("pickup_city")
         )
@@ -181,7 +180,6 @@ class TuabCircularEconomyViewSet(viewsets.GenericViewSet):
                 "city": r["pickup_city"] or "Unknown",
                 "accepted": r["accepted"],
                 "rejected": r["rejected"],
-                "pending": r["pending"],
             }
             for r in decision_rows
         ]

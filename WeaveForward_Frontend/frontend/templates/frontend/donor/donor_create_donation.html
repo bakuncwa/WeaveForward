@@ -11,6 +11,7 @@
 <script src="{% static 'frontend/js/location-picker.js' %}"></script>
 
   <link rel="stylesheet" href="{% static 'frontend/css/donation-form.css' %}">
+  <link rel="stylesheet" href="{% static 'frontend/css/fiber-editor.css' %}">
   <style>
   .btn-add, .btn-submit { width: 100%; padding: 12px; cursor: pointer; font-family: 'Poppins', sans-serif; border: none; font-size: 16px; outline: none; }
   .btn-add { 
@@ -85,7 +86,6 @@
                 <div class="mat-trigger" onclick="toggleAddrDropdown(this)">
                   <span class="mat-text" id="addr-text">{{ user.display_address|default:'Address' }}</span>
               <svg class="mat-arrow" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg>
-              <div class="mat-clear" onclick="event.stopPropagation();clearMat(this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
                 </div>
                 <input type="hidden" id="addr" name="pickup_display_address" value="{{ user.display_address }}" required>
                 <div id="ac" class="ss-list hidden">
@@ -120,7 +120,7 @@
               <img id="img-prv" src="" style="max-width:100%; border-radius:8px;">
               <button type="button" class="img-x" onclick="event.stopPropagation();clearFileInput()">✕</button>
             </div>
-            <input id="img-in" name="donation_image" type="file" accept=".jpg,.jpeg,.png,.jfif" class="hidden" onchange="previewImg(this)">
+            <input id="img-in" name="donation_image" type="file" accept=".jpg,.jpeg,.png" class="hidden" onchange="previewImg(this)">
           </div>
         </div>
       </div>
@@ -172,7 +172,7 @@
         </div>
         <div class="restored-group">
           <label class="up-label">Material</label>
-          <div class="ss-wrap mat-search-wrap" style="position:relative" data-api-url="{% url "material_search_proxy" %}">
+          <div class="ss-wrap mat-search-wrap" style="position:relative" data-api-url="{% url "material_search_proxy" %}" data-allow-custom>
             <div class="mat-trigger disabled" onclick="toggleMatDropdown(this)">
               <span class="mat-text">Please enter a brand and clothing type</span>
               <svg class="mat-arrow" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg>
@@ -180,7 +180,15 @@
             <input type="hidden" class="lookup-id">
             <div class="ss-list hidden">
               <input type="text" class="mat-search" placeholder="Search or leave empty" oninput="filterMatList(this)" onclick="event.stopPropagation()" autocomplete="off">
+              <div class="mat-item custom-mat-option" onclick="selectCustomComposition(this)">Custom composition...</div>
               <div class="mat-items"></div>
+            </div>
+            <div class="fiber-editor hidden">
+              <div class="fiber-rows"></div>
+              <button type="button" class="fiber-add-btn" onclick="addFiberRow(this)">+ Add fiber</button>
+              <div class="fiber-total">Total: <span class="fiber-sum">0</span>%</div>
+              <input type="hidden" class="fiber-composition" value="">
+              <button type="button" class="fiber-cancel" onclick="cancelCustomComposition(this)">Cancel</button>
             </div>
           </div>
         </div>
@@ -236,17 +244,43 @@
 
   // --- 2. Form Submission ---
   function prepareSubmit(e) {
+    var invalidCustom = false;
+    document.querySelectorAll('#cards .restored-card').forEach(function (card) {
+      const editor = card.querySelector('.fiber-editor');
+      if (editor && !editor.classList.contains('hidden')) {
+        const totalEl = editor.querySelector('.fiber-total');
+        if (!totalEl.classList.contains('ok')) {
+          showFlash('All custom fiber compositions must sum to 100%.', 'error');
+          invalidCustom = true;
+        }
+      }
+    });
+    if (invalidCustom) {
+      if (e && e.preventDefault) e.preventDefault();
+      return false;
+    }
+
     const items = [];
     document.querySelectorAll('#cards .restored-card').forEach(card => {
       const brand = card.querySelector('.brand-sel').value;
       const type = card.querySelector('.type-sel').value;
       if (!brand || !type) { return; }
-      items.push({
-        brand, clothing_type: type,
+      const fiberCompRaw = card.querySelector('.fiber-composition')?.value;
+      const fiberComp = fiberCompRaw ? JSON.parse(fiberCompRaw) : null;
+      const item = {
         weight_kg: Number(card.querySelector('.weight-in').value),
-        condition_rating: card.querySelector('.cond-sel').value,
-        lookup: Number(card.querySelector('.lookup-id').value) || undefined
-      });
+        condition_rating: card.querySelector('.cond-sel').value
+      };
+      if (fiberComp) {
+        item.brand = brand;
+        item.clothing_type = type;
+        item.fiber_composition = fiberComp;
+      } else {
+        const lookupVal = Number(card.querySelector('.lookup-id').value);
+        if (lookupVal) { item.lookup = lookupVal; }
+        else { item.brand = brand; item.clothing_type = type; }
+      }
+      items.push(item);
     });
     if (items.length === 0) {
       showFlash('At least one item is required.', 'error');
@@ -324,7 +358,13 @@
   // Start with one card
   addCard();
 </script>
+{{ all_fibers|json_script:"all-fibers" }}
+<script>var ALL_FIBERS = JSON.parse(document.getElementById('all-fibers').textContent);</script>
+<script src="{% static 'frontend/js/fiber-editor.js' %}"></script>
 <script src="{% static 'frontend/js/combo-box.js' %}"></script>
 <script src="{% static 'frontend/js/material-search.js' %}"></script>
 <script src="{% static 'frontend/js/donation-form.js' %}"></script>
+<script>
+  document.getElementById('cards').addEventListener('input', e => { const card = e.target.closest('.restored-card'); if (card) card.setAttribute('data-changed', 'true'); });
+</script>
 {% endblock %}

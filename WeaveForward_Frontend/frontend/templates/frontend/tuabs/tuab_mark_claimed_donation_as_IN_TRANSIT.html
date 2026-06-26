@@ -354,7 +354,6 @@
 
   <script>
     document.documentElement.setAttribute('data-script-version', '2');
-    console.log('transit script loaded');
     // --- Standardization: Prettify ENUMs ---
     document.addEventListener('DOMContentLoaded', function () {
       document.querySelectorAll('.condition-val').forEach(function (el) {
@@ -465,12 +464,8 @@
         // Items (left card)
         if (data.items) {
           var container = document.getElementById('donation-items-left');
-          console.log('Poll items:', JSON.stringify(data.items));
           container.innerHTML = data.items.map(function(it, i) {
             var ld = it.lookup_details || {};
-            var raw = it.condition_rating;
-            var pretty = prettifyCondition(raw);
-            console.log('Item ' + i + ' condition_raw:', raw, 'pretty:', pretty);
             return '<div class="card">' +
               '<div class="head"><div class="num">' + (i + 1) + '</div><span style="font-weight:400;font-size:15px">Clothing ' + (i + 1) + '</span></div>' +
               '<div class="row"><div class="group"><label class="up">Clothing</label><input class="in" value="' + escapeHtml(ld.clothing_type || '') + '" readonly></div>' +

@@ -1,7 +1,10 @@
 {% extends 'frontend/base.html' %}
+{% load static %}
 
 {% block content %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="{% static 'frontend/css/fiber-swatches.css' %}">
+<script src="{% static 'frontend/js/fiber-swatches.js' %}"></script>
 
 <style>
     :root {
@@ -418,7 +421,7 @@
             <div class="ce-chart-header">
                 <div>
                     <p class="ce-chart-title">Donation Decisions per NCR City</p>
-                    <p class="ce-chart-subtitle">Accepted &middot; Rejected &middot; Flagged &middot; Pending</p>
+                    <p class="ce-chart-subtitle">Accepted &middot; Rejected</p>
                 </div>
                 <span class="ce-badge">Decision Flow</span>
             </div>
@@ -437,8 +440,8 @@
 <script>
 const DATA = JSON.parse('{{ dashboard_json|escapejs }}');
 
-function fiberColor() {
-    return `hsl(${Math.random()*360}, 55%, 55%)`;
+function fiberColor(name) {
+    return FIBER_COLORS[(name||'').toLowerCase()] || '#ccc';
 }
 
 const BIODEG_COLORS = [
@@ -584,8 +587,8 @@ function hideCanvas(chartId, emptyId) {
     if (!rows.length) { hideCanvas('chart-decisions', 'empty-decisions'); return; }
 
     rows.sort((a, b) => {
-        const totalA = (a.accepted || 0) + (a.pending || 0) + (a.rejected || 0) + (a.flagged || 0);
-        const totalB = (b.accepted || 0) + (b.pending || 0) + (b.rejected || 0) + (b.flagged || 0);
+        const totalA = (a.accepted || 0) + (a.rejected || 0);
+        const totalB = (b.accepted || 0) + (b.rejected || 0);
         return totalB - totalA;
     });
 
@@ -600,13 +603,6 @@ function hideCanvas(chartId, emptyId) {
                     label: 'Accepted',
                     data: rows.map(r => r.accepted || 0),
                     backgroundColor: 'rgba(45,122,79,0.82)',
-                    borderRadius: 3,
-                    stack: 'dec',
-                },
-                {
-                    label: 'Pending',
-                    data: rows.map(r => r.pending || 0),
-                    backgroundColor: 'rgba(232,160,32,0.82)',
                     borderRadius: 3,
                     stack: 'dec',
                 },

@@ -747,9 +747,8 @@
             {% if user.upload %}
             <img src="{{ user.upload }}" alt="Profile"
               style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
-            {% elif user.first_name %}{{ user.first_name|slice:":1"|upper }}{% if user.last_name %}{{ user.last_name|slice:":1"|upper }}{% endif %}
-            {% elif user.business_name %}{{ user.business_name|slice:":2"|upper }}
-            {% else %}?
+            {% else %}
+            {% if user.first_name %}{{ user.first_name|slice:":1"|upper }}{% if user.last_name %}{{ user.last_name|slice:":1"|upper }}{% endif %}{% elif user.business_name %}{{ user.business_name|slice:":2"|upper }}{% else %}?{% endif %}
             {% endif %}
           </a>
         </div>

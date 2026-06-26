@@ -1,3 +1,8 @@
+function resetCustomMode(wrap) {
+  const editor = wrap.querySelector('.fiber-editor');
+  if (editor) { editor.classList.add('hidden'); editor.querySelector('.fiber-rows').innerHTML = ''; editor.querySelector('.fiber-composition').value = ''; }
+}
+
 async function loadMaterials(el, preserve = false) {
   const card = el.closest('.restored-card');
   const typeSel = card.querySelector('.type-sel');
@@ -9,6 +14,8 @@ async function loadMaterials(el, preserve = false) {
   const matText = trigger.querySelector('.mat-text');
   const list = wrap.querySelector('.ss-list');
   const itemsContainer = wrap.querySelector('.mat-items');
+
+  resetCustomMode(wrap);
 
   if (!preserve) {
     card.querySelector('.lookup-id').value = '';
@@ -35,8 +42,13 @@ async function loadMaterials(el, preserve = false) {
     itemsContainer.innerHTML = '';
     if (!materials.length) {
       if (!preserve) {
-        matText.textContent = 'No matches — We\'ll guess the material for you';
-        trigger.classList.add('disabled');
+        if (wrap.dataset.allowCustom !== undefined) {
+          matText.textContent = 'No exact match — Custom composition available';
+          trigger.classList.remove('disabled');
+        } else {
+          matText.textContent = 'No matches — We\'ll guess the material for you';
+          trigger.classList.add('disabled');
+        }
       }
     } else {
       trigger.classList.remove('disabled');
@@ -69,6 +81,7 @@ function selectMat(el, id, text) {
   wrap.querySelector('.ss-list').classList.add('hidden');
   wrap.classList.remove('open');
   wrap.querySelector('.mat-trigger').classList.remove('disabled');
+  resetCustomMode(wrap);
   wrap.closest('.restored-card')?.setAttribute('data-changed', 'true');
 }
 

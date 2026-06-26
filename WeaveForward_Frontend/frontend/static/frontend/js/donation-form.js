@@ -36,6 +36,15 @@ function toggleMatDropdown(trigger) {
   document.querySelectorAll('.ss-list').forEach(l => l.classList.add('hidden'));
   document.querySelectorAll('.ss-wrap').forEach(w => w.classList.remove('open'));
   if (!isOpen) {
+    const itemsCon = list.querySelector('.mat-items');
+    if (itemsCon && !itemsCon.children.length) {
+      const card = wrap.closest('.restored-card');
+      const brand = card?.querySelector('.brand-sel');
+      const type = card?.querySelector('.type-sel');
+      if (brand && type && brand.value && type.value) {
+        loadMaterials(brand, true);
+      }
+    }
     list.classList.remove('hidden');
     wrap.classList.add('open');
     const search = list.querySelector('.mat-search');
@@ -52,8 +61,8 @@ function filterMatList(inp) {
 }
 
 document.addEventListener('click', e => {
-  if (!e.target.closest('.ss-wrap')) {
-    document.querySelectorAll('.ss-list').forEach(l => l.classList.add('hidden'));
-    document.querySelectorAll('.ss-wrap').forEach(w => w.classList.remove('open'));
-  }
+  if (e.target.closest('.ss-wrap')) return;
+  if (e.target.closest('select')) return;
+  document.querySelectorAll('.ss-list').forEach(l => l.classList.add('hidden'));
+  document.querySelectorAll('.ss-wrap').forEach(w => w.classList.remove('open'));
 });

@@ -339,12 +339,15 @@ async def tuab_update_incoming_donation(request, donation_id):
     clothing_types = types_res.json() if types_res.status_code == 200 else []
     all_brands = brands_res.json() if brands_res.status_code == 200 else []
 
+    all_fibers = await get_fiber_choices(request)
+
     return render(request, 'frontend/tuabs/tuab_update_incoming_donation.html', {
         'page_title': 'Update Donation',
         'user': profile,
         'donation': donation,
         'clothing_types': clothing_types,
         'all_brands': all_brands,
+        'all_fibers': all_fibers,
         'condition_choices': [
             ('NEW', 'New'),
             ('LIKE_NEW', 'Like New'),

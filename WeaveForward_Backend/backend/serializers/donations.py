@@ -274,19 +274,14 @@ class DonationCreateSerializer(serializers.ModelSerializer):
 
         # 5. Items Validation
         try:
-            items = json.loads(data['items'])
-            if not isinstance(items, list) or not items:
-                raise ValueError
-            for i in items:
-                if any(k not in i for k in ['brand', 'clothing_type', 'weight_kg', 'condition_rating']):
-                    raise ValueError
-                if not i['brand'] or not i['clothing_type']:
-                    raise ValueError
-                if float(i['weight_kg']) <= 0:
-                    raise ValueError
-            data['items'] = items
-        except Exception:
-            raise serializers.ValidationError({'items': "Each item needs a brand, clothing type, weight greater than 0 kg, and a condition rating."})
+            raw_items = json.loads(data['items'])
+        except (json.JSONDecodeError, TypeError):
+            raise serializers.ValidationError({'items': "Invalid items format."})
+        if not isinstance(raw_items, list) or not raw_items:
+            raise serializers.ValidationError({'items': "At least one item is required."})
+        item_serializer = DonationItemUpdateSerializer(data=raw_items, many=True)
+        item_serializer.is_valid(raise_exception=True)
+        data['items'] = item_serializer.validated_data
 
         return data
 
@@ -381,10 +376,11 @@ class DonationItemUpdateSerializer(serializers.ModelSerializer):
     item_id = serializers.IntegerField(required=False)
     brand = serializers.CharField(required=False, write_only=True)
     clothing_type = serializers.CharField(required=False, write_only=True)
+    fiber_composition = serializers.JSONField(required=False, write_only=True)
 
     class Meta:
         model = DonationItem
-        fields = ['item_id', 'lookup', 'brand', 'clothing_type', 'weight_kg', 'condition_rating', 'is_archived']
+        fields = ['item_id', 'lookup', 'brand', 'clothing_type', 'weight_kg', 'condition_rating', 'is_archived', 'fiber_composition']
         extra_kwargs = {
             'lookup': {'required': False},
             'weight_kg': {'min_value': Decimal('0.01'), 'required': False},
@@ -396,19 +392,48 @@ class DonationItemUpdateSerializer(serializers.ModelSerializer):
         item_id = data.get('item_id')
         is_archived = data.get('is_archived', False)
         has_brand_type = data.get('brand') and data.get('clothing_type')
+        fiber_composition = data.get('fiber_composition')
+        has_lookup = bool(data.get('lookup'))
+
+        if has_lookup and (data.get('brand') or data.get('clothing_type') or fiber_composition):
+            raise serializers.ValidationError(
+                "A lookup already encodes brand, clothing type, and fiber composition. "
+                "Do not combine lookup with brand, clothing type, or fiber composition."
+            )
+
+        if fiber_composition is not None:
+            if not isinstance(fiber_composition, dict) or not fiber_composition:
+                raise serializers.ValidationError("fiber_composition must be a non-empty object.")
+            if not has_brand_type:
+                raise serializers.ValidationError("brand and clothing_type are required with fiber_composition.")
+            total = 0
+            for fiber, pct in fiber_composition.items():
+                if not isinstance(fiber, str) or not fiber.strip():
+                    raise serializers.ValidationError("Fiber names must be non-empty strings.")
+                try:
+                    val = float(pct)
+                except (ValueError, TypeError):
+                    raise serializers.ValidationError(f"Invalid percentage for '{fiber}'.")
+                if val <= 0 or val > 100:
+                    raise serializers.ValidationError(f"Percentage for '{fiber}' must be between 0 and 100.")
+                total += val
+            if abs(total - 100) > 0.011:
+                raise serializers.ValidationError(f"Fiber percentages must sum to 100% (got {total:.2f}%).")
 
         if is_archived:
             if not item_id:
-                raise serializers.ValidationError("Please specify which item to remove.")
+                raise serializers.ValidationError("item_id is required to archive an item.")
+            other = [f for f in data if f not in ('item_id', 'is_archived') and data[f]]
+            if other:
+                raise serializers.ValidationError("Archiving an item cannot be combined with other updates.")
             return data
 
         if not item_id:
-            has_lookup = bool(data.get('lookup'))
             if (not has_lookup and not has_brand_type) or not data.get('weight_kg') or not data.get('condition_rating'):
                 raise serializers.ValidationError("New items need a brand/clothing type or lookup, weight, and condition rating.")
             return data
 
-        update_fields = {'lookup', 'brand', 'clothing_type', 'weight_kg', 'condition_rating'}
+        update_fields = {'lookup', 'brand', 'clothing_type', 'weight_kg', 'condition_rating', 'fiber_composition'}
         if not any(f in data for f in update_fields):
             raise serializers.ValidationError(f"Please provide at least one field to update for item {item_id}.")
 

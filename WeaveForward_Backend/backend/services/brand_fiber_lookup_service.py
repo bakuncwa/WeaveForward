@@ -1,4 +1,6 @@
+import hashlib
 import json
+from datetime import datetime, timezone
 from decimal import Decimal
 from ..models import BrandFiberLookup
 from .prediction_service import MatchPredictionService
@@ -14,6 +16,7 @@ def get_allowed_fibers():
                 fibers_set.update(k.lower().strip() for k in data.keys())
         except:
             continue
+    fibers_set.add('other')
     return fibers_set
 
 
@@ -88,7 +91,7 @@ def _create_lookup(brand, clothing_type, fiber_dict):
     score = MatchPredictionService._compute_biodeg_score(fiber_dict) if fiber_dict else 30.0
     tier = MatchPredictionService._compute_biodeg_tier(score).upper()
 
-    return BrandFiberLookup.objects.create(
+    obj = BrandFiberLookup.objects.create(
         product_name=f"{clothing_type} from {brand}"[:100],
         brand=brand[:200],
         clothing_type=clothing_type[:200],
@@ -98,3 +101,52 @@ def _create_lookup(brand, clothing_type, fiber_dict):
         biodeg_tier=tier,
         is_active=False,
     )
+    BrandFiberLookup.objects.filter(pk=obj.pk).update(
+        scraped_at=datetime(1000, 1, 1, tzinfo=timezone.utc),
+    )
+    return obj
+
+
+def resolve_item_lookup(item_patch):
+    """Resolve item_patch to a BrandFiberLookup instance.
+
+    Handles three cases:
+    1. fiber_composition present without lookup → create/get BrandFiberLookup
+    2. brand+type present without lookup → fiber_approximation
+    3. lookup already present → no-op
+
+    Mutates item_patch in-place: sets 'lookup' to a BrandFiberLookup instance.
+    """
+    if 'fiber_composition' in item_patch and not item_patch.get('lookup'):
+        comp = item_patch.pop('fiber_composition')
+        comp = {k.lower().strip(): v for k, v in comp.items()}
+        canon = dict(sorted(comp.items()))
+        if not canon:
+            raise ValueError("fiber_composition resolved to an empty composition")
+        fiber_json = json.dumps(canon)
+        score = MatchPredictionService._compute_biodeg_score(canon)
+        tier = MatchPredictionService._compute_biodeg_tier(score).upper()
+        item_patch['brand'] = item_patch['brand'].strip()
+        item_patch['clothing_type'] = item_patch['clothing_type'].strip()
+        lookup_obj, created = BrandFiberLookup.objects.get_or_create(
+            brand=item_patch['brand'],
+            clothing_type=item_patch['clothing_type'],
+            fiber_json=fiber_json,
+            defaults=dict(
+                product_name=f"[{hashlib.md5(fiber_json.encode()).hexdigest()[:8]}] Custom {item_patch['brand']} {item_patch['clothing_type']}"[:100],
+                dominant_fiber=max(canon, key=canon.get),
+                biodeg_score=Decimal(str(score)),
+                biodeg_tier=tier,
+                is_active=False,
+            ),
+        )
+        if created:
+            BrandFiberLookup.objects.filter(pk=lookup_obj.pk).update(
+                scraped_at=datetime(1000, 1, 1, tzinfo=timezone.utc),
+            )
+        item_patch['lookup'] = lookup_obj
+    elif 'brand' in item_patch and 'clothing_type' in item_patch and not item_patch.get('lookup'):
+        item_patch['brand'] = item_patch['brand'].strip()
+        item_patch['clothing_type'] = item_patch['clothing_type'].strip()
+        lookup_obj = fiber_approximation(item_patch['brand'], item_patch['clothing_type'])
+        item_patch['lookup'] = lookup_obj
