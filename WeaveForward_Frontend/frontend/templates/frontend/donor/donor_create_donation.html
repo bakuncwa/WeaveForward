@@ -119,7 +119,7 @@
               <img id="img-prv" src="" style="max-width:100%; border-radius:8px;">
               <button type="button" class="img-x" onclick="event.stopPropagation();clearFileInput()">✕</button>
             </div>
-            <input id="img-in" name="donation_image" type="file" accept=".jpg,.jpeg,.png" class="hidden" onchange="previewImg(this)">
+            <input id="img-in" name="donation_image" type="file" accept=".jpg,.jpeg,.png,.jfif" class="hidden" onchange="previewImg(this)">
           </div>
         </div>
       </div>
@@ -160,8 +160,10 @@
           <label class="up-label">Brand</label>
           <select class="restored-sel brand-sel" onchange="loadMaterials(this)">
             <option value="">Select...</option>
-            {% for b in all_brands %}<option value="{{ b }}">{{ b }}</option>{% endfor %}
+            {% for b in all_brands %}{% if b != 'Other' %}<option value="{{ b }}">{{ b }}</option>{% endif %}{% endfor %}
+            <option value="Other">Other (not listed)</option>
           </select>
+          <input type="text" class="restored-in other-brand-in" placeholder="Enter brand name" style="display:none;margin-top:6px" autocomplete="off">
         </div>
         <div class="restored-group">
           <label class="up-label">Material</label>
@@ -241,6 +243,8 @@
     const matText = trigger.querySelector('.mat-text');
     const list = wrap.querySelector('.ss-list');
     const itemsContainer = wrap.querySelector('.mat-items');
+    const otherIn = card.querySelector('.other-brand-in');
+    if (otherIn) otherIn.style.display = brand === 'Other' ? '' : 'none';
 
     matText.textContent = 'Please select a brand and clothing type';
     card.querySelector('.lookup-id').value = '';
@@ -279,6 +283,12 @@
             selectMat(this, this.dataset.lookupId, this.dataset.display);
           });
           itemsContainer.appendChild(div);
+        }
+        if (brand === 'Other' && materials.length === 1) {
+          const m = materials[0];
+          const display = `${m.fiber_json} - ${m.product_name || ''}`;
+          matText.textContent = display;
+          card.querySelector('.lookup-id').value = m.lookup_id;
         }
       }
     } catch (e) {

@@ -457,8 +457,10 @@
           <label class="up-label">Brand</label>
           <select class="restored-sel brand-sel" onchange="loadMaterials(this)">
             <option value="">Select...</option>
-            {% for b in all_brands %}<option value="{{ b }}">{{ b }}</option>{% endfor %}
+            {% for b in all_brands %}{% if b != 'Other' %}<option value="{{ b }}">{{ b }}</option>{% endif %}{% endfor %}
+            <option value="Other">Other (not listed)</option>
           </select>
+          <input type="text" class="restored-in other-brand-in" placeholder="Enter brand name" style="display:none;margin-top:6px" autocomplete="off">
         </div>
         <div class="restored-group">
           <label class="up-label">Material</label>
@@ -504,6 +506,8 @@
     const list = wrap.querySelector('.ss-list');
     const itemsContainer = wrap.querySelector('.mat-items');
     const wasInit = isInit;
+    const otherIn = card.querySelector('.other-brand-in');
+    if (otherIn) otherIn.style.display = brand === 'Other' ? '' : 'none';
 
     if (!wasInit) {
       matText.textContent = 'Please select a brand and clothing type';
@@ -545,6 +549,10 @@
           });
           itemsContainer.appendChild(div);
         }
+      }
+      if (brand === 'Other' && itemsContainer.children.length === 1) {
+        const only = itemsContainer.children[0];
+        selectMat(only, only.dataset.lookupId, only.dataset.display);
       }
     } catch (e) {
       console.error(e);

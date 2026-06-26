@@ -139,10 +139,12 @@
                   <label class="up-label">Brand</label>
                   <select class="restored-sel brand-sel" onchange="loadMaterials(this)">
                     <option value="">Select...</option>
-                    {% for b in all_brands %}
+                    {% for b in all_brands %}{% if b != 'Other' %}
                     <option value="{{ b }}" {% if b == item.lookup_details.brand %}selected{% endif %}>{{ b }}</option>
-                    {% endfor %}
+                    {% endif %}{% endfor %}
+                    <option value="Other" {% if item.lookup_details.brand == 'Other' %}selected{% endif %}>Other (not listed)</option>
                   </select>
+                  <input type="text" class="restored-in other-brand-in" placeholder="Enter brand name" style="display:{% if item.lookup_details.brand == 'Other' %}block{% else %}none{% endif %};margin-top:6px" autocomplete="off">
                 </div>
                 <div class="restored-group">
                   <label class="up-label">Material</label>
@@ -204,7 +206,7 @@
               <input type="hidden" id="lng" name="pickup_longitude" value="{{ donation.pickup_longitude }}" data-initial="{{ donation.pickup_longitude }}">
             </div>
           </div>
-          <button type="submit" class="btn-submit">Save Donation</button>
+          <button type="submit" class="btn-submit">Save Changes</button>
         </div>
 
         <div class="restored-panel">
@@ -224,7 +226,7 @@
               <img id="img-prv" src="{% if donation.upload %}{{ donation.upload }}{% endif %}" style="max-width:100%; border-radius:8px;">
               <button type="button" class="img-x" onclick="event.stopPropagation();clearFileInput()">✕</button>
             </div>
-            <input id="img-in" name="donation_image" type="file" accept=".jpg,.jpeg,.png" class="hidden" onchange="previewImg(this)">
+            <input id="img-in" name="donation_image" type="file" accept=".jpg,.jpeg,.png,.jfif" class="hidden" onchange="previewImg(this)">
             <input type="hidden" name="clear_image" id="clear-img-hidden" value="">
           </div>
         </div>
@@ -268,8 +270,10 @@
           <label class="up-label">Brand</label>
           <select class="restored-sel brand-sel" onchange="loadMaterials(this)">
             <option value="">Select...</option>
-            {% for b in all_brands %}<option value="{{ b }}">{{ b }}</option>{% endfor %}
+            {% for b in all_brands %}{% if b != 'Other' %}<option value="{{ b }}">{{ b }}</option>{% endif %}{% endfor %}
+            <option value="Other">Other (not listed)</option>
           </select>
+          <input type="text" class="restored-in other-brand-in" placeholder="Enter brand name" style="display:none;margin-top:6px" autocomplete="off">
         </div>
         <div class="restored-group">
           <label class="up-label">Material</label>
@@ -358,6 +362,8 @@
     const list = wrap.querySelector('.ss-list');
     const itemsContainer = wrap.querySelector('.mat-items');
     const wasInit = isInit;
+    const otherIn = card.querySelector('.other-brand-in');
+    if (otherIn) otherIn.style.display = brand === 'Other' ? '' : 'none';
 
     if (!wasInit) {
       matText.textContent = 'Please select a brand and clothing type';
@@ -398,6 +404,12 @@
             selectMat(this, this.dataset.lookupId, this.dataset.display);
           });
           itemsContainer.appendChild(div);
+        }
+        if (brand === 'Other' && materials.length === 1) {
+          const m = materials[0];
+          const display = `${m.fiber_json} - ${m.product_name || ''}`;
+          matText.textContent = display;
+          card.querySelector('.lookup-id').value = m.lookup_id;
         }
       }
     } catch (e) {
