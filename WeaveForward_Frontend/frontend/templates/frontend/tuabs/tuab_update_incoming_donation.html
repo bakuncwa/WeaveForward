@@ -403,8 +403,10 @@
           <label class="up-label">Brand</label>
           <select class="restored-sel brand-sel" onchange="loadMaterials(this)">
             <option value="">Select...</option>
-            {% for b in all_brands %}<option value="{{ b }}">{{ b }}</option>{% endfor %}
+            {% for b in all_brands %}{% if b != 'Other' %}<option value="{{ b }}">{{ b }}</option>{% endif %}{% endfor %}
+            <option value="Other">Other (not listed)</option>
           </select>
+          <input type="text" class="restored-in other-brand-in" placeholder="Enter brand name" style="display:none;margin-top:6px" autocomplete="off">
         </div>
         <div class="restored-group">
           <label class="up-label">Material</label>
@@ -462,26 +464,29 @@
     const brand = brandSel.value;
     const mIn = card.querySelector('.mat-in');
     const list = card.querySelector('.ss-list');
+    const otherIn = card.querySelector('.other-brand-in');
+
+    if (otherIn) otherIn.style.display = brand === 'Other' ? '' : 'none';
 
     if (!isInit) {
       mIn.value = '';
       card.querySelector('.lookup-id').value = '';
     }
-    
+
     if (!type || !brand) {
       mIn.disabled = true;
       mIn.placeholder = 'Please select a brand and clothing type';
       list.innerHTML = '';
       return;
     }
-    
+
     typeSel.disabled = true;
     brandSel.disabled = true;
     try {
       const res = await fetch(`{% url "material_search_proxy" %}?clothing_type=${type}&brand=${brand}`);
       if (!res.ok) throw new Error("HTTP error " + res.status);
       const materials = await res.json();
-      
+
       mIn.disabled = !materials.length;
       mIn.placeholder = materials.length ? 'Search' : 'No combinations found';
       list.innerHTML = '';
@@ -498,6 +503,10 @@
           selectMat(this, this.dataset.lookupId, this.dataset.display);
         });
         list.appendChild(div);
+      }
+      if (brand === 'Other' && list.children.length === 1) {
+        const only = list.children[0];
+        selectMat(only, only.dataset.lookupId, only.dataset.display);
       }
     } catch (e) {
       console.error(e);
