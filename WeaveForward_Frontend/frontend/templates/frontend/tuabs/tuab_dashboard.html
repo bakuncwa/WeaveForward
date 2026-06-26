@@ -27,6 +27,8 @@
       --green:     #4a7c59;
     }
 
+    .items-list { margin:0; padding-left:16px; font-size:12px; line-height:1.5; }
+    .items-list li { list-style:disc; }
     .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: none; cursor: pointer; font-family: 'Poppins', sans-serif; font-weight: 500; transition: all .2s; text-decoration: none; }
     .btn-tuab  { background: #e8a020;  color: #fff; border-radius: 999px; padding: 1px 28px; font-size: 10px; font-weight: 500; box-shadow: 0 3px 10px rgba(0,0,0,.2); }
     .btn-flag  { background: #fff1d8; color: #e8a020; border: none; border-radius: 999px; padding: 1px 28px; font-size: 10px; font-family: 'Poppins', sans-serif; cursor: pointer; font-weight: 500; box-shadow: 0 3px 10px rgba(0,0,0,.2); }
@@ -149,6 +151,10 @@
     if (!value) return '';
     return value.length > max ? `${value.slice(0, max - 3)}...` : value;
   };
+  const renderItems = items => {
+    if (!items || !items.length) return '-';
+    return '<ul class="items-list">' + items.map(i => '<li>' + escapeHTML(i) + '</li>').join('') + '</ul>';
+  };
   const DONATIONS = JSON.parse(document.getElementById('donations-data').textContent);
   const META = {
       available: { current: {{ avail_meta.current|escapejs }}, has_next: {% if avail_meta.has_next %}true{% else %}false{% endif %}, has_prev: {% if avail_meta.has_prev %}true{% else %}false{% endif %}, total: {{ avail_meta.count|default:0|escapejs }} },
@@ -172,7 +178,7 @@
       <td>${escapeHTML(truncateText(d.donor))}</td>
       <td style="color:#666">${escapeHTML(truncateText(d.address))}</td>
       <td>${escapeHTML(d.pickupDate)}</td>
-      <td>${escapeHTML(truncateText(String(d.items)))}</td>
+      <td style="max-width:200px">${renderItems(d.items)}</td>
       <td><div class="tuab-dashboard-actions">
         <a href="${d.status === 'IN_TRANSIT' ? `/tuab/donations/${escapeHTML(String(d.id))}/edit/` : `/tuab/donations/${escapeHTML(String(d.id))}/`}" class="btn btn-tuab" onclick="event.stopPropagation()">${actionLabel}</a>
         ${(d.status === 'PENDING' || d.status === 'FLAGGED') ? `<button class="btn-flag" data-id="${escapeHTML(String(d.id))}" data-tab="${escapeHTML(tab)}" onclick="event.stopPropagation();openFlagModal(this.getAttribute('data-id'), this.getAttribute('data-tab'))">Flag</button>` : ''}
@@ -296,21 +302,13 @@
     const deliveryHtml = d.delivery_method
       ? `<div class="hc-row"><span class="hc-lbl">Delivery</span><span>${escapeHTML(d.delivery_method)}</span></div>`
       : '';
-    const items = d.item_details || [];
-    let itemsHtml = '<ul class="hc-items">';
-    const maxItems = 5;
-    const show = items.slice(0, maxItems);
-    show.forEach(it => {
-      itemsHtml += `<li>${escapeHTML(it.fiber || '?')}${it.type ? ' ' + escapeHTML(it.type) : ''}</li>`;
-    });
-    if (items.length > maxItems) itemsHtml += `<li class="hc-more">+${items.length - maxItems} more</li>`;
-    itemsHtml += '</ul>';
-    const start = formatTime(d.pickup_window_start);
-    const end = formatTime(d.pickup_window_end);
-    const windowHtml = start && end
-      ? `<div class="hc-row"><span class="hc-lbl">Window</span><span>${escapeHTML(start)} — ${escapeHTML(end)}</span></div>`
-      : '';
-    card.innerHTML = `
+var itemsHtml = d.items && d.items.length ? '<div style="padding:6px 0;font-size:11px;color:var(--text,#222)">' + renderItems(d.items) + '</div>' : '';
+      const start = formatTime(d.pickup_window_start);
+      const end = formatTime(d.pickup_window_end);
+      const windowHtml = start && end
+        ? `<div class="hc-row"><span class="hc-lbl">Window</span><span>${escapeHTML(start)} — ${escapeHTML(end)}</span></div>`
+        : '';
+      card.innerHTML = `
       <div class="hc-hdr">Donation #${escapeHTML(String(d.id))} <span class="badge badge-${escapeHTML(cls)}">${escapeHTML(label)}</span></div>
       <div class="hc-row"><span class="hc-lbl">Donor</span><span>${escapeHTML(d.donor)}</span></div>
       <div class="hc-row"><span class="hc-lbl">Address</span><span>${escapeHTML(d.address)}</span></div>
@@ -480,16 +478,7 @@
       const deliveryHtml = d.delivery_method
         ? `<div class="hc-row"><span class="hc-lbl">Delivery</span><span>${escapeHTML(d.delivery_method)}</span></div>`
         : '';
-      const items = d.item_details || [];
-      let itemsHtml = '<ul class="hc-items">';
-      const maxItems = 5;
-      const show = items.slice(0, maxItems);
-      show.forEach(it => {
-        const label = it.fiber || it.type || '?';
-        itemsHtml += `<li>${escapeHTML(label)}</li>`;
-      });
-      if (items.length > maxItems) itemsHtml += `<li class="hc-more">+${items.length - maxItems} more</li>`;
-      itemsHtml += '</ul>';
+      var itemsHtml = d.items && d.items.length ? '<div style="padding:6px 0;font-size:11px;color:var(--text,#222)">' + renderItems(d.items) + '</div>' : '';
       const start = formatTime(d.pickup_window_start);
       const end = formatTime(d.pickup_window_end);
       const windowHtml = start && end

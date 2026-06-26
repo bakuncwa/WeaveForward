@@ -24,25 +24,6 @@ from .brandfiberlookups import BrandFiberLookupSerializer
 # ## Read-Only Serializers
 # ------------------------------------------------------------------------------
 
-class DonationListLookupSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = BrandFiberLookup
-        fields = ['clothing_type', 'brand', 'dominant_fiber']
-
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        if ret.get('clothing_type'):
-            ret['clothing_type'] = ret['clothing_type'].capitalize()
-        return ret
-
-
-class DonationListItemSerializer(serializers.ModelSerializer):
-    lookup_details = DonationListLookupSerializer(source='lookup', read_only=True)
-
-    class Meta:
-        model = DonationItem
-        fields = ['lookup_details']
-
 class DonationListDonorSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -58,7 +39,7 @@ class DonationListClaimedBySerializer(serializers.ModelSerializer):
 class DonationListSerializer(serializers.ModelSerializer):
     donor = DonationListDonorSerializer(read_only=True)
     claimed_by_tuab = DonationListClaimedBySerializer(read_only=True)
-    items = DonationListItemSerializer(source='active_items', many=True, read_only=True)
+    items = serializers.SerializerMethodField()
     upload = serializers.SerializerMethodField()
     pickup_latitude = serializers.DecimalField(max_digits=9, decimal_places=7, read_only=True)
     pickup_longitude = serializers.DecimalField(max_digits=10, decimal_places=7, read_only=True)
@@ -84,6 +65,24 @@ class DonationListSerializer(serializers.ModelSerializer):
 
     def get_upload(self, obj):
         return build_upload_url(obj.upload, self.context)
+
+    def get_items(self, obj):
+        counts = {}
+        for item in getattr(obj, 'active_items', []):
+            if not item.lookup:
+                continue
+            fiber = (item.lookup.dominant_fiber or '').title()
+            ctype = (item.lookup.clothing_type or '').title()
+            name = f"{fiber} {ctype}" if fiber else ctype
+            if name:
+                counts[name] = counts.get(name, 0) + 1
+        parts = []
+        for name, count in counts.items():
+            parts.append(f"{name} x{count}" if count > 1 else name)
+        MAX_GROUPS = 8
+        if len(parts) > MAX_GROUPS:
+            parts = parts[:MAX_GROUPS] + [f"+{len(parts) - MAX_GROUPS} more"]
+        return parts
 
 class DonationDetailItemSerializer(serializers.ModelSerializer):
     lookup_details = BrandFiberLookupSerializer(source='lookup', read_only=True)

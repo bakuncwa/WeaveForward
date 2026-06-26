@@ -72,15 +72,7 @@ async def donor_my_donations(request):
             'status': d.get('status', ''),
             'business_name': (d.get('claimed_by_tuab') or {}).get('business_name', ''),
             'upload': d.get('upload', ''),
-            'items': [
-                {
-                    'label': '{} - {} {}'.format(
-                        i.get('lookup_details', {}).get('clothing_type', ''),
-                        i.get('lookup_details', {}).get('brand', ''),
-                        (i.get('lookup_details', {}).get('dominant_fiber', '') or ''),
-                    )
-                } for i in d.get('items', [])
-            ],
+            'items': d.get('items', ''),
         }
         for d in donations_list
     ]

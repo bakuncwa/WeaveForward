@@ -218,26 +218,7 @@
   }
 
   /* Hover card */
-  .inv-hover-card {
-    position: fixed; z-index: 9999;
-    background: var(--card, #fff);
-    color: var(--text, #222);
-    border: 1.5px solid var(--border, #e0dbd4);
-    border-radius: 12px; padding: 14px 18px;
-    font-family: 'Poppins', sans-serif; font-size: 12px;
-    min-width: 260px; max-width: 340px;
-    box-shadow: 0 8px 30px rgba(0,0,0,.12);
-    pointer-events: none; opacity: 0; transition: opacity .12s;
-    line-height: 1.6;
-  }
-  .inv-hover-card.visible { opacity: 1; }
-  .inv-hover-card .hc-hdr { font-size: 13px; font-weight: 600; color: var(--text, #222); margin-bottom: 8px; }
-  .inv-hover-card .hc-row { display: flex; gap: 8px; padding: 1px 0; }
-  .inv-hover-card .hc-lbl { color: var(--muted, #888); min-width: 64px; flex-shrink: 0; }
-  .inv-hover-card .hc-items { list-style: none; padding: 0; margin: 4px 0 0 0; }
-  .inv-hover-card .hc-items li { padding: 1px 0 1px 14px; position: relative; font-size: 11px; color: var(--text, #222); }
-  .inv-hover-card .hc-items li::before { content: '•'; position: absolute; left: 0; color: var(--gold, #e8a020); }
-  .inv-hover-card .hc-more { font-size: 10px; color: var(--muted, #888); padding-left: 14px; }
+
   .ingested-badge {
     display: inline-block; font-size: 10px; font-weight: 600;
     color: #155724; background: #d4edda; border-radius: 4px;
@@ -327,7 +308,7 @@
         <tbody id="inv-tbody">
           {% for item in inventory_items %}
           {% with pct=item.current_weight_kg|floatformat:0 %}
-          <tr id="row-{{ item.inventory_id }}" data-search="{{ item.donor_name|lower }} {{ item.donation_id }} {{ item.inventory_id }}" data-donor="{{ item.donor_name }}" data-address="{{ item.address }}" data-items="{{ item.item_details_json }}">
+          <tr id="row-{{ item.inventory_id }}" data-search="{{ item.donor_name|lower }} {{ item.donation_id }} {{ item.inventory_id }}">
             <td>{{ item.inventory_id }}</td>
             <td><a href="{% url 'tuab_view_donation' item.donation_id %}">{{ item.donation_id }}</a></td>
             <td>
@@ -423,7 +404,7 @@
   </div>
 </div>
 
-<div id="inv-hover-card" class="inv-hover-card"></div>
+
 
 <script>
   const getCsrf = () => {
@@ -691,98 +672,7 @@
 
   const escapeHTML = str => !str ? '' : str.replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c] || c));
 
-  /* ── Hover card for inventory rows ── */
-  (function initInvHover() {
-    const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    if (isTouch) return;
-    let hcTimer = null, hcDonation = null;
-    const card = document.getElementById('inv-hover-card');
-    const tableWrap = document.querySelector('.table-scroll') || document.getElementById('inv-tbody');
-    if (!tableWrap) return;
 
-    function buildCardHTML(donor, address, items) {
-      const itemsHtml = items.length
-        ? '<ul class="hc-items">' + items.slice(0, 5).map(it => `<li>${escapeHTML(it.fiber || '?')}${it.type ? ' ' + escapeHTML(it.type) : ''}</li>`).join('') + (items.length > 5 ? `<li class="hc-more">+${items.length - 5} more</li>` : '') + '</ul>'
-        : '<div style="color:var(--muted,#888);padding:4px 0">No item details</div>';
-      return `
-        <div class="hc-hdr">Donor: ${escapeHTML(donor)}</div>
-        <div class="hc-row"><span class="hc-lbl">Address</span><span>${escapeHTML(address)}</span></div>
-        <div style="margin-top:6px;border-top:1px solid var(--border,#e0dbd4);padding-top:6px;font-size:11px;color:var(--muted,#888)">Items</div>
-        ${itemsHtml}
-      `;
-    }
-
-    function showHoverCard(e, d) {
-      if (hcTimer) { clearTimeout(hcTimer); hcTimer = null; }
-      hcDonation = d;
-      card.innerHTML = buildCardHTML(d.donor, d.address, d.items);
-      card.classList.add('visible');
-      positionCard(e);
-    }
-
-    function hideHoverCard() {
-      if (hcTimer) clearTimeout(hcTimer);
-      hcTimer = setTimeout(() => {
-        card.classList.remove('visible');
-        hcDonation = null;
-      }, 80);
-    }
-
-    function showActionTip(btn) {
-      if (hcTimer) clearTimeout(hcTimer);
-      const isUpdate = btn.classList.contains('act-update');
-      card.innerHTML = isUpdate
-        ? '<div style="padding:6px 0;font-size:12px;color:var(--text,#222)">Record material usage from this inventory item.</div>'
-        : '<div style="padding:6px 0;font-size:12px;color:var(--text,#222)">Remove this item from your inventory</div>';
-    }
-
-    function rebuildHoverCard(d) {
-      if (hcTimer) clearTimeout(hcTimer);
-      card.innerHTML = buildCardHTML(d.donor, d.address, d.items);
-      card.classList.add('visible');
-    }
-
-    tableWrap.addEventListener('mouseover', e => {
-      if (isTouch) return;
-      const btn = e.target.closest('.act-update, .act-delete');
-      if (btn && hcDonation) { showActionTip(btn); return; }
-      const tr = e.target.closest('tr');
-      if (!tr || tr._hcActive) return;
-      const donor = tr.getAttribute('data-donor');
-      const address = tr.getAttribute('data-address');
-      let items = [];
-      try { items = JSON.parse(tr.getAttribute('data-items') || '[]'); } catch {}
-      if (!donor) return;
-      tr._hcActive = true;
-      showHoverCard(e, { donor, address, items });
-    }, true);
-    tableWrap.addEventListener('mousemove', e => {
-      if (hcDonation) positionCard(e);
-    }, true);
-    tableWrap.addEventListener('mouseout', e => {
-      const btn = e.target.closest('.act-update, .act-delete');
-      if (btn && hcDonation) { const tr = btn.closest('tr'); if (tr) tr._hcActive = false; rebuildHoverCard(hcDonation); return; }
-      const tr = e.target.closest('tr');
-      if (!tr) return;
-      tr._hcActive = false;
-      hideHoverCard();
-    }, true);
-    function positionCard(e) {
-      if (!card.classList.contains('visible')) return;
-      let left = e.clientX + 16, top = e.clientY + 12;
-      if (left + 360 > window.innerWidth) left = Math.max(8, e.clientX - 360);
-      if (top + card.offsetHeight > window.innerHeight) top = window.innerHeight - card.offsetHeight - 8;
-      if (top < 0) top = 4;
-      card.style.left = left + 'px'; card.style.top = top + 'px';
-    }
-
-    window._hideInvHoverCard = function () {
-      if (hcTimer) clearTimeout(hcTimer);
-      hcTimer = null;
-      card.classList.remove('visible');
-      hcDonation = null;
-    };
-  })();
 
   /* Close modals on backdrop click */
   document.getElementById('update-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeUpdateModal(); });
