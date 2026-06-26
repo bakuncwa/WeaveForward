@@ -170,7 +170,6 @@
     {% if has_prev %}
     <a href="?page={{ current_page|add:-1 }}{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline" id="prev-btn">❮ Previous</a>
     {% endif %}
-    <span id="page-indicator">Page {{ current_page }}</span>
     {% if has_next %}
     <a href="?page={{ current_page|add:1 }}{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline" id="next-btn">Next ❯</a>
     {% endif %}
@@ -255,35 +254,10 @@
     if (meta) {
       var pInfo = document.querySelector('.pg-info');
       if (pInfo) pInfo.textContent = 'Page ' + meta.current_page + ' of ' + meta.total_pages;
-      var pBtns = document.querySelector('.pg-btns');
-      if (!pBtns) return;
-      var pInd = document.getElementById('page-indicator');
-      if (!pInd) { pInd = document.createElement('span'); pInd.id = 'page-indicator'; pBtns.appendChild(pInd); }
-      pInd.textContent = 'Page ' + meta.current_page;
       var prevBtn = document.getElementById('prev-btn');
-      if (meta.has_prev && !prevBtn) {
-        prevBtn = document.createElement('a');
-        prevBtn.id = 'prev-btn'; prevBtn.className = 'btn btn-outline';
-        prevBtn.href = '?page=' + (meta.current_page - 1) + (meta.q ? '&q=' + encodeURIComponent(meta.q) : '');
-        prevBtn.innerHTML = '\u276e Previous';
-        pBtns.insertBefore(prevBtn, pInd);
-      }
-      if (prevBtn) {
-        prevBtn.style.display = meta.has_prev ? '' : 'none';
-        if (meta.has_prev) prevBtn.href = '?page=' + (meta.current_page - 1) + (meta.q ? '&q=' + encodeURIComponent(meta.q) : '');
-      }
+      if (prevBtn) prevBtn.style.display = meta.has_prev ? '' : 'none';
       var nextBtn = document.getElementById('next-btn');
-      if (meta.has_next && !nextBtn) {
-        nextBtn = document.createElement('a');
-        nextBtn.id = 'next-btn'; nextBtn.className = 'btn btn-outline';
-        nextBtn.href = '?page=' + (meta.current_page + 1) + (meta.q ? '&q=' + encodeURIComponent(meta.q) : '');
-        nextBtn.innerHTML = 'Next \u276f';
-        pBtns.appendChild(nextBtn);
-      }
-      if (nextBtn) {
-        nextBtn.style.display = meta.has_next ? '' : 'none';
-        if (meta.has_next) nextBtn.href = '?page=' + (meta.current_page + 1) + (meta.q ? '&q=' + encodeURIComponent(meta.q) : '');
-      }
+      if (nextBtn) nextBtn.style.display = meta.has_next ? '' : 'none';
     }
     bindCancelButtons();
   }
