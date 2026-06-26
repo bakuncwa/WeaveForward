@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700&family=Lato:wght@600&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
 
 <link rel="stylesheet" href="{% static 'frontend/css/donation-form.css' %}">
+<link rel="stylesheet" href="{% static 'frontend/css/fiber-editor.css' %}">
 <style>
   :root {
     --green: #3A8C5C;
@@ -246,6 +247,7 @@
   .incoming-action-wrap .btn-rejected {
     margin-top: 0;
   }
+
 </style>
 
 <div class="wf-content-inner">
@@ -311,7 +313,7 @@
                 </div>
                 <div class="restored-group">
                   <label class="up-label">Material</label>
-                  <div class="ss-wrap mat-search-wrap" style="position:relative" data-api-url="{% url "material_search_proxy" %}">
+                  <div class="ss-wrap mat-search-wrap" style="position:relative" data-api-url="{% url "material_search_proxy" %}" data-allow-custom>
                     <div class="mat-trigger" onclick="toggleMatDropdown(this)">
                       <span class="mat-text">{{ item.lookup_details.fiber_json }} - {{ item.lookup_details.product_name }}</span>
                       <svg class="mat-arrow" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg>
@@ -320,7 +322,15 @@
                     <input type="hidden" class="lookup-id" value="{{ item.lookup_details.lookup_id }}">
                     <div class="ss-list hidden">
                       <input type="text" class="mat-search" placeholder="Search or leave empty" oninput="filterMatList(this)" onclick="event.stopPropagation()" autocomplete="off">
+                      <div class="mat-item custom-mat-option" onclick="selectCustomComposition(this)">Custom composition...</div>
                       <div class="mat-items"></div>
+                    </div>
+                    <div class="fiber-editor hidden">
+                      <div class="fiber-rows"></div>
+                      <button type="button" class="fiber-add-btn" onclick="addFiberRow(this)">+ Add fiber</button>
+                      <div class="fiber-total">Total: <span class="fiber-sum">0</span>%</div>
+                      <input type="hidden" class="fiber-composition" value="">
+                      <button type="button" class="fiber-cancel" onclick="cancelCustomComposition(this)">Cancel</button>
                     </div>
                   </div>
                 </div>
@@ -471,7 +481,7 @@
         </div>
         <div class="restored-group">
           <label class="up-label">Material</label>
-          <div class="ss-wrap mat-search-wrap" style="position:relative" data-api-url="{% url "material_search_proxy" %}">
+          <div class="ss-wrap mat-search-wrap" style="position:relative" data-api-url="{% url "material_search_proxy" %}" data-allow-custom>
             <div class="mat-trigger disabled" onclick="toggleMatDropdown(this)">
               <span class="mat-text">Please enter a brand and clothing type</span>
               <svg class="mat-arrow" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg>
@@ -480,7 +490,15 @@
             <input type="hidden" class="lookup-id">
             <div class="ss-list hidden">
               <input type="text" class="mat-search" placeholder="Search or leave empty" oninput="filterMatList(this)" onclick="event.stopPropagation()" autocomplete="off">
+              <div class="mat-item custom-mat-option" onclick="selectCustomComposition(this)">Custom composition...</div>
               <div class="mat-items"></div>
+            </div>
+            <div class="fiber-editor hidden">
+              <div class="fiber-rows"></div>
+              <button type="button" class="fiber-add-btn" onclick="addFiberRow(this)">+ Add fiber</button>
+              <div class="fiber-total">Total: <span class="fiber-sum">0</span>%</div>
+              <input type="hidden" class="fiber-composition" value="">
+              <button type="button" class="fiber-cancel" onclick="cancelCustomComposition(this)">Cancel</button>
             </div>
           </div>
         </div>
@@ -489,7 +507,9 @@
   </div>
 </template>
 
+{{ all_fibers|json_script:"all-fibers" }}
 <script>
+  var ALL_FIBERS = JSON.parse(document.getElementById('all-fibers').textContent);
   var CURRENT_ETAG = '{{ current_etag|escapejs }}';
   // --- 1. Dynamic UI ---
   function addCard() {
@@ -499,6 +519,25 @@
 
   // --- 2. Form Submission ---
   function prepareSubmit(e) {
+    // Validate custom compositions before building payload
+    var invalidCustom = false;
+    document.querySelectorAll('#cards .restored-card').forEach(function (card) {
+      const isDeleted = card.querySelector('.delete-chk')?.checked;
+      if (isDeleted) return;
+      const editor = card.querySelector('.fiber-editor');
+      if (editor && !editor.classList.contains('hidden')) {
+        const totalEl = editor.querySelector('.fiber-total');
+        if (!totalEl.classList.contains('ok')) {
+          showFlash('All custom fiber compositions must sum to 100%.', 'error');
+          invalidCustom = true;
+        }
+      }
+    });
+    if (invalidCustom) {
+      if (e && e.preventDefault) e.preventDefault();
+      return false;
+    }
+
     const items = [];
     let nonArchivedCount = 0;
     
@@ -511,21 +550,32 @@
         return;
       }
       
-      nonArchivedCount++;
-      
-      if (itemId && !card.hasAttribute('data-changed') && !isDeleted) return;
+      if (itemId && !card.hasAttribute('data-changed') && !isDeleted) {
+        nonArchivedCount++;
+        return;
+      }
       
       const brand = card.querySelector('.brand-sel').value;
       const type = card.querySelector('.type-sel').value;
       if (!brand || !type) { return; }
       
+      const fiberCompRaw = card.querySelector('.fiber-composition')?.value;
+      const fiberComp = fiberCompRaw ? JSON.parse(fiberCompRaw) : null;
       const item = {
-        brand, clothing_type: type,
         weight_kg: Number(card.querySelector('.weight-in').value),
         condition_rating: card.querySelector('.cond-sel').value
       };
-      item.lookup = Number(card.querySelector('.lookup-id').value) || undefined;
+      if (fiberComp) {
+        item.brand = brand;
+        item.clothing_type = type;
+        item.fiber_composition = fiberComp;
+      } else {
+        const lookupVal = Number(card.querySelector('.lookup-id').value);
+        if (lookupVal) { item.lookup = lookupVal; }
+        else { item.brand = brand; item.clothing_type = type; }
+      }
       if (itemId) item.item_id = Number(itemId);
+      nonArchivedCount++;
       items.push(item);
     });
 
@@ -629,15 +679,19 @@
   }
 
 </script>
+<script src="{% static 'frontend/js/fiber-editor.js' %}"></script>
 <script src="{% static 'frontend/js/combo-box.js' %}"></script>
 <script src="{% static 'frontend/js/material-search.js' %}"></script>
 <script src="{% static 'frontend/js/donation-form.js' %}"></script>
 <script>
-  // Init existing cards
-  document.querySelectorAll('#cards .restored-card').forEach(card => {
-    const bSel = card.querySelector('.brand-sel');
-    if (bSel.value) loadMaterials(bSel, true);
-  });
+  // Patch clearMat to also reset custom composition
+  var _origClear = clearMat;
+  clearMat = function (el) {
+    const wrap = el.closest('.ss-wrap');
+    const editor = wrap.querySelector('.fiber-editor');
+    if (editor) { editor.classList.add('hidden'); editor.querySelector('.fiber-rows').innerHTML = ''; editor.querySelector('.fiber-composition').value = ''; }
+    _origClear(el);
+  };
 
   // Track changes on items: mark card container with data-changed when any input or select changes inside it.
   document.getElementById('cards').addEventListener('input', e => e.target.closest('.restored-card')?.setAttribute('data-changed', 'true'));

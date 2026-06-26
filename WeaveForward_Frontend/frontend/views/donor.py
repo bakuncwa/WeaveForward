@@ -200,9 +200,10 @@ async def donor_create_donation(request):
             return JsonResponse({'error': "Failed to create donation."}, status=response.status_code)
 
     # Fetch choices for the dropdowns (matching edit logic) in parallel
-    types_res, brands_res = await asyncio.gather(
+    types_res, brands_res, fibers = await asyncio.gather(
         api_call(request, 'GET', 'clothing-types'),
-        api_call(request, 'GET', 'brands')
+        api_call(request, 'GET', 'brands'),
+        get_fiber_choices(request),
     )
     clothing_types = types_res.json() if types_res.status_code == 200 else []
     all_brands = brands_res.json() if brands_res.status_code == 200 else []
@@ -212,6 +213,7 @@ async def donor_create_donation(request):
         'user': profile,
         'clothing_types': clothing_types,
         'all_brands': all_brands,
+        'all_fibers': fibers,
         'condition_choices': [
             ('NEW', 'New'),
             ('LIKE_NEW', 'Like New'),
@@ -381,11 +383,12 @@ async def donor_edit_donation(request, donation_id):
 
             return JsonResponse({'error': "Update failed."}, status=response.status_code)
 
-    # GET Request: Fetch donation, clothing types, and all brands in parallel
-    donation_res, types_res, brands_res = await asyncio.gather(
+    # GET Request: Fetch donation, clothing types, all brands, fiber choices in parallel
+    donation_res, types_res, brands_res, fibers = await asyncio.gather(
         api_call(request, 'GET', f'donations/{donation_id}'),
         api_call(request, 'GET', 'clothing-types'),
-        api_call(request, 'GET', 'brands')
+        api_call(request, 'GET', 'brands'),
+        get_fiber_choices(request),
     )
     
     if donation_res.status_code == 200:
@@ -410,6 +413,7 @@ async def donor_edit_donation(request, donation_id):
         'current_etag': etag,
         'clothing_types': clothing_types,
         'all_brands': all_brands,
+        'all_fibers': fibers,
         'condition_choices': [
             ('NEW', 'New'),
             ('LIKE_NEW', 'Like New'),

@@ -493,9 +493,10 @@ async def admin_add_donation(request):
 
             return JsonResponse({'error': "Failed to create donation."}, status=response.status_code)
 
-    types_res, brands_res = await asyncio.gather(
+    types_res, brands_res, fibers = await asyncio.gather(
         api_call(request, 'GET', 'clothing-types'),
-        api_call(request, 'GET', 'brands')
+        api_call(request, 'GET', 'brands'),
+        get_fiber_choices(request),
     )
     clothing_types = types_res.json() if types_res.status_code == 200 else []
     all_brands = brands_res.json() if brands_res.status_code == 200 else []
@@ -505,6 +506,7 @@ async def admin_add_donation(request):
         'user': profile,
         'clothing_types': clothing_types,
         'all_brands': all_brands,
+        'all_fibers': fibers,
         'condition_choices': [
             ('NEW', 'New'),
             ('LIKE_NEW', 'Like New'),
@@ -598,9 +600,10 @@ async def admin_edit_donation(request, donation_id):
         return redirect('admin_view_donations')
     current_etag = response.headers.get('ETag', '')
 
-    types_res, brands_res = await asyncio.gather(
+    types_res, brands_res, fibers = await asyncio.gather(
         api_call(request, 'GET', 'clothing-types'),
-        api_call(request, 'GET', 'brands')
+        api_call(request, 'GET', 'brands'),
+        get_fiber_choices(request),
     )
     clothing_types = types_res.json() if types_res.status_code == 200 else []
     all_brands = brands_res.json() if brands_res.status_code == 200 else []
@@ -612,6 +615,7 @@ async def admin_edit_donation(request, donation_id):
         'current_etag': current_etag,
         'clothing_types': clothing_types,
         'all_brands': all_brands,
+        'all_fibers': fibers,
         'condition_choices': [
             ('NEW', 'New'),
             ('LIKE_NEW', 'Like New'),

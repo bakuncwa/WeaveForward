@@ -24,8 +24,8 @@ from .lalamove_service import SUBSCRIPTION_COVERED_PAYMENT_PREFIX, cancel_lalamo
 from .location_service import get_city_and_barangay
 from .audit_service import log_audit, get_client_ip
 from .etag_service import build_updated_at_etag, matches_if_match
-from .prediction_service import run_predictions_for_donation
-from .brand_fiber_lookup_service import fiber_approximation
+from .prediction_service import MatchPredictionService, run_predictions_for_donation
+from .brand_fiber_lookup_service import fiber_approximation, resolve_item_lookup
 from rest_framework.exceptions import PermissionDenied, APIException, NotFound
 
 
@@ -121,18 +121,12 @@ def create_donation(*, request):
 
         # 3. Resolve brand→lookup for each item
         for item in items_data:
-            raw_lookup = item.get('lookup')
-            lookup = None
-            if raw_lookup:
-                lookup = BrandFiberLookup.objects.filter(pk=raw_lookup).first()
-            if not lookup:
-                lookup = fiber_approximation(item['brand'], item['clothing_type'])
-            item['lookup_id'] = lookup.lookup_id
+            resolve_item_lookup(item)
 
         donation_items = [
             DonationItem(
                 donation=donation,
-                lookup_id=item['lookup_id'],
+                lookup=item['lookup'],
                 condition_rating=item['condition_rating'].upper().replace(" ", "_"),
                 weight_kg=item['weight_kg']
             )
@@ -258,9 +252,7 @@ def donor_update_donation(*, request, donation):
         # 3. Handle Items (Atomic)
         if items_data is not None:
             for item_patch in items_data:
-                if 'brand' in item_patch and 'clothing_type' in item_patch and not item_patch.get('lookup'):
-                    lookup = fiber_approximation(item_patch['brand'], item_patch['clothing_type'])
-                    item_patch['lookup'] = lookup
+                resolve_item_lookup(item_patch)
             for item_patch in items_data:
                 item_id = item_patch.get('item_id')
                 is_archived = item_patch.get('is_archived', False)
@@ -407,9 +399,7 @@ def admin_update_donation(*, request, donation) -> Donation:
 
         if items_data is not None:
             for item_patch in items_data:
-                if 'brand' in item_patch and 'clothing_type' in item_patch and not item_patch.get('lookup'):
-                    lookup = fiber_approximation(item_patch['brand'], item_patch['clothing_type'])
-                    item_patch['lookup'] = lookup
+                resolve_item_lookup(item_patch)
             for item_patch in items_data:
                 item_id = item_patch.get('item_id')
                 is_archived = item_patch.get('is_archived', False)
@@ -979,9 +969,7 @@ def resolve_donation(*, user, donation, validated_data, ip_address=None):
         items_data = validated_data.get('items')
         if items_data is not None:
             for item_patch in items_data:
-                if 'brand' in item_patch and 'clothing_type' in item_patch and not item_patch.get('lookup'):
-                    lookup = fiber_approximation(item_patch['brand'], item_patch['clothing_type'])
-                    item_patch['lookup'] = lookup
+                resolve_item_lookup(item_patch)
 
             existing_items = {item.pk: item for item in donation.items.select_for_update()}
 

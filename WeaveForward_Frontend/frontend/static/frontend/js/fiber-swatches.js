@@ -3,7 +3,8 @@ var FIBER_COLORS = {
     cotton:'#f5f0e0', denim:'#1565c0', elastane:'#666', hemp:'#6b8e23',
     linen:'#e8d5b7', lyocell:'#a5d6a7', modal:'#e0e0e0', nylon:'#90caf9',
     polyester:'#b0b0b0', rayon:'#a5d6a7', silk:'#c9a96e', tencel:'#80cbc4',
-    viscose:'#bcaaa4', wool:'#8b7355',
+    viscose:'#bcaaa4', wool:'#8b7355', spandex:'#bbb', lycra:'#bbb',
+    other:'#ccc', unknown:'#ccc',
 };
 
 function fiberSwatchHtml(name) {

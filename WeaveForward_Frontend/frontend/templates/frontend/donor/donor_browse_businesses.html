@@ -342,7 +342,6 @@
           <div class="mat-items" id="loc-items"></div>
         </div>
       </div>
-      <p style="margin:4px 0 0;font-size:11px;color:#999;font-family:'Poppins',sans-serif;">Businesses will be sorted by nearest to the address you enter.</p>
       <div id="nominatim-error" class="hidden" style="color:#d9534f; font-size:12px; margin-top:4px; font-weight:500;">
         Location resolution services are unavailable for proximity-based ordering.
       </div>
@@ -366,12 +365,13 @@
 
   <div id="pagination"></div>
 
+{{ businesses|json_script:"all-businesses" }}
 <script>
   var _geoDone = false;
 
   var _acResults = [];
   var _acTmr = null;
-  var _allBusinesses = {{ businesses_json|safe }};
+  var _allBusinesses = JSON.parse(document.getElementById('all-businesses').textContent);
   var _filtered = _allBusinesses;
   var _page = 1;
   var _perPage = 10;
