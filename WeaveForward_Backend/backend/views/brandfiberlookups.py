@@ -77,5 +77,5 @@ class BrandFiberLookupViewset(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         # Complexity: O(n log n), where n is the number of active rows,
         # because order_by sorts by brand, then clothing_type.
-        return BrandFiberLookup.objects.all().order_by('brand', 'clothing_type')
+        return BrandFiberLookup.objects.filter(is_active=True).order_by('brand', 'clothing_type')
 

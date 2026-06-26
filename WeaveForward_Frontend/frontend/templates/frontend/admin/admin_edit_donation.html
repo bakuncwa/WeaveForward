@@ -470,7 +470,7 @@
       
       const brand = card.querySelector('.brand-sel').value;
       const type = card.querySelector('.type-sel').value;
-      if (!brand || !type) { return; }
+      if (!brand || !type) return;
       
       const fiberCompRaw = card.querySelector('.fiber-composition')?.value;
       const fiberComp = fiberCompRaw ? JSON.parse(fiberCompRaw) : null;
@@ -484,7 +484,7 @@
         item.fiber_composition = fiberComp;
       } else {
         const lookupVal = Number(card.querySelector('.lookup-id').value);
-        if (lookupVal) { item.lookup = lookupVal; }
+        if (lookupVal) item.lookup = lookupVal;
         else { item.brand = brand; item.clothing_type = type; }
       }
       if (itemId) item.item_id = Number(itemId);
@@ -686,7 +686,7 @@
   };
 
   // Track changes on items: mark card container with data-changed when any input or select changes inside it.
-  document.getElementById('cards').addEventListener('input', e => { const card = e.target.closest('.restored-card'); if (card) card.setAttribute('data-changed', 'true'); });
+  document.getElementById('cards').addEventListener('input', e => e.target.closest('.restored-card')?.setAttribute('data-changed', 'true'));
   window.addEventListener('load', snapshotInitialData);
-
+</script>
 {% endblock %}
