@@ -128,19 +128,30 @@ def resolve_item_lookup(item_patch):
         tier = MatchPredictionService._compute_biodeg_tier(score).upper()
         item_patch['brand'] = item_patch['brand'].strip()
         item_patch['clothing_type'] = item_patch['clothing_type'].strip()
-        lookup_obj, created = BrandFiberLookup.objects.get_or_create(
+        lookup_obj = None
+        for lookup in BrandFiberLookup.objects.filter(
             brand=item_patch['brand'],
             clothing_type=item_patch['clothing_type'],
-            fiber_json=fiber_json,
-            defaults=dict(
+        ):
+            try:
+                lc = json.loads(lookup.fiber_json)
+                lc_norm = dict(sorted((k.lower().strip(), v) for k, v in lc.items()))
+                if lc_norm == canon:
+                    lookup_obj = lookup
+                    break
+            except (json.JSONDecodeError, AttributeError, TypeError):
+                continue
+        if not lookup_obj:
+            lookup_obj = BrandFiberLookup.objects.create(
+                brand=item_patch['brand'],
+                clothing_type=item_patch['clothing_type'],
+                fiber_json=fiber_json,
                 product_name=f"[{hashlib.md5(fiber_json.encode()).hexdigest()[:8]}] Custom {item_patch['brand']} {item_patch['clothing_type']}"[:100],
                 dominant_fiber=max(canon, key=canon.get),
                 biodeg_score=Decimal(str(score)),
                 biodeg_tier=tier,
                 is_active=False,
-            ),
-        )
-        if created:
+            )
             BrandFiberLookup.objects.filter(pk=lookup_obj.pk).update(
                 scraped_at=datetime(1000, 1, 1, tzinfo=timezone.utc),
             )

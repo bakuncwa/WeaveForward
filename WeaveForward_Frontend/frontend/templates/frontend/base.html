@@ -1,27 +1,5 @@
 {% load static %}
 <!DOCTYPE html>
-<!--
-  WeaveForward — Base Layout (base.html)
-  ====================================
-  Drop this file into your Django templates folder as the main base template.
-
-  Usage:
-  ─────
-    [extends 'base.html']
-    [block content]
-      ... page content here ...
-    [endblock]
-
-  Active-state:
-  ─────────────
-  The JS at the bottom auto-highlights the correct sidebar link
-  by matching window.location.pathname. No extra work needed.
-
-  page_title:
-  ───────────
-  Inject {{ page_title }} into the topbar title span (already marked below).
-  Example in view:  return render(request, 'browse.html', {'page_title': 'Browse Businesses'})
--->
 <html lang="en">
 
 <head>
@@ -754,7 +732,6 @@
         </div>
       </header>
 
-      <!-- Page content — filled by [block content] in child templates -->
       <div class="wf-content">
         {% if messages %}
         <div class="wf-flash-messages" aria-live="polite">
@@ -836,7 +813,6 @@
     })();
   </script>
 
-  <!-- Global getCsrf — reads CSRF token from meta tag (CSRF_COOKIE_HTTPONLY=True means cookie is unreadable by JS) -->
   <script>
     function getCsrf() {
       return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
