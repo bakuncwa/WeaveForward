@@ -317,34 +317,35 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
             exc.status_code = 409
             raise exc
 
-        pickup_date_local = timezone.localtime(donation.preferred_pickup_date)
-        window_end = donation.preferred_pickup_window_end
-        window_end_at = pickup_date_local.replace(
-            hour=window_end.hour,
-            minute=window_end.minute,
-            second=window_end.second,
-            microsecond=0,
-        )
-        if timezone.now() > window_end_at:
-            exc = APIException("This donation's preferred pickup window has already passed. Delivery can no longer be scheduled.")
-            exc.status_code = 409
-            raise exc
-
         # Request validation
         serializer = QuotationRequestSerializer(data=request.data, context={'request': request, 'donation': donation})
         serializer.is_valid(raise_exception=True)
 
         v_data = serializer.validated_data
-        quote_request = {
-            "dropoff_lat": "{:.7f}".format(v_data['dropoff_latitude']),
-            "dropoff_lng": "{:.7f}".format(v_data['dropoff_longitude']),
-            "dropoff_address": v_data['dropoff_display_address'],
-            "schedule_at": timezone.localtime(donation.preferred_pickup_date).replace(
+        schedule_at = timezone.localtime(donation.preferred_pickup_date).replace(
+            hour=v_data['scheduled_time'].hour,
+            minute=v_data['scheduled_time'].minute,
+            second=v_data['scheduled_time'].second,
+            microsecond=0,
+        )
+        if schedule_at <= timezone.now():
+            now_local = timezone.localtime(timezone.now())
+            schedule_at = now_local.replace(
                 hour=v_data['scheduled_time'].hour,
                 minute=v_data['scheduled_time'].minute,
                 second=v_data['scheduled_time'].second,
                 microsecond=0,
-            ),
+            )
+            if schedule_at <= now_local:
+                exc = APIException("Donor's Preferred Time Window has already passed today. Please choose a later time.")
+                exc.status_code = 409
+                raise exc
+
+        quote_request = {
+            "dropoff_lat": "{:.7f}".format(v_data['dropoff_latitude']),
+            "dropoff_lng": "{:.7f}".format(v_data['dropoff_longitude']),
+            "dropoff_address": v_data['dropoff_display_address'],
+            "schedule_at": schedule_at,
         }
         quote_request["schedule_at_str"] = quote_request["schedule_at"].astimezone(dt_timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 

@@ -336,7 +336,7 @@ class DonationCreateSerializer(serializers.ModelSerializer):
         validated_data.update({
             'donor': User.objects.get(pk=donor_id),
             'status': DonationStatus.PENDING,
-            'auto_archive_at': timezone.now() + timedelta(days=30),
+            'auto_archive_at': validated_data['preferred_pickup_date'] + timedelta(days=30),
             'pickup_barangay': validated_data.pop('_loc_barangay', 'Unknown'),
             'pickup_city': validated_data.pop('_loc_city', 'Unknown'),
         })
@@ -393,18 +393,8 @@ class QuotationRequestSerializer(serializers.ModelSerializer):
             window_end = donation.preferred_pickup_window_end
 
             if scheduled_time < window_start or scheduled_time > window_end:
-                raise serializers.ValidationError({"scheduled_time": "Scheduled time must fall within the donor's preferred pickup window."})
+                raise serializers.ValidationError({"scheduled_time": "Please choose a time within the Donor's Preferred Time Window."})
 
-            scheduled_at = timezone.localtime(donation.preferred_pickup_date).replace(
-                hour=scheduled_time.hour,
-                minute=scheduled_time.minute,
-                second=scheduled_time.second,
-                microsecond=0,
-            )
-
-            if scheduled_at < timezone.now():
-                raise serializers.ValidationError({"scheduled_time": "Scheduled time can't be in the past."})
-            
         return data
 
 
@@ -547,6 +537,9 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'preferred_pickup_window_start': "Pickup window can't start before the current time for same-day pickups."})
         if win_start and win_end and win_start >= win_end:
             raise serializers.ValidationError({'preferred_pickup_window_start': "End time must be after the start time."})
+
+        if 'preferred_pickup_date' in data:
+            data['auto_archive_at'] = pick_date + timedelta(days=30)
 
         # 4. Cross-check: auto_archive_at must be after preferred_pickup_date
         if is_updating_schedule or 'auto_archive_at' in data:

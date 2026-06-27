@@ -9,6 +9,7 @@ from ..services.subscription_service import (
     process_expired_subscriptions,
 )
 from ..services.donation_service import process_auto_archive_donations
+from ..services.email_service import process_donor_preferred_pickup_date_has_past_emails
 from ..services.lalamove_service import process_lalamove_webhook
 
 # Webhook uses ngrok: https://raquel-washiest-heike.ngrok-free.dev/api/webhooks/
@@ -31,11 +32,13 @@ def webhooks(request):
     scheduler_secret = request.headers.get('X-Scheduler-Secret')
     if scheduler_secret and scheduler_secret == settings.SCHEDULER_SECRET:
         cancelled_subs = process_expired_subscriptions()
+        pickup_passed_emails = process_donor_preferred_pickup_date_has_past_emails()
         archived_donations = process_auto_archive_donations()
         return Response({
-            "detail": "Successfully processed subscriptions and auto-archived donations.",
+            "detail": "Successfully processed subscriptions, pickup-date notices, and auto-archived donations.",
             "results": {
                 "cancelled_subscriptions_count": cancelled_subs,
+                "pickup_passed_emails_count": pickup_passed_emails,
                 "archived_donations_count": archived_donations,
             }
         }, status=200)
