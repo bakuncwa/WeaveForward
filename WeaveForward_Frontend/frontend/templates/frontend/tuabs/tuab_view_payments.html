@@ -60,7 +60,7 @@
       return `
       <tr>
         <td>${escapeHTML(p.type)}</td>
-        <td>₱${escapeHTML(String(p.amount))}</td>
+        <td>${escapeHTML(p.amount_display)}</td>
         <td class="ref">${escapeHTML(p.reference || '')}</td>
         <td>${escapeHTML(p.status)}</td>
       </tr>`;

@@ -689,6 +689,9 @@ async def admin_view_payments(request):
     reference = request.GET.get('reference', '')
     
     page_data = await get_paginated_data(request, 'payments', params={'reference': reference} if reference else None)
+    for payment in page_data['results']:
+        amount = float(payment['amount'])
+        payment['amount_display'] = f"₱{abs(amount):.2f}"
     
     return render(request, 'frontend/admin/admin_view_payments.html', {
         'page_title': 'Payments',

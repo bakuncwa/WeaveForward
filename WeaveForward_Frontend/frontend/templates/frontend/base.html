@@ -367,7 +367,7 @@
         position: fixed;
         left: -310px;
         top: 0;
-        height: 100vh;
+        height: 100dvh;
       }
 
       .wf-sidebar.open {
@@ -410,12 +410,12 @@
     {% if user.role == 'Donor' or not user.role %}
     <aside id="wf-sidebar-donor" class="wf-sidebar">
 
-      <div class="wf-sidebar__logo">
+      <a class="wf-sidebar__logo" href="{% url 'donor_browse_businesses' %}">
         <div class="wf-sidebar__logo-icon">
           <img src="{% static 'frontend/img/ProjectIcon.png' %}" alt="WeaveForward logo" />
         </div>
         <span class="wf-sidebar__logo-text">WeaveForward</span>
-      </div>
+      </a>
 
       <nav class="wf-sidebar__nav">
 
@@ -487,12 +487,12 @@
     {% if user.role == 'TUAB' %}
     <aside id="wf-sidebar-tuab" class="wf-sidebar tuab-sidebar">
 
-      <div class="wf-sidebar__logo">
+      <a class="wf-sidebar__logo" href="{% url 'tuab_dashboard' %}">
         <div class="wf-sidebar__logo-icon">
           <img src="{% static 'frontend/img/ProjectIcon.png' %}" alt="WeaveForward logo" />
         </div>
         <span class="wf-sidebar__logo-text">WeaveForward</span>
-      </div>
+      </a>
 
       <nav class="wf-sidebar__nav">
 
@@ -593,12 +593,12 @@
     {% if user.role == 'Admin' %}
     <aside id="wf-sidebar-admin" class="wf-sidebar admin-sidebar">
 
-      <div class="wf-sidebar__logo">
+      <a class="wf-sidebar__logo" href="{% url 'admin_view_donors' %}">
         <div class="wf-sidebar__logo-icon">
           <img src="{% static 'frontend/img/ProjectIcon.png' %}" alt="WeaveForward logo" />
         </div>
         <span class="wf-sidebar__logo-text">WeaveForward</span>
-      </div>
+      </a>
 
       <nav class="wf-sidebar__nav">
 
