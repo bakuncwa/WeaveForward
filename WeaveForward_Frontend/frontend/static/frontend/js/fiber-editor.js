@@ -5,8 +5,6 @@ function selectCustomComposition(el) {
     const wrap = el.closest('.ss-wrap');
     const card = wrap.closest('.restored-card') || wrap.closest('.item-card') || wrap.closest('[data-item-index]');
     const editor = wrap.querySelector('.fiber-editor');
-    editor.dataset.origLookupId = wrap.querySelector('.lookup-id').value;
-    editor.dataset.origMatText = wrap.querySelector('.mat-text').textContent;
     wrap.querySelector('.ss-list').classList.add('hidden');
     wrap.classList.remove('open');
     wrap.querySelector('.mat-trigger').classList.add('disabled');
@@ -68,23 +66,13 @@ function addFiberRow(btn) {
 
 function cancelCustomComposition(btn) {
     const wrap = btn.closest('.ss-wrap');
-    const editor = wrap.querySelector('.fiber-editor');
-    const origLookupId = editor?.dataset.origLookupId;
-    const origMatText = editor?.dataset.origMatText;
     resetCustomMode(wrap);
     const card = wrap.closest('.restored-card') || wrap.closest('.item-card') || wrap.closest('[data-item-index]');
-    if (origLookupId) {
-        wrap.querySelector('.lookup-id').value = origLookupId;
-        wrap.querySelector('.mat-text').textContent = origMatText;
-        wrap.querySelector('.mat-trigger').classList.remove('disabled');
-        delete editor.dataset.origLookupId;
-        delete editor.dataset.origMatText;
-    } else {
-        const brand = card.querySelector('.brand-sel');
-        wrap.querySelector('.mat-trigger').classList.remove('disabled');
-        wrap.querySelector('.mat-text').textContent = brand && brand.value ? 'Search or leave empty if unknown' : 'Please enter a brand and clothing type';
-        if (brand && brand.value) loadMaterials(brand, true);
-    }
+    const brand = card.querySelector('.brand-sel');
+    wrap.querySelector('.lookup-id').value = '';
+    wrap.querySelector('.mat-trigger').classList.remove('disabled');
+    wrap.querySelector('.mat-text').textContent = brand && brand.value ? 'Search or leave empty if unknown' : 'Please enter a brand and clothing type';
+    if (brand && brand.value) loadMaterials(brand, true);
     if (card) card.setAttribute('data-changed', 'true');
 }
 

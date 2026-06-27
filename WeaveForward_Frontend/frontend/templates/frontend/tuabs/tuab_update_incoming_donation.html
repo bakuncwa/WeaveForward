@@ -409,7 +409,7 @@
 
           <div class="incoming-action-wrap">
             <div class="claim-tip" data-tip="Donation arrived safely. Mark as received and add to your inventory snapshot.">
-              <button type="button" class="btn-received" onclick="submitResolution('RECEIVED')">Received</button>
+              <button type="submit" class="btn-received" onclick="document.getElementById('res-status').value='RECEIVED'">Received</button>
             </div>
             <div class="claim-tip" data-tip="Donation did not meet requirements. Mark as rejected.">
               <button type="button" class="btn-rejected" onclick="openRejectModal()">Rejected</button>
@@ -418,6 +418,8 @@
         </div>
       </div>
     </div>
+    <input type="hidden" name="status" id="res-status" value="">
+    <input type="hidden" name="rejection_reason" id="res-reason" value="">
   </form>
 </div>
 
@@ -585,46 +587,28 @@
     return true;
   }
 
-  async function submitResolution(status, reason) {
+  document.getElementById('edit-frm').onsubmit = async (e) => {
+    e.preventDefault();
+    const status = document.getElementById('res-status').value;
+    if (!status) return;
+
     let rejectionReason = '';
     if (status === 'REJECTED') {
-      rejectionReason = (reason || '').trim();
+      rejectionReason = document.getElementById('res-reason').value.trim();
       if (!rejectionReason) {
-        showFlash("Rejection reason is required.", "error");
+        showFlash('Rejection reason is required.', 'error');
         return;
       }
     }
 
-    // Set hidden inputs
-    const frm = document.getElementById('edit-frm');
-    
-    let statusInput = document.getElementById('res-status');
-    if (!statusInput) {
-      statusInput = document.createElement('input');
-      statusInput.type = 'hidden';
-      statusInput.name = 'status';
-      statusInput.id = 'res-status';
-      frm.appendChild(statusInput);
-    }
-    statusInput.value = status;
+    if (!prepareSubmit(e)) return;
 
-    let reasonInput = document.getElementById('res-reason');
-    if (!reasonInput) {
-      reasonInput = document.createElement('input');
-      reasonInput.type = 'hidden';
-      reasonInput.name = 'rejection_reason';
-      reasonInput.id = 'res-reason';
-      frm.appendChild(reasonInput);
-    }
-    reasonInput.value = rejectionReason;
-
-    if (!prepareSubmit(null)) return;
-    
-    const btn = status === 'RECEIVED' ? document.querySelector('.btn-received') : document.querySelector('.btn-rejected');
+    const btn = document.querySelector(status === 'RECEIVED' ? '.btn-received' : '.btn-rejected');
     const oldText = btn.innerText;
     btn.innerText = 'Submitting...';
     try {
       document.querySelectorAll('.btn-received, .btn-rejected').forEach(b => b.disabled = true);
+      const frm = document.getElementById('edit-frm');
       const fd = new FormData();
       fd.append('csrfmiddlewaretoken', frm.elements.csrfmiddlewaretoken.value);
       fd.append('status', status);
@@ -653,7 +637,7 @@
       btn.innerText = oldText;
       document.querySelectorAll('.btn-received, .btn-rejected').forEach(b => b.disabled = false);
     }
-  }
+  };
 
   function openRejectModal() {
     document.getElementById('reject-modal').style.display = 'flex';
@@ -671,8 +655,10 @@
       showFlash('Rejection reason is required.', 'error');
       return;
     }
+    document.getElementById('res-status').value = 'REJECTED';
+    document.getElementById('res-reason').value = reason;
     closeRejectModal();
-    submitResolution('REJECTED', reason);
+    document.getElementById('edit-frm').requestSubmit();
   }
 
 </script>
@@ -692,6 +678,19 @@
 
   // Track changes on items: mark card container with data-changed when any input or select changes inside it.
   document.getElementById('cards').addEventListener('input', e => e.target.closest('.restored-card')?.setAttribute('data-changed', 'true'));
+
+  // Disable trashed item fields so required validation doesn't block submission
+  document.getElementById('cards').addEventListener('change', function (e) {
+    if (e.target.classList.contains('delete-chk')) {
+      const card = e.target.closest('.restored-card');
+      if (!card) return;
+      const disabled = e.target.checked;
+      card.querySelectorAll('input, select, button').forEach(function (el) {
+        if (el.classList.contains('delete-chk')) return;
+        el.disabled = disabled;
+      });
+    }
+  });
 
   // --- Polling (every 30s): refresh right card + driver details ---
   function escapeHtml(str) {

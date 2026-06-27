@@ -586,6 +586,20 @@
 
   // Track changes on items: mark card container with data-changed when any input or select changes inside it.
   document.getElementById('cards').addEventListener('input', e => e.target.closest('.restored-card')?.setAttribute('data-changed', 'true'));
+
+  // Disable trashed item fields so required validation doesn't block submission
+  document.getElementById('cards').addEventListener('change', function (e) {
+    if (e.target.classList.contains('delete-chk')) {
+      const card = e.target.closest('.restored-card');
+      if (!card) return;
+      const disabled = e.target.checked;
+      card.querySelectorAll('input, select, button').forEach(function (el) {
+        if (el.classList.contains('delete-chk')) return;
+        el.disabled = disabled;
+      });
+    }
+  });
+
   window.addEventListener('load', snapshotInitialData);
 </script>
 {% endblock %}

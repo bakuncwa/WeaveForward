@@ -15,6 +15,11 @@ async function loadMaterials(el, preserve = false) {
   const list = wrap.querySelector('.ss-list');
   const itemsContainer = wrap.querySelector('.mat-items');
 
+  const fe = wrap.querySelector('.fiber-editor');
+  if (fe && !fe.classList.contains('hidden')) {
+    itemsContainer.innerHTML = '';
+    return;
+  }
   resetCustomMode(wrap);
 
   if (!preserve) {
