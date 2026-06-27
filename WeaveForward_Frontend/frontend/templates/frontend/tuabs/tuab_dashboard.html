@@ -515,6 +515,12 @@ var itemsHtml = d.items && d.items.length ? '<div style="padding:6px 0;font-size
         const b = document.createElement('b'); b.textContent = d.donor;
         el.appendChild(b); el.appendChild(document.createElement('br'));
         el.appendChild(document.createTextNode(d.address));
+        if (d._tab === 'available') {
+            var note = document.createElement('div');
+            note.style.cssText = 'font-size:10px;color:#999;margin-top:4px;border-top:1px solid #eee;padding-top:4px';
+            note.textContent = 'Approximate location — exact location shown after claiming';
+            el.appendChild(note);
+        }
         dashMarkers[d.id] = L.marker([d.lat, d.lng]).addTo(dashMap).bindPopup(el);
         dashMarkers[d.id]._tab = d._tab;
       }

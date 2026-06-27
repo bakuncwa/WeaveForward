@@ -191,18 +191,35 @@
     <div class="restored-right">
         <div class="restored-panel">
             <div class="restored-meta">
+                <p style="font-weight:700;margin-bottom:8px;margin-top:12px;color:var(--gold)">DONATION</p>
                 <p><strong>Donation ID:</strong> #{{ donation.donation_id }}</p>
-                <p><strong>Donor:</strong> {{ donation.donor.first_name }} {{ donation.donor.last_name }}</p>
-                <p><strong>Current Record Status:</strong> <span class="condition-val">{{ donation.status }}</span></p>
-                <p><strong>Claimed By TUAB:</strong> {{ donation.claimed_by_tuab.business_name|default:"Unclaimed" }}</p>
+                <p><strong>Status:</strong> <span class="condition-val">{{ donation.status }}</span></p>
                 <p><strong>Delivery Method:</strong> {{ donation.delivery_method|default:"-" }}</p>
-                <p><strong>Flag Reason:</strong> {{ donation.flag_reason|default:"None" }}</p>
+                {% if donation.delivery_method == 'DELIVERY' %}<p><strong>Order Status:</strong> {{ donation.order_status|default:"-" }}</p>{% endif %}
+                <p><strong>Submitted At:</strong> {{ donation.submitted_at|date:"m-d-Y h:i A"|default:"-" }}</p>
+                <p><strong>Updated At:</strong> {{ donation.updated_at|date:"m-d-Y h:i A"|default:"-" }}</p>
+                <p><strong>Auto Archive At:</strong> {{ donation.auto_archive_at|date:"m-d-Y h:i A"|default:"-" }}</p>
+
                 <p><strong>Is Flagged:</strong> {{ donation.is_flagged|yesno:"Yes,No" }}</p>
+                {% if donation.is_flagged %}<p><strong>Flag Reason:</strong> {{ donation.flag_reason }}</p>{% endif %}
+                {% if donation.status == 'REJECTED' %}<p><strong>Rejection Reason:</strong> {{ donation.rejection_reason }}</p>{% endif %}
                 {% if donation.delivery_method == 'DELIVERY' %}
-                <p><strong>Driver Name:</strong> {{ donation.driver_details.name|default:"-" }}</p>
+                <p><strong>Driver:</strong> {{ donation.driver_details.name|default:"-" }}</p>
                 <p><strong>Driver Phone:</strong> {{ donation.driver_details.phone|default:"-" }}</p>
-                <p><strong>Plate Number:</strong> {{ donation.driver_details.plateNumber|default:"-" }}</p>
+                <p><strong>Plate No.:</strong> {{ donation.driver_details.plateNumber|default:"-" }}</p>
                 {% endif %}
+
+                <p style="font-weight:700;margin-bottom:8px;margin-top:16px;color:var(--gold)">DONOR</p>
+                <p><strong>ID:</strong> {{ donation.donor.user_id|default:"-" }}</p>
+                <p><strong>Name:</strong> {{ donation.donor.first_name }} {{ donation.donor.last_name }}</p>
+                <p><strong>Email:</strong> {{ donation.donor.email|default:"-" }}</p>
+                <p><strong>Contact:</strong> {{ donation.donor.contact_no|default:"-" }}</p>
+
+                <p style="font-weight:700;margin-bottom:8px;margin-top:16px;color:var(--gold)">TUAB</p>
+                <p><strong>ID:</strong> {{ donation.claimed_by_tuab.user_id|default:"-" }}</p>
+                <p><strong>Business:</strong> {{ donation.claimed_by_tuab.business_name|default:"Unclaimed" }}</p>
+                <p><strong>Email:</strong> {{ donation.claimed_by_tuab.email|default:"-" }}</p>
+                <p><strong>Contact:</strong> {{ donation.claimed_by_tuab.contact_no|default:"-" }}</p>
             </div>
 
             <div class="restored-group" style="margin-bottom:18px">
@@ -226,9 +243,13 @@
                 <label class="sub-title">Pick-Up Location</label>
                 <input class="restored-in-lg" style="height:auto; min-height:48px; padding-top:10px; padding-bottom:10px" value="{{ donation.pickup_display_address }}" readonly />
             </div>
-            <div style="display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap;">
-                <a href="{% url 'admin_edit_donation' donation.donation_id %}" class="btn" style="flex: 1; min-width: 120px; background: var(--gold); color: #fff; border-radius: 8px; padding: 10px 16px; font-size: 14px; font-weight: 500; text-align: center; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; transition: background 0.2s;">Edit Donation</a>
+            {% if donation.delivery_method == 'DELIVERY' and donation.dropoff_display_address %}
+            <div class="restored-group" style="margin-top:16px">
+                <label class="sub-title">Drop-Off Location</label>
+                <input class="restored-in-lg" style="height:auto; min-height:48px; padding-top:10px; padding-bottom:10px" value="{{ donation.dropoff_display_address }}" readonly />
             </div>
+            {% endif %}
+
         </div>
 
         <div class="restored-panel restored-img-panel" style="text-align: center;">

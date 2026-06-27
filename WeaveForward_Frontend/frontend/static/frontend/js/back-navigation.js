@@ -86,6 +86,13 @@
     }
   });
 
+  if (currentPath.startsWith('/admin/tuabs/') && currentPath !== '/admin/tuabs/') {
+    rememberRoute('wfBack:admin:donations', currentRoute);
+  }
+  if (currentPath.startsWith('/admin/donors/') && currentPath !== '/admin/donors/') {
+    rememberRoute('wfBack:admin:donations', currentRoute);
+  }
+
   const matchedBackRoute = backRoutes.find(route => (
     !route.listPaths.includes(currentPath)
     && route.detailPrefixes.some(prefix => currentPath.startsWith(prefix))

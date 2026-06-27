@@ -41,8 +41,9 @@ class DonationListSerializer(serializers.ModelSerializer):
     claimed_by_tuab = DonationListClaimedBySerializer(read_only=True)
     items = serializers.SerializerMethodField()
     upload = serializers.SerializerMethodField()
-    pickup_latitude = serializers.DecimalField(max_digits=9, decimal_places=7, read_only=True)
-    pickup_longitude = serializers.DecimalField(max_digits=10, decimal_places=7, read_only=True)
+    pickup_latitude = serializers.SerializerMethodField()
+    pickup_longitude = serializers.SerializerMethodField()
+    pickup_display_address = serializers.SerializerMethodField()
 
     class Meta:
         model = Donation
@@ -62,6 +63,36 @@ class DonationListSerializer(serializers.ModelSerializer):
             'preferred_pickup_window_start',
             'preferred_pickup_window_end',
         ]
+
+    def get_pickup_display_address(self, obj):
+        request = self.context.get('request')
+        view = self.context.get('view')
+        user = getattr(request, 'user', None) if request else None
+        if user and user.role == UserRole.ADMIN:
+            return obj.pickup_display_address
+        if view and view.action == 'list':
+            return f"{obj.pickup_barangay}, {obj.pickup_city}"
+        return obj.pickup_display_address
+
+    def get_pickup_latitude(self, obj):
+        request = self.context.get('request')
+        view = self.context.get('view')
+        user = getattr(request, 'user', None) if request else None
+        if user and user.role == UserRole.ADMIN:
+            return float(obj.pickup_latitude)
+        if view and view.action == 'list':
+            return round(float(obj.pickup_latitude), 2)
+        return float(obj.pickup_latitude)
+
+    def get_pickup_longitude(self, obj):
+        request = self.context.get('request')
+        view = self.context.get('view')
+        user = getattr(request, 'user', None) if request else None
+        if user and user.role == UserRole.ADMIN:
+            return float(obj.pickup_longitude)
+        if view and view.action == 'list':
+            return round(float(obj.pickup_longitude), 2)
+        return float(obj.pickup_longitude)
 
     def get_upload(self, obj):
         return build_upload_url(obj.upload, self.context)
@@ -124,10 +155,20 @@ class DonationDetailSerializer(serializers.ModelSerializer):
     dropoff_longitude = serializers.SerializerMethodField()
     driver_details = serializers.SerializerMethodField()
     order_status = serializers.SerializerMethodField()
+    pickup_display_address = serializers.SerializerMethodField()
 
     class Meta:
         model = Donation
         fields = '__all__'
+
+    def get_pickup_display_address(self, obj):
+        request = self.context.get('request')
+        user = getattr(request, 'user', None) if request else None
+        if user and user.role == UserRole.ADMIN:
+            return obj.pickup_display_address
+        if user and user.role == UserRole.TUAB and obj.status == DonationStatus.PENDING:
+            return f"{obj.pickup_barangay}, {obj.pickup_city}"
+        return obj.pickup_display_address
 
     def get_upload(self, obj):
         return build_upload_url(obj.upload, self.context)

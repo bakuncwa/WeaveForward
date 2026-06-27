@@ -10,6 +10,11 @@
     --muted: #888888;
   }
 
+  .tuab-detail-container,
+  .tuab-detail-container * {
+    font-family: 'Poppins', sans-serif !important;
+  }
+
   .card {
     background: #fff;
     border-radius: 14px;
@@ -270,6 +275,7 @@
   }
 </style>
 
+<div class="tuab-detail-container">
 <div class="card">
   <div class="biz-header">
     {% if tuab.upload %}
@@ -401,6 +407,66 @@
     </table>
   </div>
 </div>
+
+<div class="card" style="margin-top:16px;">
+  <div class="card-title">Donations ({{ donations|length }})</div>
+  {% if donations %}
+  {{ donations|json_script:"tuab-donations" }}
+  <table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead>
+      <tr style="border-bottom:2px solid #ebe6df">
+        <th style="padding:8px 6px;text-align:left;font-weight:600;color:#888;font-size:10px;text-transform:uppercase">ID</th>
+        <th style="padding:8px 6px;text-align:left;font-weight:600;color:#888;font-size:10px;text-transform:uppercase">Status</th>
+        <th style="padding:8px 6px;text-align:left;font-weight:600;color:#888;font-size:10px;text-transform:uppercase">Delivery Type</th>
+        <th style="padding:8px 6px;text-align:left;font-weight:600;color:#888;font-size:10px;text-transform:uppercase">Pickup Date</th>
+        <th style="padding:8px 6px;text-align:left;font-weight:600;color:#888;font-size:10px;text-transform:uppercase">Donor</th>
+      </tr>
+    </thead>
+    <tbody id="donations-tbody"></tbody>
+  </table>
+  <div style="display:flex;align-items:center;gap:12px;margin-top:12px;font-size:13px">
+    <button id="prev-btn" style="background:var(--gold);color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-family:'Poppins',sans-serif;font-size:12px">Previous</button>
+    <span id="page-info" style="color:#888">Page 1 of 1</span>
+    <button id="next-btn" style="background:var(--gold);color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-family:'Poppins',sans-serif;font-size:12px">Next</button>
+  </div>
+  {% else %}
+  <p style="color:#888;font-size:13px">No donations found.</p>
+  {% endif %}
+</div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var DATA = JSON.parse(document.getElementById('tuab-donations').textContent);
+    var pageSize = 10, current = 1;
+    var m = window.location.hash.match(/page=(\d+)/);
+    if (m) current = parseInt(m[1], 10);
+    var tbody = document.getElementById('donations-tbody');
+    var info = document.getElementById('page-info');
+
+    function render() {
+        var start = (current - 1) * pageSize, end = start + pageSize;
+        var totalPages = Math.ceil(DATA.length / pageSize) || 1;
+        history.replaceState(null, '', '#page=' + current);
+        try { sessionStorage.setItem('wfBack:admin:donations', window.location.pathname + '#page=' + current); } catch(e) {}
+        tbody.innerHTML = DATA.slice(start, end).map(function (d) {
+            return '<tr style="border-bottom:1px solid #f0ede8">' +
+                '<td style="padding:8px 6px"><a href="/admin/donations/' + d.donation_id + '/" style="color:var(--gold);text-decoration:none">#' + d.donation_id + '</a></td>' +
+                '<td style="padding:8px 6px">' + (d.status || '') + '</td>' +
+                '<td style="padding:8px 6px">' + (d.delivery_method || '-') + '</td>' +
+                '<td style="padding:8px 6px">' + ((d.preferred_pickup_date || '').slice(0, 10) || '-') + '</td>' +
+                '<td style="padding:8px 6px">' + (d.donor ? ((d.donor.first_name || '') + ' ' + (d.donor.last_name || '')) : '-') + '</td>' +
+                '</tr>';
+        }).join('');
+        info.textContent = 'Page ' + current + ' of ' + totalPages;
+        document.getElementById('prev-btn').style.display = current > 1 ? '' : 'none';
+        document.getElementById('next-btn').style.display = current < totalPages ? '' : 'none';
+    }
+
+    document.getElementById('prev-btn').addEventListener('click', function () { if (current > 1) { current--; render(); } });
+    document.getElementById('next-btn').addEventListener('click', function () { if (current < Math.ceil(DATA.length / pageSize)) { current++; render(); } });
+    render();
+});
+</script>
 {% endblock %}
 
 

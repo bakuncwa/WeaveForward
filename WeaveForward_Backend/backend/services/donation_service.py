@@ -183,6 +183,13 @@ def mark_donation_in_transit(*, user, donation, ip_address=None):
         exc.status_code = 409
         raise exc
 
+    today = timezone.localdate()
+    pickup_date = timezone.localtime(donation.preferred_pickup_date).date()
+    if today < pickup_date:
+        exc = APIException("You can only tell the donor that you're on your way on the marked preferred date.")
+        exc.status_code = 409
+        raise exc
+
     with transaction.atomic():
         # Pessimistically lock the donation row to prevent concurrent modifications
         donation = Donation.objects.select_for_update().get(pk=donation.pk)

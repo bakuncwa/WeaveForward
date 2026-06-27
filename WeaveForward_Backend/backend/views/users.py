@@ -10,11 +10,12 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from ..utils.view_mixins import PaginatedResponseMixin
 
-from ..models import User, UserRole, UserAccountStatus, UserOperationalStatus
+from ..models import User, UserRole, UserAccountStatus, UserOperationalStatus, Donation
 from ..permissions import IsActiveAdmin, IsActiveTUAB
 from ..serializers import (
     AdminUserListSerializer,
     AdminUserDetailSerializer,
+    DonationListSerializer,
     DonorSelfSerializer,
     DonorUpdateSerializer,
     DonorUpdateSelfSerializer,
@@ -173,6 +174,17 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
                 return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         response = super().retrieve(request, *args, **kwargs)
         response['ETag'] = build_updated_at_etag(instance)
+
+        if request.user.role == UserRole.ADMIN:
+            if instance.role == UserRole.DONOR:
+                donations_qs = Donation.objects.filter(donor=instance).order_by('-updated_at')
+            elif instance.role == UserRole.TUAB:
+                donations_qs = Donation.objects.filter(claimed_by_tuab=instance).order_by('-updated_at')
+            else:
+                donations_qs = Donation.objects.none()
+            serializer = DonationListSerializer(donations_qs, many=True, context={'request': request})
+            response.data['donations'] = serializer.data
+
         return response
 
     def partial_update(self, request, *args, **kwargs):

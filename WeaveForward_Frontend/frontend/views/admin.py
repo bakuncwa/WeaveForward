@@ -123,11 +123,14 @@ async def admin_view_tuab(request, user_id):
     target_fibers = tuab.get('target_fibers') or ''
     target_fibers_list = [fiber.strip() for fiber in target_fibers.split(',') if fiber.strip()]
 
+    donations = tuab.get('donations', [])
+
     return render(request, 'frontend/admin/admin_view_tuab.html', {
         'page_title': 'View Textile Upcycing Artisan Business',
         'user': profile,
         'tuab': tuab,
         'target_fibers_list': target_fibers_list,
+        'donations': donations,
     })
 
 async def admin_view_donor(request, user_id):
@@ -143,11 +146,14 @@ async def admin_view_donor(request, user_id):
         donor['created_at'] = parse_datetime(donor['created_at'])
     if donor.get('updated_at'):
         donor['updated_at'] = parse_datetime(donor['updated_at'])
-        
+
+    donations = donor.get('donations', [])
+
     return render(request, 'frontend/admin/admin_view_donor.html', {
         'page_title': 'View Donor',
         'user': profile,
-        'donor': donor
+        'donor': donor,
+        'donations': donations,
     })
 
 async def admin_edit_donor(request, user_id):
@@ -530,6 +536,10 @@ async def admin_view_donation(request, donation_id):
         donation['preferred_pickup_date'] = parse_datetime(donation['preferred_pickup_date'])
     if donation.get('submitted_at'):
         donation['submitted_at'] = parse_datetime(donation['submitted_at'])
+    if donation.get('updated_at'):
+        donation['updated_at'] = parse_datetime(donation['updated_at'])
+    if donation.get('auto_archive_at'):
+        donation['auto_archive_at'] = parse_datetime(donation['auto_archive_at'])
 
     return render(request, 'frontend/admin/admin_view_donation.html', {
         'page_title': 'View Donation',
