@@ -238,7 +238,7 @@
         '<td title="' + escapeHTML(d.address) + '">' + escapeHTML(d.address.length > 50 ? d.address.slice(0, 47) + '...' : d.address) + '</td>' +
         '<td class="items-col">' + renderItems(d.items) + '</td>' +
         '<td><span class="badge ' + badgeCls + '">' + escapeHTML(statusLabel) + '</span></td>' +
-        '<td title="' + escapeHTML(d.business_name || '\u2014') + '">' + escapeHTML((d.business_name || '\u2014').length > 50 ? (d.business_name || '\u2014').slice(0, 47) + '...' : (d.business_name || '\u2014')) + '</td>' +
+        '<td title="' + escapeHTML(d.business_name || '\u2014') + '">' + (d.claimed_by_tuab_user_id ? '<a href="/donor/tuabs/' + d.claimed_by_tuab_user_id + '/" class="claimed-link">' + escapeHTML(d.business_name) + '</a>' : escapeHTML('\u2014')) + '</td>' +
         '<td><div class="action-btns"><a href="/donor/my-donations/' + d.donation_id + '/" class="btn btn-outline">View</a>' + cancelEditBtns + '</div></td>' +
         '<td>' + imgHtml + '</td>' +
         '</tr>';
@@ -291,7 +291,7 @@
     const label = d.status ? d.status.split('_').map(function(w) { return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(); }).join(' ') : '';
     var itemsHtml = d.items && d.items.length ? '<div style="padding:6px 0;font-size:11px;color:var(--text,#222)">' + renderItems(d.items) + '</div>' : '';
     var windowHtml = d.pickupStart && d.pickupEnd ? '<div class="hc-row"><span class="hc-lbl">Window</span><span>' + escapeHTML(d.pickupStart) + ' &ndash; ' + escapeHTML(d.pickupEnd) + '</span></div>' : '';
-    const tuabHtml = d.business_name ? '<div class="hc-row"><span class="hc-lbl">Claimed By</span><span>' + escapeHTML(d.business_name) + '</span></div>' : '';
+    const tuabHtml = d.business_name ? '<div class="hc-row"><span class="hc-lbl">Claimed By</span><span>' + (d.claimed_by_tuab_user_id ? '<a href="/donor/tuabs/' + d.claimed_by_tuab_user_id + '/">' + escapeHTML(d.business_name) + '</a>' : escapeHTML(d.business_name)) + '</span></div>' : '';
     card.innerHTML = '<div class="hc-hdr">Donation #' + escapeHTML(String(d.donation_id)) + ' <span class="badge badge-' + escapeHTML(cls) + '">' + escapeHTML(label) + '</span></div>' +
       '<div class="hc-row"><span class="hc-lbl">Address</span><span>' + escapeHTML(d.address) + '</span></div>' +
       tuabHtml + windowHtml +

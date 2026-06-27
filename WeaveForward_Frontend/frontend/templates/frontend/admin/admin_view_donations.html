@@ -225,7 +225,7 @@
               {% endif %}
             </span>
           </td>
-          <td title="{{ donation.claimed_by_tuab.business_name|default:'-' }}">{{ donation.claimed_by_tuab.business_name|default:"-"|truncatechars:50 }}</td>
+           <td title="{{ donation.claimed_by_tuab.business_name|default:'-' }}">{% if donation.claimed_by_tuab.user_id %}<a href="{% url 'admin_view_tuab' donation.claimed_by_tuab.user_id %}">{{ donation.claimed_by_tuab.business_name|truncatechars:50 }}</a>{% else %}-{% endif %}</td>
           <td>
             <div class="action-btns">
               <a href="{% url 'admin_view_donation' donation.donation_id %}" class="btn btn-outline">View</a>

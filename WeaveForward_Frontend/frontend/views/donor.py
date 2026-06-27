@@ -71,6 +71,7 @@ async def donor_my_donations(request):
             'address': d.get('pickup_display_address', ''),
             'status': d.get('status', ''),
             'business_name': (d.get('claimed_by_tuab') or {}).get('business_name', ''),
+            'claimed_by_tuab_user_id': (d.get('claimed_by_tuab') or {}).get('user_id', None),
             'upload': d.get('upload', ''),
             'items': d.get('items', ''),
         }

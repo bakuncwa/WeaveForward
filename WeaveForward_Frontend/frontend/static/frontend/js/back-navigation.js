@@ -16,7 +16,7 @@
     },
     {
       key: 'wfBack:donor:tuabs',
-      listPaths: ['/donor/browse-businesses/'],
+      listPaths: ['/donor/browse-businesses/', '/donor/my-donations/'],
       detailPrefixes: ['/donor/tuabs/'],
       fallbackPath: '/donor/browse-businesses/',
     },
@@ -34,7 +34,7 @@
     },
     {
       key: 'wfBack:admin:tuabs',
-      listPaths: ['/admin/tuabs/'],
+      listPaths: ['/admin/tuabs/', '/admin/donations/'],
       detailPrefixes: ['/admin/tuabs/'],
       fallbackPath: '/admin/tuabs/',
     },
