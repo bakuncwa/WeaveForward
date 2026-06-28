@@ -64,6 +64,36 @@ def _maya_delete(*, url, authorization_value):
     )
 
 
+def _reverse_or_refund_maya_payment(*, payment_reference, amount, reason):
+    if not payment_reference or amount <= 0:
+        return False
+
+    base_url = settings.MAYA_SANDBOX_BASE_URL.rstrip('/')
+    try:
+        void_resp = _maya_post(
+            url=f"{base_url}/payments/{payment_reference}/voids",
+            payload={'reason': reason},
+            authorization_value=settings.MAYA_SANDBOX_SECRET_BASIC_AUTH,
+        )
+        if void_resp.status_code == 200:
+            return True
+    except requests.RequestException:
+        pass
+
+    try:
+        refund_resp = _maya_post(
+            url=f"{base_url}/payments/{payment_reference}/refunds",
+            payload={
+                'totalAmount': {'amount': float(amount), 'currency': 'PHP'},
+                'reason': reason,
+            },
+            authorization_value=settings.MAYA_SANDBOX_SECRET_BASIC_AUTH,
+        )
+        return refund_resp.status_code in [200, 201]
+    except requests.RequestException:
+        return False
+
+
 def subscribe_user(*, target_user_id, first_name, last_name, card, frontend_base_url):
     try:
         user = User.objects.get(pk=target_user_id)
@@ -230,6 +260,22 @@ def _activate_subscription_from_maya_verification(payload):
     if not all((settings.MAYA_SANDBOX_SECRET_BASIC_AUTH, settings.MAYA_SANDBOX_BASE_URL, user.maya_customer_id, user.maya_card_id)):
         return {"status_code": 500, "detail": "Maya subscription charge is not fully configured for the matched user."}
 
+    with transaction.atomic():
+        user = User.objects.select_for_update().get(pk=user.pk)
+        if get_active_subscriptions_for_user(user=user):
+            return {"status_code": 200, "detail": "Maya webhook ignored because the matched TUAB is already subscribed."}
+        current_cancelled = Subscription.objects.select_for_update().filter(
+            user=user,
+            status=SubscriptionStatus.CANCELLED,
+            subscription_tier=SubscriptionTier.PRO,
+            end_date__gt=timezone.now(),
+        ).order_by('-end_date').first()
+        if current_cancelled:
+            current_cancelled.status = SubscriptionStatus.ACTIVE
+            current_cancelled.updated_at = timezone.now()
+            current_cancelled.save(update_fields=['status', 'updated_at'])
+            return {"status_code": 200, "detail": "Maya card verification succeeded and the subscription was reactivated."}
+
     request_reference_number = payload.get('id') or f"user-{user.user_id}-{int(timezone.now().timestamp())}"
     request_reference_number = request_reference_number[:36]
     user_id = user.pk
@@ -257,42 +303,59 @@ def _activate_subscription_from_maya_verification(payload):
     if not charged:
         return {"status_code": 502, "detail": "Maya subscription charge did not complete successfully."}
 
-    with transaction.atomic():
-        user = User.objects.select_for_update().get(pk=user_id)
+    payment_reference = charge_payload.get('id')
+    result = None
+    try:
+        with transaction.atomic():
+            user = User.objects.select_for_update().get(pk=user_id)
 
-        if user.status != UserAccountStatus.ACTIVE:
-            return {"status_code": 409, "detail": "Subscription activation could not be finalized because the matched TUAB is not active."}
-        if user.maya_card_id != maya_card_id or user.maya_customer_id != maya_customer_id:
-            return {"status_code": 409, "detail": "Subscription activation could not be finalized because the Maya card changed during payment."}
-        if get_active_subscriptions_for_user(user=user):
-            return {"status_code": 409, "detail": "Subscription activation could not be finalized because the user is already subscribed."}
+            if user.status != UserAccountStatus.ACTIVE:
+                result = {"status_code": 409, "detail": "Subscription activation could not be finalized because the matched TUAB is not active."}
+            elif user.maya_card_id != maya_card_id or user.maya_customer_id != maya_customer_id:
+                result = {"status_code": 409, "detail": "Subscription activation could not be finalized because the Maya card changed during payment."}
+            elif get_active_subscriptions_for_user(user=user):
+                result = {"status_code": 409, "detail": "Subscription activation could not be finalized because the user is already subscribed."}
 
-        start_date = timezone.now()
-        next_year = start_date.year + (1 if start_date.month == 12 else 0)
-        next_month = 1 if start_date.month == 12 else start_date.month + 1
-        SubscriptionPayment.objects.create(
-            subscription=Subscription.objects.create(
-                user=user,
-                status=SubscriptionStatus.ACTIVE,
-                subscription_tier=SubscriptionTier.PRO,
-                start_date=start_date,
-                end_date=start_date.replace(
-                    year=next_year,
-                    month=next_month,
-                    day=min(start_date.day, monthrange(next_year, next_month)[1]),
-                ),
-            ),
+            if result:
+                transaction.set_rollback(True)
+            else:
+                start_date = timezone.now()
+                next_year = start_date.year + (1 if start_date.month == 12 else 0)
+                next_month = 1 if start_date.month == 12 else start_date.month + 1
+                SubscriptionPayment.objects.create(
+                    subscription=Subscription.objects.create(
+                        user=user,
+                        status=SubscriptionStatus.ACTIVE,
+                        subscription_tier=SubscriptionTier.PRO,
+                        start_date=start_date,
+                        end_date=start_date.replace(
+                            year=next_year,
+                            month=next_month,
+                            day=min(start_date.day, monthrange(next_year, next_month)[1]),
+                        ),
+                    ),
+                    amount=Decimal('499.00'),
+                    status=PaymentStatus.SUCCESS,
+                    payment_reference=payment_reference,
+                )
+    except Exception:
+        result = {"status_code": 502, "detail": "Maya subscription charge succeeded, but activation could not be finalized."}
+
+    if result:
+        reversed_payment = _reverse_or_refund_maya_payment(
+            payment_reference=payment_reference,
             amount=Decimal('499.00'),
-            status=PaymentStatus.SUCCESS,
-            payment_reference=request_reference_number,
+            reason="Subscription activation failed.",
         )
+        result["detail"] += " Payment was reversed." if reversed_payment else " Payment reversal failed; please contact support."
+        return result
 
     return {"status_code": 200, "detail": "Maya card verification succeeded and the subscription was activated."}
 
 
 def unsubscribe_user(*, target_user_id, actor=None, ip_address=None):
     """
-    Cancels all active subscriptions for a user and clears their Maya payment information.
+    Cancels renewal, clears Maya payment information, and keeps paid access until end_date.
     Uses transaction.atomic() and select_for_update() for data consistency and locking.
     """
     with transaction.atomic():
@@ -320,9 +383,7 @@ def unsubscribe_user(*, target_user_id, actor=None, ip_address=None):
         for sub in active_subscriptions:
             sub.status = SubscriptionStatus.CANCELLED
             sub.updated_at = now
-
-        if active_subscriptions:
-            Subscription.objects.bulk_update(active_subscriptions, ['status', 'updated_at'])
+        Subscription.objects.bulk_update(active_subscriptions, ['status', 'updated_at'])
 
         old_card_id = user.maya_card_id
         user.maya_card_id = None
@@ -348,7 +409,7 @@ def unsubscribe_user(*, target_user_id, actor=None, ip_address=None):
 
     return {
         "status_code": 200,
-        "detail": "Successfully unsubscribed.",
+        "detail": "Successfully unsubscribed. Premium access remains active until your subscription expires.",
         "user_updated": True,
         "cancelled_subscriptions_count": len(active_subscriptions)
     }
@@ -372,28 +433,45 @@ def process_expired_subscriptions():
         user = User.objects.get(pk=sub.user_id)
         renewed = False
         try:
+            request_reference_number = f"renew-{user.user_id}-{int(now.timestamp())}"[:36]
             resp = _maya_post(
                 url=f"{settings.MAYA_SANDBOX_BASE_URL.rstrip('/')}/customers/{user.maya_customer_id}/cards/{user.maya_card_id}/payments",
                 payload={
                     'totalAmount': {'amount': 499.00, 'currency': 'PHP'},
                     'cardId': user.maya_card_id,
-                    'requestReferenceNumber': f"renew-{user.user_id}-{int(now.timestamp())}"[:36],
+                    'requestReferenceNumber': request_reference_number,
                 },
                 authorization_value=settings.MAYA_SANDBOX_SECRET_BASIC_AUTH,
             )
             body = resp.json() if resp.status_code == 200 else {}
             if body.get('status') == 'PAYMENT_SUCCESS' and body.get('isPaid') is True and Decimal(str(body.get('amount'))) == Decimal('499.00'):
-                sub.end_date = sub.end_date + timezone.timedelta(days=30)
-                sub.save(update_fields=['end_date', 'updated_at'])
-                SubscriptionPayment.objects.create(
-                    subscription=sub, amount=Decimal('499.00'),
-                    status=PaymentStatus.SUCCESS, payment_reference=f"renew-{user.user_id}-{int(now.timestamp())}"[:36],
-                )
-                renewed = True
+                payment_reference = body.get('id')
+                try:
+                    with transaction.atomic():
+                        sub = Subscription.objects.select_for_update().get(
+                            pk=sub.pk,
+                            status=SubscriptionStatus.ACTIVE,
+                            end_date__lte=now,
+                        )
+                        sub.end_date = sub.end_date + timezone.timedelta(days=30)
+                        sub.save(update_fields=['end_date', 'updated_at'])
+                        SubscriptionPayment.objects.create(
+                            subscription=sub, amount=Decimal('499.00'),
+                            status=PaymentStatus.SUCCESS, payment_reference=payment_reference,
+                        )
+                        renewed = True
+                except Exception:
+                    _reverse_or_refund_maya_payment(
+                        payment_reference=payment_reference,
+                        amount=Decimal('499.00'),
+                        reason="Subscription renewal failed.",
+                    )
         except (requests.RequestException, InvalidOperation, TypeError, ValueError):
             pass
 
         if not renewed:
+            if not Subscription.objects.filter(pk=sub.pk, status=SubscriptionStatus.ACTIVE, end_date__lte=timezone.now()).exists():
+                continue
             unsubscribe_user(target_user_id=sub.user_id, actor=admin_user)
             cancelled_count += 1
 

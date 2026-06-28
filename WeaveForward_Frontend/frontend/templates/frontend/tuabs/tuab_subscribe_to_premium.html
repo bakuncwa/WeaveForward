@@ -119,6 +119,28 @@
     background: var(--gold-dark);
   }
 
+  .subscribe-hover-card {
+    position: fixed;
+    z-index: 9999;
+    background: #fff;
+    color: var(--text);
+    border: 1.5px solid #e0dbd4;
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 12px;
+    line-height: 1.5;
+    max-width: 300px;
+    box-shadow: 0 8px 28px rgba(0,0,0,.12);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .12s;
+  }
+
+  .subscribe-hover-card.visible {
+    opacity: 1;
+  }
+
   @media (max-width: 480px), (max-aspect-ratio: 1/1) {
     .page-center { padding: 0; }
     .prem-card {
@@ -223,6 +245,10 @@
   </div>
 </div>
 
+<div id="subscribe-hover-card" class="subscribe-hover-card">
+  If your premium access has not expired, this reattaches billing for future renewals. You will not be charged again until renewal.
+</div>
+
 <script>
   function showPaymentForm() {
     document.getElementById('plan-view').classList.add('hidden');
@@ -233,6 +259,28 @@
     document.getElementById('plan-view').classList.remove('hidden');
   }
 
+  const subscribeHoverCard = document.getElementById('subscribe-hover-card');
+  function positionSubscribeHover(e) {
+    let left = e.clientX + 16;
+    let top = e.clientY + 12;
+    if (left + 300 > window.innerWidth) left = Math.max(8, e.clientX - 300);
+    if (top + subscribeHoverCard.offsetHeight > window.innerHeight) {
+      top = window.innerHeight - subscribeHoverCard.offsetHeight - 8;
+    }
+    subscribeHoverCard.style.left = left + 'px';
+    subscribeHoverCard.style.top = top + 'px';
+  }
+
+  document.querySelectorAll('.btn-subscribe').forEach(btn => {
+    btn.addEventListener('mouseenter', e => {
+      subscribeHoverCard.classList.add('visible');
+      positionSubscribeHover(e);
+    });
+    btn.addEventListener('mousemove', positionSubscribeHover);
+    btn.addEventListener('mouseleave', () => {
+      subscribeHoverCard.classList.remove('visible');
+    });
+  });
 
 </script>
 {% endblock %}

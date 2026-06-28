@@ -2,7 +2,7 @@ from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import BasePermission, IsAuthenticated
 
-from .models import Subscription, SubscriptionStatus, UserAccountStatus, UserRole
+from .models import Subscription, SubscriptionStatus, SubscriptionTier, UserAccountStatus, UserRole
 
 
 class IsRole(BasePermission):
@@ -56,9 +56,11 @@ class IsActiveTUABWithActiveSubscription(IsActiveTUAB):
         try:
             subscription = Subscription.objects.filter(
                 user=request.user,
-                status=SubscriptionStatus.ACTIVE,
+                status__in=[SubscriptionStatus.ACTIVE, SubscriptionStatus.CANCELLED],
+                subscription_tier=SubscriptionTier.PRO,
+                end_date__gt=timezone.now(),
             ).first()
-            if not subscription or (subscription.end_date and subscription.end_date < timezone.now()):
+            if not subscription:
                 raise PermissionDenied("No active subscription found. Please upgrade to access Donation Recommendations.")
         except Exception as exc:
             if isinstance(exc, PermissionDenied):
@@ -79,7 +81,9 @@ class IsActiveAdminOrTUABWithActiveSubscription(IsActiveAdminOrTUAB):
 
         if not Subscription.objects.filter(
             user=request.user,
-            status=SubscriptionStatus.ACTIVE,
+            status__in=[SubscriptionStatus.ACTIVE, SubscriptionStatus.CANCELLED],
+            subscription_tier=SubscriptionTier.PRO,
+            end_date__gt=timezone.now(),
         ).exists():
             raise PermissionDenied("Active subscription required.")
         return True

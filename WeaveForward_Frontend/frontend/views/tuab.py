@@ -814,13 +814,6 @@ async def tuab_view_fiber_match_recommendations(request):
     """TUAB Fiber-Match Recommendations - View and act on donation recommendations."""
     profile = request.user_profile
 
-    me_res = await api_call(request, 'GET', 'users/me')
-    if me_res and not isinstance(me_res, Exception) and me_res.status_code == 200:
-        me_data = me_res.json()
-        if not me_data.get('is_subscribed'):
-            messages.error(request, "You need an active subscription to access Donation Recommendations.")
-            return redirect('tuab_subscribe')
-
     filters_param = {
         'fiber_type': request.GET.get('fiber_type', ''),
         'biodeg_tier': request.GET.get('biodeg_tier', ''),

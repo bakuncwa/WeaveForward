@@ -141,8 +141,9 @@ def run_predictions_for_donation(donation_id):
         User.objects.filter(
             role="TUAB",
             status=UserAccountStatus.ACTIVE,
-            subscriptions__status=SubscriptionStatus.ACTIVE,
+            subscriptions__status__in=[SubscriptionStatus.ACTIVE, SubscriptionStatus.CANCELLED],
             subscriptions__subscription_tier=SubscriptionTier.PRO,
+            subscriptions__end_date__gt=timezone.now(),
         ).distinct().values(
             "user_id",
             "target_fibers",

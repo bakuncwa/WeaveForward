@@ -807,8 +807,8 @@ def claim_donation(user, donation, claim_params, ip_address=None):
             'dropoff_phone': user.contact_no,
         }
 
-    maya_payment_id = None
     # Per-order delivery charges are covered by the active PRO subscription.
+    # maya_payment_id = None
     # try:
     #     maya_resp = requests.post(
     #         maya_url,
@@ -881,18 +881,18 @@ def claim_donation(user, donation, claim_params, ip_address=None):
         lalamove_error_msg = str(e)
 
     if not lalamove_order_id:
-        void_success = None
-        if maya_payment_id:
-            try:
-                void_resp = requests.delete(
-                    f"{settings.MAYA_SANDBOX_BASE_URL.rstrip('/')}/payments/{maya_payment_id}",
-                    json={"reason": "Automatic reversal due to logistics failure."},
-                    headers={'Authorization': settings.MAYA_SANDBOX_SECRET_BASIC_AUTH, 'Content-Type': 'application/json'},
-                    timeout=30
-                )
-                void_success = void_resp.status_code == 200
-            except Exception:
-                pass
+        # Per-order delivery charges are covered by the active PRO subscription.
+        # if maya_payment_id:
+        #     try:
+        #         void_resp = requests.delete(
+        #             f"{settings.MAYA_SANDBOX_BASE_URL.rstrip('/')}/payments/{maya_payment_id}",
+        #             json={"reason": "Automatic reversal due to logistics failure."},
+        #             headers={'Authorization': settings.MAYA_SANDBOX_SECRET_BASIC_AUTH, 'Content-Type': 'application/json'},
+        #             timeout=30
+        #         )
+        #         void_success = void_resp.status_code == 200
+        #     except Exception:
+        #         pass
 
         _revert_failed_delivery_claim(
             donation_id=donation.pk,
@@ -900,8 +900,7 @@ def claim_donation(user, donation, claim_params, ip_address=None):
             order_id=order_record.pk,
         )
         exc = APIException(
-            f"Delivery placement failed: {lalamove_error_msg}. " +
-            ("No delivery payment was charged." if void_success is None else ("Payment has been automatically reversed." if void_success else "Automatic payment reversal failed. Please contact support for a manual refund."))
+            f"Delivery placement failed: {lalamove_error_msg}. No delivery payment was charged."
         )
         exc.status_code = 502
         raise exc
@@ -928,9 +927,21 @@ def claim_donation(user, donation, claim_params, ip_address=None):
             payment_record.save(update_fields=["payment_reference", "status", "updated_at"])
 
             log_audit(user, 'donations', 'STATUS_CHANGE', ip_address, ['status', 'claimed_by_tuab', 'delivery_method'])
-    except Exception:
-        cancel_lalamove_order(lalamove_order_id)
-        raise
+    except Exception as e:
+        try:
+            cancel_lalamove_order(lalamove_order_id)
+            _revert_failed_delivery_claim(
+                donation_id=donation.pk,
+                user_id=user.pk,
+                order_id=order_record.pk,
+            )
+        except Exception:
+            pass
+        if isinstance(e, APIException):
+            raise
+        exc = APIException("Delivery was scheduled, but the donation claim could not be finalized. The delivery order was cancelled and the claim was reverted. Please try again.")
+        exc.status_code = 502
+        raise exc
 
     donor = donation.donor
     send_donation_claimed_notification(

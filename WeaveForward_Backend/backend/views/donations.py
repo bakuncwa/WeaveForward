@@ -12,7 +12,7 @@ from datetime import timezone as dt_timezone
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from ..utils.view_mixins import PaginatedResponseMixin
-from ..models import Donation, DonationItem, Subscription, User, UserRole
+from ..models import Donation, DonationItem, Subscription, SubscriptionStatus, User, UserRole
 from ..permissions import (
     IsActiveAdmin,
     IsActiveAdminOrDonor,
@@ -291,11 +291,11 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
 
         # 2. Authorization: Active PRO Subscription check
         now = timezone.now()
-        has_pro = Subscription.objects.filter(user=user, subscription_tier='PRO', status='ACTIVE', end_date__gt=now).exists()
+        has_pro = Subscription.objects.filter(user=user, subscription_tier='PRO', status__in=[SubscriptionStatus.ACTIVE, SubscriptionStatus.CANCELLED], end_date__gt=now).exists()
         if not has_pro:
             raise PermissionDenied({
                 "error": "SUBSCRIPTION_INACTIVE",
-                "detail": "An active PRO subscription is required to access delivery quotations."
+                "detail": "Subscribe first to get a delivery price."
             })
 
         # 3. Authorization: Max Claims check
@@ -414,11 +414,11 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
         # 4. Authorization: Active PRO Subscription check (Required for DELIVERY only)
         if delivery_method == 'DELIVERY':
             now = timezone.now()
-            has_pro = Subscription.objects.filter(user=user, subscription_tier='PRO', status='ACTIVE', end_date__gt=now).exists()
+            has_pro = Subscription.objects.filter(user=user, subscription_tier='PRO', status__in=[SubscriptionStatus.ACTIVE, SubscriptionStatus.CANCELLED], end_date__gt=now).exists()
             if not has_pro:
                 raise PermissionDenied({
                     "error": "SUBSCRIPTION_INACTIVE",
-                    "detail": "An active PRO subscription is required to claim donations."
+                    "detail": "Subscribe first to claim donations for delivery."
                 })
 
         quotation_token = request.data.get('quotation_token')
