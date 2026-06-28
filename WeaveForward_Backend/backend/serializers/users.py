@@ -10,6 +10,7 @@ from rest_framework import serializers
 
 from ..models import Donation, DonationStatus, SubscriptionStatus, Upload, User, UserRole
 from ..services.upload_service import build_upload_url
+from .donations import DonationListSerializer
 from ..services.location_service import get_city_and_barangay
 from ..services.brand_fiber_lookup_service import get_allowed_fibers
 
@@ -56,6 +57,7 @@ class AdminUserDetailSerializer(serializers.ModelSerializer):
     """Full user profile serializer used exclusively by Admins for viewing details."""
     is_subscribed = serializers.SerializerMethodField(read_only=True)
     total_donations = serializers.SerializerMethodField(read_only=True)
+    donations = serializers.SerializerMethodField(read_only=True)
     latitude = serializers.DecimalField(max_digits=9, decimal_places=7, required=False, allow_null=True)
     longitude = serializers.DecimalField(max_digits=10, decimal_places=7, required=False, allow_null=True)
     upload = serializers.FileField(write_only=True, required=False, allow_null=True)
@@ -74,7 +76,7 @@ class AdminUserDetailSerializer(serializers.ModelSerializer):
             'business_name', 'description', 'social_link', 'max_active_claims', 'target_fibers',
             'min_biodeg_score', 'max_distance_km', 'operational_status', 'contact_no',
             'barangay', 'city', 'latitude', 'longitude', 'display_address',
-            'status', 'is_2fa_enabled', 'is_subscribed', 'total_donations', 'upload', 'documentation',
+            'status', 'is_2fa_enabled', 'is_subscribed', 'total_donations', 'donations', 'upload', 'documentation',
             'created_at', 'updated_at', 'distance_km'
         ]
 
@@ -89,6 +91,15 @@ class AdminUserDetailSerializer(serializers.ModelSerializer):
             claimed_by_tuab_id=obj.user_id,
             status=DonationStatus.RECEIVED,
         ).count()
+
+    def get_donations(self, obj):
+        if obj.role == UserRole.DONOR:
+            qs = Donation.objects.filter(donor=obj).order_by('-updated_at')
+        elif obj.role == UserRole.TUAB:
+            qs = Donation.objects.filter(claimed_by_tuab=obj).order_by('-updated_at')
+        else:
+            qs = Donation.objects.none()
+        return DonationListSerializer(qs, many=True, context=self.context).data
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

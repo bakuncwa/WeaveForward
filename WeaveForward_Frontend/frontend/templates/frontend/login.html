@@ -25,7 +25,12 @@
             display: flex;
             align-items: center;
             gap: 4px;
-            padding: 0
+            padding: 4px 8px;
+            border-radius: 6px;
+            transition: background .2s ease
+        }
+        .toggle:hover {
+            background: rgba(60, 101, 145, .08);
         }
 
         .links {
@@ -40,10 +45,12 @@
             color: #555;
             font-size: 13px;
             text-decoration: underline;
-            cursor: pointer
+            cursor: pointer;
+            transition: color .2s ease
         }
 
         .links a:hover {
+            color: var(--b);
             text-decoration: underline
         }
 
@@ -54,8 +61,9 @@
 
         .helper {
             font-size: 11px;
-            color: #666;
-            margin-top: 8px
+            color: #777;
+            margin-top: 8px;
+            line-height: 1.5
         }
     </style>
 </head>
