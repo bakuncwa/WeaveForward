@@ -4,8 +4,6 @@ from ..models import (
     Donation,
     DonationDeliveryMethod,
     DonationStatus,
-    InventoryLedger,
-    InventoryLifecycleStatus,
     Subscription,
     SubscriptionStatus,
     User,
@@ -34,8 +32,6 @@ from .donation_service import unclaim_tuab_donations, archive_donor_donations
 #     - reset status to PENDING
 #     - clear claimed_by_tuab
 #     - clear delivery_method
-#   - Archive all non-archived inventory ledgers linked to the TUAB's claimed
-#     donations as loaded before unclaiming.
 # - Both roles:
 #   - Cancel ACTIVE subscriptions.
 #   - Preserve maya_customer_id and clear maya_card_id.
@@ -77,13 +73,6 @@ def archive_user(*, target_user_id):
 
         changed_donations = donation_result["changed_donations"]
 
-        # Lock and load all active inventory ledgers linked to the TUAB's claimed donations to prevent deadlocks and race conditions
-        changed_inventory_ledgers = list(InventoryLedger.objects.select_for_update().filter(source_donation__in=tuab_donations).exclude(lifecycle_status=InventoryLifecycleStatus.ARCHIVED).order_by('inventory_id'))
-
-        # Force archive all active inventory ledgers since the TUAB is being archived
-        archived_at = timezone.now()
-        for ledger in changed_inventory_ledgers: ledger.lifecycle_status, ledger.was_forced_archived, ledger.archived_at, ledger.updated_at = InventoryLifecycleStatus.ARCHIVED, True, archived_at, archived_at
-        InventoryLedger.objects.bulk_update(changed_inventory_ledgers, ['lifecycle_status', 'was_forced_archived', 'archived_at', 'updated_at'])
         # Cancel active subscriptions at the end of the block so it only runs if all external network calls succeed.
         active_subscriptions = list(Subscription.objects.select_for_update().filter(user=target_user, status=SubscriptionStatus.ACTIVE).order_by('subscription_id'))
         now = timezone.now()
