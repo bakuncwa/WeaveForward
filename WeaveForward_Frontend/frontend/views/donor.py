@@ -30,7 +30,7 @@ async def donor_browse_businesses(request):
     for biz in businesses:
         fibers = biz.get('target_fibers', '')
         if fibers:
-            biz['fiber_list'] = [f.strip() for f in fibers.split(',') if f.strip()][:3]
+            biz['fiber_list'] = [f.strip() for f in fibers.split(',') if f.strip()]
         else:
             biz['fiber_list'] = ['upcycling']
     

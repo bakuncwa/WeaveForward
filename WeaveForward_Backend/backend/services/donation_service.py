@@ -361,10 +361,7 @@ def admin_update_donation(*, request, donation) -> Donation:
                 "dropoff_address": dropoff_data['dropoff_display_address'] if dropoff_data['dropoff_display_address'] is not None else order.dropoff_display_address,
                 "pickup_name": f"{donation.donor.first_name or ''} {donation.donor.last_name or ''}".strip(),
                 "pickup_phone": donation.donor.contact_no,
-                "dropoff_name": (
-                    f"{(donation.claimed_by_tuab.first_name if donation.claimed_by_tuab else '') or ''} "
-                    f"{(donation.claimed_by_tuab.last_name if donation.claimed_by_tuab else '') or ''}"
-                ).strip() or (donation.claimed_by_tuab.business_name if donation.claimed_by_tuab else ""),
+                "dropoff_name": donation.claimed_by_tuab.business_name if donation.claimed_by_tuab else "",
                 "dropoff_phone": donation.claimed_by_tuab.contact_no if donation.claimed_by_tuab else None,
             })
             if "error" in res:
@@ -803,7 +800,7 @@ def claim_donation(user, donation, claim_params, ip_address=None):
         delivery_people = {
             'pickup_name': f"{donation.donor.first_name} {donation.donor.last_name}".strip(),
             'pickup_phone': donation.donor.contact_no,
-            'dropoff_name': f"{user.first_name} {user.last_name}".strip(),
+            'dropoff_name': user.business_name or f"{user.first_name} {user.last_name}".strip(),
             'dropoff_phone': user.contact_no,
         }
 

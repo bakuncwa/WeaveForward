@@ -249,6 +249,8 @@ def process_lalamove_webhook(payload, client_ip):
             order_record.save(update_fields=["status", "updated_at"])
 
             donation_record = order_record.donation
+            if donation_record.status not in [DonationStatus.CLAIMED, DonationStatus.IN_TRANSIT]:
+                return {"status_code": 200, "detail": "Order status updated to PICKED_UP. Donation status was left unchanged."}
             if donation_record.claimed_by_tuab:
                 log_audit(
                     actor=donation_record.claimed_by_tuab,
@@ -282,6 +284,8 @@ def process_lalamove_webhook(payload, client_ip):
                 order_record.save(update_fields=["status", "no_reassigned", "updated_at"])
 
                 donation_record = order_record.donation
+                if donation_record.status not in [DonationStatus.CLAIMED, DonationStatus.IN_TRANSIT]:
+                    return {"status_code": 200, "detail": "Order failed due to max driver rejections. Donation status was left unchanged."}
                 admin_user = User.objects.filter(role=UserRole.ADMIN).first()
                 if admin_user:
                     log_audit(
@@ -295,14 +299,8 @@ def process_lalamove_webhook(payload, client_ip):
                 donation_record.delivery_method = DonationDeliveryMethod.PICKUP
                 donation_record.updated_at = timezone.now()
                 donation_record.save(update_fields=["status", "delivery_method", "updated_at"])
-
-                payment_ids_to_refund = list(
-                    order_record.payments
-                    .filter(status=PaymentStatus.SUCCESS, amount__gt=0)
-                    .exclude(payment_reference__startswith=SUBSCRIPTION_COVERED_PAYMENT_PREFIX)
-                    .values_list("pk", flat=True)
-                )
-                webhook_response = {"status_code": 200, "detail": "Order failed due to max driver rejections. Payment reversed/refunded, donation converted to PICKUP."}
+                payment_ids_to_refund = []
+                webhook_response = {"status_code": 200, "detail": "Order failed due to max driver rejections. Donation converted to PICKUP."}
             else:
                 order_record.status = OrderStatus.ASSIGNING_DRIVER
                 order_record.no_reassigned += 1
@@ -321,6 +319,8 @@ def process_lalamove_webhook(payload, client_ip):
             order_record.save(update_fields=["status", "updated_at"])
 
             donation_record = order_record.donation
+            if donation_record.status not in [DonationStatus.CLAIMED, DonationStatus.IN_TRANSIT]:
+                return {"status_code": 200, "detail": "Order expired and failed. Donation status was left unchanged."}
             admin_user = User.objects.filter(role=UserRole.ADMIN).first()
             if admin_user:
                 log_audit(
@@ -335,13 +335,8 @@ def process_lalamove_webhook(payload, client_ip):
             donation_record.updated_at = timezone.now()
             donation_record.save(update_fields=["status", "delivery_method", "updated_at"])
 
-            payment_ids_to_refund = list(
-                order_record.payments
-                .filter(status=PaymentStatus.SUCCESS, amount__gt=0)
-                .exclude(payment_reference__startswith=SUBSCRIPTION_COVERED_PAYMENT_PREFIX)
-                .values_list("pk", flat=True)
-            )
-            webhook_response = {"status_code": 200, "detail": "Order expired and failed. Payment reversed/refunded, donation converted to PICKUP."}
+            payment_ids_to_refund = []
+            webhook_response = {"status_code": 200, "detail": "Order expired and failed. Donation converted to PICKUP."}
 
     if webhook_response:
         for payment_record in OrderPayment.objects.filter(pk__in=payment_ids_to_refund):

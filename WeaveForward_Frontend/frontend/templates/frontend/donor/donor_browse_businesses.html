@@ -260,6 +260,23 @@
     font-weight: 300;
   }
 
+  .dash-hover-card {
+    position: fixed; z-index: 9999;
+    background: #fff; color: var(--text);
+    border: 1.5px solid var(--border);
+    border-radius: 12px; padding: 14px 18px;
+    font-family: 'Poppins', sans-serif; font-size: 12px;
+    min-width: 180px; max-width: 260px;
+    box-shadow: 0 8px 30px rgba(0,0,0,.12);
+    pointer-events: none; opacity: 0; transition: opacity .12s;
+    line-height: 1.6;
+  }
+  .dash-hover-card.visible { opacity: 1; }
+  .dash-hover-card .hc-hdr { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+  .dash-hover-card .hc-items { list-style: none; padding: 0; margin: 0; }
+  .dash-hover-card .hc-items li { padding: 1px 0 1px 14px; position: relative; font-size: 11px; color: var(--text); }
+  .dash-hover-card .hc-items li::before { content: '•'; position: absolute; left: 0; color: var(--gold); }
+
   .biz-desc {
     font-size: 12px;
     color: #777;
@@ -364,6 +381,7 @@
 </div>
 
   <div id="pagination"></div>
+  <div id="donor-hover-card" class="dash-hover-card"></div>
 
 {{ businesses|json_script:"all-businesses" }}
 <script>
@@ -398,6 +416,8 @@
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   }
 
+  function esc(s) { return String(s).replace(/[&<>"']/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
   function renderPage() {
     var container = document.getElementById('biz-list');
     var header = document.getElementById('results-count');
@@ -416,7 +436,10 @@
         var avatar = biz.upload
           ? '<img class="biz-avatar" src="' + biz.upload + '" alt="' + biz.business_name + '" />'
           : '<div class="biz-avatar" style="display:flex;align-items:center;justify-content:center;background:#f0e8d8;color:var(--gold);font-weight:700;font-size:20px;font-family:Poppins,sans-serif">' + (biz.business_name||'').slice(0,2).toLowerCase() + '</div>';
-        var tags = (biz.fiber_list||[]).map(function(f) { return '<span class="tag">' + f + '</span>'; }).join('');
+        var fibers = biz.fiber_list || [];
+        var shownFibers = fibers.length > 3 ? fibers.slice(0, 2) : fibers.slice(0, 3);
+        var tags = shownFibers.map(function(f) { return '<span class="tag">' + esc(f) + '</span>'; }).join('');
+        if (fibers.length > 3) tags += '<span class="tag fiber-more" data-more="' + esc(fibers.slice(2).join('|')) + '">more..</span>';
         var dist = biz.distance_km != null ? '<span class="distance-badge">' + Number(biz.distance_km).toFixed(1) + 'km</span>' : '';
         return '<a class="biz-card" href="/donor/tuabs/' + biz.user_id + '/">' + avatar + '<div class="biz-info"><div class="biz-name">' + (biz.business_name||biz.email) + '</div><div class="biz-loc"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> ' + (biz.barangay||'') + ' ' + (biz.city||'Unknown Location') + '</div><div class="biz-tags">' + tags + '</div></div><div class="biz-desc">' + (biz.description||'No description available for this partner yet.') + '</div>' + dist + '</a>';
       }).join('');
@@ -447,6 +470,32 @@
     history.replaceState(null, '', url);
     try { sessionStorage.setItem('wfBack:donor:tuabs', url); } catch(e) {}
   }
+
+  function positionFiberCard(e) {
+    var card = document.getElementById('donor-hover-card');
+    var left = e.clientX + 16;
+    var top = e.clientY + 12;
+    if (left + 280 > window.innerWidth) left = Math.max(8, e.clientX - 280);
+    if (top + card.offsetHeight > window.innerHeight) top = window.innerHeight - card.offsetHeight - 8;
+    card.style.left = left + 'px';
+    card.style.top = Math.max(4, top) + 'px';
+  }
+
+  document.addEventListener('mouseover', function(e) {
+    var more = e.target.closest('.fiber-more');
+    if (!more) return;
+    var card = document.getElementById('donor-hover-card');
+    var items = more.getAttribute('data-more').split('|');
+    card.innerHTML = '<div class="hc-hdr">More fibers</div><ul class="hc-items">' + items.map(function(f) { return '<li>' + esc(f) + '</li>'; }).join('') + '</ul>';
+    card.classList.add('visible');
+    positionFiberCard(e);
+  });
+  document.addEventListener('mousemove', function(e) {
+    if (e.target.closest('.fiber-more')) positionFiberCard(e);
+  });
+  document.addEventListener('mouseout', function(e) {
+    if (e.target.closest('.fiber-more')) document.getElementById('donor-hover-card').classList.remove('visible');
+  });
 
   function filterAndRender(page) {
     var cat = document.getElementById('cat-filter').value;
