@@ -635,7 +635,7 @@
               <div class="group"><label class="cap-lbl">Description<span class="req">*</span></label><textarea class="in" name="description"
                   id="desc" style="height:110px;resize:none" placeholder="What do you do with the waste?">{{ form_data.description }}</textarea><span class="field-err" id="err-description"></span></div>
               <p class="hint">Displayed publicly on your TUAB profile card.</p>
-              <div class="group"><label class="cap-lbl">Social / Website Link</label><input class="in" type="url"
+              <div class="group"><label class="cap-lbl">Social / Website Link (e.g. https://example.com)</label><input class="in" type="url"
                   name="social_link" value="{{ form_data.social_link|default:'' }}"
                   onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||!/[<>\'\"\s]/.test(event.key)||event.preventDefault()"
                   oninput="this.value=this.value.replace(/[<>\'\"\s]/g,'')"><span class="field-err" id="err-social_link">

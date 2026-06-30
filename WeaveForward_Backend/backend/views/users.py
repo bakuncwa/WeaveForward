@@ -30,7 +30,7 @@ from ..serializers import (
 )
 from ..services.audit_service import get_client_ip, log_audit
 from ..services.auth_service import create_tuab_documentation_upload, generate_api_key, generate_reset_token, get_request_base_url
-from ..services.email_service import send_verification_email
+from ..services.email_service import send_tuab_review_result_email, send_verification_email
 from ..services.etag_service import build_updated_at_etag, matches_if_match
 from ..services.two_factor_service import disable_two_factor, enable_two_factor
 from ..services.user_archive_service import archive_user
@@ -295,6 +295,13 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
                 fields_modified=['status', 'rejection_reason'] if status_input == UserAccountStatus.REJECTED else ['status']
             )
 
+        send_tuab_review_result_email(
+            target_user.email,
+            target_user.business_name,
+            status_input == UserAccountStatus.ACTIVE,
+            target_user.rejection_reason,
+        )
+
         response = Response(self.get_serializer(target_user).data, status=status.HTTP_200_OK)
         response['ETag'] = build_updated_at_etag(target_user)
         return response
@@ -525,6 +532,9 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retriev
                     user.status = UserAccountStatus.ACTIVE
                     user.save(update_fields=['status', 'updated_at'])
                     return Response({"message": "Donor account created successfully."}, status=status.HTTP_201_CREATED)
+
+                if user.status == UserAccountStatus.UNDER_REVIEW:
+                    return Response({"message": "TUAB application submitted for review."}, status=status.HTTP_201_CREATED)
 
                 try:
                     uidb64, token = generate_reset_token(user)

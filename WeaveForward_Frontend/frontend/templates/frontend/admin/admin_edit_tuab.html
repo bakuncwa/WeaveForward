@@ -490,7 +490,7 @@
         value="{{ tuab.business_name|default:'' }}" maxlength="125" required></div>
     <div class="group"><label class="up">Description</label><input class="in" name="description"
         value="{{ tuab.description|default:'' }}" required></div>
-    <div class="group"><label class="up">Social / Website Link</label><input class="in" type="url" name="social_link"
+    <div class="group"><label class="up">Social / Website Link (e.g. https://example.com)</label><input class="in" type="url" name="social_link"
         value="{{ tuab.social_link|default:'' }}"
         onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||!/[<>\'\"\s]/.test(event.key)||event.preventDefault()"
         oninput="this.value=this.value.replace(/[<>\'\"\s]/g,'')"></div>

@@ -8,7 +8,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.settings import api_settings
 
 from ..constants import TUAB_REG_ALLOWED_EXTENSIONS, TUAB_REG_MAX_SIZE
-from ..models import User, UserAccountStatus
+from ..models import User, UserAccountStatus, UserRole
 from ..services.auth_service import reset_user_password, validate_reset_token
 from ..services.location_service import get_city_and_barangay
 from ..services.brand_fiber_lookup_service import get_allowed_fibers
@@ -83,20 +83,30 @@ class TUABRegisterSerializer(serializers.ModelSerializer):
             'description', 'social_link', 'display_address', 'latitude', 'longitude',
             'city', 'barangay', 'target_fibers', 'max_distance_km', 'min_biodeg_score', 'documentation'
         ]
+        extra_kwargs = {
+            'email': {'validators': []},
+            'contact_no': {'validators': []},
+        }
 
     def validate(self, data):
         # Email
         email = data.get('email', '')
         if not re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', email):
             raise serializers.ValidationError({'email': "Please enter a valid email address."})
-        if User.objects.filter(email__iexact=email).exists():
+
+        rejected_tuab = User.objects.filter(
+            email__iexact=email,
+            role=UserRole.TUAB,
+            status=UserAccountStatus.REJECTED,
+        ).first()
+        if User.objects.filter(email__iexact=email).exclude(pk=getattr(rejected_tuab, 'pk', None)).exists():
             raise serializers.ValidationError({'email': "Email already taken."})
 
         # Phone
         contact_no = data.get('contact_no', '')
         if not re.match(r'^\+639\d{9}$', contact_no):
             raise serializers.ValidationError({'contact_no': "Enter a valid Philippine mobile number starting with +63 (e.g., +639171234567)."})
-        if User.objects.filter(contact_no=contact_no).exists():
+        if User.objects.filter(contact_no=contact_no).exclude(pk=getattr(rejected_tuab, 'pk', None)).exists():
             raise serializers.ValidationError({'contact_no': "Phone already taken."})
 
         # Password
@@ -131,10 +141,23 @@ class TUABRegisterSerializer(serializers.ModelSerializer):
         if data['min_biodeg_score'] < 0 or data['min_biodeg_score'] > 100:
             raise serializers.ValidationError({'min_biodeg_score': "Must be between 0 and 100."})
 
+        self.rejected_tuab = rejected_tuab
         return data
 
     def create(self, validated_data):
         role, password = validated_data.pop('role', 'TUAB'), validated_data.pop('password')
+        rejected_tuab = getattr(self, 'rejected_tuab', None)
+        if rejected_tuab:
+            for attr, value in validated_data.items():
+                setattr(rejected_tuab, attr, value)
+            rejected_tuab.role = role
+            rejected_tuab.status = UserAccountStatus.UNDER_REVIEW
+            rejected_tuab.operational_status = None
+            rejected_tuab.rejection_reason = None
+            rejected_tuab.set_password(password)
+            rejected_tuab.save()
+            return rejected_tuab
+
         validated_data['role'] = role
         validated_data['status'] = UserAccountStatus.EMAIL_UNVERIFIED
         return User.objects.create_user(password=password, **validated_data)

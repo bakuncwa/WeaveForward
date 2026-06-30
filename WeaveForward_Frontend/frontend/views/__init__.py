@@ -408,10 +408,12 @@ async def tuab_registration(request):
                 },
             )
             if response.status_code == 201:
+                response_data = response.json()
+                success_message = response_data.get('message', "TUAB Application Submitted! Please check your email for a verification link.")
                 if is_ajax:
-                    messages.success(request, "TUAB Application Submitted! Please check your email for a verification link.")
-                    return JsonResponse({'redirect': reverse('login')})
-                messages.success(request, "TUAB Application Submitted! Please check your email for a verification link.")
+                    messages.success(request, success_message)
+                    return JsonResponse({'redirect': reverse('login'), 'message': success_message})
+                messages.success(request, success_message)
                 return redirect('login')
             else:
                 try:

@@ -74,6 +74,38 @@ def send_verification_email(to_email, verify_link, display_name):
         return None
 
 
+def send_tuab_review_result_email(to_email, business_name, approved, rejection_reason=None):
+    resend.api_key = settings.RESEND_API_KEY
+    safe_name = escape(business_name or "there")
+    safe_reason = escape(rejection_reason or "")
+    title = "Your TUAB Application Was Approved" if approved else "Your TUAB Application Was Reviewed"
+    body = (
+        "<p>Good news! Your WeaveForward TUAB account has been approved. You can now log in and start claiming donations.</p>"
+        if approved else
+        f"<p>Thank you for applying to WeaveForward. Your TUAB application was rejected.</p><p><strong>Reason:</strong> {safe_reason}</p>"
+    )
+
+    params = {
+        "from": "WeaveForward <no-reply@weaveforward.online>",
+        "to": [to_email],
+        "subject": title,
+        "html": f"""
+            <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                <h2 style="color: #2D3748;">{title}</h2>
+                <p>Hello {safe_name},</p>
+                {body}
+                <p>Best regards,<br>The WeaveForward Team</p>
+            </div>
+        """,
+    }
+
+    try:
+        return resend.Emails.send(params)
+    except Exception as e:
+        logger.error("Failed to send TUAB review result email to %s: %s", to_email, e)
+        return None
+
+
 def send_match_accept_notification(donor_email, donor_name, tuab_name,
                                     pickup_address, pickup_date, items_list):
     resend.api_key = settings.RESEND_API_KEY
