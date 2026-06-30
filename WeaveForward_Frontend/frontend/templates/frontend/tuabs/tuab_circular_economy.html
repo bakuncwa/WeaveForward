@@ -3,6 +3,7 @@
 
 {% block content %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="{% static 'frontend/css/fiber-swatches.css' %}">
 <script src="{% static 'frontend/js/fiber-swatches.js' %}"></script>
 
@@ -81,7 +82,7 @@
         gap: 10px;
     }
 
-    .ce-btn-apply, .ce-export-btn {
+    .ce-btn-apply {
         font-family: 'Poppins', sans-serif;
         font-size: 12px;
         font-weight: 400;
@@ -97,7 +98,59 @@
         word-break: normal;
         overflow-wrap: normal;
     }
-    .ce-btn-apply:hover, .ce-export-btn:hover { background: #d18c18; }
+    .ce-btn-apply:hover { background: #d18c18; }
+
+    /* ── Download dropdown ── */
+    .ce-dl-wrap { position: relative; width: 100%; }
+    .ce-dl-btn {
+        font-family: 'Poppins', sans-serif;
+        font-size: 12px;
+        font-weight: 400;
+        background: var(--gold);
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 10px 14px;
+        cursor: pointer;
+        width: 100%;
+        transition: background 0.15s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        white-space: nowrap;
+        box-sizing: border-box;
+    }
+    .ce-dl-btn:hover { background: #d18c18; }
+    .ce-dl-menu {
+        position: absolute;
+        right: 0;
+        top: calc(100% + 4px);
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+        min-width: 100%;
+        z-index: 200;
+        overflow: hidden;
+    }
+    .ce-dl-menu.hidden { display: none; }
+    .ce-dl-menu button {
+        display: block;
+        width: 100%;
+        padding: 9px 16px;
+        text-align: left;
+        background: none;
+        border: none;
+        font-family: 'Poppins', sans-serif;
+        font-size: 12px;
+        color: var(--text);
+        cursor: pointer;
+        transition: background 0.12s;
+        box-sizing: border-box;
+    }
+    .ce-dl-menu button:hover { background: #fdf6e8; }
+    .ce-dl-menu button + button { border-top: 1px solid var(--border); }
 
     /* ── Error banner ── */
     .ce-error {
@@ -351,7 +404,18 @@
         </div>
         <div class="ce-filter-actions">
             <button class="ce-btn-apply" type="submit">Apply Filters</button>
-            <button type="button" class="ce-export-btn" onclick="exportCircularReport()">Export Report</button>
+            <div class="ce-dl-wrap">
+                <button type="button" class="ce-dl-btn" onclick="toggleCEDlMenu(event)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Download
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="ce-dl-menu hidden" id="ce-dl-menu">
+                    <button onclick="exportCECSV();closeCEDlMenu()">CSV</button>
+                    <button onclick="exportCEXLSX();closeCEDlMenu()">XLSX</button>
+                    <button onclick="exportCircularReport();closeCEDlMenu()">PDF</button>
+                </div>
+            </div>
         </div>
     </form>
 
@@ -653,6 +717,76 @@ function restoreCircularPrint() {
         chart.update('none');
     });
     cePrintInProgress = false;
+}
+
+function toggleCEDlMenu(e) {
+    e.stopPropagation();
+    document.getElementById('ce-dl-menu').classList.toggle('hidden');
+}
+function closeCEDlMenu() {
+    document.getElementById('ce-dl-menu').classList.add('hidden');
+}
+document.addEventListener('click', () => closeCEDlMenu());
+
+function exportCECSV() {
+    const rows = [];
+    rows.push(['Section', 'Label', 'Value']);
+
+    if (DATA.biodeg_distribution) {
+        DATA.biodeg_distribution.forEach(item => {
+            rows.push(['Biodegradability Distribution', item.label ?? item.range ?? '', item.count ?? item.value ?? '']);
+        });
+    }
+    if (DATA.top_brands) {
+        DATA.top_brands.forEach(item => {
+            rows.push(['Top Brands', item.brand ?? item.label ?? '', item.count ?? item.value ?? '']);
+        });
+    }
+    if (DATA.decisions_by_city) {
+        DATA.decisions_by_city.forEach(item => {
+            rows.push(['Decisions by City', item.city ?? item.label ?? '', item.count ?? item.value ?? '']);
+        });
+    }
+    if (DATA.volume_by_city_fiber) {
+        DATA.volume_by_city_fiber.forEach(item => {
+            rows.push(['Volume by City & Fiber', item.city ?? item.label ?? '', item.volume ?? item.value ?? '']);
+        });
+    }
+
+    const csv = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `circular-economy-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
+
+function exportCEXLSX() {
+    try {
+        const wb = XLSX.utils.book_new();
+
+        function sectionSheet(name, items, labelKey, valueKey) {
+            if (!items || !items.length) return;
+            const headers = [labelKey, valueKey];
+            const rows = items.map(item => [item[labelKey] ?? item.label ?? '', item[valueKey] ?? item.value ?? '']);
+            const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+            XLSX.utils.book_append_sheet(wb, ws, name);
+        }
+
+        if (DATA.biodeg_distribution?.length) sectionSheet('Biodeg Distribution', DATA.biodeg_distribution, DATA.biodeg_distribution[0].range !== undefined ? 'range' : 'label', DATA.biodeg_distribution[0].count !== undefined ? 'count' : 'value');
+        if (DATA.top_brands?.length) sectionSheet('Top Brands', DATA.top_brands, DATA.top_brands[0].brand !== undefined ? 'brand' : 'label', DATA.top_brands[0].count !== undefined ? 'count' : 'value');
+        if (DATA.decisions_by_city?.length) sectionSheet('Decisions by City', DATA.decisions_by_city, DATA.decisions_by_city[0].city !== undefined ? 'city' : 'label', DATA.decisions_by_city[0].count !== undefined ? 'count' : 'value');
+        if (DATA.volume_by_city_fiber?.length) sectionSheet('Volume by City & Fiber', DATA.volume_by_city_fiber, DATA.volume_by_city_fiber[0].city !== undefined ? 'city' : 'label', DATA.volume_by_city_fiber[0].volume !== undefined ? 'volume' : 'value');
+
+        if (wb.SheetNames.length === 0) {
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['No data available']]), 'Sheet1');
+        }
+
+        XLSX.writeFile(wb, `circular-economy-${new Date().toISOString().split('T')[0]}.xlsx`);
+    } catch (err) {
+        console.error(err);
+    }
 }
 
 async function exportCircularReport() {
