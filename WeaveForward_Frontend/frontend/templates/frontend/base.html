@@ -718,15 +718,27 @@
         </div>
         <div style="display: flex; align-items: center; gap: 14px;">
           {% if request.path == '/tuab/inventory/' %}
-          <button class="btn-download-csv" onclick="exportInventoryCSV()" style="
-            display: inline-flex; align-items: center; gap: 8px;
-            background: #2d7a4f; color: #fff; border: none; border-radius: 8px;
-            padding: 8px 16px; font-family: 'Poppins', sans-serif; font-size: 12px;
-            font-weight: 600; cursor: pointer; text-decoration: none; transition: background .2s;
-          ">
-            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Download
-          </button>
+          <div style="position: relative;">
+            <button class="btn-download-csv" onclick="toggleExportDlMenu(event)" style="
+              display: inline-flex; align-items: center; gap: 8px;
+              background: #2d7a4f; color: #fff; border: none; border-radius: 8px;
+              padding: 8px 16px; font-family: 'Poppins', sans-serif; font-size: 12px;
+              font-weight: 600; cursor: pointer; text-decoration: none; transition: background .2s;
+            ">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Export
+              <svg width="10" height="10" fill="currentColor" viewBox="0 0 20 20"><path d="M5 8l5 5 5-5H5z"/></svg>
+            </button>
+            <div id="export-dl-menu" style="
+              display: none; position: absolute; right: 0; top: calc(100% + 4px);
+              background: #fff; border: 1px solid #e5ddca; border-radius: 8px;
+              box-shadow: 0 4px 16px rgba(0,0,0,0.10); min-width: 130px; z-index: 200; overflow: hidden;
+            ">
+              <button onclick="exportInventoryCSV();closeExportDlMenu()" style="display:block;width:100%;padding:9px 16px;text-align:left;background:none;border:none;font-family:'Poppins',sans-serif;font-size:12px;color:#333;cursor:pointer;">CSV</button>
+              <button onclick="exportInventoryXLSX();closeExportDlMenu()" style="display:block;width:100%;padding:9px 16px;text-align:left;background:none;border:none;border-top:1px solid #e5ddca;font-family:'Poppins',sans-serif;font-size:12px;color:#333;cursor:pointer;">XLSX</button>
+              <button onclick="exportInventoryPDF();closeExportDlMenu()" style="display:block;width:100%;padding:9px 16px;text-align:left;background:none;border:none;border-top:1px solid #e5ddca;font-family:'Poppins',sans-serif;font-size:12px;color:#333;cursor:pointer;">PDF</button>
+            </div>
+          </div>
           {% endif %}
 
           <!-- Avatar: Show profile picture if it exists, else initials -->
@@ -831,6 +843,20 @@
     function getCsrf() {
       return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
     }
+  </script>
+
+  <script>
+    function toggleExportDlMenu(e) {
+      e.stopPropagation();
+      const menu = document.getElementById('export-dl-menu');
+      if (!menu) return;
+      menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+    }
+    function closeExportDlMenu() {
+      const menu = document.getElementById('export-dl-menu');
+      if (menu) menu.style.display = 'none';
+    }
+    document.addEventListener('click', () => closeExportDlMenu());
   </script>
 
   <!-- Global wfToast — styled inline alert matching .wf-alert design system -->

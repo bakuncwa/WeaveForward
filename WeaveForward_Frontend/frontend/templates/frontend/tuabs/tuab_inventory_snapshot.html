@@ -72,54 +72,6 @@
   .inv-section-title { font-family: 'Poppins', sans-serif; font-size: 14px; font-weight: 600; color: var(--text); }
   .inv-section-right { display: flex; align-items: center; gap: 10px; }
   /* ── Download dropdown ── */
-  .dl-wrap { position: relative; display: inline-block; }
-  .btn-dl {
-    font-family: 'Poppins', sans-serif;
-    font-size: 12px;
-    font-weight: 500;
-    background: var(--gold);
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    padding: 6px 14px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    white-space: nowrap;
-    transition: background 0.15s;
-  }
-  .btn-dl:hover { background: var(--gold-dark); }
-  .btn-dl svg { flex-shrink: 0; }
-  .dl-menu {
-    position: absolute;
-    right: 0;
-    top: calc(100% + 4px);
-    background: #fff;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.10);
-    min-width: 130px;
-    z-index: 200;
-    overflow: hidden;
-  }
-  .dl-menu.hidden { display: none; }
-  .dl-menu button {
-    display: block;
-    width: 100%;
-    padding: 9px 16px;
-    text-align: left;
-    background: none;
-    border: none;
-    font-family: 'Poppins', sans-serif;
-    font-size: 12px;
-    color: var(--text);
-    cursor: pointer;
-    transition: background 0.12s;
-  }
-  .dl-menu button:hover { background: #fdf6e8; }
-  .dl-menu button + button { border-top: 1px solid var(--border); }
-
   .btn-audit-hist {
     background: var(--gold); color: #fff; border: none; border-radius: 8px;
     padding: 8px 16px; font-family: 'Poppins', sans-serif; font-size: 12px;
@@ -320,20 +272,8 @@
     <button class="undo-btn" onclick="undoArchive()">Undo</button>
   </div>
 
-  <div class="audit-hist-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-    <a href="#" class="btn-audit-hist" onclick="viewAuditHistory(event)" style="flex:1;">View Audit History</a>
-    <div class="dl-wrap">
-      <button class="btn-dl" onclick="toggleInvDlMenu(event)">
-        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Download
-        <svg width="10" height="10" fill="currentColor" viewBox="0 0 20 20"><path d="M5 8l5 5 5-5H5z"/></svg>
-      </button>
-      <div class="dl-menu hidden" id="inv-dl-menu">
-        <button onclick="exportInventoryCSV();closeInvDlMenu()">CSV</button>
-        <button onclick="exportInventoryXLSX();closeInvDlMenu()">XLSX</button>
-        <button onclick="exportInventoryPDF();closeInvDlMenu()">PDF</button>
-      </div>
-    </div>
+  <div class="audit-hist-row">
+    <a href="#" class="btn-audit-hist" onclick="viewAuditHistory(event)">View Audit History</a>
   </div>
 
   <!-- Inventory Grid -->
@@ -692,16 +632,6 @@
   function exportInventoryPDF() {
     window.print();
   }
-
-  function toggleInvDlMenu(e) {
-    e.stopPropagation();
-    const menu = document.getElementById('inv-dl-menu');
-    menu.classList.toggle('hidden');
-  }
-  function closeInvDlMenu() {
-    document.getElementById('inv-dl-menu').classList.add('hidden');
-  }
-  document.addEventListener('click', () => closeInvDlMenu());
 
   /* Auto-refresh inventory snapshot */
   let inventorySnapshotFingerprint = null;

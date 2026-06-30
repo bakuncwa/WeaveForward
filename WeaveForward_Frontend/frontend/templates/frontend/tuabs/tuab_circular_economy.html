@@ -728,30 +728,44 @@ function closeCEDlMenu() {
 }
 document.addEventListener('click', () => closeCEDlMenu());
 
+const CE_SECTIONS = [
+    {
+        name: 'Biodeg Distribution',
+        data: () => DATA.biodeg_distribution,
+        headers: ['Range', 'Count'],
+        row: item => [item.range, item.count],
+    },
+    {
+        name: 'Volume by City & Fiber',
+        data: () => DATA.volume_by_city_fiber,
+        headers: ['City', 'Fiber', 'Weight (kg)', 'Item Count'],
+        row: item => [item.city, item.fiber, item.weight_kg, item.item_count],
+    },
+    {
+        name: 'Top Brands',
+        data: () => DATA.top_brands,
+        headers: ['Brand', 'Weight (kg)', 'Item Count'],
+        row: item => [item.brand, item.weight_kg, item.item_count],
+    },
+    {
+        name: 'Decisions by City',
+        data: () => DATA.decisions_by_city,
+        headers: ['City', 'Accepted', 'Rejected'],
+        row: item => [item.city, item.accepted, item.rejected],
+    },
+];
+
 function exportCECSV() {
     const rows = [];
-    rows.push(['Section', 'Label', 'Value']);
 
-    if (DATA.biodeg_distribution) {
-        DATA.biodeg_distribution.forEach(item => {
-            rows.push(['Biodegradability Distribution', item.label ?? item.range ?? '', item.count ?? item.value ?? '']);
-        });
-    }
-    if (DATA.top_brands) {
-        DATA.top_brands.forEach(item => {
-            rows.push(['Top Brands', item.brand ?? item.label ?? '', item.count ?? item.value ?? '']);
-        });
-    }
-    if (DATA.decisions_by_city) {
-        DATA.decisions_by_city.forEach(item => {
-            rows.push(['Decisions by City', item.city ?? item.label ?? '', item.count ?? item.value ?? '']);
-        });
-    }
-    if (DATA.volume_by_city_fiber) {
-        DATA.volume_by_city_fiber.forEach(item => {
-            rows.push(['Volume by City & Fiber', item.city ?? item.label ?? '', item.volume ?? item.value ?? '']);
-        });
-    }
+    CE_SECTIONS.forEach(section => {
+        const items = section.data();
+        if (!items || !items.length) return;
+        rows.push([section.name]);
+        rows.push(section.headers);
+        items.forEach(item => rows.push(section.row(item)));
+        rows.push([]);
+    });
 
     const csv = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -766,18 +780,13 @@ function exportCEXLSX() {
     try {
         const wb = XLSX.utils.book_new();
 
-        function sectionSheet(name, items, labelKey, valueKey) {
+        CE_SECTIONS.forEach(section => {
+            const items = section.data();
             if (!items || !items.length) return;
-            const headers = [labelKey, valueKey];
-            const rows = items.map(item => [item[labelKey] ?? item.label ?? '', item[valueKey] ?? item.value ?? '']);
-            const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-            XLSX.utils.book_append_sheet(wb, ws, name);
-        }
-
-        if (DATA.biodeg_distribution?.length) sectionSheet('Biodeg Distribution', DATA.biodeg_distribution, DATA.biodeg_distribution[0].range !== undefined ? 'range' : 'label', DATA.biodeg_distribution[0].count !== undefined ? 'count' : 'value');
-        if (DATA.top_brands?.length) sectionSheet('Top Brands', DATA.top_brands, DATA.top_brands[0].brand !== undefined ? 'brand' : 'label', DATA.top_brands[0].count !== undefined ? 'count' : 'value');
-        if (DATA.decisions_by_city?.length) sectionSheet('Decisions by City', DATA.decisions_by_city, DATA.decisions_by_city[0].city !== undefined ? 'city' : 'label', DATA.decisions_by_city[0].count !== undefined ? 'count' : 'value');
-        if (DATA.volume_by_city_fiber?.length) sectionSheet('Volume by City & Fiber', DATA.volume_by_city_fiber, DATA.volume_by_city_fiber[0].city !== undefined ? 'city' : 'label', DATA.volume_by_city_fiber[0].volume !== undefined ? 'volume' : 'value');
+            const wsData = [section.headers, ...items.map(item => section.row(item).map(v => v === null || v === undefined ? '' : v))];
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            XLSX.utils.book_append_sheet(wb, ws, section.name);
+        });
 
         if (wb.SheetNames.length === 0) {
             XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['No data available']]), 'Sheet1');
