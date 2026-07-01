@@ -19,6 +19,14 @@ from ..utils.view_mixins import PaginatedResponseMixin
 from ..services.audit_service import get_client_ip, log_audit
 
 
+def _notes_payload(raw_notes):
+    try:
+        payload = json.loads(raw_notes) if raw_notes else {}
+        return payload if isinstance(payload, dict) else {'text': raw_notes}
+    except (TypeError, json.JSONDecodeError):
+        return {'text': raw_notes}
+
+
 class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, PaginatedResponseMixin):
     """
     ViewSet for managing TUAB inventory ledger entries.
@@ -185,13 +193,7 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
         before_weight = instance.current_weight_kg
         after_weight = (before_weight - usage).quantize(Decimal('0.01'))
 
-        raw_notes = instance.notes
-        try:
-            notes_payload = json.loads(raw_notes) if raw_notes else {}
-            if not isinstance(notes_payload, dict):
-                notes_payload = {'text': raw_notes}
-        except (TypeError, json.JSONDecodeError):
-            notes_payload = {'text': raw_notes}
+        notes_payload = _notes_payload(instance.notes)
 
         if request.data.get('notes'):
             notes_payload['text'] = request.data.get('notes')
@@ -242,10 +244,29 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
         if exit_state_raw not in valid_exit_states:
             return Response({'error': 'Exit state must be Upcycled, Shredded, or Landfill.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        before_weight = instance.current_weight_kg
+        notes_payload = _notes_payload(instance.notes)
+        events = notes_payload.get('production_context')
+        if not isinstance(events, list):
+            events = []
+        events.append({
+            'action': 'ARCHIVE',
+            'exit_state': exit_state_raw,
+            'used': str(before_weight),
+            'before': str(before_weight),
+            'after': '0.00',
+            'usage_before': str(instance.usage_amount_kg),
+            'at': timezone.localtime(timezone.now()).isoformat(),
+        })
+        notes_payload['production_context'] = events
+
         instance.lifecycle_status = InventoryLifecycleStatus.ARCHIVED
         instance.exit_state = exit_state_raw
         instance.archived_at = timezone.now()
-        instance.was_forced_archived = instance.current_weight_kg > 0
+        instance.was_forced_archived = before_weight > 0
+        instance.usage_amount_kg = (instance.usage_amount_kg + before_weight).quantize(Decimal('0.01'))
+        instance.current_weight_kg = Decimal('0.00')
+        instance.notes = json.dumps(notes_payload, separators=(',', ':'))
         instance.save()
 
         # Log audit trail
@@ -254,7 +275,7 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
             entity_type='inventory_ledger',
             action='STATUS_CHANGE',
             ip_address=get_client_ip(request),
-            fields_modified=['lifecycle_status', 'exit_state', 'archived_at', 'was_forced_archived']
+            fields_modified=['lifecycle_status', 'exit_state', 'archived_at', 'was_forced_archived', 'usage_amount_kg', 'current_weight_kg', 'notes']
         )
 
         serializer = self.get_serializer(instance)
@@ -279,10 +300,22 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
         if instance.archived_at and (timezone.now() - instance.archived_at).total_seconds() > 10:
             return Response({'error': 'Undo window has expired.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        notes_payload = _notes_payload(instance.notes)
+        events = notes_payload.get('production_context')
+        if not isinstance(events, list):
+            events = []
+        archive_index = next((i for i in range(len(events) - 1, -1, -1) if isinstance(events[i], dict) and events[i].get('action') == 'ARCHIVE'), None)
+        archive_event = events.pop(archive_index) if archive_index is not None else {}
+        notes_payload['production_context'] = events
+        restore_weight = Decimal(str(archive_event.get('before', instance.weight_before_kg))).quantize(Decimal('0.01'))
+        restore_usage = Decimal(str(archive_event.get('usage_before', instance.usage_amount_kg))).quantize(Decimal('0.01'))
         instance.lifecycle_status = InventoryLifecycleStatus.ACTIVE
         instance.exit_state = None
         instance.archived_at = None
         instance.was_forced_archived = False
+        instance.current_weight_kg = restore_weight
+        instance.usage_amount_kg = restore_usage
+        instance.notes = json.dumps(notes_payload, separators=(',', ':'))
         instance.save()
 
         # Log audit trail
@@ -291,7 +324,7 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
             entity_type='inventory_ledger',
             action='STATUS_CHANGE',
             ip_address=get_client_ip(request),
-            fields_modified=['lifecycle_status', 'exit_state', 'archived_at', 'was_forced_archived']
+            fields_modified=['lifecycle_status', 'exit_state', 'archived_at', 'was_forced_archived', 'usage_amount_kg', 'current_weight_kg', 'notes']
         )
 
         serializer = self.get_serializer(instance)

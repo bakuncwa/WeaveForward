@@ -47,13 +47,12 @@ async function loadMaterials(el, preserve = false) {
     itemsContainer.innerHTML = '';
     if (!materials.length) {
       if (!preserve) {
-        if (wrap.dataset.allowCustom !== undefined) {
-          matText.textContent = 'No exact match — Custom composition available';
-          trigger.classList.remove('disabled');
-        } else {
-          matText.textContent = 'No matches — We\'ll guess the material for you';
-          trigger.classList.add('disabled');
-        }
+        matText.textContent = 'Search or leave empty if unknown';
+      }
+      if (wrap.dataset.allowCustom !== undefined) {
+        trigger.classList.remove('disabled');
+      } else {
+        trigger.classList.add('disabled');
       }
     } else {
       trigger.classList.remove('disabled');
