@@ -531,6 +531,48 @@
         display: none !important;
     }
 
+    /* ── Sibling items warning ── */
+    .sibling-banner {
+        margin-top: 10px;
+        padding: 8px 10px;
+        background: #fff8ec;
+        border: 1px solid #f5d898;
+        border-radius: 6px;
+        font-size: 11px;
+        color: #7a5a00;
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+    }
+    .sibling-banner svg { flex-shrink: 0; margin-top: 1px; }
+    .sibling-banner-items { display: flex; flex-direction: column; gap: 3px; }
+    .sibling-item-tag {
+        display: inline-flex; align-items: center; gap: 4px;
+        background: #fff0cc; border: 1px solid #f5d898; border-radius: 4px;
+        padding: 2px 7px; font-size: 10px; font-weight: 600; color: #7a5a00;
+    }
+
+    /* ── Sibling confirm modal ── */
+    .sibling-modal-item {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 8px 0; border-bottom: 1px solid var(--border);
+        font-size: 12px;
+    }
+    .sibling-modal-item:last-child { border-bottom: none; }
+    .sibling-modal-fiber {
+        font-weight: 600; color: var(--text); text-transform: uppercase; font-size: 11px;
+    }
+    .sibling-modal-meta { color: var(--muted); font-size: 11px; }
+    .sibling-modal-list { margin: 10px 0 16px; max-height: 180px; overflow-y: auto; }
+    .modal-desc {
+        font-size: 12px; color: var(--muted); margin: 0 0 10px;
+        line-height: 1.5;
+    }
+    .modal-btn-accept-full {
+        background: var(--gold);
+        color: #fff;
+    }
+
     /* Compact inline bar (biodeg) */
     .bd-meter {
         flex: 1;
@@ -765,6 +807,24 @@
                         </span>
                     </div>
 
+                    {% if rec.other_items %}
+                    <div class="sibling-banner">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        <div>
+                            <div style="font-weight:600;margin-bottom:4px;">Donation also includes:</div>
+                            <div class="sibling-banner-items">
+                                {% for si in rec.other_items %}
+                                <span class="sibling-item-tag">
+                                    {{ si.dominant_fiber|upper|default:"Unknown" }}
+                                    {% if si.clothing_type %}&middot; {{ si.clothing_type }}{% endif %}
+                                    &middot; {{ si.weight_kg|floatformat:2 }} kg
+                                </span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
                     <div class="rec-actions">
                         <button type="button" class="btn-accept"
                             onclick="acceptRecommendation(event, {{ rec.pair_id }})">Accept</button>
@@ -801,6 +861,19 @@
         <div class="modal-buttons">
             <button type="button" class="modal-btn modal-btn-confirm" onclick="confirmReject()">Reject</button>
             <button type="button" class="modal-btn modal-btn-cancel" onclick="closeRejectModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<div id="siblingModal" class="modal-overlay hidden"
+    onclick="if(event.target===this) closeSiblingModal()">
+    <div class="modal-box" style="max-width:420px;">
+        <h3 class="modal-title">This donation includes other items</h3>
+        <p class="modal-desc">The following items are included in this donation but are <strong>not matched</strong> to your fiber preferences. If you accept, you can remove unwanted items by going to <strong>Update Donation</strong> after claiming.</p>
+        <div class="sibling-modal-list" id="siblingModalList"></div>
+        <div class="modal-buttons">
+            <button type="button" class="modal-btn modal-btn-accept-full" id="siblingModalConfirmBtn" onclick="confirmAcceptFull()">Accept Full Donation</button>
+            <button type="button" class="modal-btn modal-btn-cancel" onclick="closeSiblingModal()">Cancel</button>
         </div>
     </div>
 </div>
@@ -963,10 +1036,52 @@ _renderFiberTags();
         }
     }
 
+    let _pendingAcceptPairId = null;
+    let _pendingAcceptBtn = null;
+
     async function acceptRecommendation(e, pairId) {
         e.stopPropagation();
         const btn = e.currentTarget;
-        btn.disabled = true; btn.textContent = 'Accepting…';
+        const rec = recommendations.find(r => r.pair_id === pairId);
+        const otherItems = rec?.other_items || [];
+
+        if (otherItems.length > 0) {
+            _pendingAcceptPairId = pairId;
+            _pendingAcceptBtn = btn;
+            const list = document.getElementById('siblingModalList');
+            list.innerHTML = otherItems.map(si => {
+                const fiber = si.dominant_fiber ? si.dominant_fiber.toUpperCase() : 'Unknown';
+                const type = si.clothing_type ? ` · ${si.clothing_type}` : '';
+                const biodeg = si.biodeg_score != null ? ` · Biodeg ${si.biodeg_score}%` : '';
+                const weight = ` · ${parseFloat(si.weight_kg).toFixed(2)} kg`;
+                return `<div class="sibling-modal-item">
+                    <span class="sibling-modal-fiber">${fiber}${type}</span>
+                    <span class="sibling-modal-meta">${weight}${biodeg}</span>
+                </div>`;
+            }).join('');
+            document.getElementById('siblingModal').classList.remove('hidden');
+            return;
+        }
+
+        await _doAccept(pairId, btn);
+    }
+
+    function closeSiblingModal() {
+        document.getElementById('siblingModal').classList.add('hidden');
+        _pendingAcceptPairId = null;
+        _pendingAcceptBtn = null;
+    }
+
+    async function confirmAcceptFull() {
+        if (!_pendingAcceptPairId) return;
+        const pairId = _pendingAcceptPairId;
+        const btn = _pendingAcceptBtn;
+        closeSiblingModal();
+        await _doAccept(pairId, btn);
+    }
+
+    async function _doAccept(pairId, btn) {
+        if (btn) { btn.disabled = true; btn.textContent = 'Accepting…'; }
         try {
             const res = await fetch(`/api/tuab/match-predict/${pairId}/accept/`, {
                 method: 'POST',
@@ -988,7 +1103,7 @@ _renderFiberTags();
         } catch {
             wfToast('An error occurred. Please try again.', 'error');
         } finally {
-            if (btn.parentElement) { btn.disabled = false; btn.textContent = 'Accept'; }
+            if (btn && btn.parentElement) { btn.disabled = false; btn.textContent = 'Accept'; }
         }
     }
 

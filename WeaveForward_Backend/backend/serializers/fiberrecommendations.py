@@ -78,6 +78,30 @@ class DonationItemPreviewSerializer(serializers.ModelSerializer):
             return 'MEDIUM'
 
 
+def _serialize_sibling_items(matched_item):
+    siblings = DonationItem.objects.filter(
+        donation=matched_item.donation,
+        is_archived=False,
+    ).exclude(item_id=matched_item.item_id).select_related('lookup')
+    result = []
+    for s in siblings:
+        try:
+            fiber_json = json.loads(s.lookup.fiber_json) if s.lookup and s.lookup.fiber_json else {}
+        except (json.JSONDecodeError, AttributeError):
+            fiber_json = {}
+        dominant = max(fiber_json, key=fiber_json.get) if fiber_json else None
+        biodeg = round(MatchPredictionService._compute_biodeg_score(fiber_json), 2) if fiber_json else None
+        result.append({
+            'item_id': s.item_id,
+            'weight_kg': float(s.weight_kg),
+            'clothing_type': s.lookup.clothing_type if s.lookup else None,
+            'dominant_fiber': dominant,
+            'fiber_breakdown': fiber_json,
+            'biodeg_score': biodeg,
+        })
+    return result
+
+
 class MatchRecommendationListSerializer(serializers.ModelSerializer):
     donor = serializers.SerializerMethodField()
     item = DonationItemPreviewSerializer()
@@ -85,10 +109,11 @@ class MatchRecommendationListSerializer(serializers.ModelSerializer):
     biodeg_tier = serializers.SerializerMethodField()
     distance_km = serializers.DecimalField(max_digits=8, decimal_places=3, allow_null=True, required=False)
     match_confidence = serializers.SerializerMethodField()
+    other_items = serializers.SerializerMethodField()
 
     class Meta:
         model = MatchPrediction
-        fields = ['pair_id', 'donor', 'item', 'donation', 'match_confidence', 'biodeg_tier', 'distance_km', 'recommendation_status', 'predicted_at']
+        fields = ['pair_id', 'donor', 'item', 'donation', 'other_items', 'match_confidence', 'biodeg_tier', 'distance_km', 'recommendation_status', 'predicted_at']
         read_only_fields = fields
 
     def get_donor(self, obj):
@@ -108,6 +133,9 @@ class MatchRecommendationListSerializer(serializers.ModelSerializer):
     def get_match_confidence(self, obj):
         return round(float(obj.match_prob) * 100, 2) if obj.match_prob else 0
 
+    def get_other_items(self, obj):
+        return _serialize_sibling_items(obj.item)
+
 
 class MatchRecommendationDetailSerializer(serializers.ModelSerializer):
     donor = serializers.SerializerMethodField()
@@ -116,10 +144,11 @@ class MatchRecommendationDetailSerializer(serializers.ModelSerializer):
     tuab = serializers.SerializerMethodField()
     biodeg_tier = serializers.SerializerMethodField()
     match_confidence = serializers.SerializerMethodField()
+    other_items = serializers.SerializerMethodField()
 
     class Meta:
         model = MatchPrediction
-        fields = ['pair_id', 'donor', 'item', 'donation', 'tuab', 'match_confidence', 'biodeg_tier', 'distance_km', 'is_match', 'recommendation_status', 'tuab_rejection_reason', 'predicted_at']
+        fields = ['pair_id', 'donor', 'item', 'donation', 'other_items', 'tuab', 'match_confidence', 'biodeg_tier', 'distance_km', 'is_match', 'recommendation_status', 'tuab_rejection_reason', 'predicted_at']
         read_only_fields = fields
 
     def get_donor(self, obj):
@@ -142,6 +171,9 @@ class MatchRecommendationDetailSerializer(serializers.ModelSerializer):
 
     def get_match_confidence(self, obj):
         return round(float(obj.match_prob) * 100, 2) if obj.match_prob else 0
+
+    def get_other_items(self, obj):
+        return _serialize_sibling_items(obj.item)
 
 
 class MatchRecommendationActionSerializer(serializers.Serializer):

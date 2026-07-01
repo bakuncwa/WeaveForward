@@ -134,6 +134,7 @@ class MatchRecommendationViewSet(viewsets.GenericViewSet, PaginatedResponseMixin
 
         queryset = MatchPrediction.objects.filter(
             tuab=tuab,
+            is_match=True,
             recommendation_status=MatchRecommendationStatus.PENDING,
             is_archived_version=False,
             item__donation__status='PENDING',
