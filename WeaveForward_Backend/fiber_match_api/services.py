@@ -207,21 +207,15 @@ class InferenceService:
             df[column] = pd.to_numeric(df[column], errors="coerce").fillna(0.0)
 
         probs = cls._model.predict_proba(df)[:, 1]
-        fiber_threshold = cls._safe_float(meta.get("fiber_match_threshold"), 85.0)
 
         sorted_indexes = sorted(range(len(pair_data)), key=probs.__getitem__, reverse=True)
         results = []
         for idx in sorted_indexes:
             pair = pair_data[idx]
-            is_match = (
-                pair["pct_target_fiber"] >= fiber_threshold
-                and pair["biodeg_target_fiber"] >= pair["artisan_min_biodeg"]
-                and pair["distance_km"] <= pair["artisan_max_dist_km"]
-            )
             results.append({
                 "item_id": pair["item_id"],
                 "tuab_id": pair["tuab_id"],
-                "is_match": bool(is_match),
+                "is_match": bool(probs[idx] >= 0.5),
                 "match_prob": float(round(probs[idx], 5)),
                 "pct_target_fiber": float(pair["pct_target_fiber"]),
                 "biodeg_target_fiber": float(pair["biodeg_target_fiber"]),
