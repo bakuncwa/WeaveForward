@@ -81,9 +81,10 @@ class TuabCircularEconomyViewSet(viewsets.GenericViewSet):
             raise ValidationError(errors)
 
         donations_qs = Donation.objects.filter(**donation_filters)
+        received_donations_qs = donations_qs.filter(status=DonationStatus.RECEIVED)
 
         # 1. Biodegradability score distribution
-        items_qs = DonationItem.objects.filter(donation__in=donations_qs).select_related("donation", "lookup")
+        items_qs = DonationItem.objects.filter(donation__in=received_donations_qs).select_related("donation", "lookup")
 
         biodeg_buckets = {f"{i}-{i+10}": 0 for i in range(0, 100, 10)}
         for item in items_qs:
