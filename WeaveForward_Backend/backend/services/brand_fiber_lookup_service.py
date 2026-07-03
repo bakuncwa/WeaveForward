@@ -119,6 +119,10 @@ def resolve_item_lookup(item_patch):
     """
     if 'fiber_composition' in item_patch and not item_patch.get('lookup'):
         comp = item_patch.pop('fiber_composition')
+        if isinstance(comp, str) and comp.strip().lower() == "unknown":
+            item_patch['lookup'] = BrandFiberLookup.objects.update_or_create(brand="Unknown", product_name="Unknown material", clothing_type="Unknown", defaults={"fiber_json": json.dumps({"other": 100.0}), "dominant_fiber": "other", "biodeg_score": Decimal("30.0"), "biodeg_tier": "LOW", "is_active": False})[0]
+            return
+
         comp = {k.lower().strip(): v for k, v in comp.items()}
         canon = dict(sorted(comp.items()))
         if not canon:

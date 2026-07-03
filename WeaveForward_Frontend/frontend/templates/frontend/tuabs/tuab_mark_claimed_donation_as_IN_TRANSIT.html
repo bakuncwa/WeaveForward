@@ -307,6 +307,8 @@
         <div class="right">
           <div class="panel">
             <div class="drow"><span class="lbl">Donor</span><span class="val" id="donation-donor">{{ donation.donor.first_name|default:'' }} {{ donation.donor.last_name|default:'' }}</span></div>
+            <div class="drow"><span class="lbl">Donor Email</span><span class="val" id="donation-donor-email">{{ donation.donor.email|default:'-' }}</span></div>
+            <div class="drow"><span class="lbl">Donor Contact</span><span class="val" id="donation-donor-contact">{{ donation.donor.contact_no|default:'-' }}</span></div>
             <div class="drow"><span class="lbl">Status</span><span class="val" id="donation-status">{% if donation.status == 'PENDING' %}Pending{% elif donation.status == 'IN_TRANSIT' %}In Transit{% elif donation.status == 'CLAIMED' %}Claimed{% elif donation.status == 'RECEIVED' %}Received{% elif donation.status == 'REJECTED' %}Rejected{% elif donation.status == 'CANCELLED' %}Cancelled{% elif donation.status == 'ARCHIVED' %}Archived{% else %}{{ donation.status|default:'Pending' }}{% endif %}</span></div>
             <div class="drow"><span class="lbl">Is Flagged</span><span class="val" id="donation-flagged">{{ donation.is_flagged|default:'False' }}</span></div>
             <div class="drow"><span class="lbl">Flag Reason</span><span class="val" id="donation-flag-reason">{{ donation.flag_reason|default:'-' }}</span></div>
@@ -415,6 +417,8 @@
         var donorEl = document.getElementById('donation-donor');
         if (donorEl && data.donor) {
           donorEl.textContent = (data.donor.first_name || '') + ' ' + (data.donor.last_name || '');
+          textById('donation-donor-email', data.donor.email || '-');
+          textById('donation-donor-contact', data.donor.contact_no || '-');
         }
         // Status
         var statusEl = document.getElementById('donation-status');

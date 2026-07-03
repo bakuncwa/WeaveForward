@@ -432,7 +432,7 @@ class DonationItemUpdateSerializer(serializers.ModelSerializer):
                 "Do not combine lookup with brand, clothing type, or fiber composition."
             )
 
-        if fiber_composition is not None:
+        if fiber_composition is not None and not (isinstance(fiber_composition, str) and fiber_composition.strip().lower() == "unknown"):
             if not isinstance(fiber_composition, dict) or not fiber_composition:
                 raise serializers.ValidationError("fiber_composition must be a non-empty object.")
             if not has_brand_type:

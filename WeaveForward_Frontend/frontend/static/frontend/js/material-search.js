@@ -20,7 +20,7 @@ async function loadMaterials(el, preserve = false) {
     itemsContainer.innerHTML = '';
     return;
   }
-  resetCustomMode(wrap);
+  if (!preserve) resetCustomMode(wrap);
 
   if (!preserve) {
     card.querySelector('.lookup-id').value = '';
@@ -86,6 +86,18 @@ function selectMat(el, id, text) {
   wrap.classList.remove('open');
   wrap.querySelector('.mat-trigger').classList.remove('disabled');
   resetCustomMode(wrap);
+  wrap.closest('.restored-card')?.setAttribute('data-changed', 'true');
+}
+
+function selectUnknownMaterial(el) {
+  const wrap = el.closest('.ss-wrap');
+  resetCustomMode(wrap);
+  wrap.querySelector('.mat-text').textContent = 'Unknown material';
+  wrap.querySelector('.lookup-id').value = '';
+  wrap.querySelector('.fiber-composition').value = 'unknown';
+  wrap.querySelector('.ss-list').classList.add('hidden');
+  wrap.classList.remove('open');
+  wrap.querySelector('.mat-trigger').classList.remove('disabled');
   wrap.closest('.restored-card')?.setAttribute('data-changed', 'true');
 }
 
