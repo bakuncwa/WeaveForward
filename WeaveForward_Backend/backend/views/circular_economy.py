@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, time
 
 from django.conf import settings
@@ -82,7 +83,7 @@ class TuabCircularEconomyViewSet(viewsets.GenericViewSet):
         donations_qs = Donation.objects.filter(**donation_filters)
 
         # 1. Biodegradability score distribution
-        items_qs = DonationItem.objects.filter(donation__in=donations_qs).select_related("lookup")
+        items_qs = DonationItem.objects.filter(donation__in=donations_qs).select_related("donation", "lookup")
 
         biodeg_buckets = {f"{i}-{i+10}": 0 for i in range(0, 100, 10)}
         for item in items_qs:
@@ -95,34 +96,19 @@ class TuabCircularEconomyViewSet(viewsets.GenericViewSet):
             for k, v in biodeg_buckets.items()
         ]
 
-        # 2. Donation volume by city stacked by dominant fiber
-        # Rough SQL:
-        # SELECT donations.pickup_city, brand_fiber_lookups.dominant_fiber,
-        #        SUM(donation_items.weight_kg) AS weight_kg,
-        #        COUNT(donation_items.item_id) AS item_count
-        # FROM donation_items
-        # JOIN donations ON donation_items.donation_id = donations.donation_id
-        # JOIN brand_fiber_lookups ON donation_items.lookup_id = brand_fiber_lookups.lookup_id
-        # WHERE donation_items.donation_id IN (...filtered donation ids...)
-        # GROUP BY donations.pickup_city, brand_fiber_lookups.dominant_fiber
-        # ORDER BY donations.pickup_city, brand_fiber_lookups.dominant_fiber;
-        # Complexity: O(d + i + g log g + g), where d is the number of
-        # matching donations, i is the number of matching donation items, and
-        # g is the number of grouped city/fiber rows.
-        city_fiber_rows = (
-            items_qs
-            .values("donation__pickup_city", "lookup__dominant_fiber")
-            .annotate(weight_kg=Sum("weight_kg"), item_count=Count("item_id"))
-            .order_by("donation__pickup_city", "lookup__dominant_fiber")
-        )
+        # 2. Donation weight by city stacked by full fiber composition
+        city_fiber_rows = {}
+        for item in items_qs:
+            for fiber, pct in json.loads(item.lookup.fiber_json).items():
+                key = (item.donation.pickup_city, fiber.lower())
+                city_fiber_rows[key] = city_fiber_rows.get(key, 0) + float(item.weight_kg) * float(pct) / 100
         volume_by_city_fiber = [
             {
-                "city": r["donation__pickup_city"] or "Unknown",
-                "fiber": (r["lookup__dominant_fiber"] or "other").lower(),
-                "weight_kg": float(r["weight_kg"] or 0),
-                "item_count": r["item_count"],
+                "city": city,
+                "fiber": fiber,
+                "weight_kg": round(weight_kg, 2),
             }
-            for r in city_fiber_rows
+            for (city, fiber), weight_kg in sorted(city_fiber_rows.items())
         ]
 
         # 3. Top 20 brands by donation weight
