@@ -81,7 +81,9 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
         
         # Calculate summary using optimized .values() query to avoid DRF serialization
         # O(n * k): produces one joined row per inventory entry and donation item.
-        rows = base_qs.values(
+        rows = queryset.filter(
+            source_donation__items__is_archived=False
+        ).values(
             'inventory_id',
             'current_weight_kg',
             'source_donation__items__weight_kg',
