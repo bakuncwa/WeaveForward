@@ -467,6 +467,7 @@ async def tuab_subscription_status(request):
     refresh_response = await api_call(request, 'POST', 'auth/token/refresh')
     if refresh_response.status_code == 200:
         apply_backend_auth_cookies(frontend_response, refresh_response)
+        request._pending_refresh_response = refresh_response
 
     return frontend_response
 
@@ -548,6 +549,7 @@ async def tuab_edit_profile(request):
                 refresh_response = await api_call(request, 'POST', 'auth/token/refresh')
                 if refresh_response.status_code == 200:
                     apply_backend_auth_cookies(frontend_response, refresh_response)
+                    request._pending_refresh_response = refresh_response
             return frontend_response
         else:
             try:
