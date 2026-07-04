@@ -116,9 +116,12 @@
 }
 
 .tuab-dashboard-table td:nth-child(2),
-.tuab-dashboard-table td:nth-child(3),
-.tuab-dashboard-table td:nth-child(5) {
+.tuab-dashboard-table td:nth-child(3) {
   max-width: 28ch;
+}
+
+.tuab-dashboard-table td:nth-child(5) {
+  min-width: 120px;
 }
 
 .tuab-dashboard-actions {
