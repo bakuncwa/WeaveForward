@@ -8,7 +8,8 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.settings import api_settings
 
 from ..constants import TUAB_REG_ALLOWED_EXTENSIONS, TUAB_REG_MAX_SIZE
-from ..models import User, UserAccountStatus, UserRole
+from django.utils import timezone
+from ..models import SubscriptionStatus, SubscriptionTier, User, UserAccountStatus, UserRole
 from ..services.auth_service import reset_user_password, validate_reset_token
 from ..services.location_service import get_city_and_barangay
 from ..services.brand_fiber_lookup_service import get_allowed_fibers
@@ -175,6 +176,19 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['first_name'] = user.first_name or ''
         token['last_name'] = user.last_name or ''
         token['business_name'] = user.business_name or ''
+        token['is_subscribed'] = user.subscriptions.filter(
+            status__in=[SubscriptionStatus.ACTIVE, SubscriptionStatus.CANCELLED],
+            end_date__gt=timezone.now(),
+        ).exists()
+        token['has_billing'] = (
+            user.maya_customer_id is not None
+            and user.maya_card_id is not None
+            and user.subscriptions.filter(
+                status=SubscriptionStatus.ACTIVE,
+                subscription_tier=SubscriptionTier.PRO,
+                end_date__gt=timezone.now(),
+            ).exists()
+        )
         return token
 
     default_error_messages = {

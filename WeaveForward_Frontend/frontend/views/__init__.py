@@ -21,6 +21,7 @@ from .tuab import (
     tuab_edit_profile,
     tuab_profile,
     tuab_subscribe,
+    tuab_subscription_status,
     tuab_view_donation,
     tuab_quotation_proxy,
     tuab_update_incoming_donation,

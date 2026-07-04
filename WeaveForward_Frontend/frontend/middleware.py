@@ -119,6 +119,8 @@ class TokenRefreshMiddleware:
                         'first_name': payload.get('first_name', ''),
                         'last_name': payload.get('last_name', ''),
                         'business_name': payload.get('business_name', ''),
+                        'is_subscribed': payload.get('is_subscribed', False),
+                        'has_billing': payload.get('has_billing', False),
                     }
                 else:
                     request.session.pop("user_profile", None)

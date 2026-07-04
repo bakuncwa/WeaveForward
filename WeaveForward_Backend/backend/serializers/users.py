@@ -8,7 +8,8 @@ import uuid
 import re
 from rest_framework import serializers
 
-from ..models import Donation, DonationStatus, SubscriptionStatus, Upload, User, UserRole
+from django.utils import timezone
+from ..models import Donation, DonationStatus, SubscriptionStatus, SubscriptionTier, Upload, User, UserRole
 from ..services.upload_service import build_upload_url
 from .donations import DonationListSerializer
 from ..services.location_service import get_city_and_barangay
@@ -56,6 +57,7 @@ def _require_or_autofill_city_barangay(data):
 class AdminUserDetailSerializer(serializers.ModelSerializer):
     """Full user profile serializer used exclusively by Admins for viewing details."""
     is_subscribed = serializers.SerializerMethodField(read_only=True)
+    has_billing = serializers.SerializerMethodField(read_only=True)
     total_donations = serializers.SerializerMethodField(read_only=True)
     donations = serializers.SerializerMethodField(read_only=True)
     latitude = serializers.DecimalField(max_digits=9, decimal_places=7, required=False, allow_null=True)
@@ -76,7 +78,7 @@ class AdminUserDetailSerializer(serializers.ModelSerializer):
             'business_name', 'description', 'social_link', 'max_active_claims', 'target_fibers',
             'min_biodeg_score', 'max_distance_km', 'operational_status', 'contact_no',
             'barangay', 'city', 'latitude', 'longitude', 'display_address',
-            'status', 'is_2fa_enabled', 'is_subscribed', 'total_donations', 'donations', 'upload', 'documentation',
+            'status', 'is_2fa_enabled', 'is_subscribed', 'has_billing', 'total_donations', 'donations', 'upload', 'documentation',
             'created_at', 'updated_at', 'distance_km'
         ]
 
@@ -84,7 +86,22 @@ class AdminUserDetailSerializer(serializers.ModelSerializer):
         annotated_value = getattr(obj, 'is_subscribed', None)
         if annotated_value is not None:
             return bool(annotated_value)
-        return obj.subscriptions.filter(status=SubscriptionStatus.ACTIVE).exists()
+        now = timezone.now()
+        return obj.subscriptions.filter(
+            status__in=[SubscriptionStatus.ACTIVE, SubscriptionStatus.CANCELLED],
+            end_date__gt=now,
+        ).exists()
+
+    def get_has_billing(self, obj):
+        return (
+            obj.maya_customer_id is not None
+            and obj.maya_card_id is not None
+            and obj.subscriptions.filter(
+                status=SubscriptionStatus.ACTIVE,
+                subscription_tier=SubscriptionTier.PRO,
+                end_date__gt=timezone.now(),
+            ).exists()
+        )
 
     def get_total_donations(self, obj):
         return Donation.objects.filter(
@@ -303,6 +320,7 @@ class TuabUpdateSerializer(serializers.ModelSerializer):
 class TuabSelfSerializer(serializers.ModelSerializer):
     """Dedicated serializer for TUAB self-profile/session usage."""
     is_subscribed = serializers.SerializerMethodField(read_only=True)
+    has_billing = serializers.SerializerMethodField(read_only=True)
     total_donations = serializers.SerializerMethodField(read_only=True)
     upload = serializers.SerializerMethodField()
     latitude = serializers.DecimalField(max_digits=9, decimal_places=7, required=False, allow_null=True)
@@ -315,7 +333,7 @@ class TuabSelfSerializer(serializers.ModelSerializer):
             'social_link', 'max_active_claims', 'target_fibers',
             'min_biodeg_score', 'max_distance_km', 'operational_status',
             'contact_no', 'barangay', 'city', 'latitude', 'longitude',
-            'display_address', 'is_2fa_enabled', 'is_subscribed', 'total_donations', 'upload',
+            'display_address', 'is_2fa_enabled', 'is_subscribed', 'has_billing', 'total_donations', 'upload',
             'created_at'
         ]
 
@@ -323,7 +341,22 @@ class TuabSelfSerializer(serializers.ModelSerializer):
         annotated_value = getattr(obj, 'is_subscribed', None)
         if annotated_value is not None:
             return bool(annotated_value)
-        return obj.subscriptions.filter(status=SubscriptionStatus.ACTIVE).exists()
+        now = timezone.now()
+        return obj.subscriptions.filter(
+            status__in=[SubscriptionStatus.ACTIVE, SubscriptionStatus.CANCELLED],
+            end_date__gt=now,
+        ).exists()
+
+    def get_has_billing(self, obj):
+        return (
+            obj.maya_customer_id is not None
+            and obj.maya_card_id is not None
+            and obj.subscriptions.filter(
+                status=SubscriptionStatus.ACTIVE,
+                subscription_tier=SubscriptionTier.PRO,
+                end_date__gt=timezone.now(),
+            ).exists()
+        )
 
     def get_total_donations(self, obj):
         return Donation.objects.filter(
@@ -338,6 +371,7 @@ class TuabSelfSerializer(serializers.ModelSerializer):
 class AdminUserListSerializer(serializers.ModelSerializer):
     """Slim admin list serializer for user rows."""
     is_subscribed = serializers.SerializerMethodField(read_only=True)
+    has_billing = serializers.SerializerMethodField(read_only=True)
     documentation = serializers.SerializerMethodField()
     upload = serializers.SerializerMethodField()
 
@@ -349,14 +383,29 @@ class AdminUserListSerializer(serializers.ModelSerializer):
             'latitude', 'longitude',
             'target_fibers', 'max_distance_km', 'min_biodeg_score',
             'social_link', 'description', 'operational_status',
-            'status', 'is_subscribed', 'documentation', 'upload'
+            'status', 'is_subscribed', 'has_billing', 'documentation', 'upload'
         ]
 
     def get_is_subscribed(self, obj):
         annotated_value = getattr(obj, 'is_subscribed', None)
         if annotated_value is not None:
             return bool(annotated_value)
-        return obj.subscriptions.filter(status=SubscriptionStatus.ACTIVE).exists()
+        now = timezone.now()
+        return obj.subscriptions.filter(
+            status__in=[SubscriptionStatus.ACTIVE, SubscriptionStatus.CANCELLED],
+            end_date__gt=now,
+        ).exists()
+
+    def get_has_billing(self, obj):
+        return (
+            obj.maya_customer_id is not None
+            and obj.maya_card_id is not None
+            and obj.subscriptions.filter(
+                status=SubscriptionStatus.ACTIVE,
+                subscription_tier=SubscriptionTier.PRO,
+                end_date__gt=timezone.now(),
+            ).exists()
+        )
 
     def get_documentation(self, obj):
         return build_upload_url(obj.documentation, self.context)

@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.utils.dateparse import parse_datetime, parse_time
+from ..middleware import apply_backend_auth_cookies
 from ..services import api_call, format_errors, get_paginated_data, get_fiber_choices, get_user_profile
 
 
@@ -385,17 +386,26 @@ async def tuab_quotation_proxy(request, donation_id):
 async def tuab_subscribe(request):
     """Handle TUAB Premium Subscription."""
     profile = await get_user_profile(request) or request.user_profile
-            
-    # 1. Check if already subscribed or redirected back from successful Maya 3DS
-    if profile.get('is_subscribed') or request.GET.get('status') == 'success':
-        return render(request, 'frontend/tuabs/tuab_subscribe_to_premium_success.html', {
+
+    status_param = request.GET.get('status')
+
+    # 1. A failed payment attempt should not be hidden by existing paid access.
+    if status_param == 'failed':
+        return render(request, 'frontend/tuabs/tuab_subscribe_to_premium_failed.html', {
             'page_title': 'Subscribe for Premium Features',
             'user': profile
         })
 
-    # 2. Failure check: Explicitly check for the 'failed' status
-    if request.GET.get('status') == 'failed':
-        return render(request, 'frontend/tuabs/tuab_subscribe_to_premium_failed.html', {
+    # 2. Maya can redirect before webhook activation completes.
+    if status_param == 'success':
+        return render(request, 'frontend/tuabs/tuab_subscribe_to_premium_pending.html', {
+            'page_title': 'Subscribe for Premium Features',
+            'user': profile
+        })
+
+    # 3. Current Pro with active renewal billing is the already-complete state.
+    if profile.get('has_billing'):
+        return render(request, 'frontend/tuabs/tuab_subscribe_to_premium_success.html', {
             'page_title': 'Subscribe for Premium Features',
             'user': profile
         })
@@ -429,8 +439,7 @@ async def tuab_subscribe(request):
             if verification_url:
                 return redirect(verification_url)
             
-            messages.success(request, "Successfully subscribed to Premium!")
-            return redirect('tuab_subscribe') # Redirect to itself to show success template
+            return redirect('/tuab/subscribe/?status=success')
         else:
             # Redirect to failed state for any backend rejection
             return redirect('/tuab/subscribe/?status=failed')
@@ -439,6 +448,27 @@ async def tuab_subscribe(request):
         'page_title': 'Subscribe for Premium Features',
         'user': profile,
     })
+
+
+async def tuab_subscription_status(request):
+    """Return current TUAB subscription state for the pending subscription page."""
+    if request.method != 'GET':
+        return JsonResponse({'detail': 'Method not allowed.'}, status=405)
+
+    profile = await get_user_profile(request)
+    if not profile:
+        return JsonResponse({'detail': 'Unable to fetch subscription status.'}, status=503)
+
+    frontend_response = JsonResponse({
+        'is_subscribed': bool(profile.get('is_subscribed')),
+        'has_billing': bool(profile.get('has_billing')),
+    })
+
+    refresh_response = await api_call(request, 'POST', 'auth/token/refresh')
+    if refresh_response.status_code == 200:
+        apply_backend_auth_cookies(frontend_response, refresh_response)
+
+    return frontend_response
 
 
 async def tuab_profile(request):
@@ -513,7 +543,12 @@ async def tuab_edit_profile(request):
 
         if response.status_code == 200:
             messages.success(request, "Profile updated successfully.")
-            return JsonResponse({'message': 'Success'}, status=200)
+            frontend_response = JsonResponse({'message': 'Success'}, status=200)
+            if request.POST.get('remove_payment_method') == '1':
+                refresh_response = await api_call(request, 'POST', 'auth/token/refresh')
+                if refresh_response.status_code == 200:
+                    apply_backend_auth_cookies(frontend_response, refresh_response)
+            return frontend_response
         else:
             try:
                 err_data = response.json()

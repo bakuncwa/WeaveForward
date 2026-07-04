@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.utils import timezone
 
 from rest_framework import status, viewsets
 from rest_framework.permissions import AllowAny
@@ -8,7 +9,7 @@ from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from ..models import User, UserAccountStatus, UserRole
+from ..models import SubscriptionStatus, SubscriptionTier, User, UserAccountStatus, UserRole
 from ..serializers import (
     CustomTokenObtainPairSerializer,
     DonorRegisterSerializer,
@@ -55,13 +56,35 @@ class CookieTokenRefreshView(APIView):
             return response
 
         refresh = RefreshToken(refresh_cookie)
-        user = User.objects.only("upload").filter(user_id=refresh["user_id"]).first()
+        user = User.objects.only(
+            "role", "status", "created_at", "first_name", "last_name",
+            "business_name", "upload", "maya_customer_id", "maya_card_id",
+        ).filter(user_id=refresh["user_id"]).first()
         if not user:
             response = Response({"detail": "User not found."}, status=status.HTTP_401_UNAUTHORIZED)
             clear_auth_cookies(response)
             return response
         access = refresh.access_token
+        access["role"] = user.role
+        access["status"] = user.status
+        access["created_at"] = user.created_at.isoformat()
+        access["first_name"] = user.first_name or ""
+        access["last_name"] = user.last_name or ""
+        access["business_name"] = user.business_name or ""
         access["upload"] = build_upload_url(user.upload, {"request": request})
+        access["is_subscribed"] = user.subscriptions.filter(
+            status__in=[SubscriptionStatus.ACTIVE, SubscriptionStatus.CANCELLED],
+            end_date__gt=timezone.now(),
+        ).exists()
+        access["has_billing"] = (
+            user.maya_customer_id is not None
+            and user.maya_card_id is not None
+            and user.subscriptions.filter(
+                status=SubscriptionStatus.ACTIVE,
+                subscription_tier=SubscriptionTier.PRO,
+                end_date__gt=timezone.now(),
+            ).exists()
+        )
 
         response = Response({"message": "Session refreshed."}, status=status.HTTP_200_OK)
         set_auth_cookies(

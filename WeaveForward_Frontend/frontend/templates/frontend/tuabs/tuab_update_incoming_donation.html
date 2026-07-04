@@ -427,7 +427,7 @@
 <div id="reject-modal" class="reject-modal-overlay" style="display:none;">
   <div class="reject-modal-box">
     <div class="reject-modal-text">Enter reason for rejection</div>
-                    <input type="text" id="reject-reason-input" class="reject-reason-input">
+                    <textarea id="reject-reason-input" class="reject-reason-input" maxlength="200" style="min-height:90px;resize:vertical"></textarea>
     <div class="reject-modal-actions">
       <button type="button" class="reject-btn-cancel" onclick="closeRejectModal()">Cancel</button>
       <button type="button" class="reject-btn-confirm" onclick="confirmReject()">Reject</button>

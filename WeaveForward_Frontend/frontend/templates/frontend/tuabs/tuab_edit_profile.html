@@ -72,7 +72,7 @@
           </div>
           <div class="field">
             <label>Description</label>
-            <input name="description" class="wf-in" value="{{ user.description|default:'' }}" required />
+            <textarea name="description" class="wf-in" style="min-height:110px;resize:vertical" required>{{ user.description|default:'' }}</textarea>
           </div>
         </div>
         <div class="g2" style="margin-bottom:14px">
@@ -147,7 +147,7 @@
         </div>
         <div class="g2" style="margin-bottom:18px">
           <div class="field">
-            {% if user.is_subscribed %}
+            {% if user.has_billing %}
             <button type="button" class="btn-remove-pay" id="btn-remove-pay" onclick="stageRemovePayment(this)">
               Unsubscribe from Premium Features
             </button>

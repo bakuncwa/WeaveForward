@@ -738,8 +738,8 @@ const CE_SECTIONS = [
     {
         name: 'Volume by City & Fiber',
         data: () => DATA.volume_by_city_fiber,
-        headers: ['City', 'Fiber', 'Weight (kg)', 'Item Count'],
-        row: item => [item.city, item.fiber, item.weight_kg, item.item_count],
+        headers: ['City', 'Fiber', 'Weight (kg)'],
+        row: item => [item.city, item.fiber, item.weight_kg],
     },
     {
         name: 'Top Brands',

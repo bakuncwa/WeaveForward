@@ -371,10 +371,12 @@ def unsubscribe_user(*, target_user_id, actor=None, ip_address=None):
 
         active_subscriptions = get_active_subscriptions_for_user(user=user)
 
-        if not active_subscriptions:
+        old_card_id = user.maya_card_id
+
+        if not active_subscriptions and not old_card_id:
             return {
                 "status_code": 409,
-                "detail": "User does not have an active subscription.",
+                "detail": "User does not have an active subscription or saved payment method.",
                 "user_updated": False,
                 "cancelled_subscriptions_count": 0
             }
@@ -383,9 +385,9 @@ def unsubscribe_user(*, target_user_id, actor=None, ip_address=None):
         for sub in active_subscriptions:
             sub.status = SubscriptionStatus.CANCELLED
             sub.updated_at = now
-        Subscription.objects.bulk_update(active_subscriptions, ['status', 'updated_at'])
+        if active_subscriptions:
+            Subscription.objects.bulk_update(active_subscriptions, ['status', 'updated_at'])
 
-        old_card_id = user.maya_card_id
         user.maya_card_id = None
         user.save(update_fields=['maya_card_id', 'updated_at'])
 
@@ -409,7 +411,11 @@ def unsubscribe_user(*, target_user_id, actor=None, ip_address=None):
 
     return {
         "status_code": 200,
-        "detail": "Successfully unsubscribed. Premium access remains active until your subscription expires.",
+        "detail": (
+            "Successfully unsubscribed. Premium access remains active until your subscription expires."
+            if active_subscriptions
+            else "Successfully removed saved payment method."
+        ),
         "user_updated": True,
         "cancelled_subscriptions_count": len(active_subscriptions)
     }

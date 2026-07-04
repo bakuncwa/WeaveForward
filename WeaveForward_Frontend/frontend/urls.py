@@ -43,6 +43,7 @@ urlpatterns = [
     path('tuab/donations/<int:donation_id>/', views.tuab_view_donation, name='tuab_view_donation'),
     path('tuab/donations/<int:donation_id>/edit/', views.tuab_update_incoming_donation, name='tuab_update_incoming_donation'),
     path('api/tuab/donations/<int:donation_id>/quotation/', views.tuab_quotation_proxy, name='tuab_quotation_proxy'),
+    path('api/tuab/subscription-status/', views.tuab_subscription_status, name='tuab_subscription_status'),
     path('tuab/subscribe/', views.tuab_subscribe, name='tuab_subscribe'),
     path('tuab/payments/', views.tuab_view_payments, name='tuab_view_payments'),
     path('tuab/inventory/', views.tuab_inventory_snapshot, name='tuab_inventory_snapshot'),

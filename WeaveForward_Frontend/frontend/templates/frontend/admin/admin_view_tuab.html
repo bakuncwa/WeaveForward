@@ -298,7 +298,7 @@
       <div class="chip-row">
         <span class="chip chip-outline">{{ tuab.role|default:"TUAB" }}</span>
         <span class="chip chip-filled">{% if tuab.status == 'EMAIL_UNVERIFIED' %}Email Unverified{% else %}{{ tuab.status|title|default:"-" }}{% endif %}</span>
-        <span class="chip chip-grey">{% if tuab.is_subscribed %}Pro{% else %}No Active Billing{% endif %}</span>
+        <span class="chip chip-grey">{% if tuab.is_subscribed %}Pro{% else %}Free{% endif %}</span>
         <span class="chip chip-grey">Member since {{ tuab.created_at|date:"F j Y" }}</span>
       </div>
 
@@ -385,7 +385,7 @@
       </tr>
       <tr><td>Min. Biodegradability Score</td><td>{{ tuab.min_biodeg_score|default:"-" }}</td></tr>
       <tr><td>Max Pickup Distance</td><td>{{ tuab.max_distance_km|default:"-" }} km</td></tr>
-      <tr><td>Subscription Tier</td><td>{% if tuab.is_subscribed %}Pro{% else %}No Active Billing{% endif %}</td></tr>
+      <tr><td>Subscription Tier</td><td>{% if tuab.is_subscribed %}Pro{% else %}Free{% endif %}</td></tr>
       <tr><td>Operational Status</td><td>{{ tuab.operational_status|title|default:"-" }}</td></tr>
     </table>
   </div>

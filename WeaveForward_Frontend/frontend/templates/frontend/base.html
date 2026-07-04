@@ -14,6 +14,17 @@
     href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap"
     rel="stylesheet" />
   {% block extra_css %}{% endblock %}
+  {% if user.role == 'TUAB' and not user.is_subscribed %}
+  <script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script>
+  <script>
+    window.googletag = window.googletag || {cmd: []};
+    googletag.cmd.push(function() {
+      googletag.defineSlot('/6355419/Travel/Europe/France/Paris', [300, 250], 'banner-ad')
+        .addService(googletag.pubads());
+      googletag.enableServices();
+    });
+  </script>
+  {% endif %}
   <style>
     /* ── Design tokens ── */
     :root {
@@ -960,6 +971,16 @@
   <script src="{% static 'frontend/js/back-navigation.js' %}"></script>
   <script src="{% static 'frontend/js/input-length-limit.js' %}"></script>
   {% block extra_js %}{% endblock %}
+
+  {% if user.role == 'TUAB' and not user.is_subscribed %}
+  <div id="banner-ad-wrapper" style="position:fixed;bottom:20px;right:20px;z-index:9999;">
+    <button onclick="this.parentElement.style.display='none'" style="position:absolute;top:-8px;right:-8px;width:24px;height:24px;border-radius:50%;border:none;background:#666;color:#fff;font-size:14px;line-height:1;cursor:pointer;z-index:1;display:flex;align-items:center;justify-content:center;">✕</button>
+    <div id="banner-ad" style="width:300px;height:250px;border-radius:8px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.15);background:#f4f4f4;border:1px solid #e0e0e0;"></div>
+  </div>
+  <script>
+    googletag.cmd.push(function() { googletag.display('banner-ad'); });
+  </script>
+  {% endif %}
 
 </body>
 
