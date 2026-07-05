@@ -29,11 +29,14 @@ def _require_or_autofill_city_barangay(data):
     lat, lng = data.get('latitude'), data.get('longitude')
     city = (data.get('city') or '').strip()
     barangay = (data.get('barangay') or '').strip()
+    display_address = (data.get('display_address') or '').strip()
 
     if (lat is None) != (lng is None):
         raise serializers.ValidationError({'location': "Latitude and longitude must be provided together."})
 
     if lat is not None and lng is not None:
+        if not display_address:
+            raise serializers.ValidationError({'display_address': "Display address is required when latitude and longitude are provided."})
         loc = get_city_and_barangay(lat, lng)
         if not loc:
             raise serializers.ValidationError({'location': "Location must be within Metro Manila."})

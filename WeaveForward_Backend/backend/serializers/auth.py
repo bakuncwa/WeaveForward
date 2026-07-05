@@ -60,6 +60,8 @@ class DonorRegisterSerializer(serializers.ModelSerializer):
 
         # Location
         lat, lng = data.get('latitude'), data.get('longitude')
+        if lat is not None and lng is not None and not (data.get('display_address') or '').strip():
+            raise serializers.ValidationError({'display_address': "Display address is required when latitude and longitude are provided."})
         loc = get_city_and_barangay(lat, lng)
         if not loc:
             raise serializers.ValidationError({'location': "Location must be within Metro Manila."})
@@ -129,6 +131,8 @@ class TUABRegisterSerializer(serializers.ModelSerializer):
 
         # Location
         lat, lng = data.get('latitude'), data.get('longitude')
+        if lat is not None and lng is not None and not (data.get('display_address') or '').strip():
+            raise serializers.ValidationError({'display_address': "Display address is required when latitude and longitude are provided."})
         loc = get_city_and_barangay(lat, lng)
         if not loc:
             raise serializers.ValidationError({'location': "Location must be within Metro Manila."})
