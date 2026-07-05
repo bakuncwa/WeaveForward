@@ -320,6 +320,8 @@ class DonationCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'items': "Invalid items format."})
         if not isinstance(raw_items, list) or not raw_items:
             raise serializers.ValidationError({'items': "At least one item is required."})
+        if len(raw_items) > 255:
+            raise serializers.ValidationError({'items': "Maximum of 255 items per donation."})
         item_serializer = DonationItemUpdateSerializer(data=raw_items, many=True)
         item_serializer.is_valid(raise_exception=True)
         data['items'] = item_serializer.validated_data
@@ -566,6 +568,8 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
                 num_adding = len([i for i in items if not i.get('item_id') and not i.get('is_archived')])
                 if (active_items_count - num_archiving + num_adding) < 1:
                     raise ValueError
+                if (active_items_count - num_archiving + num_adding) > 255:
+                    raise ValueError("Maximum of 255 active items per donation.")
 
                 data['items'] = items
             except Exception:
@@ -606,6 +610,8 @@ class DonationResolveSerializer(serializers.Serializer):
                     num_adding = len([i for i in items if not i.get('item_id') and not i.get('is_archived')])
                     if (active_items_count - num_archiving + num_adding) < 1:
                         raise ValueError
+                    if (active_items_count - num_archiving + num_adding) > 255:
+                        raise ValueError("Maximum of 255 active items per donation.")
 
                 data['items'] = items
             except Exception:
@@ -751,6 +757,8 @@ class AdminDonationUpdateSerializer(serializers.ModelSerializer):
                 num_adding = len([i for i in items if not i.get('item_id') and not i.get('is_archived')])
                 if (active_items_count - num_archiving + num_adding) < 1:
                     raise ValueError
+                if (active_items_count - num_archiving + num_adding) > 255:
+                    raise ValueError("Maximum of 255 active items per donation.")
 
                 data['items'] = items
             except Exception:
