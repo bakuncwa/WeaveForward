@@ -13,10 +13,13 @@ def get_allowed_fibers():
         try:
             data = json.loads(fj)
             if isinstance(data, dict):
-                fibers_set.update(k.lower().strip() for k in data.keys())
+                fibers_set.update(
+                    k.lower().strip()
+                    for k in data.keys()
+                    if k and k.lower().strip() != 'other'
+                )
         except:
             continue
-    fibers_set.add('other')
     return fibers_set
 
 

@@ -319,7 +319,6 @@
                     <input type="hidden" class="lookup-id" value="{{ item.lookup_details.lookup_id }}">
                     <div class="ss-list hidden">
                       <input type="text" class="mat-search" placeholder="Search or leave empty" oninput="filterMatList(this)" onclick="event.stopPropagation()" autocomplete="off">
-                      <div class="mat-item" onclick="selectUnknownMaterial(this)">Unknown material</div>
                       <div class="mat-item custom-mat-option" onclick="selectCustomComposition(this)">Custom composition...</div>
                       <div class="mat-items"></div>
                     </div>
@@ -328,6 +327,7 @@
                       <button type="button" class="fiber-add-btn" onclick="addFiberRow(this)">+ Add fiber</button>
                       <div class="fiber-total">Total: <span class="fiber-sum">0</span>%</div>
                       <input type="hidden" class="fiber-composition" value="">
+                      <button type="button" class="fiber-unknown" onclick="selectUnknownMaterial(this)">Unknown material</button>
                       <button type="button" class="fiber-cancel" onclick="cancelCustomComposition(this)">Cancel</button>
                     </div>
                   </div>
@@ -490,7 +490,6 @@
             <input type="hidden" class="lookup-id">
             <div class="ss-list hidden">
               <input type="text" class="mat-search" placeholder="Search or leave empty" oninput="filterMatList(this)" onclick="event.stopPropagation()" autocomplete="off">
-              <div class="mat-item" onclick="selectUnknownMaterial(this)">Unknown material</div>
               <div class="mat-item custom-mat-option" onclick="selectCustomComposition(this)">Custom composition...</div>
               <div class="mat-items"></div>
             </div>
@@ -499,6 +498,7 @@
               <button type="button" class="fiber-add-btn" onclick="addFiberRow(this)">+ Add fiber</button>
               <div class="fiber-total">Total: <span class="fiber-sum">0</span>%</div>
               <input type="hidden" class="fiber-composition" value="">
+              <button type="button" class="fiber-unknown" onclick="selectUnknownMaterial(this)">Unknown material</button>
               <button type="button" class="fiber-cancel" onclick="cancelCustomComposition(this)">Cancel</button>
             </div>
           </div>

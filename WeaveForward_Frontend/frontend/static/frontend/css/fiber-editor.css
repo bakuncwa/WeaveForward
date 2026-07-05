@@ -10,5 +10,7 @@
 .fiber-total { font: 400 11px Poppins, sans-serif; color: var(--muted); margin-top: 4px; text-align: right; }
 .fiber-total.ok { color: var(--green); }
 .fiber-total.err { color: var(--red); }
+.fiber-unknown { display: block; margin-top: 8px; background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 7px; width: 100%; font: 400 12px Poppins, sans-serif; color: #666; cursor: pointer; }
+.fiber-unknown:hover { border-color: var(--gold); color: var(--gold); background: #fff8ee; }
 .fiber-cancel { display: block; margin-top: 8px; background: none; border: none; padding: 4px 0; width: 100%; font: 400 11px Poppins, sans-serif; color: var(--muted); cursor: pointer; text-align: center; text-decoration: underline; }
 .fiber-cancel:hover { color: var(--gold); }

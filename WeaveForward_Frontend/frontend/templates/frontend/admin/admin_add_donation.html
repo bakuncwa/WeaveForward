@@ -187,11 +187,11 @@
             <div class="mat-trigger disabled" onclick="toggleMatDropdown(this)">
               <span class="mat-text">Please enter a brand and clothing type</span>
               <svg class="mat-arrow" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg>
+              <div class="mat-clear" onclick="event.stopPropagation();clearMat(this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
             </div>
             <input type="hidden" class="lookup-id">
             <div class="ss-list hidden">
               <input type="text" class="mat-search" placeholder="Search or leave empty" oninput="filterMatList(this)" onclick="event.stopPropagation()" autocomplete="off">
-              <div class="mat-item" onclick="selectUnknownMaterial(this)">Unknown material</div>
               <div class="mat-item custom-mat-option" onclick="selectCustomComposition(this)">Custom composition...</div>
               <div class="mat-items"></div>
             </div>
@@ -200,6 +200,7 @@
               <button type="button" class="fiber-add-btn" onclick="addFiberRow(this)">+ Add fiber</button>
               <div class="fiber-total">Total: <span class="fiber-sum">0</span>%</div>
               <input type="hidden" class="fiber-composition" value="">
+              <button type="button" class="fiber-unknown" onclick="selectUnknownMaterial(this)">Unknown material</button>
               <button type="button" class="fiber-cancel" onclick="cancelCustomComposition(this)">Cancel</button>
             </div>
           </div>

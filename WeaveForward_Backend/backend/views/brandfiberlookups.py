@@ -40,11 +40,14 @@ class BrandFiberLookupViewset(viewsets.ReadOnlyModelViewSet):
             try:
                 data = json.loads(fj)
                 if isinstance(data, dict):
-                    fibers_set.update(data.keys())
+                    fibers_set.update(
+                        k.lower().strip()
+                        for k in data.keys()
+                        if k and k.lower().strip() != 'other'
+                    )
             except (json.JSONDecodeError, TypeError):
                 continue
-                
-        fibers_set.add('other')
+
         return Response(sorted(list(fibers_set)))
 
     @action(detail=False, methods=['get'])

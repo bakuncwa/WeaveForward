@@ -91,11 +91,12 @@ function selectMat(el, id, text) {
 
 function selectUnknownMaterial(el) {
   const wrap = el.closest('.ss-wrap');
+  if (!wrap) return;
   resetCustomMode(wrap);
   wrap.querySelector('.mat-text').textContent = 'Unknown material';
   wrap.querySelector('.lookup-id').value = '';
   wrap.querySelector('.fiber-composition').value = 'unknown';
-  wrap.querySelector('.ss-list').classList.add('hidden');
+  wrap.querySelector('.ss-list')?.classList.add('hidden');
   wrap.classList.remove('open');
   wrap.querySelector('.mat-trigger').classList.remove('disabled');
   wrap.closest('.restored-card')?.setAttribute('data-changed', 'true');
