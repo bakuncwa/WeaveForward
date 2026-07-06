@@ -66,5 +66,5 @@ def apply() -> dict:
 
     return {
         "status": "OK",
-        "detail": f"Catalog synced — inserted: {len(to_create)}, status-updated: {len(to_update)}",
+        "detail": f"Catalog synced - inserted: {len(to_create)}, status-updated: {len(to_update)}",
     }
