@@ -250,6 +250,7 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
             return Response({'error': 'Exit state must be Upcycled, Shredded, or Landfill.'}, status=status.HTTP_400_BAD_REQUEST)
 
         before_weight = instance.current_weight_kg
+        archive_used = before_weight if exit_state_raw == InventoryExitState.UPCYCLED else Decimal('0.00')
         notes_payload = _notes_payload(instance.notes)
         events = notes_payload.get('production_context')
         if not isinstance(events, list):
@@ -257,7 +258,7 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
         events.append({
             'action': 'ARCHIVE',
             'exit_state': exit_state_raw,
-            'used': str(before_weight),
+            'used': str(archive_used),
             'before': str(before_weight),
             'after': '0.00',
             'usage_before': str(instance.usage_amount_kg),

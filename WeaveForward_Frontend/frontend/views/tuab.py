@@ -17,6 +17,8 @@ async def tuab_dashboard(request):
     avail_page = request.GET.get('avail_page', 1)
     claimed_page = request.GET.get('claimed_page', 1)
     search_query = request.GET.get('q', '')
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
     
     available_donations = []
     my_claimed_donations = []
@@ -32,7 +34,13 @@ async def tuab_dashboard(request):
             return iso_str[:10]
 
     # Common params for both calls
-    common_params = {'search': search_query} if search_query else {}
+    common_params = {}
+    if search_query:
+        common_params['search'] = search_query
+    if date_from:
+        common_params['preferred_pickup_date__gte'] = date_from
+    if date_to:
+        common_params['preferred_pickup_date__lte'] = date_to
 
     avail_params = {'page': avail_page}
     avail_params.update(common_params)
@@ -114,6 +122,8 @@ async def tuab_dashboard(request):
         'claimed_meta': claimed_meta,
         'active_tab': request.GET.get('tab', 'available'),
         'search_query': search_query,
+        'date_from': date_from,
+        'date_to': date_to,
         'donations_json': donations_json,
     })
 

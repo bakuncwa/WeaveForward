@@ -34,18 +34,18 @@ from ..services.location_service import get_city_and_barangay
 
 
 class DonationFilterSet(FilterSet):
-    updated_at__gte = DateTimeFilter(field_name='updated_at', lookup_expr='gte')
-    updated_at__lte = DateFilter(method='filter_lte')
+    preferred_pickup_date__gte = DateFilter(field_name='preferred_pickup_date', lookup_expr='gte')
+    preferred_pickup_date__lte = DateFilter(method='filter_lte')
 
     def filter_lte(self, queryset, name, value):
-        gte = self.data.get('updated_at__gte')
+        gte = self.data.get('preferred_pickup_date__gte')
         if gte and gte > value.isoformat():
-            raise ValidationError({"updated_at__lte": "End date cannot be before start date."})
-        return queryset.filter(updated_at__lte=timezone.make_aware(datetime.combine(value, time.max)))
+            raise ValidationError({"preferred_pickup_date__lte": "End date cannot be before start date."})
+        return queryset.filter(preferred_pickup_date__lte=timezone.make_aware(datetime.combine(value, time.max)))
 
     class Meta:
         model = Donation
-        fields = ['updated_at__gte', 'updated_at__lte']
+        fields = ['preferred_pickup_date__gte', 'preferred_pickup_date__lte']
 
 
 class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin, PaginatedResponseMixin):

@@ -1,7 +1,6 @@
 import re
 import json
 import os
-import difflib
 from decimal import Decimal
 from datetime import timedelta
 from django.utils import timezone
@@ -446,11 +445,8 @@ class DonationItemUpdateSerializer(serializers.ModelSerializer):
             for fiber, pct in fiber_composition.items():
                 if not isinstance(fiber, str) or not fiber.strip():
                     raise serializers.ValidationError("Fiber names must be non-empty strings.")
-                normalized = fiber.strip().lower()
-                if normalized not in allowed_fibers:
-                    close = difflib.get_close_matches(normalized, allowed_fibers, n=1, cutoff=0.8)
-                    if close:
-                        raise serializers.ValidationError(f"'{fiber}' may be a typo. Did you mean '{close[0]}'?")
+                if fiber.strip().lower() not in allowed_fibers:
+                    raise serializers.ValidationError(f"'{fiber}' is not a recognized fiber type.")
                 try:
                     val = float(pct)
                 except (ValueError, TypeError):

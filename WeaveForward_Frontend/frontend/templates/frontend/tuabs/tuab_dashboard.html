@@ -41,6 +41,15 @@
     .search-wrap { position: relative; flex-shrink: 0; }
     .search-input { padding: 9px 14px 9px 36px; width: min(520px, 46vw); border: 1.5px solid #fff1d8; border-radius: 8px; background: #fff1d8; color: #c0952a; font-family: 'Poppins', sans-serif; font-size: 13px; outline: none; }
     .search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+    .filter-bar { display:flex; gap:5px; align-items:center; justify-content:center; margin-top:6px; opacity:.72; white-space:nowrap; }
+    .filter-bar:hover, .filter-bar:focus-within { opacity:1; }
+    .filter-label { font:10px Poppins,sans-serif; color:#aaa49c; }
+    .filter-date {
+      padding:3px 7px; border:1px solid #eeeae4; border-radius:5px;
+      background:transparent; color:#9a948c; font:10px Poppins,sans-serif;
+      outline:none; cursor:pointer; width:108px;
+    }
+    .filter-date:hover, .filter-date:focus { border-color:#ddd6cc; background:#faf8f5; }
 
     .modal-overlay { position: fixed; inset: 0; z-index: 9500; display: flex; align-items: center; justify-content: center; background: transparent; }
     .modal-box { background: #fff; border-radius: 16px; padding: 28px 32px; width: 420px; max-width: 95vw; box-shadow: 0 24px 80px rgba(0,0,0,.25); }
@@ -115,6 +124,13 @@
     <a href="#" id="prev-btn" class="btn btn-outline">Previous</a>
     <a href="#" id="next-btn" class="btn btn-outline">Next</a>
   </div>
+</div>
+
+<div id="filter-bar" class="filter-bar">
+  <span class="filter-label">From</span>
+  <input type="date" id="dash-date-from" value="{{ date_from }}" onchange="applyDateFilter()" onkeydown="return false" onpaste="return false" ondrop="return false" class="filter-date">
+  <span class="filter-label">To</span>
+  <input type="date" id="dash-date-to" value="{{ date_to }}" onchange="applyDateFilter()" onkeydown="return false" onpaste="return false" ondrop="return false" class="filter-date">
 </div>
 
 <div id="flag-modal" class="modal-overlay hidden">
@@ -263,6 +279,21 @@
     } else {
         url.searchParams.delete('q');
     }
+    url.searchParams.set('avail_page', 1);
+    url.searchParams.set('claimed_page', 1);
+    window.location.href = url.toString();
+  }
+
+  function applyDateFilter() {
+    const df = document.getElementById('dash-date-from').value;
+    const dt = document.getElementById('dash-date-to').value;
+    if (df && dt && df > dt) {
+      wfToast('"From" date cannot be after "To" date.', 'error');
+      return;
+    }
+    const url = new URL(window.location.href);
+    if (df) url.searchParams.set('date_from', df); else url.searchParams.delete('date_from');
+    if (dt) url.searchParams.set('date_to', dt); else url.searchParams.delete('date_to');
     url.searchParams.set('avail_page', 1);
     url.searchParams.set('claimed_page', 1);
     window.location.href = url.toString();
