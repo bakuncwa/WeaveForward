@@ -35,27 +35,31 @@ class CookieTokenRefreshView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        refresh_cookie = request.COOKIES.get(REFRESH_COOKIE_NAME)
-        if not refresh_cookie:
-            return Response({"detail": "Refresh cookie is required."}, status=status.HTTP_401_UNAUTHORIZED)
+        refresh_token = request.COOKIES.get(REFRESH_COOKIE_NAME) or request.data.get("refresh")
+        if not refresh_token:
+            return Response({"detail": "Refresh token is required."}, status=status.HTTP_401_UNAUTHORIZED)
 
-        try:
-            enforce_csrf(request)
-        except Exception as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+        using_cookie_refresh = request.COOKIES.get(REFRESH_COOKIE_NAME) is not None
+        if using_cookie_refresh:
+            try:
+                enforce_csrf(request)
+            except Exception as exc:
+                return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
 
-        serializer = TokenRefreshSerializer(data={"refresh": refresh_cookie})
+        serializer = TokenRefreshSerializer(data={"refresh": refresh_token})
         try:
             if not serializer.is_valid():
                 response = Response(serializer.errors, status=status.HTTP_401_UNAUTHORIZED)
-                clear_auth_cookies(response)
+                if using_cookie_refresh:
+                    clear_auth_cookies(response)
                 return response
         except (TokenError, InvalidToken) as e:
             response = Response({"detail": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
-            clear_auth_cookies(response)
+            if using_cookie_refresh:
+                clear_auth_cookies(response)
             return response
 
-        refresh = RefreshToken(refresh_cookie)
+        refresh = RefreshToken(refresh_token)
         user = User.objects.only(
             "role", "status", "created_at", "first_name", "last_name",
             "business_name", "upload", "maya_customer_id", "maya_card_id",
@@ -86,12 +90,17 @@ class CookieTokenRefreshView(APIView):
             ).exists()
         )
 
-        response = Response({"message": "Session refreshed."}, status=status.HTTP_200_OK)
-        set_auth_cookies(
-            response,
-            str(access),
-            serializer.validated_data.get("refresh"),
-        )
+        response_data = {"message": "Session refreshed.", "access": str(access)}
+        if refreshed_token := serializer.validated_data.get("refresh"):
+            response_data["refresh"] = refreshed_token
+
+        response = Response(response_data, status=status.HTTP_200_OK)
+        if using_cookie_refresh:
+            set_auth_cookies(
+                response,
+                str(access),
+                serializer.validated_data.get("refresh"),
+            )
         return response
 
 
@@ -152,10 +161,11 @@ class TokenViewSet(viewsets.ViewSet):
         serializer.is_valid(raise_exception=True)
 
         validated_data = serializer.validated_data.copy()
-        validated_data.pop("access", None)
-        refresh_token = validated_data.pop("refresh", None)
+        refresh_token = validated_data.get("refresh")
         access = RefreshToken(refresh_token).access_token
         access["upload"] = build_upload_url(serializer.user.upload, {"request": request})
+        validated_data["access"] = str(access)
+        validated_data["refresh"] = refresh_token
 
         response = Response(validated_data, status=status.HTTP_200_OK)
         set_auth_cookies(response, str(access), refresh_token)

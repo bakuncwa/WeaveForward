@@ -105,12 +105,11 @@
         <path d="M12 6v6l4 2" />
       </svg>
     </div>
-    <h1 class="status-title">Verification Processing</h1>
+    <h1 class="status-title">Payment Processing</h1>
     <p class="status-text">
-      Maya returned your card verification, but your Pro access is not active yet. Please check again in a moment.
+      Your card has been verified successfully with a PHP 10.00 verification hold (automatically voided). However, the actual subscription payment is still being processed.
     </p>
-    <a href="{% url 'tuab_subscribe' %}" class="btn-action">Check Status</a>
-    <a href="{% url 'tuab_dashboard' %}" class="btn-action btn-secondary">Back to Dashboard</a>
+
   </div>
 </div>
 
@@ -119,14 +118,13 @@
     var statusUrl = "{% url 'tuab_subscription_status' %}";
     var successUrl = "{% url 'tuab_subscribe' %}";
     var pollCount = 0;
-    var maxPolls = 20;
+    var maxPolls = 10;
     var finished = false;
 
     function stopWaiting() {
       if (finished) return;
       finished = true;
-      document.querySelector(".status-title").textContent = "Still Processing";
-      document.querySelector(".status-text").textContent = "Your verification is taking longer than usual. No changes were made to your subscription. Please check again in a moment.";
+      window.location.href = "/tuab/subscribe/?status=failed";
     }
 
     function checkStatus() {
@@ -157,8 +155,8 @@
         });
     }
 
-    setTimeout(checkStatus, 1500);
-    setInterval(checkStatus, 3000);
+    setTimeout(checkStatus, 1000);
+    setInterval(checkStatus, 1000);
   })();
 </script>
 {% endblock %}

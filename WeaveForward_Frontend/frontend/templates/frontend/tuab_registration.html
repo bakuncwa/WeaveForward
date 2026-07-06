@@ -638,8 +638,8 @@
               <p class="hint">Displayed publicly on your TUAB profile card.</p>
               <div class="group"><label class="cap-lbl">Social / Website Link (e.g. https://example.com)</label><input class="in" type="url"
                   name="social_link" value="{{ form_data.social_link|default:'' }}"
-                  onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||!/[<>\'\"\s]/.test(event.key)||event.preventDefault()"
-                  oninput="this.value=this.value.replace(/[<>\'\"\s]/g,'')"><span class="field-err" id="err-social_link">
+                  onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||!/[<>&#39;&quot;\s]/.test(event.key)||event.preventDefault()"
+                  oninput="this.value=this.value.replace(/[<>&#39;&quot;\s]/g,'')"><span class="field-err" id="err-social_link">
               </span></div>
               <p class="hint">Optional — helps donors learn more about you.</p>
               <div class="sec-lbl">LOCATION</div>
@@ -945,7 +945,7 @@
     }
 
     function validateStep2() {
-      return ['description','city','barangay','target_fibers','max_distance_km','min_biodeg_score'].every(validateField) && validateAddress();
+      return ['description','social_link','city','barangay','target_fibers','max_distance_km','min_biodeg_score'].every(validateField) && validateAddress();
     }
 
     function validateStep3() {
@@ -986,7 +986,8 @@
         const el = document.querySelector(`[name="${f}"]`);
         return el && el.value.trim();
       }) && checkPw(gE('pw').value) && gE('pw').value === gE('cp').value;
-      const s2 = gE('desc').value.trim() && gE('addr').value.trim() && validateFieldSilent('city') && validateFieldSilent('barangay') && tgs.length > 0
+      const s2 = gE('desc').value.trim() && gE('addr').value.trim() && ncrOk && validateFieldSilent('city') && validateFieldSilent('barangay') && tgs.length > 0
+        && validateFieldSilent('social_link')
         && (parseFloat(gE('md').value) >= 0 && parseFloat(gE('md').value) <= 1000)
         && (parseFloat(gE('mbs').value) >= 0 && parseFloat(gE('mbs').value) <= 100);
       const s3 = gE('fi').files.length > 0;
@@ -1006,8 +1007,8 @@
       if (cS === 3) { nb.disabled = true; return; }
       const ok = cS === 1
         ? ['business_name','email','contact_no','password','confirm_password'].every(validateFieldSilent)
-        : validateFieldSilent('description') && gE('addr').value.trim() && validateFieldSilent('city') && validateFieldSilent('barangay')
-          && validateFieldSilent('target_fibers') && validateFieldSilent('max_distance_km') && validateFieldSilent('min_biodeg_score');
+        : validateFieldSilent('description') && gE('addr').value.trim() && ncrOk && validateFieldSilent('city') && validateFieldSilent('barangay')
+          && validateFieldSilent('target_fibers') && validateFieldSilent('social_link') && validateFieldSilent('max_distance_km') && validateFieldSilent('min_biodeg_score');
       nb.disabled = !ok;
     }
     ['business_name','email','contact_no','password','confirm_password'].forEach(f => {
@@ -1016,7 +1017,7 @@
       el.addEventListener('input', updateSubmitBtn);
       el.addEventListener('change', updateSubmitBtn);
     });
-    ['description','max_distance_km','min_biodeg_score'].forEach(f => {
+    ['description','social_link','max_distance_km','min_biodeg_score'].forEach(f => {
       const el = document.querySelector(`[name="${f}"]`) || document.querySelector(`#${f}`);
       if (!el) return;
       el.addEventListener('input', updateSubmitBtn);

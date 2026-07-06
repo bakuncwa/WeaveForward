@@ -248,6 +248,7 @@ if USE_GCS:
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
         'backend.services.auth_service.CookieJWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (

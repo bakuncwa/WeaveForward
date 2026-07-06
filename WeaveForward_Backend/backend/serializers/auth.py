@@ -91,6 +91,11 @@ class TUABRegisterSerializer(serializers.ModelSerializer):
             'contact_no': {'validators': []},
         }
 
+    def validate_social_link(self, value):
+        if value and ' ' in value:
+            raise serializers.ValidationError("Social link must not contain spaces.")
+        return value
+
     def validate(self, data):
         # Email
         email = data.get('email', '')

@@ -77,8 +77,8 @@
         </div>
         <div class="g2" style="margin-bottom:14px">
           <div class="field"><label>Social / Website Link (e.g. https://example.com)</label><input name="social_link" class="wf-in" type="url" value="{{ user.social_link|default:'' }}"
-            onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||!/[<>\'\"\s]/.test(event.key)||event.preventDefault()"
-            oninput="this.value=this.value.replace(/[<>\'\"\s]/g,'')" /></div>
+            onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||!/[<>&#39;&quot;\s]/.test(event.key)||event.preventDefault()"
+            oninput="this.value=this.value.replace(/[<>&#39;&quot;\s]/g,'')" /></div>
           <div class="field" style="position:relative">
             <label>Target Fiber Types</label>
             <div class="t-box" id="fiber-trigger">
@@ -141,9 +141,10 @@
       </div>
       <div class="sep"></div>
       <div class="sec">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:4px"><button type="button" style="border:0;background:none;color:#e8a020;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:0" onclick="togglePw('tep-np','tep-cp','tep-txt')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span id="tep-txt">Show</span></button></div>
         <div class="g2" style="margin-bottom:14px">
-          <div class="field"><label>New Password</label><input type="password" class="wf-in" name="new_password" autocomplete="new-password" placeholder="Leave blank to keep current" minlength="8" maxlength="70" pattern="(?=.*[A-Za-z])(?=.*\d).{8,70}" title="At least 8 characters with one letter and one number." /></div>
-          <div class="field"><label>Confirm Password</label><input type="password" class="wf-in" name="confirm_password" autocomplete="new-password" maxlength="70" /></div>
+          <div class="field"><label>New Password</label><input type="password" class="wf-in" name="new_password" id="tep-np" autocomplete="new-password" placeholder="Leave blank to keep current" minlength="8" maxlength="70" pattern="(?=.*[A-Za-z])(?=.*\d).{8,70}" title="At least 8 characters with one letter and one number." /></div>
+          <div class="field"><label>Confirm Password</label><input type="password" class="wf-in" name="confirm_password" id="tep-cp" autocomplete="new-password" maxlength="70" /></div>
         </div>
         <div class="g2" style="margin-bottom:18px">
           <div class="field">
@@ -504,6 +505,7 @@
             btn.classList.add('staged');
         }
     }
+    function togglePw(p,c,t){var a=document.getElementById(p),b=document.getElementById(c),d=document.getElementById(t),e=a.type==='password';a.type=e?'text':'password';b.type=e?'text':'password';d.textContent=e?'Hide':'Show';}
 </script>
 {% endblock %}
 

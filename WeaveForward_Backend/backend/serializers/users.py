@@ -250,6 +250,11 @@ class TuabUpdateSerializer(serializers.ModelSerializer):
             'display_address', 'password', 'upload', 'city', 'barangay'
         ]
 
+    def validate_social_link(self, value):
+        if value and ' ' in value:
+            raise serializers.ValidationError("Social link must not contain spaces.")
+        return value
+
     def validate(self, data):
         # 1. Password
         pw = data.get('password')
@@ -612,6 +617,11 @@ class TuabUpdateSelfSerializer(serializers.ModelSerializer):
             'operational_status', 'target_fibers', 'latitude', 'longitude', 
             'display_address', 'password', 'upload', 'city', 'barangay'
         ]
+
+    def validate_social_link(self, value):
+        if value and ' ' in value:
+            raise serializers.ValidationError("Social link must not contain spaces.")
+        return value
 
     def validate(self, data):
         # 1. Password

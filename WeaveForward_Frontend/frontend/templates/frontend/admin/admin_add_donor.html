@@ -65,8 +65,8 @@
 
     <hr>
 
-    <div class="group"><label class="up">Password *</label><input class="in" type="password" name="password" autocomplete="new-password" value="{{ form_data.password }}" required></div>
-    <div class="group"><label class="up">Confirm Password *</label><input class="in" type="password" name="confirm_password" autocomplete="new-password" value="{{ form_data.confirm_password }}" required></div>
+    <div class="group"><div style="display:flex;justify-content:space-between;align-items:center"><label class="up">Password *</label><button type="button" style="border:0;background:none;color:var(--g);cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:0" onclick="togglePw('aad-pw','aad-cp','aad-txt')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span id="aad-txt">Show</span></button></div><input class="in" type="password" name="password" id="aad-pw" autocomplete="new-password" value="{{ form_data.password }}" required></div>
+    <div class="group"><label class="up">Confirm Password *</label><input class="in" type="password" name="confirm_password" id="aad-cp" autocomplete="new-password" value="{{ form_data.confirm_password }}" required></div>
 
     <hr>
 
@@ -241,7 +241,7 @@
     var addr = getEl('addr').value.trim();
     if (!addr) { e.preventDefault(); showFlash('Please select a display address.', 'error'); return; }
     if (!getEl('lat').value.trim() || !getEl('lng').value.trim()) { e.preventDefault(); showFlash('Please set the pickup location on the map.', 'error'); return; }
-  };
-
+};
+  function togglePw(p,c,t){var a=getEl(p),b=getEl(c),d=getEl(t),e=a.type==='password';a.type=e?'text':'password';b.type=e?'text':'password';d.textContent=e?'Hide':'Show';}
 </script>
 {% endblock %}

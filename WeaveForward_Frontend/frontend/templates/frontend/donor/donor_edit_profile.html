@@ -97,9 +97,10 @@
       <!-- Security & Actions -->
       <div class="sec">
         <div class="sec-lbl">Security</div>
+        <div style="display:flex;justify-content:flex-end;margin-bottom:4px"><button type="button" style="border:0;background:none;color:#e8a020;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:0" onclick="togglePw('dep-np','dep-cp','dep-txt')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span id="dep-txt">Show</span></button></div>
         <div class="g2" style="margin-bottom:16px">
-          <div class="field"><label>New Password</label><input type="password" class="wf-in" name="new_password" autocomplete="new-password" placeholder="Leave blank to keep current" minlength="8" maxlength="70" pattern="(?=.*[A-Za-z])(?=.*\d).{8,70}" title="At least 8 characters with one letter and one number." /></div>
-          <div class="field"><label>Confirm Password</label><input type="password" class="wf-in" name="confirm_password" autocomplete="new-password" maxlength="70" /></div>
+          <div class="field"><label>New Password</label><input type="password" class="wf-in" name="new_password" id="dep-np" autocomplete="new-password" placeholder="Leave blank to keep current" minlength="8" maxlength="70" pattern="(?=.*[A-Za-z])(?=.*\d).{8,70}" title="At least 8 characters with one letter and one number." /></div>
+          <div class="field"><label>Confirm Password</label><input type="password" class="wf-in" name="confirm_password" id="dep-cp" autocomplete="new-password" maxlength="70" /></div>
         </div>
         <input type="hidden" id="init-2fa" value="{{ user.is_2fa_enabled|yesno:'true,false' }}" />
         <div class="f-row" style="margin-bottom:24px">
@@ -384,5 +385,6 @@
             $('addr-ac').closest('.ss-wrap')?.classList.remove('open');
         }
     });
+    function togglePw(p,c,t){var a=document.getElementById(p),b=document.getElementById(c),d=document.getElementById(t),e=a.type==='password';a.type=e?'text':'password';b.type=e?'text':'password';d.textContent=e?'Hide':'Show';}
 </script>
 {% endblock %}

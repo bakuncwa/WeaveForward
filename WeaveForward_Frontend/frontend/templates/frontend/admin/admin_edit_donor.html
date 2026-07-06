@@ -434,10 +434,8 @@
 
       <hr>
 
-      <div class="group"><label class="up">New Password (leave blank to keep current)</label><input class="in"
-          type="password" name="password" autocomplete="new-password" minlength="8" maxlength="70" pattern="(?=.*[A-Za-z])(?=.*\d).{8,70}" title="At least 8 characters with one letter and one number."></div>
-      <div class="group"><label class="up">Confirm New Password</label><input class="in" type="password"
-          name="confirm_password" autocomplete="new-password" maxlength="70"></div>
+      <div class="group"><div style="display:flex;justify-content:space-between;align-items:center"><label class="up">New Password (leave blank to keep current)</label><button type="button" style="border:0;background:none;color:var(--g);cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:0" onclick="togglePw('aed-pw','aed-cp','aed-txt')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span id="aed-txt">Show</span></button></div><input class="in" type="password" name="password" id="aed-pw" autocomplete="new-password" minlength="8" maxlength="70" pattern="(?=.*[A-Za-z])(?=.*\d).{8,70}" title="At least 8 characters with one letter and one number."></div>
+      <div class="group"><label class="up">Confirm New Password</label><input class="in" type="password" name="confirm_password" id="aed-cp" autocomplete="new-password" maxlength="70"></div>
 
       <hr>
 
@@ -792,5 +790,6 @@
       }
     }
   });
+  function togglePw(p,c,t){var a=getEl(p),b=getEl(c),d=getEl(t),e=a.type==='password';a.type=e?'text':'password';b.type=e?'text':'password';d.textContent=e?'Hide':'Show';}
 </script>
 {% endblock %}

@@ -492,8 +492,8 @@
         style="height:auto;min-height:110px;resize:vertical" required>{{ tuab.description|default:'' }}</textarea></div>
     <div class="group"><label class="up">Social / Website Link (e.g. https://example.com)</label><input class="in" type="url" name="social_link"
         value="{{ tuab.social_link|default:'' }}"
-        onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||!/[<>\'\"\s]/.test(event.key)||event.preventDefault()"
-        oninput="this.value=this.value.replace(/[<>\'\"\s]/g,'')"></div>
+        onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||!/[<>&#39;&quot;\s]/.test(event.key)||event.preventDefault()"
+        oninput="this.value=this.value.replace(/[<>&#39;&quot;\s]/g,'')"></div>
     <div class="group"><label class="up">Contact Number</label>
       <div style="display:grid;grid-template-columns:60px 1fr;gap:8px">
         <input value="+63" class="in" style="pointer-events:none;background:#f9f9f9" tabindex="-1">
@@ -556,10 +556,8 @@
     <hr>
 
     <!-- Password -->
-    <div class="group"><label class="up">New Password (leave blank to keep current)</label><input class="in"
-        type="password" name="password" autocomplete="new-password" minlength="8" maxlength="70" pattern="(?=.*[A-Za-z])(?=.*\d).{8,70}" title="At least 8 characters with one letter and one number."></div>
-    <div class="group"><label class="up">Confirm New Password</label><input class="in" type="password"
-        name="confirm_password" autocomplete="new-password" maxlength="70"></div>
+    <div class="group"><div style="display:flex;justify-content:space-between;align-items:center"><label class="up">New Password (leave blank to keep current)</label><button type="button" style="border:0;background:none;color:var(--g);cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:0" onclick="togglePw('aet-pw','aet-cp','aet-txt')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span id="aet-txt">Show</span></button></div><input class="in" type="password" name="password" id="aet-pw" autocomplete="new-password" minlength="8" maxlength="70" pattern="(?=.*[A-Za-z])(?=.*\d).{8,70}" title="At least 8 characters with one letter and one number."></div>
+    <div class="group"><label class="up">Confirm New Password</label><input class="in" type="password" name="confirm_password" id="aet-cp" autocomplete="new-password" maxlength="70"></div>
 
     <hr>
 
@@ -902,5 +900,6 @@
     initial.lat = initLat; initial.lng = initLng;
     if (hasLoc) { if (!getEl('addr').value) await syncLocationMetadata(rawLat, rawLng, false, false); const el = getEl('addr'); if (el) syncInit(el); }
   });
+  function togglePw(p,c,t){var a=getEl(p),b=getEl(c),d=getEl(t),e=a.type==='password';a.type=e?'text':'password';b.type=e?'text':'password';d.textContent=e?'Hide':'Show';}
 </script>
 {% endblock %}
