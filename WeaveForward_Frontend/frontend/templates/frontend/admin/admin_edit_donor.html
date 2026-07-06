@@ -390,7 +390,7 @@
             <button type="button" class="img-x" onclick="event.stopPropagation();clearProfilePhoto()">✕</button>
           </div>
           <div id="pfp-ph" style="{% if donor.upload %}display:none{% endif %}">
-            <div class="pfp-img" style="display:flex;align-items:center;justify-content:center;background:#f0e8d8;color:var(--g);font-weight:700;font-size:20px">{{ donor.first_name|slice:":1"|lower }}{{ donor.last_name|slice:":1"|lower }}</div>
+            <div class="pfp-img" style="display:flex;align-items:center;justify-content:center;background:#f0e8d8;color:var(--g);font-weight:700;font-size:20px">{{ donor.first_name|slice:":1"|upper }}{{ donor.last_name|slice:":1"|upper }}</div>
           </div>
           <input type="hidden" name="clear_upload" id="clear-upload" value="">
           <button type="button" class="pfp-change" onclick="getEl('pfp-in').click()">Change Photo</button>

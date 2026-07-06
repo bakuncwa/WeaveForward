@@ -435,7 +435,7 @@
       container.innerHTML = pageItems.map(function(biz) {
         var avatar = biz.upload
           ? '<img class="biz-avatar" src="' + biz.upload + '" alt="' + biz.business_name + '" />'
-          : '<div class="biz-avatar" style="display:flex;align-items:center;justify-content:center;background:#f0e8d8;color:var(--gold);font-weight:700;font-size:20px;font-family:Poppins,sans-serif">' + (biz.business_name||'').slice(0,2).toLowerCase() + '</div>';
+          : '<div class="biz-avatar" style="display:flex;align-items:center;justify-content:center;background:#f0e8d8;color:var(--gold);font-weight:700;font-size:20px;font-family:Poppins,sans-serif">' + (biz.business_name||'').slice(0,2).toUpperCase() + '</div>';
         var fibers = biz.fiber_list || [];
         var shownFibers = fibers.length > 3 ? fibers.slice(0, 2) : fibers.slice(0, 3);
         var tags = shownFibers.map(function(f) { return '<span class="tag">' + esc(f) + '</span>'; }).join('');

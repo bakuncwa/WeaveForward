@@ -281,7 +281,7 @@
     {% if tuab.upload %}
       <img class="biz-avatar" src="{{ tuab.upload }}" alt="{{ tuab.business_name|default:'TUAB' }}"/>
     {% else %}
-      <div class="biz-avatar-fallback">{{ tuab.business_name|default:"TUAB"|slice:":2"|lower }}</div>
+      <div class="biz-avatar-fallback">{{ tuab.business_name|default:"TUAB"|slice:":2"|upper }}</div>
     {% endif %}
 
     <div>

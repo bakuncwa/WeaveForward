@@ -38,7 +38,7 @@
             <button type="button" class="img-x" onclick="event.stopPropagation();clearProfilePhoto()">✕</button>
           </div>
           <div id="photo-ph" style="{% if user.upload %}display:none{% endif %}">
-            <div class="av-ph">{{ user.first_name|slice:":1"|lower }}{{ user.last_name|slice:":1"|lower }}</div>
+            <div class="av-ph">{{ user.first_name|slice:":1"|upper }}{{ user.last_name|slice:":1"|upper }}</div>
           </div>
           <input type="hidden" name="clear_upload" id="clear-upload" value="">
           <input type="file" name="upload" accept="image/*" id="photo-input" class="hidden" onchange="previewPhoto(this)" />

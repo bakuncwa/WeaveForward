@@ -371,6 +371,7 @@ def unsubscribe_user(*, target_user_id, actor=None, ip_address=None):
 
         active_subscriptions = get_active_subscriptions_for_user(user=user)
 
+        old_customer_id = user.maya_customer_id
         old_card_id = user.maya_card_id
 
         if not active_subscriptions and not old_card_id:
@@ -388,22 +389,23 @@ def unsubscribe_user(*, target_user_id, actor=None, ip_address=None):
         if active_subscriptions:
             Subscription.objects.bulk_update(active_subscriptions, ['status', 'updated_at'])
 
+        user.maya_customer_id = None
         user.maya_card_id = None
-        user.save(update_fields=['maya_card_id', 'updated_at'])
+        user.save(update_fields=['maya_customer_id', 'maya_card_id', 'updated_at'])
 
         log_audit(
             actor=actor or user,
             entity_type="users",
             action="STATUS_CHANGE",
             ip_address=ip_address,
-            fields_modified=["maya_card_id"]
+            fields_modified=["maya_customer_id", "maya_card_id"]
         )
 
     # Outside atomic — best-effort Maya card deletion
-    if user.maya_customer_id and old_card_id:
+    if old_customer_id and old_card_id:
         try:
             _maya_delete(
-                url=f"{settings.MAYA_SANDBOX_BASE_URL.rstrip('/')}/customers/{user.maya_customer_id}/cards/{old_card_id}",
+                url=f"{settings.MAYA_SANDBOX_BASE_URL.rstrip('/')}/customers/{old_customer_id}/cards/{old_card_id}",
                 authorization_value=settings.MAYA_SANDBOX_SECRET_BASIC_AUTH,
             )
         except requests.RequestException:

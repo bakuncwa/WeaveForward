@@ -68,7 +68,7 @@
     {% if business.upload %}
       <img class="biz-avatar" src="{{ business.upload }}" alt="{{ business.business_name|default:'Business' }}"/>
     {% else %}
-      <div class="biz-avatar-fallback">{{ business.business_name|default:"B"|slice:":2"|lower }}</div>
+      <div class="biz-avatar-fallback">{{ business.business_name|default:"B"|slice:":2"|upper }}</div>
     {% endif %}
     <div>
       <div class="biz-name">{{ business.business_name|default:"-" }}</div>

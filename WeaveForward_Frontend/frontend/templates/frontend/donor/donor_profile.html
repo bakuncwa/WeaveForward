@@ -121,7 +121,7 @@
         {% if user.upload %}
           <img src="{{ user.upload }}" alt="Profile Picture">
         {% else %}
-          {{ user.first_name|slice:":1"|lower }}{{ user.last_name|slice:":1"|lower }}
+          {{ user.first_name|slice:":1"|upper }}{{ user.last_name|slice:":1"|upper }}
         {% endif %}
       </div>
       <div class="profile-info">

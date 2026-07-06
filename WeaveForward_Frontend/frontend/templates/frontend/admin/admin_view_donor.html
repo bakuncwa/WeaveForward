@@ -63,7 +63,7 @@
             {% if donor.upload %}
                 <img src="{{ donor.upload }}" alt="Profile">
             {% else %}
-                {{ donor.first_name|slice:":1"|lower }}{{ donor.last_name|slice:":1"|lower }}
+                {{ donor.first_name|slice:":1"|upper }}{{ donor.last_name|slice:":1"|upper }}
             {% endif %}
         </div>
         <div class="profile-info">
