@@ -4,7 +4,7 @@
   const backRoutes = [
     {
       key: 'wfBack:tuab:donations',
-      listPaths: ['/tuab/dashboard/', '/tuab/inventory/'],
+      listPaths: ['/tuab/dashboard/', '/tuab/inventory/', '/tuab/fiber-match-recommendations/'],
       detailPrefixes: ['/tuab/donations/'],
       fallbackPath: '/tuab/dashboard/',
     },
@@ -113,7 +113,8 @@
       rewriteBackLink(topbarBackButton);
       document.querySelectorAll('.wf-content a[href]').forEach(rewriteBackLink);
     } else if (topbarBackButton) {
-      topbarBackButton.hidden = true;
+      topbarBackButton.setAttribute('href', matchedBackRoute.fallbackPath);
+      topbarBackButton.hidden = false;
     }
   }
 })();
