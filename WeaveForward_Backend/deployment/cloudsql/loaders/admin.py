@@ -9,7 +9,7 @@ def apply() -> dict:
     password = os.environ.get("ADMIN_PASSWORD")
 
     if not email or not password:
-        return {"status": "SKIP", "detail": "ADMIN_EMAIL or ADMIN_PASSWORD not set — skipping admin seed."}
+        return {"status": "SKIP", "detail": "ADMIN_EMAIL or ADMIN_PASSWORD not set - skipping admin seed."}
 
     user, created = User.objects.get_or_create(
         email=email,

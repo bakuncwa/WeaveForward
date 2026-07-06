@@ -59,7 +59,7 @@ def run() -> None:
     results: list[dict] = []
 
     for name, loader_fn in PIPELINE:
-        print(f"\n{'─'*50}")
+        print(f"\n{'-'*50}")
         print(f"[CLOUDSQL] {name}")
         try:
             result = loader_fn()
@@ -70,13 +70,13 @@ def run() -> None:
             traceback.print_exc()
 
     elapsed = (datetime.datetime.now(datetime.UTC) - start).total_seconds()
-    print(f"\n{'═'*50}")
-    print(f"  WeaveForward Cloud SQL Loader — complete ({elapsed:.1f}s)")
-    print(f"{'─'*50}")
+    print(f"\n{'='*50}")
+    print(f"  WeaveForward Cloud SQL Loader - complete ({elapsed:.1f}s)")
+    print(f"{'-'*50}")
     for r in results:
-        icon = "✓" if r["status"] in ("OK", "SKIP") else "✗"
+        icon = "OK" if r["status"] in ("OK", "SKIP") else "ERR"
         print(f"  [{icon}] {r['loader']:<14}  {r['status']:<6}  {r['detail']}")
-    print(f"{'═'*50}")
+    print(f"{'='*50}")
 
     if any(r["status"] == "ERROR" for r in results):
         sys.exit(1)

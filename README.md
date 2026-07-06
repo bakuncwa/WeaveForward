@@ -60,8 +60,6 @@ Core infrastructure are fully operational. Final development is focused on deplo
 
 ## Getting Started
 
-To ensure cross-platform compatibility and avoid path-related errors, this repository includes the environment configuration (`.env`) but requires you to initialize your own local virtual environment.
-
 ### Prerequisites
 * **Python 3.12**: Ensure Python 3.12 is installed on your system.
 * **MySQL Server**: A local MySQL instance must be running.
@@ -69,7 +67,7 @@ To ensure cross-platform compatibility and avoid path-related errors, this repos
   * **macOS**: [Download MySQL DMG Installer](https://dev.mysql.com/downloads/mysql/) or install via Homebrew: `brew install mysql`.
 
 ### macOS Help Notes
-If `pip install` fails with a `mysql_config` error, you need to install the client libraries and point Python to them:
+If `pip install` fails with a `mysql_config` error, install the client libraries and point Python to them:
 ```bash
 brew install mysql-client pkg-config
 
@@ -79,30 +77,64 @@ export PKG_CONFIG_PATH="/opt/homebrew/opt/mysql-client/lib/pkgconfig"
 # For Intel Macs:
 export PKG_CONFIG_PATH="/usr/local/opt/mysql-client/lib/pkgconfig"
 ```
-*Note: The activation command for virtual environments on macOS/Linux is `source venv/bin/activate`.*
-
-### Database Credentials
-The application connects to MySQL using the following default credentials (configured in `.env`):
-
-| Variable | Value |
-| :--- | :--- |
-| **DB_NAME** | `weave_db` |
-| **DB_USER** | `root` |
-| **DB_PASSWORD** | `1234` |
-| **DB_HOST** | `127.0.0.1` |
-| **DB_PORT** | `3306` |
-
-### Default Admin Credentials
-After initializing the database (see Backend Step 4), you can log in with the following system administrator account:
-
-| Field | Value |
-| :--- | :--- |
-| **Email** | `admin@weaveforward.com` |
-| **Password** | `SecureAdminPassword123` |
 
 ---
 
-## Backend Execution Procedures
+## 1. Get the Project
+
+Clone the repository and enter the project root:
+
+```powershell
+git clone <repository-url>
+cd WeaveForward
+```
+
+If you already have the repository, open a terminal in the project root.
+
+---
+
+## 2. Configure Backend Environment
+
+Create or edit `WeaveForward_Backend/.env`.
+
+For local development, it must use local MySQL:
+
+```env
+ENVIRONMENT=development
+DEBUG=True
+SECRET_KEY=django-insecure-local-weaveforward-dev-key
+ALLOWED_HOSTS=127.0.0.1,localhost
+CORS_ALLOWED_ORIGINS=http://127.0.0.1:8001,http://localhost:8001
+CSRF_TRUSTED_ORIGINS=http://127.0.0.1:8001,http://localhost:8001
+
+DB_NAME=weaveforward_db
+DB_USER=YOUR_MYSQL_USER
+DB_PASSWORD=YOUR_MYSQL_PASSWORD
+DB_HOST=127.0.0.1
+DB_PORT=3306
+
+AUTH_COOKIE_SECURE=False
+CATALOG_CSV_PATH=backend/data/webscraped_data/webscraped_catalog_archive.csv
+DJANGO_ML_DIR=fiber_match_api/models
+
+SCHEDULER_SECRET=dev-scheduler-secret-key-123
+
+RESEND_API_KEY=YOUR_RESEND_API_KEY
+
+MAYA_API_SECRET_KEY=YOUR_MAYA_SECRET_KEY
+MAYA_API_PUBLIC_KEY=YOUR_MAYA_PUBLIC_KEY
+MAYA_SANDBOX_BASE_URL=https://pg-sandbox.paymaya.com/payments/v1
+
+LALAMOVE_API_KEY=YOUR_LALAMOVE_API_KEY
+LALAMOVE_API_SECRET=YOUR_LALAMOVE_API_SECRET
+LALAMOVE_BASE_URL=https://rest.sandbox.lalamove.com
+```
+
+Use any local MySQL user that can create databases and modify tables. The MySQL `root` user works if that is what you configured during installation. Keep `DB_HOST=127.0.0.1` and `DB_PORT=3306` unless your local MySQL uses a custom host or port.
+
+Use real sandbox/API keys for Resend, Maya, and Lalamove if you need to test email, payment, or delivery flows locally. Placeholder values are enough for setup, migrations, fixture loading, and basic login testing only.
+
+## 3. Set Up Backend
 
 1. **Navigate to the Backend Directory**:
    ```powershell
@@ -125,26 +157,49 @@ After initializing the database (see Backend Step 4), you can log in with the fo
    pip install -r requirements.txt
    ```
 
-4. **Initialize the Database**:
-   Execute the database initialization script to automate the creation of the MySQL schema and seed the initial administrator account:
-   ```powershell
-   python manage.py bootstrap_environment
-   ```
+---
 
-5. **Apply Database Migrations**:
-   ```powershell
-   python manage.py migrate
-   ```
+## 4. Initialize the Local Backend Database
 
-6. **Start the Backend Server**:
-   ```powershell
-   python manage.py runserver 127.0.0.1:8000
-   ```
-   *The backend will be accessible at `http://127.0.0.1:8000/`.*
+Make sure MySQL is running, then run the backend bootstrap:
+
+```powershell
+python manage.py bootstrap_environment
+```
+
+This creates `weaveforward_db`, applies migrations, and loads the product catalog.
+
+Then load the deployment fixtures:
+
+```powershell
+python deployment/cloudsql/main.py
+```
+
+This loads the demo/UAT fixture data such as users, uploads, donations, inventory, subscriptions, orders, payments, and audit trail records.
 
 ---
 
-## Frontend Execution Procedures
+## 5. Start the Backend Server
+
+In the backend terminal:
+
+```powershell
+python manage.py runserver 127.0.0.1:8000
+```
+
+The backend API will be accessible at:
+
+```text
+http://127.0.0.1:8000/api/
+```
+
+The backend root `/` may return `404`, which is expected because API routes live under `/api/`.
+
+---
+
+## 6. Set Up Frontend
+
+Open a new terminal from the project root.
 
 1. **Navigate to the Frontend Directory**:
    ```powershell
@@ -167,19 +222,40 @@ After initializing the database (see Backend Step 4), you can log in with the fo
    pip install -r requirements.txt
    ```
 
-4. **Apply Database Migrations**:
+4. **Apply Frontend Database Migrations**:
    ```powershell
    python manage.py migrate
    ```
 
-5. **Start the Frontend Server**:
-   ```powershell
-   python manage.py runserver 8001
-   ```
-   *The frontend will be accessible at `http://127.0.0.1:8001/`.*
+---
+
+## 7. Start the Frontend Server
+
+In the frontend terminal:
+
+```powershell
+python manage.py runserver 8001
+```
+
+The frontend will be accessible at:
+
+```text
+http://127.0.0.1:8001/
+```
 
 > [!NOTE]
 > The frontend is powered by **Daphne ASGI** (integrated directly into the Django development server). This allows it to natively support async middleware and asynchronous backend proxy calls without locking files on Windows during local development.
+
+---
+
+## 8. Verify Local Login
+
+Open the frontend and log in with:
+
+| Field | Value |
+| :--- | :--- |
+| **Email** | `admin@weaveforward.com` |
+| **Password** | `SecureAdminPassword123` |
 
 ---
 
@@ -542,12 +618,34 @@ If the backend application fails to connect to MySQL, verify that the MySQL serv
 
 For local development of features requiring external callbacks (like Maya payment processing), the backend uses an ngrok tunnel to expose the local server to the internet.
 
-*   **Static ngrok Link**: `https://raquel-washiest-heike.ngrok-free.dev/api/webhooks/`
-    *   *Note: This link is static as it uses a free-tier permanent domain.*
-*   **How to Use**:
-    1.  Ensure your backend is running on port `8000`.
-    2.  Start ngrok with the static domain:
-        ```powershell
-        ngrok http --domain=raquel-washiest-heike.ngrok-free.dev 8000
-        ```
-    3.  Maya webhooks will now be forwarded to your local instance.
+**Local webhook URL format:**
+
+```text
+https://YOUR_NGROK_DOMAIN/api/webhooks
+```
+
+Before using the webhook locally, include your ngrok domain in `WeaveForward_Backend/.env`:
+
+```env
+ALLOWED_HOSTS=127.0.0.1,localhost,YOUR_NGROK_DOMAIN
+```
+
+Restart the backend after changing `ALLOWED_HOSTS`, then start it on port `8000`:
+
+```powershell
+python manage.py runserver 127.0.0.1:8000
+```
+
+In a separate terminal, start ngrok:
+
+```powershell
+ngrok http 8000
+```
+
+Copy the HTTPS forwarding domain that ngrok gives you, then use:
+
+```text
+https://YOUR_NGROK_DOMAIN/api/webhooks
+```
+
+Maya/Lalamove webhooks can now be forwarded to the local backend through that ngrok URL.
