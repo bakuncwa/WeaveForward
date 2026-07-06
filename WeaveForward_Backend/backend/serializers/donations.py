@@ -1,6 +1,7 @@
 import re
 import json
 import os
+import difflib
 from decimal import Decimal
 from datetime import timedelta
 from django.utils import timezone
@@ -15,6 +16,7 @@ from ..models import (
 from ..services.location_service import get_city_and_barangay
 from ..services.upload_service import build_upload_url
 from ..services.lalamove_service import get_lalamove_order_driver, get_lalamove_driver_details
+from ..services.brand_fiber_lookup_service import get_allowed_fibers
 
 
 from .brandfiberlookups import BrandFiberLookupSerializer
@@ -439,10 +441,16 @@ class DonationItemUpdateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("fiber_composition must be a non-empty object.")
             if not has_brand_type:
                 raise serializers.ValidationError("brand and clothing_type are required with fiber_composition.")
+            allowed_fibers = get_allowed_fibers()
             total = 0
             for fiber, pct in fiber_composition.items():
                 if not isinstance(fiber, str) or not fiber.strip():
                     raise serializers.ValidationError("Fiber names must be non-empty strings.")
+                normalized = fiber.strip().lower()
+                if normalized not in allowed_fibers:
+                    close = difflib.get_close_matches(normalized, allowed_fibers, n=1, cutoff=0.8)
+                    if close:
+                        raise serializers.ValidationError(f"'{fiber}' may be a typo. Did you mean '{close[0]}'?")
                 try:
                     val = float(pct)
                 except (ValueError, TypeError):
