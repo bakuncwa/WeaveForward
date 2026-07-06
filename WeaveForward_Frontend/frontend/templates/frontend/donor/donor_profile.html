@@ -167,7 +167,10 @@
         <label class="form-label-upper">First Name</label>
         <p class="info-val">{{ user.first_name }}</p>
       </div>
-
+      <div>
+        <label class="form-label-upper">Middle Name</label>
+        <p class="info-val">{{ user.middle_name|default:"—" }}</p>
+      </div>
       <div>
         <label class="form-label-upper">Last Name</label>
         <p class="info-val">{{ user.last_name }}</p>
