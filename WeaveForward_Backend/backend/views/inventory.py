@@ -117,6 +117,9 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
             current_inventory_weight = inventory_entry['current']
             original_total_weight = inventory_entry['total_orig']
 
+            if original_total_weight == 0:
+                continue
+
             for item_original_weight, item_fiber_json in inventory_entry['items']:
                 item_share = item_original_weight / original_total_weight
                 item_current_weight = current_inventory_weight * item_share
@@ -127,13 +130,13 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
                     fiber_weight = item_current_weight * (float(fiber_percent) / 100.0)
                     fiber_weights[fiber_name] += fiber_weight
                             
-        # O(c): converts the category totals dictionary into response objects.
-        category_summary = []
-        for fiber_name, total_weight in fiber_weights.items():
-            category_summary.append({
-                'category': fiber_name,
-                'total_weight_kg': round(total_weight, 2),
-            })
+        # O(c log c): converts and sorts the category totals so the order is
+        # deterministic across requests — fiber card colors are assigned by
+        # position in the template, so a stable sort prevents color flipping.
+        category_summary = sorted(
+            [{'category': fiber_name, 'total_weight_kg': round(total_weight, 2)} for fiber_name, total_weight in fiber_weights.items()],
+            key=lambda x: x['category']
+        )
         
         if isinstance(response.data, dict):
             response.data['category_summary'] = category_summary
@@ -266,7 +269,8 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
         instance.exit_state = exit_state_raw
         instance.archived_at = timezone.now()
         instance.was_forced_archived = before_weight > 0
-        instance.usage_amount_kg = (instance.usage_amount_kg + before_weight).quantize(Decimal('0.01'))
+        if exit_state_raw == InventoryExitState.UPCYCLED:
+            instance.usage_amount_kg = (instance.usage_amount_kg + before_weight).quantize(Decimal('0.01'))
         instance.current_weight_kg = Decimal('0.00')
         instance.notes = json.dumps(notes_payload, separators=(',', ':'))
         instance.save()
