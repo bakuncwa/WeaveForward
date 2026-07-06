@@ -131,7 +131,7 @@ class TuabCircularEconomyViewSet(viewsets.GenericViewSet):
             items_qs
             .values("lookup__brand")
             .annotate(weight_kg=Sum("weight_kg"), item_count=Count("item_id"))
-            .order_by("-item_count")[:20]
+            .order_by("-weight_kg")[:20]
         )
         top_brands = [
             {
