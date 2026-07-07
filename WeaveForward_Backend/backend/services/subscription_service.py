@@ -474,6 +474,11 @@ def process_expired_subscriptions():
                         amount=Decimal('499.00'),
                         reason="Subscription renewal failed.",
                     )
+            else:
+                SubscriptionPayment.objects.create(
+                    subscription=sub, amount=Decimal('499.00'),
+                    status=PaymentStatus.FAILED, payment_reference=request_reference_number,
+                )
         except (requests.RequestException, InvalidOperation, TypeError, ValueError):
             pass
 

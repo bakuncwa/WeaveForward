@@ -7,12 +7,14 @@ import requests
 from decimal import Decimal
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Sum
 from django.utils import timezone
 from .audit_service import log_audit
 from ..models import User, UserRole, Donation, Order, OrderStatus, DonationStatus, OrderPayment, PaymentStatus, DonationDeliveryMethod
 
 
 SUBSCRIPTION_COVERED_PAYMENT_PREFIX = "subscription-covered-"
+INTERNAL_PAYMENT_PREFIXES = {"subscription-covered-", "increase-", "decrease-"}
 
 
 def get_lalamove_quotation(pickup_lat, pickup_lng, pickup_address, dropoff_lat, dropoff_lng, dropoff_address, schedule_at):
@@ -91,8 +93,18 @@ def reverse_or_refund_payment(payment_record, amount):
     Attempts to Void (DELETE) first. If it is already settled (different day),
     automatically falls back to a Refund (POST).
     """
-    if not payment_record.payment_reference or payment_record.payment_reference.startswith(SUBSCRIPTION_COVERED_PAYMENT_PREFIX) or amount <= 0:
+    if not payment_record.payment_reference or amount <= 0:
         return False
+
+    # Internal bookkeeping payments: just create negative record, no Maya call
+    if any(payment_record.payment_reference.startswith(p) for p in INTERNAL_PAYMENT_PREFIXES):
+        OrderPayment.objects.create(
+            order=payment_record.order,
+            amount=-payment_record.amount,
+            status=PaymentStatus.SUCCESS,
+            payment_reference=f"void-{payment_record.payment_reference}"
+        )
+        return True
 
     headers = {
         'Authorization': settings.MAYA_SANDBOX_SECRET_BASIC_AUTH,
@@ -160,11 +172,10 @@ def process_lalamove_webhook(payload, client_ip):
     if not hmac.compare_digest(calculated_signature, signature):
         return {"status_code": 401, "detail": "Invalid Lalamove webhook signature."}
 
-    if payload.get("eventType") == "ORDER_AMOUNT_CHANGED":
-        # Per-order delivery charges are covered by the active PRO subscription.
-        return {"status_code": 200, "detail": "Order amount change acknowledged; no individual delivery charge applied."}
+    if payload.get("eventType") == "ORDER_CREATED":
+        return {"status_code": 200, "detail": "Order created webhook acknowledged."}
 
-        # Individual order charge path disabled while PRO subscription covers delivery.
+    if payload.get("eventType") == "ORDER_AMOUNT_CHANGED":
         order_data = data_obj["order"]
         with transaction.atomic():
             try:
@@ -174,34 +185,13 @@ def process_lalamove_webhook(payload, client_ip):
             total_price = Decimal(str(order_data["price"]["totalPrice"]))
             paid_amount = sum((p.amount for p in order_record.payments.filter(status=PaymentStatus.SUCCESS)), Decimal("0.00"))
             amount = total_price - paid_amount
-            if amount <= 0:
-                return {"status_code": 200, "detail": "Order amount change did not require an additional charge."}
-            tuab = order_record.donation.claimed_by_tuab
-            if not tuab or not tuab.maya_customer_id or not tuab.maya_card_id:
-                return {"status_code": 200, "detail": "Order amount change could not be charged because the TUAB has no valid payment method."}
-            reference = f"edit-{order_record.order_id}-{int(timezone.now().timestamp())}"[:36]
-            payment = OrderPayment.objects.create(order=order_record, amount=amount, status=PaymentStatus.FAILED, payment_reference=reference)
-            maya_url = f"{settings.MAYA_SANDBOX_BASE_URL.rstrip('/')}/customers/{tuab.maya_customer_id}/cards/{tuab.maya_card_id}/payments"
-            maya_payload = {"totalAmount": {"amount": float(amount), "currency": "PHP"}, "cardId": tuab.maya_card_id, "requestReferenceNumber": reference}
-
-        response = requests.post(
-            maya_url,
-            json=maya_payload,
-            headers={"Authorization": settings.MAYA_SANDBOX_SECRET_BASIC_AUTH, "Content-Type": "application/json", "Accept": "application/json"},
-            timeout=30,
-        )
-        response_json = response.json()
-        if response.status_code == 200 and response_json.get("status") == "PAYMENT_SUCCESS":
-            with transaction.atomic():
-                payment = OrderPayment.objects.select_for_update().get(pk=payment.pk)
-                order_record = Order.objects.select_for_update().get(pk=order_record.pk)
-                if payment.status != PaymentStatus.FAILED or order_record.lalamove_order_id != order_data["orderId"]:
-                    return {"status_code": 409, "detail": "Order amount change could not be finalized because the order state changed during payment."}
-                payment.status = PaymentStatus.SUCCESS
-                payment.payment_reference = response_json.get("id")
-                payment.save(update_fields=["status", "payment_reference", "updated_at"])
-            return {"status_code": 200, "detail": "Order amount change charged successfully."}
-        return {"status_code": 502, "detail": f"Maya payment failed: {response_json.get('message') or response_json.get('error') or 'Payment could not be completed.'}"}
+            if amount == 0:
+                return {"status_code": 200, "detail": "Order amount unchanged."}
+            reference = f"{'decrease' if amount < 0 else 'increase'}-{order_record.order_id}-{int(timezone.now().timestamp())}"[:36]
+            OrderPayment.objects.create(
+                order=order_record, amount=amount, status=PaymentStatus.SUCCESS, payment_reference=reference
+            )
+            return {"status_code": 200, "detail": f"Order amount {'decrease refunded' if amount < 0 else 'increase charged'}."}
 
     if payload.get("eventType") != "ORDER_STATUS_CHANGED":
         return {"status_code": 200, "detail": f"Webhook event type {payload.get('eventType')} ignored."}
@@ -212,7 +202,6 @@ def process_lalamove_webhook(payload, client_ip):
     if not lalamove_order_id:
         return {"status_code": 400, "detail": "Missing orderId in Lalamove webhook payload."}
 
-    payment_ids_to_refund = []
     webhook_response = None
 
     with transaction.atomic():
@@ -299,7 +288,13 @@ def process_lalamove_webhook(payload, client_ip):
                 donation_record.delivery_method = DonationDeliveryMethod.PICKUP
                 donation_record.updated_at = timezone.now()
                 donation_record.save(update_fields=["status", "delivery_method", "updated_at"])
-                payment_ids_to_refund = []
+                total = order_record.payments.filter(status=PaymentStatus.SUCCESS
+                    ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+                if total > 0:
+                    OrderPayment.objects.create(
+                        order=order_record, amount=-total, status=PaymentStatus.SUCCESS,
+                        payment_reference=f"void-order-{order_record.order_id}-{int(timezone.now().timestamp())}"
+                    )
                 webhook_response = {"status_code": 200, "detail": "Order failed due to max driver rejections. Donation converted to PICKUP."}
             else:
                 order_record.status = OrderStatus.ASSIGNING_DRIVER
@@ -335,12 +330,16 @@ def process_lalamove_webhook(payload, client_ip):
             donation_record.updated_at = timezone.now()
             donation_record.save(update_fields=["status", "delivery_method", "updated_at"])
 
-            payment_ids_to_refund = []
+            total = order_record.payments.filter(status=PaymentStatus.SUCCESS
+                ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+            if total > 0:
+                OrderPayment.objects.create(
+                    order=order_record, amount=-total, status=PaymentStatus.SUCCESS,
+                    payment_reference=f"void-order-{order_record.order_id}-{int(timezone.now().timestamp())}"
+                )
             webhook_response = {"status_code": 200, "detail": "Order expired and failed. Donation converted to PICKUP."}
 
     if webhook_response:
-        for payment_record in OrderPayment.objects.filter(pk__in=payment_ids_to_refund):
-            reverse_or_refund_payment(payment_record, payment_record.amount)
         return webhook_response
 
     return {"status_code": 200, "detail": "Lalamove webhook signature verified successfully."}
@@ -533,7 +532,6 @@ def process_expired_orders():
     and transitions them to FAILED, reverts the associated donation to PICKUP,
     and refunds the payment.
     """
-    payment_ids_to_refund = []
 
     with transaction.atomic():
         now = timezone.now()
@@ -568,18 +566,16 @@ def process_expired_orders():
                     fields_modified=["status", "delivery_method"]
                 )
 
-            # 3. Refund the payment if it was successful
-            payment_ids_to_refund.extend(
-                order.payments
-                .filter(status=PaymentStatus.SUCCESS, amount__gt=0)
-                .exclude(payment_reference__startswith=SUBSCRIPTION_COVERED_PAYMENT_PREFIX)
-                .values_list("pk", flat=True)
-            )
+            # 3. Refund the net paid amount
+            total = order.payments.filter(status=PaymentStatus.SUCCESS
+                ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+            if total > 0:
+                OrderPayment.objects.create(
+                    order=order, amount=-total, status=PaymentStatus.SUCCESS,
+                    payment_reference=f"void-order-{order.order_id}-{int(timezone.now().timestamp())}"
+                )
 
             expired_count += 1
-
-    for payment in OrderPayment.objects.filter(pk__in=payment_ids_to_refund):
-        reverse_or_refund_payment(payment, payment.amount)
 
     return expired_count
 

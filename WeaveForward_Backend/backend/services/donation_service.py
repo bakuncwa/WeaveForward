@@ -10,6 +10,7 @@ from io import BytesIO
 from PIL import Image as PILImage
 from datetime import timedelta
 from django.db import transaction
+from django.db.models import Sum
 from .email_service import send_donation_claimed_notification
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
@@ -20,7 +21,7 @@ import uuid
 
 from ..models import BrandFiberLookup, Donation, DonationItem, Upload, User, DonationStatus, DonationItemConditionRating, Order, OrderPayment, OrderStatus, PaymentStatus, DonationDeliveryMethod, UserRole, InventoryLedger, MatchPrediction
 from ..serializers.donations import DonationCreateSerializer, DonorDonationUpdateSerializer, AdminDonationUpdateSerializer
-from .lalamove_service import SUBSCRIPTION_COVERED_PAYMENT_PREFIX, cancel_lalamove_order, reverse_or_refund_payment, update_lalamove_order
+from .lalamove_service import cancel_lalamove_order, update_lalamove_order
 from .location_service import get_city_and_barangay
 from .audit_service import log_audit, get_client_ip
 from .etag_service import build_updated_at_etag, matches_if_match
@@ -510,18 +511,16 @@ def cancel_donation(*, user, donation, ip_address=None):
                 donation.status, donation.updated_at = DonationStatus.CANCELLED, timezone.now()
                 donation.save(update_fields=["status", "updated_at"])
 
-                payment_ids_to_refund = list(
-                    order.payments
-                    .filter(status=PaymentStatus.SUCCESS, amount__gt=0)
-                    .exclude(payment_reference__startswith=SUBSCRIPTION_COVERED_PAYMENT_PREFIX)
-                    .values_list("pk", flat=True)
-                )
+                total = order.payments.filter(status=PaymentStatus.SUCCESS
+                    ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+                if total > 0:
+                    OrderPayment.objects.create(
+                        order=order, amount=-total, status=PaymentStatus.SUCCESS,
+                        payment_reference=f"void-order-{order.order_id}-{int(timezone.now().timestamp())}"
+                    )
 
                 # Write to the audit trail logging the status change
                 log_audit(user, "donations", "STATUS_CHANGE", ip_address, ["status"])
-
-            for payment in OrderPayment.objects.filter(pk__in=payment_ids_to_refund):
-                reverse_or_refund_payment(payment, payment.amount)
 
             return {"detail": "Donation and associated delivery successfully cancelled by admin."}
 
@@ -612,12 +611,13 @@ def archive_donation(*, user, donation, ip_address=None):
             order.status, order.updated_at = OrderStatus.CANCELLED, timezone.now()
             order.save(update_fields=["status", "updated_at"])
 
-            payment_ids_to_refund = list(
-                order.payments
-                .filter(status=PaymentStatus.SUCCESS, amount__gt=0)
-                .exclude(payment_reference__startswith=SUBSCRIPTION_COVERED_PAYMENT_PREFIX)
-                .values_list("pk", flat=True)
-            )
+            total = order.payments.filter(status=PaymentStatus.SUCCESS
+                ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+            if total > 0:
+                OrderPayment.objects.create(
+                    order=order, amount=-total, status=PaymentStatus.SUCCESS,
+                    payment_reference=f"void-order-{order.order_id}-{int(timezone.now().timestamp())}"
+                )
 
         # Archive the donation
         donation.status, donation.updated_at = DonationStatus.ARCHIVED, timezone.now()
@@ -625,9 +625,6 @@ def archive_donation(*, user, donation, ip_address=None):
 
         # Write to the audit trail
         log_audit(user, "donations", "STATUS_CHANGE", ip_address, ["status"])
-
-    for payment in OrderPayment.objects.filter(pk__in=payment_ids_to_refund):
-        reverse_or_refund_payment(payment, payment.amount)
 
     return {"detail": "Donation successfully archived."}
 
@@ -787,7 +784,7 @@ def claim_donation(user, donation, claim_params, ip_address=None):
             order=order_record,
             amount=Decimal(str(quote['amount'])),
             status=PaymentStatus.FAILED,
-            payment_reference=f"claim-{donation.donation_id}-{int(timezone.now().timestamp())}",
+            payment_reference=f"subscription-covered-{donation.donation_id}-{int(timezone.now().timestamp())}",
         )
 
         # Per-order delivery charges are covered by the active PRO subscription.
@@ -878,19 +875,6 @@ def claim_donation(user, donation, claim_params, ip_address=None):
         lalamove_error_msg = str(e)
 
     if not lalamove_order_id:
-        # Per-order delivery charges are covered by the active PRO subscription.
-        # if maya_payment_id:
-        #     try:
-        #         void_resp = requests.delete(
-        #             f"{settings.MAYA_SANDBOX_BASE_URL.rstrip('/')}/payments/{maya_payment_id}",
-        #             json={"reason": "Automatic reversal due to logistics failure."},
-        #             headers={'Authorization': settings.MAYA_SANDBOX_SECRET_BASIC_AUTH, 'Content-Type': 'application/json'},
-        #             timeout=30
-        #         )
-        #         void_success = void_resp.status_code == 200
-        #     except Exception:
-        #         pass
-
         _revert_failed_delivery_claim(
             donation_id=donation.pk,
             user_id=user.pk,
