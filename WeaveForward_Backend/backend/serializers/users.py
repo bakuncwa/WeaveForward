@@ -1,5 +1,6 @@
 import os
 from io import BytesIO
+from decimal import Decimal
 from PIL import Image
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
@@ -55,6 +56,12 @@ def _require_or_autofill_city_barangay(data):
         data['city'] = city
     if 'barangay' in data:
         data['barangay'] = barangay
+
+
+def _validate_max_distance_km(value):
+    if value is None or value < Decimal("0.01") or value > 1000:
+        raise serializers.ValidationError("Must be at least 0.01 and at most 1000 km.")
+    return value
 
 
 class AdminUserDetailSerializer(serializers.ModelSerializer):
@@ -249,11 +256,13 @@ class TuabUpdateSerializer(serializers.ModelSerializer):
             'operational_status', 'target_fibers', 'latitude', 'longitude', 
             'display_address', 'password', 'upload', 'city', 'barangay'
         ]
-
     def validate_social_link(self, value):
         if value and ' ' in value:
             raise serializers.ValidationError("Social link must not contain spaces.")
         return value
+
+    def validate_max_distance_km(self, value):
+        return _validate_max_distance_km(value)
 
     def validate(self, data):
         # 1. Password
@@ -617,11 +626,13 @@ class TuabUpdateSelfSerializer(serializers.ModelSerializer):
             'operational_status', 'target_fibers', 'latitude', 'longitude', 
             'display_address', 'password', 'upload', 'city', 'barangay'
         ]
-
     def validate_social_link(self, value):
         if value and ' ' in value:
             raise serializers.ValidationError("Social link must not contain spaces.")
         return value
+
+    def validate_max_distance_km(self, value):
+        return _validate_max_distance_km(value)
 
     def validate(self, data):
         # 1. Password

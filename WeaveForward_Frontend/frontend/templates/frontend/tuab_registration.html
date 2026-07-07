@@ -856,7 +856,7 @@
       target_fibers: v => tgs.length ? '' : 'Select at least one fiber type.',
       max_distance_km: v => {
         const n = parseFloat(v);
-        return v.toString().trim() ? (n >= 0 && n <= 1000 ? '' : 'Must be between 0 and 1000 km.') : 'Max distance is required.';
+        return v.toString().trim() ? (/^\d+(\.\d{1,2})?$/.test(v) && n >= 0.01 && n <= 1000 ? '' : 'Must be 0.01-1000 km, max 2 decimals.') : 'Max distance is required.';
       },
       min_biodeg_score: v => {
         const n = parseFloat(v);
@@ -988,7 +988,7 @@
       }) && checkPw(gE('pw').value) && gE('pw').value === gE('cp').value;
       const s2 = gE('desc').value.trim() && gE('addr').value.trim() && ncrOk && validateFieldSilent('city') && validateFieldSilent('barangay') && tgs.length > 0
         && validateFieldSilent('social_link')
-        && (parseFloat(gE('md').value) >= 0 && parseFloat(gE('md').value) <= 1000)
+        && validateFieldSilent('max_distance_km')
         && (parseFloat(gE('mbs').value) >= 0 && parseFloat(gE('mbs').value) <= 100);
       const s3 = gE('fi').files.length > 0;
       const agree = gE('terms_accepted').checked && gE('privacy_accepted').checked;

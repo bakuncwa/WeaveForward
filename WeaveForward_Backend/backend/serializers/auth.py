@@ -1,5 +1,6 @@
 import os
 import re
+from decimal import Decimal
 
 import pyotp
 from django.contrib.auth import authenticate
@@ -144,8 +145,8 @@ class TUABRegisterSerializer(serializers.ModelSerializer):
         data['city'], data['barangay'] = data.get('city') or loc['city'], data.get('barangay') or loc['barangay']
 
         # Max Distance
-        if data['max_distance_km'] < 0 or data['max_distance_km'] > 1000:
-            raise serializers.ValidationError({'max_distance_km': "Must be between 0 and 1000 km."})
+        if data['max_distance_km'] < Decimal("0.01") or data['max_distance_km'] > 1000:
+            raise serializers.ValidationError({'max_distance_km': "Must be at least 0.01 and at most 1000 km."})
 
         # Min Biodeg Score
         if data['min_biodeg_score'] < 0 or data['min_biodeg_score'] > 100:
