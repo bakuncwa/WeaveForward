@@ -172,9 +172,6 @@ def process_lalamove_webhook(payload, client_ip):
     if not hmac.compare_digest(calculated_signature, signature):
         return {"status_code": 401, "detail": "Invalid Lalamove webhook signature."}
 
-    if payload.get("eventType") == "ORDER_CREATED":
-        return {"status_code": 200, "detail": "Order created webhook acknowledged."}
-
     if payload.get("eventType") == "ORDER_AMOUNT_CHANGED":
         order_data = data_obj["order"]
         with transaction.atomic():
