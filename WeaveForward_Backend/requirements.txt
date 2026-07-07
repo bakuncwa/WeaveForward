@@ -21,6 +21,8 @@ gunicorn==22.0.0
 idna==3.13
 packaging==26.2
 pillow==12.2.0
+python-magic==0.4.27
+python-magic-bin==0.4.14 ; platform_system == "Windows"
 proto-plus==1.27.2
 protobuf==7.34.1
 pyasn1==0.6.3
@@ -40,4 +42,6 @@ catboost==1.2.10
 pandas==3.0.2
 numpy==2.4.4
 django-filter==25.2
+a2wsgi
+fastapi
 

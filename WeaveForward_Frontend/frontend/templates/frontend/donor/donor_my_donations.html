@@ -36,6 +36,7 @@
     .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: none; cursor: pointer; font-family: 'Poppins', sans-serif; font-weight: 500; transition: all .2s; text-decoration: none; }
     .btn-primary { background: var(--gold); color: #fff; border-radius: 8px; padding: 10px 20px; font-size: 14px; white-space: nowrap; }
     .btn-primary:hover { background: var(--gold-dark); }
+    th a { color: inherit; text-decoration: none; }
     @media (max-width: 768px), (max-aspect-ratio: 1/1) {
       .search-bar-row { align-items: stretch; }
       .search-wrap { min-width: 0; width: 100%; }
@@ -140,6 +141,7 @@
       <svg width="17" height="17" fill="none" stroke="#aaa" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
     </div>
     <input name="q" value="{{ q|default:'' }}" placeholder="Search by TUAB, brand, clothing type, fiber, or condition" />
+    {% if ordering %}<input type="hidden" name="ordering" value="{{ ordering }}">{% endif %}
   </form>
   <a href="{% url 'donor_create_donation' %}" class="btn btn-primary">Create Donation</a>
 </div>
@@ -149,12 +151,12 @@
   <table class="wf-table wf-table-donations" id="don-table">
     <thead>
       <tr>
-        <th>Pick-Up Date</th>
+        <th><a href="?{% if ordering == 'preferred_pickup_date' %}ordering=-preferred_pickup_date{% elif ordering == '-preferred_pickup_date' %}ordering={% else %}ordering=preferred_pickup_date{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}">Pick-Up Date{% if ordering == 'preferred_pickup_date' %}&#9650;{% elif ordering == '-preferred_pickup_date' %}&#9660;{% endif %}</a></th>
         <th>Time Window</th>
-        <th>Display Address</th>
+        <th><a href="?{% if ordering == 'pickup_display_address' %}ordering=-pickup_display_address{% elif ordering == '-pickup_display_address' %}ordering={% else %}ordering=pickup_display_address{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}">Display Address{% if ordering == 'pickup_display_address' %}&#9650;{% elif ordering == '-pickup_display_address' %}&#9660;{% endif %}</a></th>
         <th>Items</th>
-        <th>Status</th>
-        <th>Claimed By</th>
+        <th><a href="?{% if ordering == 'status' %}ordering=-status{% elif ordering == '-status' %}ordering={% else %}ordering=status{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}">Status{% if ordering == 'status' %}&#9650;{% elif ordering == '-status' %}&#9660;{% endif %}</a></th>
+        <th><a href="?{% if ordering == 'claimed_by_tuab__business_name' %}ordering=-claimed_by_tuab__business_name{% elif ordering == '-claimed_by_tuab__business_name' %}ordering={% else %}ordering=claimed_by_tuab__business_name{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}">Claimed By{% if ordering == 'claimed_by_tuab__business_name' %}&#9650;{% elif ordering == '-claimed_by_tuab__business_name' %}&#9660;{% endif %}</a></th>
         <th>Actions</th>
         <th>Uploaded Image</th>
       </tr>
@@ -168,10 +170,10 @@
   <div class="pg-info">Page {{ current_page }} of {{ total_pages }}</div>
   <div class="pg-btns">
     {% if has_prev %}
-    <a href="?page={{ current_page|add:-1 }}{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline" id="prev-btn">❮ Previous</a>
+    <a href="?page={{ current_page|add:-1 }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if ordering %}&ordering={{ ordering|urlencode }}{% endif %}" class="btn btn-outline" id="prev-btn">❮ Previous</a>
     {% endif %}
     {% if has_next %}
-    <a href="?page={{ current_page|add:1 }}{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline" id="next-btn">Next ❯</a>
+    <a href="?page={{ current_page|add:1 }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if ordering %}&ordering={{ ordering|urlencode }}{% endif %}" class="btn btn-outline" id="next-btn">Next ❯</a>
     {% endif %}
   </div>
 </div>

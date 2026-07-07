@@ -1,4 +1,5 @@
-import hashlib
+import hashlib, hmac
+from django.conf import settings
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 from backend.models import ApiToken
@@ -15,7 +16,7 @@ class ApiKeyAuthentication(BaseAuthentication):
             return None
 
         api_key = parts[1]
-        hashed_key = hashlib.sha1(api_key.encode()).hexdigest()
+        hashed_key = hmac.new(settings.SECRET_KEY.encode(), api_key.encode(), hashlib.sha256).hexdigest()[:50]
         try:
             api_token = ApiToken.objects.select_related("user").get(token=hashed_key)
             return (api_token.user, api_token)

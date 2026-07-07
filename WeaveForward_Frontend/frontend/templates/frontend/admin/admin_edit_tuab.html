@@ -689,12 +689,12 @@
     const validTypes = ['image/png', 'image/jpeg', 'image/jpg'];
     if (!validTypes.includes(file.type)) {
       showFlash('Invalid file type. Please upload a PNG or JPEG image.', 'error');
-      getEl('pfp-in').value = '';
+      getEl('pfp-in').value = ''; getEl('clear-upload').value = '1'; getEl('pfp-pvw').style.display = 'none'; getEl('pfp-ph').style.display = '';
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
       showFlash('File is too large. Maximum size is 5MB.', 'error');
-      getEl('pfp-in').value = '';
+      getEl('pfp-in').value = ''; getEl('clear-upload').value = '1'; getEl('pfp-pvw').style.display = 'none'; getEl('pfp-ph').style.display = '';
       return;
     }
     getEl('clear-upload').value = '';
@@ -794,7 +794,7 @@
     if (v.length < 3) { items.innerHTML = ''; return; }
     clearTimeout(acTmr);
     acTmr = setTimeout(async () => {
-      try { acRes = await (await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(v)}&limit=5&countrycodes=ph`, { headers: { 'Accept-Language': 'en-US' } })).json(); items.innerHTML = acRes.map((r, i) => `<div class="mat-item" onmousedown="event.preventDefault();selAddr(${i})">${escapeHTML(r.display_name)}</div>`).join(''); ac.classList.remove('hidden'); ac.closest('.ss-wrap')?.classList.add('open'); } catch { }
+      try { acRes = await (await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(v)}&limit=5&countrycodes=ph`, { headers: { 'Accept-Language': 'en-US' } })).json(); items.innerHTML = acRes.map((r, i) => `<div class="mat-item" onmousedown="event.preventDefault();selAddr(${i})">${escapeHTML(r.display_name)}</div>`).join(''); ac.classList.remove('hidden'); ac.closest('.ss-wrap')?.classList.add('open'); } catch { showFlash('Location resolution services are unavailable.', 'error'); }
     }, 350);
   }
 
@@ -877,7 +877,7 @@
       }
       showFlash(msg || 'Save failed.', 'error');
     } catch {
-      showFlash('Backend is unreachable.', 'error');
+      showFlash('Service is temporarily unavailable. Please try again.', 'error');
     } finally {
       submitBtn.disabled = false;
     }

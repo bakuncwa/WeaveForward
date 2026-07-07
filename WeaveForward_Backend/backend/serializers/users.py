@@ -2,6 +2,7 @@ import os
 from io import BytesIO
 from decimal import Decimal
 from PIL import Image
+from ..validators import validate_upload, UploadValidationError
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 import pyotp
@@ -190,10 +191,15 @@ class DonorUpdateSerializer(serializers.ModelSerializer):
         pw = data.get('password')
         if pw and not re.match(r'^(?=.*[A-Za-z])(?=.*\d).{8,}$', pw):
             raise serializers.ValidationError({'password': "Password must be at least 8 characters and include at least one letter and one number."})
+        if pw and self.instance and self.instance.check_password(pw):
+            raise serializers.ValidationError({'password': "Please choose a password different from this user's current password."})
 
         # 2. Upload
-        if data.get('upload') and (data['upload'].size > 5242880 or not data['upload'].name.lower().endswith(('.jpg', '.jpeg', '.png'))):
-            raise serializers.ValidationError({'upload': "Please upload a JPG or PNG image under 5 MB."})
+        if data.get('upload'):
+            try:
+                validate_upload(data['upload'])
+            except UploadValidationError:
+                raise serializers.ValidationError({'upload': "Please upload a JPG or PNG image under 5 MB."})
 
         # 3. Contact No
         contact_no = data.get('contact_no')
@@ -269,10 +275,15 @@ class TuabUpdateSerializer(serializers.ModelSerializer):
         pw = data.get('password')
         if pw and not re.match(r'^(?=.*[A-Za-z])(?=.*\d).{8,}$', pw):
             raise serializers.ValidationError({'password': "Password must be at least 8 characters and include at least one letter and one number."})
+        if pw and self.instance and self.instance.check_password(pw):
+            raise serializers.ValidationError({'password': "Please choose a password different from this user's current password."})
 
         # 2. Upload
-        if data.get('upload') and (data['upload'].size > 5242880 or not data['upload'].name.lower().endswith(('.jpg', '.jpeg', '.png'))):
-            raise serializers.ValidationError({'upload': "Please upload a JPG or PNG image under 5 MB."})
+        if data.get('upload'):
+            try:
+                validate_upload(data['upload'])
+            except UploadValidationError:
+                raise serializers.ValidationError({'upload': "Please upload a JPG or PNG image under 5 MB."})
 
         # 3. Contact No
         contact_no = data.get('contact_no')
@@ -435,8 +446,8 @@ class TuabListSerializer(serializers.ModelSerializer):
     """Slim serializer for non-admin TUAB list views."""
     upload = serializers.SerializerMethodField()
     distance_km = serializers.FloatField(read_only=True, required=False)
-    latitude = serializers.DecimalField(max_digits=9, decimal_places=7, required=False, allow_null=True)
-    longitude = serializers.DecimalField(max_digits=10, decimal_places=7, required=False, allow_null=True)
+    latitude = serializers.SerializerMethodField()
+    longitude = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -449,11 +460,17 @@ class TuabListSerializer(serializers.ModelSerializer):
     def get_upload(self, obj):
         return build_upload_url(obj.upload, self.context)
 
+    def get_latitude(self, obj):
+        return round(float(obj.latitude), 2) if obj.latitude is not None else None
+
+    def get_longitude(self, obj):
+        return round(float(obj.longitude), 2) if obj.longitude is not None else None
+
 
 class TuabDetailSerializer(serializers.ModelSerializer):
     """Limited profile serializer for non-admin TUAB detail views."""
-    latitude = serializers.DecimalField(max_digits=9, decimal_places=7, required=False, allow_null=True)
-    longitude = serializers.DecimalField(max_digits=10, decimal_places=7, required=False, allow_null=True)
+    latitude = serializers.SerializerMethodField()
+    longitude = serializers.SerializerMethodField()
     upload = serializers.SerializerMethodField()
     total_donations = serializers.SerializerMethodField(read_only=True)
     distance_km = serializers.FloatField(read_only=True, required=False)
@@ -476,6 +493,12 @@ class TuabDetailSerializer(serializers.ModelSerializer):
             claimed_by_tuab_id=obj.user_id,
             status=DonationStatus.RECEIVED,
         ).count()
+
+    def get_latitude(self, obj):
+        return round(float(obj.latitude), 2) if obj.latitude is not None else None
+
+    def get_longitude(self, obj):
+        return round(float(obj.longitude), 2) if obj.longitude is not None else None
 
 
 class TwoFactorSerializer(serializers.Serializer):
@@ -559,10 +582,15 @@ class DonorUpdateSelfSerializer(serializers.ModelSerializer):
         pw = data.get('password')
         if pw and not re.match(r'^(?=.*[A-Za-z])(?=.*\d).{8,}$', pw):
             raise serializers.ValidationError({'password': "Password must be at least 8 characters and include at least one letter and one number."})
+        if pw and self.instance and self.instance.check_password(pw):
+            raise serializers.ValidationError({'password': "Please choose a password you have not used for this account."})
 
         # 2. Upload
-        if data.get('upload') and (data['upload'].size > 5242880 or not data['upload'].name.lower().endswith(('.jpg', '.jpeg', '.png'))):
-            raise serializers.ValidationError({'upload': "Please upload a JPG or PNG image under 5 MB."})
+        if data.get('upload'):
+            try:
+                validate_upload(data['upload'])
+            except UploadValidationError:
+                raise serializers.ValidationError({'upload': "Please upload a JPG or PNG image under 5 MB."})
 
         # 3. Contact No
         contact_no = data.get('contact_no')
@@ -639,10 +667,15 @@ class TuabUpdateSelfSerializer(serializers.ModelSerializer):
         pw = data.get('password')
         if pw and not re.match(r'^(?=.*[A-Za-z])(?=.*\d).{8,}$', pw):
             raise serializers.ValidationError({'password': "Password must be at least 8 characters and include at least one letter and one number."})
+        if pw and self.instance and self.instance.check_password(pw):
+            raise serializers.ValidationError({'password': "Please choose a password you have not used for this account."})
 
         # 2. Upload
-        if data.get('upload') and (data['upload'].size > 5242880 or not data['upload'].name.lower().endswith(('.jpg', '.jpeg', '.png'))):
-            raise serializers.ValidationError({'upload': "Please upload a JPG or PNG image under 5 MB."})
+        if data.get('upload'):
+            try:
+                validate_upload(data['upload'])
+            except UploadValidationError:
+                raise serializers.ValidationError({'upload': "Please upload a JPG or PNG image under 5 MB."})
 
         # 3. Contact No
         contact_no = data.get('contact_no')

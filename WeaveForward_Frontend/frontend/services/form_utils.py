@@ -17,9 +17,12 @@ async def get_paginated_data(request, endpoint, params=None, page_size=10):
     """Fetch and parse paginated data from the API, including search support."""
     page = request.GET.get('page', 1)
     search_query = request.GET.get('q', '')
+    ordering = request.GET.get('ordering', '')
     
     api_params = params.copy() if params else {}
     api_params.update({'page': page, 'search': search_query})
+    if ordering:
+        api_params['ordering'] = ordering
     
     response = await api_call(request, 'GET', endpoint, params=api_params)
     data = response.json() if response.status_code == 200 else {'results': [], 'count': 0, 'next': None, 'previous': None}
@@ -32,7 +35,8 @@ async def get_paginated_data(request, endpoint, params=None, page_size=10):
             'current_page': 1,
             'has_next': False,
             'has_prev': False,
-            'search_query': search_query
+            'search_query': search_query,
+            'ordering': ordering,
         }
     
     count = data.get('count', 0)
@@ -43,7 +47,8 @@ async def get_paginated_data(request, endpoint, params=None, page_size=10):
         'current_page': int(page),
         'has_next': data.get('next') is not None,
         'has_prev': data.get('previous') is not None,
-        'search_query': search_query
+        'search_query': search_query,
+        'ordering': ordering,
     }
     
     # Forward any extra keys (like category_summary) that the backend might have added

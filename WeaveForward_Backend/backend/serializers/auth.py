@@ -3,12 +3,13 @@ import re
 from decimal import Decimal
 
 import pyotp
+from backend.services.two_factor_service import decrypt_totp
 from django.contrib.auth import authenticate
 from rest_framework import exceptions, serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.settings import api_settings
 
-from ..constants import TUAB_REG_ALLOWED_EXTENSIONS, TUAB_REG_MAX_SIZE
+from ..validators import validate_upload, UploadValidationError, ALLOWED_DOC_MIME, MAX_DOC
 from django.utils import timezone
 from ..models import SubscriptionStatus, SubscriptionTier, User, UserAccountStatus, UserRole
 from ..services.auth_service import reset_user_password, validate_reset_token
@@ -125,7 +126,9 @@ class TUABRegisterSerializer(serializers.ModelSerializer):
 
         # File
         documentation = self.initial_data.get('documentation')
-        if os.path.splitext(documentation.name)[1].lower() not in TUAB_REG_ALLOWED_EXTENSIONS or documentation.size > TUAB_REG_MAX_SIZE:
+        try:
+            validate_upload(documentation, max_size=MAX_DOC, allowed=ALLOWED_DOC_MIME)
+        except UploadValidationError:
             raise serializers.ValidationError({'documentation': "Please upload a PDF, JPG, or PNG file under 50 MB."})
 
         # Fibers
@@ -236,7 +239,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             otp_code = attrs.get('otp_code')
             if not otp_code:
                 raise serializers.ValidationError({"2fa_required": True, "detail": "2FA code required."})
-            if not pyotp.TOTP(self.user.totp_secret).verify(otp_code):
+            if not pyotp.TOTP(decrypt_totp(self.user.totp_secret)).verify(otp_code):
                 raise serializers.ValidationError({"detail": self.error_messages['invalid_otp']})
 
         # Token
@@ -270,6 +273,7 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 
         if not user.is_active:
             raise serializers.ValidationError({"token": "This account is no longer eligible for password reset."})
+        if user.check_password(pw): raise serializers.ValidationError({'password': "Please choose a password you have not used for this account."})
 
         self.user = user
         return data

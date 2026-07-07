@@ -186,7 +186,7 @@
         items.innerHTML = acRes.map((r, i) => `<div class="mat-item" onmousedown="event.preventDefault();selAddr(${i})">${esc(r.display_name)}</div>`).join('');
         ac.classList.remove('hidden');
         ac.closest('.ss-wrap')?.classList.add('open');
-      } catch { }
+      } catch { showFlash('Location resolution services are unavailable.', 'error'); }
     }, 350);
   }
 

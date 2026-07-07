@@ -418,6 +418,148 @@
 
   function esc(s) { return String(s).replace(/[&<>"']/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 
+  function appendText(parent, className, text) {
+    var el = document.createElement('div');
+    if (className) el.className = className;
+    el.textContent = text;
+    parent.appendChild(el);
+    return el;
+  }
+
+  function makeLocationIcon() {
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', '12');
+    svg.setAttribute('height', '12');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', 'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z');
+    var circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', '12');
+    circle.setAttribute('cy', '10');
+    circle.setAttribute('r', '3');
+    svg.append(path, circle);
+    return svg;
+  }
+
+  function renderEmptyBusinesses(container) {
+    container.replaceChildren();
+    var wrap = document.createElement('div');
+    wrap.style.textAlign = 'center';
+    wrap.style.padding = '60px 0';
+    wrap.style.color = '#888';
+    var message = document.createElement('p');
+    message.textContent = 'No businesses found matching your criteria.';
+    wrap.appendChild(message);
+    container.appendChild(wrap);
+  }
+
+  function renderBusinessCard(biz) {
+    var card = document.createElement('a');
+    card.className = 'biz-card';
+    card.href = '/donor/tuabs/' + encodeURIComponent(biz.user_id || '') + '/';
+
+    var displayName = biz.business_name || biz.email || '';
+    if (biz.upload) {
+      var avatarImg = document.createElement('img');
+      avatarImg.className = 'biz-avatar';
+      avatarImg.src = biz.upload;
+      avatarImg.alt = displayName;
+      card.appendChild(avatarImg);
+    } else {
+      var avatar = document.createElement('div');
+      avatar.className = 'biz-avatar';
+      avatar.style.display = 'flex';
+      avatar.style.alignItems = 'center';
+      avatar.style.justifyContent = 'center';
+      avatar.style.background = '#f0e8d8';
+      avatar.style.color = 'var(--gold)';
+      avatar.style.fontWeight = '700';
+      avatar.style.fontSize = '20px';
+      avatar.style.fontFamily = 'Poppins,sans-serif';
+      avatar.textContent = (biz.business_name || '').slice(0, 2).toUpperCase();
+      card.appendChild(avatar);
+    }
+
+    var info = document.createElement('div');
+    info.className = 'biz-info';
+    appendText(info, 'biz-name', displayName);
+
+    var loc = document.createElement('div');
+    loc.className = 'biz-loc';
+    loc.appendChild(makeLocationIcon());
+    loc.appendChild(document.createTextNode(' ' + (biz.barangay || '') + ' ' + (biz.city || 'Unknown Location')));
+    info.appendChild(loc);
+
+    var tags = document.createElement('div');
+    tags.className = 'biz-tags';
+    var fibers = biz.fiber_list || [];
+    var shownFibers = fibers.length > 3 ? fibers.slice(0, 2) : fibers.slice(0, 3);
+    shownFibers.forEach(function(f) {
+      var tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.textContent = f;
+      tags.appendChild(tag);
+    });
+    if (fibers.length > 3) {
+      var more = document.createElement('span');
+      more.className = 'tag fiber-more';
+      more.textContent = 'more..';
+      more._wfFibers = fibers.slice(2);
+      tags.appendChild(more);
+    }
+    info.appendChild(tags);
+    card.appendChild(info);
+
+    appendText(card, 'biz-desc', biz.description || 'No description available for this partner yet.');
+
+    if (biz.distance_km != null) {
+      var distance = document.createElement('span');
+      distance.className = 'distance-badge';
+      distance.textContent = Number(biz.distance_km).toFixed(1) + 'km';
+      card.appendChild(distance);
+    }
+
+    return card;
+  }
+
+  function renderPagination(totalPages) {
+    var pg = document.getElementById('pagination');
+    pg.replaceChildren();
+    if (totalPages <= 1) return;
+
+    var wrap = document.createElement('div');
+    wrap.className = 'pagination-wrap';
+    wrap.id = 'don-pagination';
+    appendText(wrap, 'pg-info', 'Page ' + _page + ' of ' + totalPages);
+
+    var btns = document.createElement('div');
+    btns.className = 'pg-btns';
+    if (_page > 1) btns.appendChild(makePageButton('\u276E Previous', _page - 1));
+    var indicator = document.createElement('span');
+    indicator.id = 'page-indicator';
+    indicator.textContent = 'Page ' + _page;
+    btns.appendChild(indicator);
+    if (_page < totalPages) btns.appendChild(makePageButton('Next \u276F', _page + 1));
+
+    wrap.appendChild(btns);
+    pg.appendChild(wrap);
+  }
+
+  function makePageButton(label, page) {
+    var link = document.createElement('a');
+    link.className = 'btn btn-outline';
+    link.href = '#';
+    link.textContent = label;
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      goPage(page);
+    });
+    return link;
+  }
+
   function renderPage() {
     var container = document.getElementById('biz-list');
     var header = document.getElementById('results-count');
@@ -429,21 +571,8 @@
 
     header.textContent = total + ' Businesses found';
 
-    if (!pageItems.length) {
-      container.innerHTML = '<div style="text-align:center; padding:60px 0; color:#888;"><p>No businesses found matching your criteria.</p></div>';
-    } else {
-      container.innerHTML = pageItems.map(function(biz) {
-        var avatar = biz.upload
-          ? '<img class="biz-avatar" src="' + biz.upload + '" alt="' + biz.business_name + '" />'
-          : '<div class="biz-avatar" style="display:flex;align-items:center;justify-content:center;background:#f0e8d8;color:var(--gold);font-weight:700;font-size:20px;font-family:Poppins,sans-serif">' + (biz.business_name||'').slice(0,2).toUpperCase() + '</div>';
-        var fibers = biz.fiber_list || [];
-        var shownFibers = fibers.length > 3 ? fibers.slice(0, 2) : fibers.slice(0, 3);
-        var tags = shownFibers.map(function(f) { return '<span class="tag">' + esc(f) + '</span>'; }).join('');
-        if (fibers.length > 3) tags += '<span class="tag fiber-more" data-more="' + esc(fibers.slice(2).join('|')) + '">more..</span>';
-        var dist = biz.distance_km != null ? '<span class="distance-badge">' + Number(biz.distance_km).toFixed(1) + 'km</span>' : '';
-        return '<a class="biz-card" href="/donor/tuabs/' + biz.user_id + '/">' + avatar + '<div class="biz-info"><div class="biz-name">' + (biz.business_name||biz.email) + '</div><div class="biz-loc"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> ' + (biz.barangay||'') + ' ' + (biz.city||'Unknown Location') + '</div><div class="biz-tags">' + tags + '</div></div><div class="biz-desc">' + (biz.description||'No description available for this partner yet.') + '</div>' + dist + '</a>';
-      }).join('');
-    }
+    if (!pageItems.length) renderEmptyBusinesses(container);
+    else container.replaceChildren.apply(container, pageItems.map(renderBusinessCard));
 
     var sub = document.getElementById('results-sub');
     if (sub) {
@@ -451,13 +580,7 @@
       sub.textContent = hasLoc ? 'Sorted by nearest' : 'Discover our partners';
     }
 
-    var pg = document.getElementById('pagination');
-    if (totalPages <= 1) { pg.innerHTML = ''; return; }
-    pg.innerHTML = '<div class="pagination-wrap" id="don-pagination"><div class="pg-info">Page ' + _page + ' of ' + totalPages + '</div><div class="pg-btns">'
-      + (_page > 1 ? '<a class="btn btn-outline" id="prev-btn" href="javascript:goPage(' + (_page-1) + ')">\u276E Previous</a>' : '')
-      + '<span id="page-indicator">Page ' + _page + '</span>'
-      + (_page < totalPages ? '<a class="btn btn-outline" id="next-btn" href="javascript:goPage(' + (_page+1) + ')">Next \u276F</a>' : '')
-      + '</div></div>';
+    renderPagination(totalPages);
   }
 
   function goPage(p) {
@@ -485,8 +608,17 @@
     var more = e.target.closest('.fiber-more');
     if (!more) return;
     var card = document.getElementById('donor-hover-card');
-    var items = more.getAttribute('data-more').split('|');
-    card.innerHTML = '<div class="hc-hdr">More fibers</div><ul class="hc-items">' + items.map(function(f) { return '<li>' + esc(f) + '</li>'; }).join('') + '</ul>';
+    var items = more._wfFibers || [];
+    card.replaceChildren();
+    appendText(card, 'hc-hdr', 'More fibers');
+    var list = document.createElement('ul');
+    list.className = 'hc-items';
+    items.forEach(function(f) {
+      var item = document.createElement('li');
+      item.textContent = f;
+      list.appendChild(item);
+    });
+    card.appendChild(list);
     card.classList.add('visible');
     positionFiberCard(e);
   });
@@ -543,21 +675,38 @@
     var errorEl = document.getElementById('nominatim-error');
     if (errorEl) errorEl.classList.add('hidden');
     if (!items) return;
-    if (!val || val.length < 3) { items.innerHTML = ''; return; }
+    if (!val || val.length < 3) { items.replaceChildren(); return; }
     clearTimeout(_acTmr);
     _acTmr = setTimeout(async function() {
       try {
         var q = encodeURIComponent(val);
         var res = await fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + q + '&limit=5&countrycodes=ph');
         var data = await res.json();
-        if (!data.length) { items.innerHTML = '<div class="mat-item" style="color:#999;cursor:default">No results found</div>'; return; }
+        if (!data.length) {
+          items.replaceChildren();
+          var empty = document.createElement('div');
+          empty.className = 'mat-item';
+          empty.style.color = '#999';
+          empty.style.cursor = 'default';
+          empty.textContent = 'No results found';
+          items.appendChild(empty);
+          return;
+        }
         _acResults = data;
-        items.innerHTML = data.map(function(r, i) {
-          return '<div class="mat-item" onmousedown="event.preventDefault();selectAC(' + i + ')">' + r.display_name + '</div>';
-        }).join('');
+        items.replaceChildren();
+        data.forEach(function(r, i) {
+          var item = document.createElement('div');
+          item.className = 'mat-item';
+          item.textContent = r.display_name || '';
+          item.addEventListener('mousedown', function(event) {
+            event.preventDefault();
+            selectAC(i);
+          });
+          items.appendChild(item);
+        });
         ac.classList.remove('hidden');
       } catch (err) {
-        items.innerHTML = '';
+        items.replaceChildren();
         ac.classList.add('hidden');
         if (errorEl) errorEl.classList.remove('hidden');
       }

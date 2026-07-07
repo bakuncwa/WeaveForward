@@ -11,7 +11,7 @@ from PIL import Image as PILImage
 from datetime import timedelta
 from django.db import transaction
 from django.db.models import Sum
-from .email_service import send_donation_claimed_notification
+from .email_service import send_donation_claimed_notification, send_donation_in_transit_email
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.utils import timezone
@@ -69,6 +69,8 @@ def _revert_failed_delivery_claim(*, donation_id, user_id, order_id):
             donation.delivery_method = None
             donation.updated_at = timezone.now()
             donation.save(update_fields=["status", "claimed_by_tuab", "delivery_method", "updated_at"])
+            OrderPayment.objects.filter(order_id=order_id).delete()
+            order.delete()
 
 
 def create_donation(*, request):
@@ -191,6 +193,11 @@ def mark_donation_in_transit(*, user, donation, ip_address=None):
         exc.status_code = 409
         raise exc
 
+    # Capture data before transaction re-fetch
+    active_items = list(donation.items.filter(is_archived=False).select_related('lookup'))
+    items_list = [{'brand': i.lookup.brand, 'clothing_type': i.lookup.clothing_type} for i in active_items]
+    pickup_date_str = timezone.localtime(donation.preferred_pickup_date).strftime("%B %d, %Y")
+
     with transaction.atomic():
         # Pessimistically lock the donation row to prevent concurrent modifications
         donation = Donation.objects.select_for_update().get(pk=donation.pk)
@@ -213,6 +220,15 @@ def mark_donation_in_transit(*, user, donation, ip_address=None):
             fields_modified=["status"]
         )
     
+    donor = donation.donor
+    tuab_name = user.business_name or f"{user.first_name} {user.last_name}".strip()
+    send_donation_in_transit_email(
+        donor_email=donor.email,
+        donor_name=f"{donor.first_name} {donor.last_name}".strip() or donor.email,
+        tuab_name=tuab_name,
+        items_list=items_list,
+        pickup_date=pickup_date_str,
+    )
     return {"detail": "Donation successfully marked as in-transit."}
 
 def donor_update_donation(*, request, donation):
@@ -500,6 +516,12 @@ def cancel_donation(*, user, donation, ip_address=None):
                 donation = Donation.objects.select_for_update().get(pk=donation.pk)
                 order = Order.objects.select_for_update().get(pk=order_id)
 
+                if donation.status == DonationStatus.CLAIMED and donation.delivery_method == DonationDeliveryMethod.PICKUP and order.status in [OrderStatus.CANCELLED, OrderStatus.FAILED]:
+                    donation.status, donation.delivery_method, donation.updated_at = DonationStatus.CANCELLED, DonationDeliveryMethod.DELIVERY, timezone.now()
+                    donation.save(update_fields=["status", "delivery_method", "updated_at"])
+                    log_audit(user, "donations", "STATUS_CHANGE", ip_address, ["status", "delivery_method"])
+                    return {"detail": "Donation cancelled after delivery was already stopped."}
+
                 if donation.status != DonationStatus.CLAIMED or donation.delivery_method != DonationDeliveryMethod.DELIVERY or order.status == OrderStatus.CANCELLED:
                     exc = APIException("This donation can no longer be cancelled because its state changed during delivery cancellation.")
                     exc.status_code = 409
@@ -631,14 +653,19 @@ def archive_donation(*, user, donation, ip_address=None):
 
 def process_auto_archive_donations():
     """
-    Finds all active/pending donations that are past their auto_archive_at date
-    and archives them directly.
+    Finds unresolved donations that are past their auto_archive_at date and
+    archives them directly. Resolved donations stay available for reporting.
     """
     with transaction.atomic():
         now = timezone.now()
         expired_donations = Donation.objects.select_for_update().filter(
             auto_archive_at__lte=now
-        ).exclude(status__in=[DonationStatus.ARCHIVED, DonationStatus.CANCELLED])
+        ).exclude(status__in=[
+            DonationStatus.ARCHIVED,
+            DonationStatus.CANCELLED,
+            DonationStatus.RECEIVED,
+            DonationStatus.REJECTED,
+        ])
 
         archived_count = 0
         admin_user = User.objects.filter(role=UserRole.ADMIN).first()
@@ -697,12 +724,16 @@ def claim_donation(user, donation, claim_params, ip_address=None):
             donation.save()
             log_audit(user, 'donations', 'STATUS_CHANGE', ip_address, ['status', 'claimed_by_tuab', 'delivery_method'])
             donor = donation.donor
+            active_items = list(donation.items.filter(is_archived=False).select_related('lookup'))
+            items_list = [{'brand': i.lookup.brand, 'clothing_type': i.lookup.clothing_type} for i in active_items]
+            pickup_date_str = timezone.localtime(donation.preferred_pickup_date).strftime("%B %d, %Y")
             send_donation_claimed_notification(
                 donor_email=donor.email,
                 donor_name=f"{donor.first_name} {donor.last_name}".strip() or donor.email,
-                donation_id=donation.donation_id,
                 tuab_name=user.business_name or f"{user.first_name} {user.last_name}".strip(),
                 delivery_method="PICKUP",
+                items_list=items_list,
+                pickup_date=pickup_date_str,
             )
             return {"detail": "Donation successfully claimed for pickup."}
 
@@ -881,7 +912,7 @@ def claim_donation(user, donation, claim_params, ip_address=None):
             order_id=order_record.pk,
         )
         exc = APIException(
-            f"Delivery placement failed: {lalamove_error_msg}. No delivery payment was charged."
+            "Delivery scheduling failed. Please try again. No payment was charged."
         )
         exc.status_code = 502
         raise exc
@@ -925,12 +956,16 @@ def claim_donation(user, donation, claim_params, ip_address=None):
         raise exc
 
     donor = donation.donor
+    active_items = list(donation.items.filter(is_archived=False).select_related('lookup'))
+    items_list = [{'brand': i.lookup.brand, 'clothing_type': i.lookup.clothing_type} for i in active_items]
+    pickup_date_str = timezone.localtime(donation.preferred_pickup_date).strftime("%B %d, %Y")
     send_donation_claimed_notification(
         donor_email=donor.email,
         donor_name=f"{donor.first_name} {donor.last_name}".strip() or donor.email,
-        donation_id=donation.donation_id,
         tuab_name=user.business_name or f"{user.first_name} {user.last_name}".strip(),
         delivery_method="DELIVERY",
+        items_list=items_list,
+        pickup_date=pickup_date_str,
     )
     return {"detail": "Donation successfully claimed and delivery scheduled.", "lalamove_order_id": lalamove_order_id}
 

@@ -47,12 +47,12 @@ function addFiberRow(btn) {
     sel.addEventListener('change', function () { updateFiberTotal(editor); rebuildFiberOptions(editor); });
     const inp = document.createElement('input');
     inp.type = 'text';
-    inp.inputMode = 'decimal';
+    inp.inputMode = 'numeric';
     inp.min = '0';
     inp.max = '100';
     inp.placeholder = '%';
-    inp.addEventListener('input', function () { this.value = this.value.replace(/[^0-9.]/g, ''); var v = parseFloat(this.value); if (v < 0) this.value = 0; if (this.value.split('.').length > 2) this.value = this.value.replace(/\.+$/, ''); updateFiberTotal(editor); });
-    inp.addEventListener('blur', function () { if (this.value < 0) this.value = 0; this.value = parseFloat(this.value || 0).toFixed(2); updateFiberTotal(editor); });
+    inp.addEventListener('input', function () { this.value = this.value.replace(/\D/g, '').slice(0, 3); updateFiberTotal(editor); });
+    inp.addEventListener('blur', function () { this.value = String(Number(this.value || 0)); updateFiberTotal(editor); });
     const rm = document.createElement('button');
     rm.type = 'button';
     rm.className = 'fiber-rm';
@@ -84,7 +84,7 @@ function updateFiberTotal(editor) {
     var hasEmptyFiber = false;
     rows.forEach(function (r) {
         const fiber = r.querySelector('select').value;
-        const raw = parseFloat(r.querySelector('input').value) || 0;
+        const raw = parseInt(r.querySelector('input').value, 10) || 0;
         if (raw < 0) { hasNeg = true; r.querySelector('input').value = 0; return; }
         if (!fiber && raw > 0) hasEmptyFiber = true;
         if (fiber && raw > 0) comp[fiber] = raw;
@@ -92,9 +92,9 @@ function updateFiberTotal(editor) {
     });
     if (hasNeg) return updateFiberTotal(editor);
     const sumEl = editor.querySelector('.fiber-sum');
-    sumEl.textContent = total.toFixed(2);
+    sumEl.textContent = total;
     const totalEl = editor.querySelector('.fiber-total');
-    const valid = !hasEmptyFiber && Math.abs(total - 100) < 0.011;
+    const valid = !hasEmptyFiber && total === 100;
     totalEl.className = 'fiber-total' + (valid ? ' ok' : ' err');
     editor.querySelector('.fiber-composition').value = Object.keys(comp).length ? JSON.stringify(comp) : '';
 }

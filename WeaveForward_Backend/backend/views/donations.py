@@ -51,8 +51,9 @@ class DonationFilterSet(FilterSet):
 class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin, PaginatedResponseMixin):
     permission_classes = [IsAuthenticated]
     serializer_class = DonationDetailSerializer
-    filter_backends = [filters.SearchFilter, DjangoFilterBackend]
+    filter_backends = [filters.SearchFilter, DjangoFilterBackend, filters.OrderingFilter]
     filterset_class = DonationFilterSet
+    ordering_fields = ['donation_id', 'is_flagged', 'claimed_by_tuab__business_name', 'status', 'preferred_pickup_date', 'pickup_display_address']
     search_fields = [
         'donor__email', 
         'donor__first_name', 
@@ -174,7 +175,12 @@ class DonationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Ret
                 raise PermissionDenied("Access denied.")
 
         serializer = self.get_serializer(instance)
-        response = Response(serializer.data)
+        data = serializer.data
+        if user.role != 'Admin' and user != instance.donor and instance.claimed_by_tuab != user:
+            if isinstance(data.get('donor'), dict):
+                data['donor'].pop('email', None)
+                data['donor'].pop('contact_no', None)
+        response = Response(data)
         response['ETag'] = build_updated_at_etag(instance)
         return response
 

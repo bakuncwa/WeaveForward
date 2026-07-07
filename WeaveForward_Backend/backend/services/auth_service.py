@@ -10,7 +10,7 @@ from rest_framework.authentication import CSRFCheck
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.settings import api_settings
 import secrets
-import hashlib
+import hashlib, hmac
 import io
 import os
 import uuid
@@ -142,7 +142,7 @@ def reset_user_password(user, new_password):
 
 def generate_api_key(user):
     raw_key = secrets.token_urlsafe(32)
-    ApiToken.objects.create(user=user, token=hashlib.sha1(raw_key.encode()).hexdigest())
+    ApiToken.objects.create(user=user, token=hmac.new(settings.SECRET_KEY.encode(), raw_key.encode(), hashlib.sha256).hexdigest()[:50])
     return raw_key
 
 
@@ -151,7 +151,10 @@ def create_tuab_documentation_upload(documentation):
     if documentation:
         ext = os.path.splitext(documentation.name)[1].lower()
         if ext in ALLOWED_IMAGE_EXTENSIONS:
-            img = Image.open(documentation)
+            try:
+                img = Image.open(documentation)
+            except Exception:
+                raise exceptions.ValidationError("Invalid or corrupted image file.")
             if img.mode != 'RGB':
                 img = img.convert('RGB')
             buffer = io.BytesIO()

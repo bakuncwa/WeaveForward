@@ -22,7 +22,8 @@ async def admin_view_donations(request):
         'current_page': page_data['current_page'],
         'has_next': page_data['has_next'],
         'has_prev': page_data['has_prev'],
-        'q': page_data['search_query']
+        'q': page_data['search_query'],
+        'ordering': page_data['ordering']
     })
 
 async def admin_view_donors(request):
@@ -38,7 +39,8 @@ async def admin_view_donors(request):
         'current_page': page_data['current_page'],
         'has_next': page_data['has_next'],
         'has_prev': page_data['has_prev'],
-        'q': page_data['search_query']
+        'q': page_data['search_query'],
+        'ordering': page_data['ordering']
     })
 
 async def admin_view_tuabs(request):
@@ -54,7 +56,8 @@ async def admin_view_tuabs(request):
         'current_page': page_data['current_page'],
         'has_next': page_data['has_next'],
         'has_prev': page_data['has_prev'],
-        'q': page_data['search_query']
+        'q': page_data['search_query'],
+        'ordering': page_data['ordering']
     })
 
 async def admin_add_tuab(request):
@@ -210,6 +213,8 @@ async def admin_edit_donor(request, user_id):
         files = {}
         if request.FILES.get('upload'):
             files['upload'] = request.FILES['upload']
+        elif request.POST.get('clear_upload') == '1':
+            payload['clear_upload'] = '1'
 
         headers = {'If-Match': submitted_etag} if submitted_etag else {}
         patch_kwargs = {'headers': headers, 'data': payload}
@@ -702,7 +707,8 @@ async def admin_view_payments(request):
         'current_page': page_data['current_page'],
         'has_next': page_data['has_next'],
         'has_prev': page_data['has_prev'],
-        'q': page_data['search_query']
+        'q': page_data['search_query'],
+        'ordering': page_data['ordering']
     })
 
 
@@ -754,5 +760,5 @@ async def admin_circular_economy(request):
         'date_to': date_to,
         'today_iso': datetime.now().strftime('%Y-%m-%d'),
         'error_message': error_message,
-        'dashboard_json': json.dumps(dashboard_data),
+        'dashboard_data': dashboard_data,
     })

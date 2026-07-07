@@ -80,7 +80,15 @@ class TuabCircularEconomyViewSet(viewsets.GenericViewSet):
         if errors:
             raise ValidationError(errors)
 
-        donations_qs = Donation.objects.filter(**donation_filters)
+        _d = donation_filters
+        date_q = Q()
+        if "updated_at__gte" in _d:
+            v = _d.pop("updated_at__gte")
+            date_q &= Q(Q(status=DonationStatus.RECEIVED, inventory_ledger_entries__ingested_at__gte=v) | Q(status=DonationStatus.REJECTED, updated_at__gte=v))
+        if "updated_at__lte" in _d:
+            v = _d.pop("updated_at__lte")
+            date_q &= Q(Q(status=DonationStatus.RECEIVED, inventory_ledger_entries__ingested_at__lte=v) | Q(status=DonationStatus.REJECTED, updated_at__lte=v))
+        donations_qs = Donation.objects.filter(date_q, **_d)
         received_donations_qs = donations_qs.filter(status=DonationStatus.RECEIVED)
 
         # 1. Biodegradability score distribution

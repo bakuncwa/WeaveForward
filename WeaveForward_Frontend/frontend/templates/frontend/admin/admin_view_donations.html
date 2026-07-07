@@ -161,6 +161,7 @@
     border-color: #c0392b;
   }
 
+  th a { color: inherit; text-decoration: none; }
   @media (max-width: 768px), (max-aspect-ratio: 1/1) {
     .btn-primary {
       width: 100%;
@@ -180,6 +181,7 @@
       </svg>
     </div>
     <input name="q" value="{{ q|default:'' }}" placeholder="Search by donor, TUAB, brand, clothing type, fiber, or condition" />
+    {% if ordering %}<input type="hidden" name="ordering" value="{{ ordering }}">{% endif %}
   </form>
   <a href="{% url 'admin_add_donation' %}" class="btn btn-primary">Add Donation</a>
 </div>
@@ -189,11 +191,32 @@
     <table class="wf-table wf-table-donations" id="don-table">
       <thead>
         <tr>
-          <th>ID</th>
-          <th>Is Flagged</th>
+          <th>
+            <a href="?{% if ordering == 'donation_id' %}ordering=-donation_id{% elif ordering == '-donation_id' %}ordering={% else %}ordering=donation_id{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}">
+              ID
+              {% if ordering == 'donation_id' %}&#9650;{% elif ordering == '-donation_id' %}&#9660;{% endif %}
+            </a>
+          </th>
+          <th>
+            <a href="?{% if ordering == 'is_flagged' %}ordering=-is_flagged{% elif ordering == '-is_flagged' %}ordering={% else %}ordering=is_flagged{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}"
+               class="sort-link {% if ordering == 'is_flagged' or ordering == '-is_flagged' %}active{% endif %}">
+              Is Flagged
+              {% if ordering == 'is_flagged' %}&#9650;{% elif ordering == '-is_flagged' %}&#9660;{% endif %}
+            </a>
+          </th>
           <th>Items</th>
-          <th>Status</th>
-          <th>Claimed By</th>
+          <th>
+            <a href="?{% if ordering == 'status' %}ordering=-status{% elif ordering == '-status' %}ordering={% else %}ordering=status{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}">
+              Status
+              {% if ordering == 'status' %}&#9650;{% elif ordering == '-status' %}&#9660;{% endif %}
+            </a>
+          </th>
+          <th>
+            <a href="?{% if ordering == 'claimed_by_tuab__business_name' %}ordering=-claimed_by_tuab__business_name{% elif ordering == '-claimed_by_tuab__business_name' %}ordering={% else %}ordering=claimed_by_tuab__business_name{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}">
+              Claimed By
+              {% if ordering == 'claimed_by_tuab__business_name' %}&#9650;{% elif ordering == '-claimed_by_tuab__business_name' %}&#9660;{% endif %}
+            </a>
+          </th>
           <th>Actions</th>
           <th>Uploaded Image</th>
         </tr>
@@ -264,10 +287,10 @@
   <div class="pg-info">Page {{ current_page }} of {{ total_pages }}</div>
   <div class="pg-btns">
     {% if has_prev %}
-    <a href="?page={{ current_page|add:-1 }}{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline">❮ Previous</a>
+    <a href="?page={{ current_page|add:-1 }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if ordering %}&ordering={{ ordering|urlencode }}{% endif %}" class="btn btn-outline">❮ Previous</a>
     {% endif %}
     {% if has_next %}
-    <a href="?page={{ current_page|add:1 }}{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline">Next ❯</a>
+    <a href="?page={{ current_page|add:1 }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if ordering %}&ordering={{ ordering|urlencode }}{% endif %}" class="btn btn-outline">Next ❯</a>
     {% endif %}
   </div>
 </div>

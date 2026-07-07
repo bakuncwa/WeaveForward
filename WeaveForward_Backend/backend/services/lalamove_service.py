@@ -213,6 +213,9 @@ def process_lalamove_webhook(payload, client_ip):
         # LALAMOVE STATUS TRANSITIONS
         # =========================================================================
 
+        if order_record.status in [OrderStatus.COMPLETED, OrderStatus.CANCELLED, OrderStatus.FAILED]:
+            return {"status_code": 200, "detail": "Terminal order status left unchanged."}
+
         # "" -> "ASSIGNING_DRIVER"
         if previous_status == "" and status == "ASSIGNING_DRIVER":
             return {"status_code": 200, "detail": "Order status is already ASSIGNING_DRIVER. No status update required."}
@@ -261,8 +264,40 @@ def process_lalamove_webhook(payload, client_ip):
             donation_record.save(update_fields=["updated_at"])
             return {"status_code": 200, "detail": "Order status updated to COMPLETED successfully."}
 
-        # "ON_GOING" -> "ASSIGNING_DRIVER" (Driver Rejected / Reassigning)
-        if previous_status == "ON_GOING" and status == "ASSIGNING_DRIVER":
+        # Any -> "REJECTED"/"CANCELED"
+        if status in ["REJECTED", "CANCELED", "CANCELLED"]:
+            order_record.status = OrderStatus.FAILED if status == "REJECTED" else OrderStatus.CANCELLED
+            order_record.updated_at = timezone.now()
+            order_record.save(update_fields=["status", "updated_at"])
+
+            donation_record = order_record.donation
+            if donation_record.status not in [DonationStatus.CLAIMED, DonationStatus.IN_TRANSIT]:
+                return {"status_code": 200, "detail": f"Order {status.lower()} by Lalamove. Donation status was left unchanged."}
+            admin_user = User.objects.filter(role=UserRole.ADMIN).first()
+            if admin_user:
+                log_audit(
+                    actor=admin_user,
+                    entity_type="donations",
+                    action="STATUS_CHANGE",
+                    ip_address=client_ip,
+                    fields_modified=["status", "delivery_method"]
+                )
+            donation_record.status = DonationStatus.CLAIMED
+            donation_record.delivery_method = DonationDeliveryMethod.PICKUP
+            donation_record.updated_at = timezone.now()
+            donation_record.save(update_fields=["status", "delivery_method", "updated_at"])
+
+            total = order_record.payments.filter(status=PaymentStatus.SUCCESS
+                ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+            if total > 0:
+                OrderPayment.objects.create(
+                    order=order_record, amount=-total, status=PaymentStatus.SUCCESS,
+                    payment_reference=f"void-order-{order_record.order_id}-{int(timezone.now().timestamp())}"
+                )
+            return {"status_code": 200, "detail": f"Order {status.lower()} by Lalamove. Donation converted to PICKUP."}
+
+        # "ON_GOING"/"PICKED_UP" -> "ASSIGNING_DRIVER" (Driver Rejected / Reassigning)
+        if previous_status in ["ON_GOING", "PICKED_UP"] and status == "ASSIGNING_DRIVER":
             if order_record.no_reassigned >= 1:
                 order_record.status = OrderStatus.FAILED
                 order_record.no_reassigned = 2

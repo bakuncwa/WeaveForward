@@ -36,7 +36,8 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
     """
     permission_classes = [IsActiveTUAB]
     serializer_class = InventoryLedgerSerializer
-    filter_backends = [filters.SearchFilter]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    ordering_fields = ['inventory_id', 'source_donation__donation_id', 'current_weight_kg', 'updated_at', 'lifecycle_status']
     search_fields = ['=inventory_id', '=source_donation__donation_id', 'source_donation__donor__first_name', 'source_donation__donor__last_name']
 
     def get_queryset(self):
@@ -193,7 +194,10 @@ class InventoryViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, Paginated
         if usage <= 0:
             return Response({'error': 'Usage amount must be greater than zero and at most 2 decimal places.'}, status=status.HTTP_400_BAD_REQUEST)
         if usage > instance.current_weight_kg:
-            return Response({'error': 'Negative stock not allowed. Usage exceeds current stock.'}, status=status.HTTP_400_BAD_REQUEST)
+            if usage == instance.current_weight_kg.quantize(Decimal('0.01')):
+                usage = instance.current_weight_kg
+            else:
+                return Response({'error': 'Negative stock not allowed. Usage exceeds current stock.'}, status=status.HTTP_400_BAD_REQUEST)
 
         before_weight = instance.current_weight_kg
         after_weight = (before_weight - usage).quantize(Decimal('0.01'))

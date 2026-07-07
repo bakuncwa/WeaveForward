@@ -177,8 +177,8 @@
       if (!f) return;
       const ALLOWED = ['.jpg', '.jpeg', '.png'];
       const ext = f.name.substring(f.name.lastIndexOf('.')).toLowerCase();
-      if (!ALLOWED.includes(ext)) { showFlash('Please upload a JPG or PNG image.', 'error'); el.value = ''; return; }
-      if (f.size > 5 * 1024 * 1024) { showFlash('Image must be under 5 MB.', 'error'); el.value = ''; return; }
+      if (!ALLOWED.includes(ext)) { showFlash('Please upload a JPG or PNG image.', 'error'); el.value = ''; $('clear-upload').value = '1'; $('photo-pvw').style.display = 'none'; $('photo-ph').style.display = ''; return; }
+      if (f.size > 5 * 1024 * 1024) { showFlash('Image must be under 5 MB.', 'error'); el.value = ''; $('clear-upload').value = '1'; $('photo-pvw').style.display = 'none'; $('photo-ph').style.display = ''; return; }
       $('clear-upload').value = '';
       $('photo-img').src = URL.createObjectURL(f);
       $('photo-pvw').style.display = '';
@@ -219,7 +219,7 @@
                 } else {
                     showFlash('Failed to generate secret.', 'error');
                 }
-            } catch (e) { showFlash('Backend unreachable.', 'error'); }
+            } catch (e) { showFlash('Service is temporarily unavailable. Please try again.', 'error'); }
             return;
         }
 
@@ -367,10 +367,14 @@
         if (q.length < 3) { $('addr-items').innerHTML = ''; return; }
         clearTimeout(acTimer);
         acTimer = setTimeout(async () => {
-            const items = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=ph&limit=5`).then(r => r.json());
-            $('addr-items').innerHTML = items.map(i => `<div class="mat-item" data-lat="${i.lat}" data-lon="${i.lon}" data-name="${escapeHTML(i.display_name)}" onmousedown="event.preventDefault();selectAddress(this.getAttribute('data-lat'), this.getAttribute('data-lon'), this.getAttribute('data-name'))">${escapeHTML(i.display_name)}</div>`).join('');
-            $('addr-ac').classList.remove('hidden');
-            $('addr-ac').closest('.ss-wrap')?.classList.add('open');
+            try {
+                const items = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=ph&limit=5`).then(r => r.json());
+                $('addr-items').innerHTML = items.map(i => `<div class="mat-item" data-lat="${i.lat}" data-lon="${i.lon}" data-name="${escapeHTML(i.display_name)}" onmousedown="event.preventDefault();selectAddress(this.getAttribute('data-lat'), this.getAttribute('data-lon'), this.getAttribute('data-name'))">${escapeHTML(i.display_name)}</div>`).join('');
+                $('addr-ac').classList.remove('hidden');
+                $('addr-ac').closest('.ss-wrap')?.classList.add('open');
+            } catch {
+                showFlash('Location resolution services are unavailable.', 'error');
+            }
         }, 400);
     }
     function selectAddress(lat, lng, name) {

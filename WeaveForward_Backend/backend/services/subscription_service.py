@@ -7,6 +7,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from .audit_service import log_audit
+from .email_service import send_subscription_renewal_failed_email
 from ..models import (
     PaymentStatus,
     Subscription,
@@ -431,9 +432,10 @@ def process_expired_subscriptions():
     cancels the subscription if payment fails.
     """
     now = timezone.now()
+    renewal_cutoff = now + timezone.timedelta(days=1)
     expired_subs = Subscription.objects.filter(
         status=SubscriptionStatus.ACTIVE,
-        end_date__lte=now
+        end_date__lte=renewal_cutoff
     )
     admin_user = User.objects.filter(role=UserRole.ADMIN).first()
     cancelled_count = 0
@@ -459,7 +461,7 @@ def process_expired_subscriptions():
                         sub = Subscription.objects.select_for_update().get(
                             pk=sub.pk,
                             status=SubscriptionStatus.ACTIVE,
-                            end_date__lte=now,
+                            end_date__lte=renewal_cutoff,
                         )
                         sub.end_date = sub.end_date + timezone.timedelta(days=30)
                         sub.save(update_fields=['end_date', 'updated_at'])
@@ -483,9 +485,13 @@ def process_expired_subscriptions():
             pass
 
         if not renewed:
-            if not Subscription.objects.filter(pk=sub.pk, status=SubscriptionStatus.ACTIVE, end_date__lte=timezone.now()).exists():
+            if not Subscription.objects.filter(pk=sub.pk, status=SubscriptionStatus.ACTIVE, end_date__lte=renewal_cutoff).exists():
                 continue
             unsubscribe_user(target_user_id=sub.user_id, actor=admin_user)
+            send_subscription_renewal_failed_email(
+                to_email=user.email,
+                business_name=user.business_name or f"{user.first_name} {user.last_name}".strip(),
+            )
             cancelled_count += 1
 
     return cancelled_count

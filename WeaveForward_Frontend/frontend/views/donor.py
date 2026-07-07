@@ -1,4 +1,3 @@
-import json
 import asyncio
 from datetime import datetime
 from django.shortcuts import render, redirect
@@ -38,7 +37,6 @@ async def donor_browse_businesses(request):
         'page_title': 'Browse Businesses', 
         'user': profile,
         'businesses': businesses,
-        'businesses_json': json.dumps(businesses),
         'categories': categories,
         'has_error': has_error,
     })
@@ -106,6 +104,7 @@ async def donor_my_donations(request):
         'has_next': page_data['has_next'],
         'has_prev': page_data['has_prev'],
         'q': page_data['search_query'],
+        'ordering': page_data['ordering'],
     })
 
 async def donor_view_donation(request, donation_id):

@@ -1,8 +1,7 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.exceptions import NotFound, AuthenticationFailed
-from rest_framework.authentication import BaseAuthentication
+from rest_framework.exceptions import NotFound
 from rest_framework.settings import api_settings
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils.dateparse import parse_datetime
@@ -11,9 +10,8 @@ from django.db.models import Q
 from decimal import Decimal
 import json
 import logging
-import hashlib
 
-from ..models import MatchPrediction, MatchRecommendationStatus, AuditTrail, ApiToken, DonationItem
+from ..models import MatchPrediction, MatchRecommendationStatus, AuditTrail, DonationItem
 from ..permissions import IsActiveTUABWithActiveSubscription
 from ..serializers.fiberrecommendations import (
     MatchRecommendationListSerializer,
@@ -31,27 +29,8 @@ from ..utils.view_mixins import PaginatedResponseMixin
 logger = logging.getLogger(__name__)
 
 
-class ApiKeyAuthentication(BaseAuthentication):
-    def authenticate(self, request):
-        auth_header = request.headers.get("Authorization")
-        if not auth_header:
-            return None
-        
-        parts = auth_header.split(" ")
-        if len(parts) != 2 or parts[0] != "ApiKey":
-            return None
-            
-        api_key = parts[1]
-        hashed_key = hashlib.sha1(api_key.encode()).hexdigest()
-        try:
-            api_token = ApiToken.objects.select_related("user").get(token=hashed_key)
-            return (api_token.user, api_token)
-        except ApiToken.DoesNotExist:
-            raise AuthenticationFailed("Invalid API key.")
-
-
 class MatchRecommendationViewSet(viewsets.GenericViewSet, PaginatedResponseMixin):
-    authentication_classes = [ApiKeyAuthentication] + list(api_settings.DEFAULT_AUTHENTICATION_CLASSES)
+    authentication_classes = list(api_settings.DEFAULT_AUTHENTICATION_CLASSES)
     permission_classes = [IsActiveTUABWithActiveSubscription]
     serializer_class = MatchRecommendationDetailSerializer
 

@@ -616,7 +616,8 @@ async def tuab_view_payments(request):
         'current_page': page_data['current_page'],
         'has_next': page_data['has_next'],
         'has_prev': page_data['has_prev'],
-        'q': page_data['search_query']
+        'q': page_data['search_query'],
+        'ordering': page_data['ordering']
     })
 
 
@@ -670,7 +671,8 @@ async def tuab_inventory_snapshot(request):
         'current_page': page_data['current_page'],
         'has_next': page_data['has_next'],
         'has_prev': page_data['has_prev'],
-        'q': search_query
+        'q': search_query,
+        'ordering': page_data['ordering']
     })
 
 
@@ -853,7 +855,7 @@ async def tuab_circular_economy(request):
         'date_to': date_to,
         'today_iso': datetime.now().strftime('%Y-%m-%d'),
         'error_message': error_message,
-        'dashboard_json': json.dumps(dashboard_data),
+        'dashboard_data': dashboard_data,
     })
 
 

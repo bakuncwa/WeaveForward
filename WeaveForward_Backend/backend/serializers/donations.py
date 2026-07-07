@@ -1,6 +1,6 @@
 import re
 import json
-import os
+from ..validators import validate_upload, UploadValidationError
 from decimal import Decimal
 from datetime import timedelta
 from django.utils import timezone
@@ -271,8 +271,9 @@ class DonationCreateSerializer(serializers.ModelSerializer):
         # 1. Image Validation
         image = data.get('donation_image')
         if image:
-            valid_exts = ['.jpg', '.jpeg', '.png']
-            if image.size > 5 * 1024 * 1024 or os.path.splitext(image.name)[1].lower() not in valid_exts:
+            try:
+                validate_upload(image)
+            except UploadValidationError:
                 raise serializers.ValidationError({'donation_image': "Please upload a JPG or PNG image under 5 MB."})
 
         # 2. Coordinate & Location Check
@@ -506,8 +507,9 @@ class DonorDonationUpdateSerializer(serializers.ModelSerializer):
         # 1. Image Validation
         image = data.get('donation_image')
         if image:
-            valid_exts = ['.jpg', '.jpeg', '.png']
-            if image.size > 5 * 1024 * 1024 or os.path.splitext(image.name)[1].lower() not in valid_exts:
+            try:
+                validate_upload(image)
+            except UploadValidationError:
                 raise serializers.ValidationError({'donation_image': "Please upload a JPG or PNG image under 5 MB."})
 
         # 2. Location Validation
@@ -656,8 +658,9 @@ class AdminDonationUpdateSerializer(serializers.ModelSerializer):
         # 1. Image Validation
         image = data.get('donation_image')
         if image:
-            valid_exts = ['.jpg', '.jpeg', '.png']
-            if image.size > 5 * 1024 * 1024 or os.path.splitext(image.name)[1].lower() not in valid_exts:
+            try:
+                validate_upload(image)
+            except UploadValidationError:
                 raise serializers.ValidationError({'donation_image': "Please upload a JPG or PNG image under 5 MB."})
 
         if 'auto_archive_at' in data and data['auto_archive_at'] and data['auto_archive_at'] < timezone.now():

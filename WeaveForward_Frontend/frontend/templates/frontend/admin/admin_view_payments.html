@@ -13,13 +13,15 @@
   .search-wrap input { width: 100%; border-radius: 8px; padding: 10px 16px 10px 40px; border: 1.5px solid #e0dbd4; background: #fff; font-family: 'Poppins', sans-serif; font-size: 14px; outline: none; box-sizing: border-box; }
   .search-wrap input:focus { border-color: #aaa; }
   .search-wrap svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); stroke: #888; }
+  th a { color: inherit; text-decoration: none; }
 
 </style>
 
 <!-- Search -->
 <form method="GET" class="search-wrap">
   <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-  <input name="q" value="{{ q|default:'' }}" placeholder="Search by reference, type, or TUAB"/>
+    <input name="q" value="{{ q|default:'' }}" placeholder="Search by reference, type, or TUAB"/>
+    {% if ordering %}<input type="hidden" name="ordering" value="{{ ordering }}">{% endif %}
 </form>
 
 <div class="table-wrap">
@@ -27,11 +29,11 @@
     <table class="wf-table">
       <thead>
         <tr>
-          <th>TUAB</th>
-          <th>Type</th>
-          <th>Amount</th>
-          <th>Payment Reference</th>
-          <th>Status</th>
+          <th><a href="?{% if ordering == 'tuab' %}ordering=-tuab{% elif ordering == '-tuab' %}ordering={% else %}ordering=tuab{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}">TUAB{% if ordering == 'tuab' %}&#9650;{% elif ordering == '-tuab' %}&#9660;{% endif %}</a></th>
+          <th><a href="?{% if ordering == 'type' %}ordering=-type{% elif ordering == '-type' %}ordering={% else %}ordering=type{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}">Type{% if ordering == 'type' %}&#9650;{% elif ordering == '-type' %}&#9660;{% endif %}</a></th>
+          <th><a href="?{% if ordering == 'amount' %}ordering=-amount{% elif ordering == '-amount' %}ordering={% else %}ordering=amount{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}">Amount{% if ordering == 'amount' %}&#9650;{% elif ordering == '-amount' %}&#9660;{% endif %}</a></th>
+          <th><a href="?{% if ordering == 'reference' %}ordering=-reference{% elif ordering == '-reference' %}ordering={% else %}ordering=reference{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}">Payment Reference{% if ordering == 'reference' %}&#9650;{% elif ordering == '-reference' %}&#9660;{% endif %}</a></th>
+          <th><a href="?{% if ordering == 'status' %}ordering=-status{% elif ordering == '-status' %}ordering={% else %}ordering=status{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}">Status{% if ordering == 'status' %}&#9650;{% elif ordering == '-status' %}&#9660;{% endif %}</a></th>
         </tr>
       </thead>
       <tbody>
@@ -55,10 +57,10 @@
   <div class="pg-info">Page {{ current_page }} of {{ total_pages }}</div>
   <div class="pg-btns">
     {% if has_prev %}
-    <a href="?page={{ current_page|add:-1 }}{% if q %}&q={{ q }}{% endif %}{% if request.GET.reference %}&reference={{ request.GET.reference }}{% endif %}" class="btn btn-outline">❮ Previous</a>
+    <a href="?page={{ current_page|add:-1 }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if request.GET.reference %}&reference={{ request.GET.reference|urlencode }}{% endif %}{% if ordering %}&ordering={{ ordering|urlencode }}{% endif %}" class="btn btn-outline">❮ Previous</a>
     {% endif %}
     {% if has_next %}
-    <a href="?page={{ current_page|add:1 }}{% if q %}&q={{ q }}{% endif %}{% if request.GET.reference %}&reference={{ request.GET.reference }}{% endif %}" class="btn btn-outline">Next ❯</a>
+    <a href="?page={{ current_page|add:1 }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if request.GET.reference %}&reference={{ request.GET.reference|urlencode }}{% endif %}{% if ordering %}&ordering={{ ordering|urlencode }}{% endif %}" class="btn btn-outline">Next ❯</a>
     {% endif %}
   </div>
 </div>

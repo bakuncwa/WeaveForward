@@ -1,6 +1,7 @@
 from rest_framework import views
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
+from decimal import Decimal
 from backend.models import UserRole, SubscriptionPayment, OrderPayment
 from backend.permissions import IsActiveAdminOrTUAB, IsActiveTUAB
 from backend.serializers.payments import SubscriptionPaymentSerializer, OrderPaymentSerializer
@@ -65,6 +66,16 @@ class PaymentListView(views.APIView):
                     filtered.append(p)
             payments = filtered
                 
+        ordering = request.query_params.get('ordering')
+        if ordering:
+            reverse = ordering.startswith('-')
+            key = ordering.lstrip('-')
+            if key in ('tuab', 'type', 'amount', 'reference', 'status', 'created_at'):
+                if key == 'amount':
+                    payments.sort(key=lambda p: Decimal(str(p.get('amount') or '0')), reverse=reverse)
+                else:
+                    payments.sort(key=lambda p, k=key: (p.get(k) or ''), reverse=reverse)
+
         paginator = PaymentPagination()
         paginated_payments = paginator.paginate_queryset(payments, request, view=self)
         return paginator.get_paginated_response(paginated_payments)

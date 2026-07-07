@@ -1126,7 +1126,9 @@
           aR = await r.json();
           items.innerHTML = aR.map((r, i) => `<div class="mat-item" onmousedown="event.preventDefault();slAddr(${i})">${escapeHTML(r.display_name)}</div>`).join('');
           ac.classList.remove('hidden');
-        } catch { }
+        } catch {
+          showErr('display_address', 'Location resolution services are unavailable.');
+        }
       }, 350);
     }
 

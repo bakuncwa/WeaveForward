@@ -9,7 +9,6 @@ class FrameworkTableBlocker:
     blocked_app_labels = {
         "admin",
         "auth",
-        "contenttypes",
         "sessions",
         "token_blacklist",
     }

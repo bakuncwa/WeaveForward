@@ -41,8 +41,9 @@ from ..services.subscription_service import subscribe_user, unsubscribe_user
 
 class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin, PaginatedResponseMixin):
     permission_classes = [IsAuthenticated]
-    filter_backends = [filters.SearchFilter, DjangoFilterBackend]
+    filter_backends = [filters.SearchFilter, DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['role', 'status']
+    ordering_fields = ['user_id', 'first_name', 'last_name', 'email', 'status', 'business_name', 'contact_no']
     search_fields = ['email', 'first_name', 'last_name', 'business_name']
     parser_classes = [JSONParser, FormParser, MultiPartParser]
 

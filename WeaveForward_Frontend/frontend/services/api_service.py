@@ -18,6 +18,7 @@ async def api_call(request, method, endpoint, **kwargs):
 
     if csrf_token := request.COOKIES.get("csrftoken"):
         headers.setdefault("X-CSRFToken", csrf_token)
+        headers.setdefault("Referer", BACKEND_BASE_URL)
 
     # Forward the original client IP chain to the backend.
     if forwarded_for := request.META.get("HTTP_X_FORWARDED_FOR"):
@@ -28,6 +29,13 @@ async def api_call(request, method, endpoint, **kwargs):
     url = f"{BACKEND_BASE_URL.rstrip('/')}/{endpoint.lstrip('/')}"
     cookies = dict(request.COOKIES.items())
     response = await async_client.request(method, url, cookies=cookies, **kwargs)
+    if (
+        response.status_code == 503
+        and response.headers.get("server", "").lower() == "google frontend"
+        and "text/html" in response.headers.get("content-type", "").lower()
+        and "Service is disabled" in response.text
+    ):
+        raise httpx.RequestError("Backend unavailable.", request=response.request)
 
     if (
         response.status_code == 401

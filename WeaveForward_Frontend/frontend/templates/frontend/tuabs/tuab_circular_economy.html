@@ -394,11 +394,11 @@
     <form class="ce-filters" method="GET" action="">
         <div class="ce-filter-row">
             <div class="ce-filter-field">
-                <span class="ce-filter-label">Before</span>
+                <span class="ce-filter-label">From</span>
                 <input class="ce-filter-input" type="date" name="date_from" value="{{ date_from }}" max="{{ today_iso }}">
             </div>
             <div class="ce-filter-field">
-                <span class="ce-filter-label">After</span>
+                <span class="ce-filter-label">To</span>
                 <input class="ce-filter-input" type="date" name="date_to" value="{{ date_to }}" max="{{ today_iso }}">
             </div>
         </div>
@@ -501,8 +501,9 @@
     </div>
 </div>
 
+{{ dashboard_data|json_script:"circular-dashboard-data" }}
 <script>
-const DATA = JSON.parse('{{ dashboard_json|escapejs }}');
+const DATA = JSON.parse(document.getElementById('circular-dashboard-data').textContent);
 
 function fiberColor(name) {
     return FIBER_COLORS[(name||'').toLowerCase()] || '#ccc';
@@ -629,20 +630,37 @@ function hideCanvas(chartId, emptyId) {
     const RANK_COLORS = ['#c0410e','#c0410e','#2d7a4f','#888','#888','#888','#888','#888','#888','#888'];
     const maxCount = rows[0].item_count || 1;
 
-    const html = rows.map((r, i) => {
+    list.replaceChildren();
+    rows.forEach((r, i) => {
         const pct = Math.max(4, Math.round((r.item_count / maxCount) * 100));
         const bg  = RANK_COLORS[i] || '#aaa';
-        return `<div class="brand-row">
-            <span class="brand-rank" style="background:${bg}">${i + 1}</span>
-            <span class="brand-name">${r.brand}</span>
-            <div class="brand-bar-wrap">
-                <div class="brand-bar-fill" style="width:${pct}%;background:${bg}"></div>
-            </div>
-            <span class="brand-count">${r.item_count}</span>
-        </div>`;
-    }).join('');
+        const row = document.createElement('div');
+        row.className = 'brand-row';
 
-    list.innerHTML = html;
+        const rank = document.createElement('span');
+        rank.className = 'brand-rank';
+        rank.style.background = bg;
+        rank.textContent = String(i + 1);
+
+        const name = document.createElement('span');
+        name.className = 'brand-name';
+        name.textContent = r.brand || '';
+
+        const barWrap = document.createElement('div');
+        barWrap.className = 'brand-bar-wrap';
+        const barFill = document.createElement('div');
+        barFill.className = 'brand-bar-fill';
+        barFill.style.width = pct + '%';
+        barFill.style.background = bg;
+        barWrap.appendChild(barFill);
+
+        const count = document.createElement('span');
+        count.className = 'brand-count';
+        count.textContent = String(r.item_count || 0);
+
+        row.append(rank, name, barWrap, count);
+        list.appendChild(row);
+    });
 })();
 
 // ── Panel [1,1]: Donation Decisions per NCR City (horizontal stacked) ─

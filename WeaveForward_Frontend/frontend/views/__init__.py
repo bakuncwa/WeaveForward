@@ -131,8 +131,8 @@ async def login_view(request):
                 
         except Exception:
             if is_ajax:
-                return JsonResponse({'error': 'Backend API is offline or unreachable.'}, status=503)
-            return render(request, 'frontend/login.html', {'error': 'Backend API is offline or unreachable.'})
+                return JsonResponse({'error': 'Service is temporarily unavailable. Please try again.'}, status=503)
+            return render(request, 'frontend/login.html', {'error': 'Service is temporarily unavailable. Please try again.'})
 
     ctx = {}
     if request.GET.get('under_review'):
@@ -147,7 +147,7 @@ async def logout_view(request):
     try:
         response = await api_call(request, 'DELETE', 'auth/token')
     except Exception:
-        messages.error(request, "Logout failed because the backend is unreachable. Please try again.")
+        messages.error(request, "Logout could not be completed right now. Please try again.")
         return redirect(request.META.get('HTTP_REFERER') or reverse('login'))
 
     if response.status_code == 205:
@@ -340,7 +340,7 @@ async def donor_registration(request):
             else:
                 return JsonResponse({'errors': format_errors(response.json()), 'form_data': dict(raw_data)})
         except Exception:
-            return JsonResponse({'errors': {'__all__': ['Backend API is offline or unreachable.']}})
+            return JsonResponse({'errors': {'__all__': ['Service is temporarily unavailable. Please try again.']}})
     return render(request, 'frontend/donor_registration.html')
 
 async def tuab_registration(request):
@@ -443,7 +443,7 @@ async def tuab_registration(request):
                 })
         except Exception:
             if is_ajax:
-                return JsonResponse({'errors': {'__all__': ['Backend API is offline or unreachable.']}})
-            messages.error(request, "Backend API is offline or unreachable.")
+                return JsonResponse({'errors': {'__all__': ['Service is temporarily unavailable. Please try again.']}})
+            messages.error(request, "Service is temporarily unavailable. Please try again.")
 
     return render(request, 'frontend/tuab_registration.html', {'fibers': fibers})

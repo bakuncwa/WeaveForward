@@ -80,6 +80,8 @@ CORS_ALLOWED_ORIGINS = _get_list_env("CORS_ALLOWED_ORIGINS", default=[] if not I
 CORS_ALLOW_ALL_ORIGINS = False
 CSRF_TRUSTED_ORIGINS = _get_list_env("CSRF_TRUSTED_ORIGINS", default=[] if not IS_PRODUCTION else None, required=False)
 
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
 AUTH_COOKIE_SECURE = _get_bool_env("AUTH_COOKIE_SECURE", default=IS_PRODUCTION)
 AUTH_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = IS_PRODUCTION
@@ -123,8 +125,11 @@ GS_PROJECT_ID = _get_env('GS_PROJECT_ID')  # Optional, uses default cred project
 ##################################################
 
 INSTALLED_APPS = [
+    'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
+    'django.contrib.messages',
+    'django.contrib.sessions',
     'django.contrib.staticfiles',
     'rest_framework',
     'corsheaders',
@@ -139,6 +144,7 @@ if USE_GCS:
 AUTH_USER_MODEL = 'backend.User'
 AUTHENTICATION_BACKENDS = [
     'backend.services.auth_service.EmailPasswordBackend',
+    'django.contrib.auth.backends.ModelBackend',
 ]
 DATABASE_ROUTERS = [
     'backend.apps.FrameworkTableBlocker',
@@ -146,11 +152,14 @@ DATABASE_ROUTERS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.gzip.GZipMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
@@ -167,6 +176,8 @@ TEMPLATES = [
             'context_processors': [
                 'django.template.context_processors.debug',
                 'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
             ],
         },
     },

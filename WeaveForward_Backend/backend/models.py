@@ -182,6 +182,12 @@ class User(AbstractBaseUser):
     def is_staff(self):
         return self.role == UserRole.ADMIN
 
+    def has_perm(self, perm, obj=None):
+        return self.role == UserRole.ADMIN
+
+    def has_module_perms(self, app_label):
+        return self.role == UserRole.ADMIN
+
     class Meta:
         db_table = "users"
         indexes = [

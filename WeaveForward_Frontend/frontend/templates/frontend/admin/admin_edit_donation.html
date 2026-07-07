@@ -614,12 +614,12 @@
       const ext = f.name.substring(f.name.lastIndexOf('.')).toLowerCase();
       if (!ALLOWED_EXTS.includes(ext)) {
         showFlash('Please upload a JPG or PNG image.', 'error');
-        inp.value = '';
+        inp.value = ''; hidden.value = '1'; wrap.style.display = 'none'; ph.style.display = '';
         return;
       }
       if (f.size > MAX_FILE_SIZE) {
         showFlash('Image must be under 5 MB.', 'error');
-        inp.value = '';
+        inp.value = ''; hidden.value = '1'; wrap.style.display = 'none'; ph.style.display = '';
         return;
       }
       prv.src = URL.createObjectURL(f);

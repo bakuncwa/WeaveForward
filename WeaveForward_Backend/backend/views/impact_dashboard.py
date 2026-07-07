@@ -98,7 +98,7 @@ class ImpactDashboardViewSet(viewsets.GenericViewSet):
                 raise ValidationError({"date": "Date cannot be in the future."})
             date_from_bound = datetime.combine(parsed_date_from, time.min)
             date_from_bound = timezone.make_aware(date_from_bound, current_timezone)
-            filters["updated_at__gte"] = date_from_bound
+            filters["inventory_ledger_entries__ingested_at__gte"] = date_from_bound
 
         date_to = request.query_params.get("date_to")
         if date_to:
@@ -109,9 +109,9 @@ class ImpactDashboardViewSet(viewsets.GenericViewSet):
                 raise ValidationError({"date": "Date cannot be in the future."})
             date_to_bound = datetime.combine(parsed_date_to, time.max)
             date_to_bound = timezone.make_aware(date_to_bound, current_timezone)
-            filters["updated_at__lte"] = date_to_bound
+            filters["inventory_ledger_entries__ingested_at__lte"] = date_to_bound
 
-        if date_from and date_to and filters["updated_at__gte"] > filters["updated_at__lte"]:
+        if date_from and date_to and filters["inventory_ledger_entries__ingested_at__gte"] > filters["inventory_ledger_entries__ingested_at__lte"]:
             raise ValidationError({"date": "Start date must be on or before the end date."})
 
         base_qs = Donation.objects.filter(**filters).distinct()

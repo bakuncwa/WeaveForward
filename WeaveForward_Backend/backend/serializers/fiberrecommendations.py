@@ -27,7 +27,7 @@ class DonationPreviewSerializer(serializers.ModelSerializer):
     def get_pickup_city(self, obj): return obj.pickup_city
 
     def get_location(self, obj):
-        return {'latitude': float(obj.pickup_latitude), 'longitude': float(obj.pickup_longitude)}
+        return {'latitude': round(float(obj.pickup_latitude), 2), 'longitude': round(float(obj.pickup_longitude), 2)}
 
     def get_pickup_window(self, obj):
         if obj.preferred_pickup_window_start and obj.preferred_pickup_window_end:

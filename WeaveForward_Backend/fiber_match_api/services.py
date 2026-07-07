@@ -2,6 +2,9 @@ import os, json, logging, math, pandas as pd
 
 logger = logging.getLogger(__name__)
 
+def expand_fibers(fiber_json, fiber_vocab):
+    return {f"pct_{fiber}": fiber_json.get(fiber, 0.0) for fiber in fiber_vocab}
+
 BIO_FIBERS = frozenset([
     "cotton", "linen", "hemp", "wool", "silk",
     "bamboo", "tencel", "lyocell", "modal",
@@ -143,7 +146,7 @@ class InferenceService:
             100.0,
         )
 
-        feats = {f"pct_{fiber}": fiber_json.get(fiber, 0.0) for fiber in meta["fiber_vocab"]}
+        feats = expand_fibers(fiber_json, meta["fiber_vocab"])
         feats.update({
             "pct_target_fiber": pct_target_fiber,
             "distance_km": distance_km,
