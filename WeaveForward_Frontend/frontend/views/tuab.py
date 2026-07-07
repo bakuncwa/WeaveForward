@@ -605,7 +605,7 @@ async def tuab_view_payments(request):
     page_data = await get_paginated_data(request, 'users/me/payments', params={'reference': reference} if reference else None)
     for payment in page_data['results']:
         amount = float(payment['amount'])
-        payment['amount_display'] = f"₱{abs(amount):.2f}"
+        payment['amount_display'] = f"₱{amount:.2f}"
     
     return render(request, 'frontend/tuabs/tuab_view_payments.html', {
         'page_title': 'Payments',
