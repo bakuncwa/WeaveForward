@@ -2,8 +2,14 @@
 
 ---
 
-**ML Model Repository:** https://github.com/bakuncwa/weaveforward_fiber_model
-**Mock HTML Files:** https://github.com/dave34458/WeaveForward-Mock-HTML-Files
+**Frontend Application:**  
+https://weaveforward-frontend-44782254933.asia-southeast1.run.app/
+
+**ML Model Repository:**  
+https://github.com/bakuncwa/weaveforward_fiber_model
+
+**Mock HTML Files:**  
+https://github.com/dave34458/WeaveForward-Mock-HTML-Files
 
 ---
 
@@ -442,11 +448,11 @@ Features for Admin user role:
 System testing and user acceptance testing:
 
 - [x] Full System Dry Run #1 (with Capstone Adviser)
-- [ ] Revisions #1
-- [ ] Full System Dry Run #2 (internal)
-- [ ] Revisions #2
-- [ ] UAT GForm & Interview - Donor
-- [ ] UAT GForm & Interview - TUAB
+- [x] Revisions #1
+- [x] Full System Dry Run #2 (internal)
+- [x] Revisions #2
+- [x] UAT GForm & Interview - Donor
+- [x] UAT GForm & Interview - TUAB
 
 ---
 
