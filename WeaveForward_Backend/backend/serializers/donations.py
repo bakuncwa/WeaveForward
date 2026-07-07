@@ -113,7 +113,9 @@ class DonationListSerializer(serializers.ModelSerializer):
             parts.append(f"{name} x{count}" if count > 1 else name)
         MAX_GROUPS = 8
         if len(parts) > MAX_GROUPS:
-            parts = parts[:MAX_GROUPS] + [f"+{len(parts) - MAX_GROUPS} more"]
+            hidden_count = sum(count for _, count in list(counts.items())[MAX_GROUPS:])
+            label = "item" if hidden_count == 1 else "items"
+            parts = parts[:MAX_GROUPS] + [f"+{hidden_count} more {label}"]
         return parts
 
 class DonationDetailItemSerializer(serializers.ModelSerializer):
