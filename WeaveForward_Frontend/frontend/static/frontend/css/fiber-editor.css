@@ -1,16 +1,16 @@
 :root { --red: #c0392b; --green: #4a7c59; }
 .fiber-editor { margin-top: 10px; padding: 10px 12px; background: #fafaf8; border-radius: 8px; border: 1px solid var(--border); }
 .fiber-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
-.fiber-row select { flex: 1; padding: 6px 8px; border: 1.5px solid var(--border); border-radius: 6px; font: 400 12px Poppins, sans-serif; color: #222; outline: none; background: #fff; }
+.fiber-row select { flex: 1; padding: 6px 8px; border: 1.5px solid var(--border); border-radius: 6px; font: 400 17px Poppins, sans-serif; color: #222; outline: none; background: #fff; }
 .fiber-row select:focus { border-color: var(--gold); }
-.fiber-row input { width: 70px; padding: 6px 8px; border: 1.5px solid var(--border); border-radius: 6px; font: 400 12px Poppins, sans-serif; color: #222; outline: none; }
+.fiber-row input { width: 70px; padding: 6px 8px; border: 1.5px solid var(--border); border-radius: 6px; font: 400 17px Poppins, sans-serif; color: #222; outline: none; }
 .fiber-row input:focus { border-color: var(--gold); }
 .fiber-row .fiber-rm { background: none; border: none; color: var(--red); cursor: pointer; padding: 4px; font-size: 21px; line-height: 1; }
-.fiber-add-btn { display: block; margin-top: 6px; background: none; border: 1px dashed var(--gold); border-radius: 6px; padding: 6px; width: 100%; font: 400 12px Poppins, sans-serif; color: var(--gold); cursor: pointer; }
-.fiber-total { font: 400 11px Poppins, sans-serif; color: var(--muted); margin-top: 4px; text-align: right; }
+.fiber-add-btn { display: block; margin-top: 6px; background: none; border: 1px dashed var(--gold); border-radius: 6px; padding: 6px; width: 100%; font: 400 17px Poppins, sans-serif; color: var(--gold); cursor: pointer; }
+.fiber-total { font: 400 16px Poppins, sans-serif; color: var(--muted); margin-top: 4px; text-align: right; }
 .fiber-total.ok { color: var(--green); }
 .fiber-total.err { color: var(--red); }
-.fiber-unknown { display: block; margin-top: 8px; background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 7px; width: 100%; font: 400 12px Poppins, sans-serif; color: #666; cursor: pointer; }
+.fiber-unknown { display: block; margin-top: 8px; background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 7px; width: 100%; font: 400 17px Poppins, sans-serif; color: #666; cursor: pointer; }
 .fiber-unknown:hover { border-color: var(--gold); color: var(--gold); background: #fff8ee; }
-.fiber-cancel { display: block; margin-top: 8px; background: none; border: none; padding: 4px 0; width: 100%; font: 400 11px Poppins, sans-serif; color: var(--muted); cursor: pointer; text-align: center; text-decoration: underline; }
+.fiber-cancel { display: block; margin-top: 8px; background: none; border: none; padding: 4px 0; width: 100%; font: 400 16px Poppins, sans-serif; color: var(--muted); cursor: pointer; text-align: center; text-decoration: underline; }
 .fiber-cancel:hover { color: var(--gold); }

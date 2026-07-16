@@ -412,7 +412,7 @@
 
       <div class="group"><label class="up">Phone Number</label>
         <div style="display:grid;grid-template-columns:60px 1fr;gap:8px">
-          <input value="+63" class="in" style="pointer-events:none;background:#f9f9f9" tabindex="-1">
+          <input value="63" class="in" style="pointer-events:none;background:#f9f9f9" tabindex="-1">
           <input class="in" type="tel" name="contact_no" autocomplete="tel" inputmode="numeric"
             value="{{ form_data.contact_no|default:donor.contact_no|default:'' }}" maxlength="10" pattern="9\d{9}" title="Enter 10 digits starting with 9." onkeydown="return event.key.length>1||event.ctrlKey||event.metaKey||/^\d$/.test(event.key)||event.preventDefault()" oninput="this.value=this.value.replace(/\D/g,'')" required>
         </div>

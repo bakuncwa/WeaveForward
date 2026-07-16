@@ -1,4 +1,4 @@
-{% extends 'frontend/base.html' %}
+﻿{% extends 'frontend/base.html' %}
 {% load static %}
 
 {% block content %}
@@ -25,7 +25,7 @@
     color: var(--btn-text); 
     border: 2px dashed var(--dashed-stroke); 
     border-radius: 8px; 
-    height: 48px; 
+    height: 54px; 
     font-weight: 400;
     font-size: 21px;
     border: none;
@@ -201,7 +201,7 @@
     border-radius: 10px;
     background: #222;
     color: #fff;
-    font: 400 12px/1.45 Poppins, sans-serif;
+    font: 400 17px/1.45 Poppins, sans-serif;
     box-shadow: 0 8px 22px rgba(0,0,0,.22);
     opacity: 0;
     pointer-events: none;
@@ -283,7 +283,7 @@
                   </div>
                 </div>
                 <div class="restored-group">
-                  <label class="up-label">Estimated Weight (kg)</label>
+                  <label class="up-label">Weight (kg)</label>
                   <input type="number" step="0.01" min="0.01" max="254" class="restored-in weight-in" value="{{ item.weight_kg|floatformat:2 }}" required>
                 </div>
               </div>
@@ -460,7 +460,7 @@
             </div>
           </div>
         </div>
-        <div class="restored-group"><label class="up-label">Estimated Weight (kg)</label><input type="number" step="0.01" min="0.01" max="254" class="restored-in weight-in" required></div>
+        <div class="restored-group"><label class="up-label">Weight (kg)</label><input type="number" step="0.01" min="0.01" max="254" class="restored-in weight-in" required></div>
       </div>
       <div class="restored-group" style="margin-bottom:14px">
         <label class="up-label">Condition</label>

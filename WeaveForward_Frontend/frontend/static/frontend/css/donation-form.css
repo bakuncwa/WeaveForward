@@ -33,9 +33,23 @@
   box-shadow: 0 4px 15px rgba(0,0,0,0.06);
 }
 
+.restored-card { container-type: inline-size; }
+
 .restored-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; align-items: start; }
 .restored-group { display: flex; flex-direction: column; gap: 4px; }
 .restored-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+
+@container (min-width: 1120px) {
+  .restored-card > .card-body {
+    display: grid;
+    grid-template-columns: 1fr .8fr .75fr 1fr 1.8fr;
+    gap: 14px;
+  }
+
+  .restored-card > .card-body > .restored-row {
+    display: contents;
+  }
+}
 
 .card-title-wrap { display: flex; align-items: center; gap: 12px; }
 

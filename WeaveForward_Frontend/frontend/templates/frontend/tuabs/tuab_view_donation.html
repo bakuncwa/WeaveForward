@@ -1,4 +1,4 @@
-{% extends 'frontend/base.html' %}
+﻿{% extends 'frontend/base.html' %}
 
 {% block content %}
   <link href="https://fonts.googleapis.com/css2?family=Lato:wght@600&family=Poppins:wght@400;600;700&display=swap"
@@ -56,7 +56,16 @@
       }
     }
 
-    .card,
+    .card {
+      container-type: inline-size;
+      background: #fff;
+      border: 1.5px solid var(--brd);
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 14px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .06);
+    }
+
     .panel {
       background: #fff;
       border: 1.5px solid var(--brd);
@@ -191,7 +200,7 @@
       border-radius: 30px;
       padding: 12px;
       color: #fff;
-      font: 600 14px Poppins, sans-serif;
+      font: 600 19px Poppins, sans-serif;
       cursor: pointer;
     }
 
@@ -201,6 +210,19 @@
 
     .btn-tuab:hover {
       background: var(--tuab-dark);
+      color: #fff8ee;
+    }
+
+    @container (min-width: 1120px) {
+      .card > .card-body {
+        display: grid;
+        grid-template-columns: 1fr .8fr .75fr 1fr 1.8fr;
+        gap: 14px;
+      }
+
+      .card > .card-body > .row {
+        display: contents;
+      }
     }
 
     .claim-tip {
@@ -219,7 +241,7 @@
       border-radius: 10px;
       background: #222;
       color: #fff;
-      font: 400 12px/1.45 Poppins, sans-serif;
+      font: 400 17px/1.45 Poppins, sans-serif;
       box-shadow: 0 8px 22px rgba(0,0,0,.22);
       opacity: 0;
       pointer-events: none;
@@ -412,7 +434,7 @@
 
     .map-caption {
       margin-top: 4px;
-      font: 400 12px Poppins, sans-serif;
+      font: 400 17px Poppins, sans-serif;
       color: #7a7a7a;
     }
 
@@ -449,7 +471,7 @@
       border-radius: 30px;
       padding: 12px;
       color: #fff;
-      font: 600 14px Poppins, sans-serif;
+      font: 600 19px Poppins, sans-serif;
       cursor: pointer;
       background: var(--tuab);
     }
@@ -463,13 +485,13 @@
     }
 
     .confirm-title {
-      font: 400 14px Poppins, sans-serif;
+      font: 400 19px Poppins, sans-serif;
       color: #6d6d6d;
       margin-bottom: 20px;
     }
 
     .confirm-copy {
-      font: 400 13px/1.45 Poppins, sans-serif;
+      font: 400 18px/1.45 Poppins, sans-serif;
       color: #555;
       margin-bottom: 18px;
     }
@@ -488,7 +510,7 @@
       border: none;
       border-radius: 999px;
       padding: 11px 18px;
-      font: 400 14px Poppins, sans-serif;
+      font: 400 19px Poppins, sans-serif;
       cursor: pointer;
       box-shadow: 0 4px 10px rgba(0, 0, 0, .12);
     }
@@ -524,13 +546,14 @@
           <div class="head">
             <div class="num">{{ forloop.counter }}</div><span style="font-weight:400;font-size:20px">Clothing {{ forloop.counter }}</span>
           </div>
+          <div class="card-body">
           <div class="row">
             <div class="group">
               <label class="up">Clothing</label>
               <input class="in" value="{{ item.lookup_details.clothing_type|default:'' }}" readonly>
             </div>
             <div class="group">
-              <label class="up">Estimated Weight (kg)</label>
+              <label class="up">Weight (kg)</label>
               <input class="in" value="{{ item.weight_kg|default:'' }}" readonly>
             </div>
           </div>
@@ -547,6 +570,7 @@
               <label class="up">Material</label>
               <input class="in" value="{{ item.lookup_details.fiber_json }} - {{ item.lookup_details.product_name }}" readonly>
             </div>
+          </div>
           </div>
         </div>
         {% endfor %}

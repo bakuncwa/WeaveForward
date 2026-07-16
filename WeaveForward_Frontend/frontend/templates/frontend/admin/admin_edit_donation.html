@@ -1,4 +1,4 @@
-{% extends 'frontend/base.html' %}
+﻿{% extends 'frontend/base.html' %}
 {% load static %}
 
 {% block content %}
@@ -29,7 +29,7 @@
     color: var(--btn-text); 
     border: 2px dashed var(--dashed-stroke); 
     border-radius: 8px; 
-    height: 48px; 
+    height: 54px; 
     font-weight: 400;
   }
   .btn-add:hover { } /* Hover disabled */
@@ -136,7 +136,7 @@
                   </div>
                 </div>
                 <div class="restored-group">
-                  <label class="up-label">Estimated Weight (kg)</label>
+                  <label class="up-label">Weight (kg)</label>
                   <input type="number" step="0.01" min="0.01" max="254" class="restored-in weight-in" value="{{ item.weight_kg|floatformat:2 }}" required>
                 </div>
               </div>
@@ -328,7 +328,7 @@
             </div>
           </div>
         </div>
-        <div class="restored-group"><label class="up-label">Estimated Weight (kg)</label><input type="number" step="0.01" min="0.01" max="254" class="restored-in weight-in" required></div>
+        <div class="restored-group"><label class="up-label">Weight (kg)</label><input type="number" step="0.01" min="0.01" max="254" class="restored-in weight-in" required></div>
       </div>
       <div class="restored-group" style="margin-bottom:14px">
         <label class="up-label">Condition</label>

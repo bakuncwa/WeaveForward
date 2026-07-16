@@ -1,4 +1,4 @@
-{% extends 'frontend/base.html' %}
+﻿{% extends 'frontend/base.html' %}
 {% load static %}
 
 {% block content %}
@@ -14,7 +14,7 @@
   .btn-add { 
     width: 95%; display: block; margin: 0 auto 20px;
     background: var(--gold); color: var(--btn-text); 
-    border: 2px dashed var(--dashed-stroke); border-radius: 8px; height: 48px; 
+    border: 2px dashed var(--dashed-stroke); border-radius: 8px; height: 54px; 
   }
   .btn-submit { background: var(--gold); color: var(--btn-text); border-radius: 30px; margin-top: 14px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15); }
   .trash { background: none; border: none; color: var(--gold); cursor: pointer; }
@@ -148,7 +148,7 @@
             </div>
           </div>
         </div>
-        <div class="restored-group"><label class="up-label">Estimated Weight (kg)</label><input type="number" step="0.01" min="0.01" max="254" class="restored-in weight-in" required></div>
+        <div class="restored-group"><label class="up-label">Weight (kg)</label><input type="number" step="0.01" min="0.01" max="254" class="restored-in weight-in" required></div>
       </div>
       <div class="restored-group" style="margin-bottom:14px">
         <label class="up-label">Condition</label>
