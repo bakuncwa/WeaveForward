@@ -27,19 +27,19 @@
       --green:     #4a7c59;
     }
 
-    .items-list { margin:0; padding-left:16px; font-size:12px; line-height:1.5; }
+    .items-list { margin:0; padding-left:16px; font-size:17px; line-height:1.5; }
     .items-list li { list-style:disc; }
     .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: none; cursor: pointer; font-family: 'Poppins', sans-serif; font-weight: 500; transition: all .2s; text-decoration: none; }
-    .btn-tuab  { background: #e8a020;  color: #fff; border-radius: 999px; padding: 1px 28px; font-size: 10px; font-weight: 500; box-shadow: 0 3px 10px rgba(0,0,0,.2); }
-    .btn-flag  { background: #fff1d8; color: #e8a020; border: none; border-radius: 999px; padding: 1px 28px; font-size: 10px; font-family: 'Poppins', sans-serif; cursor: pointer; font-weight: 500; box-shadow: 0 3px 10px rgba(0,0,0,.2); }
+    .btn-tuab  { background: #e8a020;  color: #fff; border-radius: 999px; padding: 1px 28px; font-size: 15px; font-weight: 500; box-shadow: 0 3px 10px rgba(0,0,0,.2); }
+    .btn-flag  { background: #fff1d8; color: #e8a020; border: none; border-radius: 999px; padding: 1px 28px; font-size: 15px; font-family: 'Poppins', sans-serif; cursor: pointer; font-weight: 500; box-shadow: 0 3px 10px rgba(0,0,0,.2); }
 
     #tuab-dash-map { width: 100%; height: 220px; border-radius: 12px; margin-bottom: 20px; z-index: 1; }
 
-    .tab-btn { font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 600; padding: 8px 22px; border: none; border-bottom: 3px solid transparent; background: transparent; color: #e8a020; cursor: pointer; transition: all .2s; }
+    .tab-btn { font-family: 'Poppins', sans-serif; font-size: 18px; font-weight: 600; padding: 8px 22px; border: none; border-bottom: 3px solid transparent; background: transparent; color: #e8a020; cursor: pointer; transition: all .2s; }
     .tab-btn.active { border-bottom-color: #e8a020; }
 
     .search-wrap { position: relative; flex-shrink: 0; }
-    .search-input { padding: 9px 14px 9px 36px; width: min(520px, 46vw); border: 1.5px solid #fff1d8; border-radius: 8px; background: #fff1d8; color: #c0952a; font-family: 'Poppins', sans-serif; font-size: 13px; outline: none; }
+    .search-input { padding: 9px 14px 9px 36px; width: min(520px, 46vw); border: 1.5px solid #fff1d8; border-radius: 8px; background: #fff1d8; color: #c0952a; font-family: 'Poppins', sans-serif; font-size: 18px; outline: none; }
     .search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); pointer-events: none; }
     .filter-bar { display:flex; gap:5px; align-items:center; justify-content:center; margin-top:6px; opacity:.72; white-space:nowrap; }
     .filter-bar:hover, .filter-bar:focus-within { opacity:1; }
@@ -53,7 +53,7 @@
 
     .modal-overlay { position: fixed; inset: 0; z-index: 9500; display: flex; align-items: center; justify-content: center; background: transparent; }
     .modal-box { background: #fff; border-radius: 16px; padding: 28px 32px; width: 420px; max-width: 95vw; box-shadow: 0 24px 80px rgba(0,0,0,.25); }
-    .modal-input { width: 100%; border: 1.5px solid #e0dbd4; border-radius: 8px; padding: 10px 14px; font-family: 'Poppins', sans-serif; font-size: 14px; outline: none; margin-bottom: 16px; }
+    .modal-input { width: 100%; border: 1.5px solid #e0dbd4; border-radius: 8px; padding: 10px 14px; font-family: 'Poppins', sans-serif; font-size: 19px; outline: none; margin-bottom: 16px; }
     .modal-input:focus { border-color: #e8a020; }
     .hidden { display: none !important; }
 
@@ -64,20 +64,20 @@
       color: var(--text, #222);
       border: 1.5px solid var(--border, #e0dbd4);
       border-radius: 12px; padding: 14px 18px;
-      font-family: 'Poppins', sans-serif; font-size: 12px;
+      font-family: 'Poppins', sans-serif; font-size: 17px;
       min-width: 260px; max-width: 340px;
       box-shadow: 0 8px 30px rgba(0,0,0,.12);
       pointer-events: none; opacity: 0; transition: opacity .12s;
       line-height: 1.6;
     }
     .dash-hover-card.visible { opacity: 1; }
-    .dash-hover-card .hc-hdr { font-size: 13px; font-weight: 600; color: var(--text, #222); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .dash-hover-card .hc-hdr { font-size: 18px; font-weight: 600; color: var(--text, #222); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .dash-hover-card .hc-row { display: flex; gap: 8px; padding: 1px 0; }
     .dash-hover-card .hc-lbl { color: var(--muted, #888); min-width: 64px; flex-shrink: 0; }
     .dash-hover-card .hc-items { list-style: none; padding: 0; margin: 4px 0 0 0; }
-    .dash-hover-card .hc-items li { padding: 1px 0 1px 14px; position: relative; font-size: 11px; color: var(--text, #222); }
+    .dash-hover-card .hc-items li { padding: 1px 0 1px 14px; position: relative; font-size: 16px; color: var(--text, #222); }
     .dash-hover-card .hc-items li::before { content: '•'; position: absolute; left: 0; color: var(--gold, #e8a020); }
-    .dash-hover-card .hc-more { font-size: 10px; color: var(--muted, #888); padding-left: 14px; }
+    .dash-hover-card .hc-more { font-size: 15px; color: var(--muted, #888); padding-left: 14px; }
 
     @keyframes claimed-flash {
       0%   { background: #d4edda; }
@@ -135,11 +135,11 @@
 
 <div id="flag-modal" class="modal-overlay hidden">
   <div class="modal-box">
-    <div style="font-family:'Poppins',sans-serif;font-size:15px;font-weight:600;margin-bottom:4px;color:#1a1a1a">Flag for Archiving</div>
-    <div style="font-family:'Poppins',sans-serif;font-size:12px;color:#888;margin-bottom:14px">Select an archiving reason. This will notify the administrator for review.</div>
+    <div style="font-family:'Poppins',sans-serif;font-size:20px;font-weight:600;margin-bottom:4px;color:#1a1a1a">Flag for Archiving</div>
+    <div style="font-family:'Poppins',sans-serif;font-size:17px;color:#888;margin-bottom:14px">Select an archiving reason. This will notify the administrator for review.</div>
     <div style="margin-bottom:10px">
-      <label style="font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;color:#444;display:block;margin-bottom:6px">Archiving Reason <span style="color:#c0392b">*</span></label>
-      <select id="flag-reason-select" style="font-family:'Poppins',sans-serif;font-size:13px;width:100%;padding:9px 12px;border:1.5px solid #e0dbd4;border-radius:8px;outline:none;background:#fff;color:#222;cursor:pointer">
+      <label style="font-family:'Poppins',sans-serif;font-size:17px;font-weight:600;color:#444;display:block;margin-bottom:6px">Archiving Reason <span style="color:#c0392b">*</span></label>
+      <select id="flag-reason-select" style="font-family:'Poppins',sans-serif;font-size:18px;width:100%;padding:9px 12px;border:1.5px solid #e0dbd4;border-radius:8px;outline:none;background:#fff;color:#222;cursor:pointer">
         <option value="">Select a reason</option>
         <option value="Hazardous">Hazardous</option>
         <option value="Spam">Spam</option>
@@ -147,13 +147,13 @@
       </select>
     </div>
     <div style="margin-bottom:14px">
-      <label style="font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;color:#444;display:block;margin-bottom:6px">Additional Details <span style="font-weight:400;color:#aaa">(optional)</span></label>
+      <label style="font-family:'Poppins',sans-serif;font-size:17px;font-weight:600;color:#444;display:block;margin-bottom:6px">Additional Details <span style="font-weight:400;color:#aaa">(optional)</span></label>
       <textarea id="flag-reason-input" class="modal-input" style="min-height:90px;resize:vertical" placeholder="Provide any additional context..."></textarea>
     </div>
-    <div id="flag-error" style="font-family:'Poppins',sans-serif;font-size:12px;color:#c0392b;margin-bottom:10px;display:none">Archive reason required.</div>
+    <div id="flag-error" style="font-family:'Poppins',sans-serif;font-size:17px;color:#c0392b;margin-bottom:10px;display:none">Archive reason required.</div>
     <div style="display:flex;gap:10px;justify-content:flex-end">
-      <button onclick="closeFlagModal()" style="border-radius:30px;padding:9px 24px;font-size:14px;background:#fef7ea;border:1.5px solid #f5d898;color:#888;font-family:'Poppins',sans-serif;cursor:pointer">Cancel</button>
-      <button onclick="submitFlag()" style="border-radius:30px;padding:9px 24px;font-size:14px;background:var(--tuab);border:none;color:#fff;font-family:'Poppins',sans-serif;cursor:pointer;font-weight:500">Submit</button>
+      <button onclick="closeFlagModal()" style="border-radius:30px;padding:9px 24px;font-size:19px;background:#fef7ea;border:1.5px solid #f5d898;color:#888;font-family:'Poppins',sans-serif;cursor:pointer">Cancel</button>
+      <button onclick="submitFlag()" style="border-radius:30px;padding:9px 24px;font-size:19px;background:var(--tuab);border:none;color:#fff;font-family:'Poppins',sans-serif;cursor:pointer;font-weight:500">Submit</button>
     </div>
   </div>
 </div>
@@ -333,7 +333,7 @@
     const deliveryHtml = d.delivery_method
       ? `<div class="hc-row"><span class="hc-lbl">Delivery</span><span>${escapeHTML(d.delivery_method)}</span></div>`
       : '';
-var itemsHtml = d.items && d.items.length ? '<div style="padding:6px 0;font-size:11px;color:var(--text,#222)">' + renderItems(d.items) + '</div>' : '';
+var itemsHtml = d.items && d.items.length ? '<div style="padding:6px 0;font-size:16px;color:var(--text,#222)">' + renderItems(d.items) + '</div>' : '';
       const start = formatTime(d.pickup_window_start);
       const end = formatTime(d.pickup_window_end);
       const windowHtml = start && end
@@ -345,7 +345,7 @@ var itemsHtml = d.items && d.items.length ? '<div style="padding:6px 0;font-size
       <div class="hc-row"><span class="hc-lbl">Address</span><span>${escapeHTML(d.address)}</span></div>
       ${deliveryHtml}
       ${windowHtml}
-      <div style="margin-top:6px;border-top:1px solid var(--border,#e0dbd4);padding-top:6px;font-size:11px;color:var(--muted,#888)">Items</div>
+      <div style="margin-top:6px;border-top:1px solid var(--border,#e0dbd4);padding-top:6px;font-size:16px;color:var(--muted,#888)">Items</div>
       ${itemsHtml}
     `;
     card._hcContent = d.id;
@@ -494,9 +494,9 @@ var itemsHtml = d.items && d.items.length ? '<div style="padding:6px 0;font-size
       const card = document.getElementById('dash-hover-card');
       const isClaim = btn.classList.contains('btn-tuab') && btn.textContent.trim() === 'Claim';
       const isManage = btn.classList.contains('btn-tuab') && btn.textContent.trim() === 'Manage';
-      if (isClaim) card.innerHTML = '<div style="padding:6px 0;font-size:12px;color:var(--text,#222)">Click to view more about the donation and choose to claim it.</div>';
-      else if (isManage) card.innerHTML = '<div style="padding:6px 0;font-size:12px;color:var(--text,#222)">Click to view more about the donation and manage it.</div>';
-      else card.innerHTML = '<div style="padding:6px 0;font-size:12px;color:var(--text,#222)">Report a donation to the admins.</div>';
+      if (isClaim) card.innerHTML = '<div style="padding:6px 0;font-size:17px;color:var(--text,#222)">Click to view more about the donation and choose to claim it.</div>';
+      else if (isManage) card.innerHTML = '<div style="padding:6px 0;font-size:17px;color:var(--text,#222)">Click to view more about the donation and manage it.</div>';
+      else card.innerHTML = '<div style="padding:6px 0;font-size:17px;color:var(--text,#222)">Report a donation to the admins.</div>';
     }
     function rebuildHoverCard(d) {
       if (_hcTimer) clearTimeout(_hcTimer);
@@ -509,7 +509,7 @@ var itemsHtml = d.items && d.items.length ? '<div style="padding:6px 0;font-size
       const deliveryHtml = d.delivery_method
         ? `<div class="hc-row"><span class="hc-lbl">Delivery</span><span>${escapeHTML(d.delivery_method)}</span></div>`
         : '';
-      var itemsHtml = d.items && d.items.length ? '<div style="padding:6px 0;font-size:11px;color:var(--text,#222)">' + renderItems(d.items) + '</div>' : '';
+      var itemsHtml = d.items && d.items.length ? '<div style="padding:6px 0;font-size:16px;color:var(--text,#222)">' + renderItems(d.items) + '</div>' : '';
       const start = formatTime(d.pickup_window_start);
       const end = formatTime(d.pickup_window_end);
       const windowHtml = start && end
@@ -521,7 +521,7 @@ var itemsHtml = d.items && d.items.length ? '<div style="padding:6px 0;font-size
         <div class="hc-row"><span class="hc-lbl">Address</span><span>${escapeHTML(d.address)}</span></div>
         ${deliveryHtml}
         ${windowHtml}
-        <div style="margin-top:6px;border-top:1px solid var(--border,#e0dbd4);padding-top:6px;font-size:11px;color:var(--muted,#888)">Items</div>
+        <div style="margin-top:6px;border-top:1px solid var(--border,#e0dbd4);padding-top:6px;font-size:16px;color:var(--muted,#888)">Items</div>
         ${itemsHtml}
       `;
       card.classList.add('visible');
@@ -548,7 +548,7 @@ var itemsHtml = d.items && d.items.length ? '<div style="padding:6px 0;font-size
         el.appendChild(document.createTextNode(d.address));
         if (d._tab === 'available') {
             var note = document.createElement('div');
-            note.style.cssText = 'font-size:10px;color:#999;margin-top:4px;border-top:1px solid #eee;padding-top:4px';
+            note.style.cssText = 'font-size:15px;color:#999;margin-top:4px;border-top:1px solid #eee;padding-top:4px';
             note.textContent = 'Approximate location — exact location shown after claiming';
             el.appendChild(note);
         }

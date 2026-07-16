@@ -96,14 +96,14 @@
     }
 
     .up {
-      font-size: 10px;
+      font-size: 15px;
       font-weight: 400;
       color: #888;
       text-transform: uppercase;
     }
 
     .sub {
-      font-size: 13px;
+      font-size: 18px;
       font-weight: 600;
       margin-bottom: 8px;
       display: block;
@@ -115,7 +115,7 @@
       border-radius: 50%;
       background: var(--tuab);
       color: #fff;
-      font-size: 13px;
+      font-size: 18px;
       font-family: 'Lato', sans-serif;
       font-weight: 600;
       display: flex;
@@ -130,7 +130,7 @@
       border: 1.5px solid #d5d5d5;
       border-radius: 8px;
       padding: 10px 14px;
-      font-size: 14px;
+      font-size: 19px;
       outline: none;
     }
 
@@ -155,7 +155,7 @@
       align-items: center;
       gap: 8px;
       padding: 2px 0;
-      font-size: 13px;
+      font-size: 18px;
       line-height: 1.35;
     }
 
@@ -333,7 +333,7 @@
     .mat-trigger {
       display: flex; justify-content: space-between; align-items: center;
       width: 100%; height: 44px; border: 1.5px solid #d5d5d5; border-radius: 8px;
-      padding: 0 14px; font-size: 14px; font-family: 'Poppins', sans-serif;
+      padding: 0 14px; font-size: 19px; font-family: 'Poppins', sans-serif;
       color: #666; background: #fff; cursor: pointer; user-select: none;
       transition: border-color 0.2s, box-shadow 0.2s; overflow: hidden;
     }
@@ -344,11 +344,11 @@
     .ss-wrap.open .mat-trigger { border-color: var(--tuab); box-shadow: 0 0 0 3px rgba(232,160,32,.15); }
     .mat-search {
       width: 100%; border: none; border-bottom: 1.5px solid #d5d5d5;
-      padding: 10px 14px; font-family: 'Poppins', sans-serif; font-size: 13px;
+      padding: 10px 14px; font-family: 'Poppins', sans-serif; font-size: 18px;
       outline: none; border-radius: 8px 8px 0 0; background: #fff;
     }
     .mat-item {
-      padding: 10px 14px; font-size: 13px; cursor: pointer;
+      padding: 10px 14px; font-size: 18px; cursor: pointer;
       border-bottom: 1px solid #f5f5f5; color: #666;
       font-family: 'Poppins', sans-serif; transition: background .15s;
     }
@@ -400,7 +400,7 @@
       display: flex;
       align-items: center;
       gap: 7px;
-      font-size: 24px;
+      font-size: 29px;
       color: var(--tuab);
     }
 
@@ -522,7 +522,7 @@
         {% for item in items %}
         <div class="card">
           <div class="head">
-            <div class="num">{{ forloop.counter }}</div><span style="font-weight:400;font-size:15px">Clothing {{ forloop.counter }}</span>
+            <div class="num">{{ forloop.counter }}</div><span style="font-weight:400;font-size:20px">Clothing {{ forloop.counter }}</span>
           </div>
           <div class="row">
             <div class="group">
@@ -581,7 +581,7 @@
           <img src="{{ donation.upload|default:'' }}"
             class="upload-photo{% if not donation.upload %} hidden{% endif %}" alt="Donation">
           <div class="{% if donation.upload %}hidden{% endif %}"
-            style="font-size:12px;color:#999;margin-top:6px">No donation image uploaded.</div>
+            style="font-size:17px;color:#999;margin-top:6px">No donation image uploaded.</div>
           <div class="sep-line"></div>
 
           {% if donation.status == 'PENDING' %}

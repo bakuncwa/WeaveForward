@@ -22,7 +22,7 @@
     .card-title { 
       font-family: 'Poppins', sans-serif; 
       font-weight: 400; 
-      font-size: 16px; 
+      font-size: 21px; 
       margin-bottom: 12px; 
       color: #000; 
       display: flex; 
@@ -34,7 +34,7 @@
 
     /* --- Button --- */
     .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0; border: none; cursor: pointer; font-family: 'Poppins', sans-serif; font-weight: 400; text-decoration: none; border-radius: 4px; overflow: hidden; }
-    .btn-primary { background: #E8A020; color: #FFF1D8; font-size: 14px; white-space: nowrap; }
+    .btn-primary { background: #E8A020; color: #FFF1D8; font-size: 19px; white-space: nowrap; }
     .btn-primary:hover { background: #E8A020; }
     .btn-icon-box { 
       background: transparent; 
@@ -51,14 +51,14 @@
     .profile-avatar-lg {
       width: 80px; height: 80px; border-radius: 50%;
       background: #f0e8d8; display: flex; align-items: center; justify-content: center;
-      color: var(--gold); font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 22px; flex-shrink: 0;
+      color: var(--gold); font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 27px; flex-shrink: 0;
       overflow: hidden;
     }
     .profile-avatar-lg img { width: 100%; height: 100%; object-fit: cover; }
     
     .profile-info { flex: 1; min-width: 0; }
-    .profile-name  { font-family: 'Poppins', sans-serif; font-weight: 400; font-size: 22px; margin-bottom: 4px; color: #666666; }
-    .profile-email { display: flex; align-items: center; gap: 6px; font-family: 'Poppins', sans-serif; font-size: 14px; color: #666666; margin-bottom: 12px; }
+    .profile-name  { font-family: 'Poppins', sans-serif; font-weight: 400; font-size: 27px; margin-bottom: 4px; color: #666666; }
+    .profile-email { display: flex; align-items: center; gap: 6px; font-family: 'Poppins', sans-serif; font-size: 19px; color: #666666; margin-bottom: 12px; }
     .profile-email svg { color: var(--gold); }
     .profile-chips { display: flex; gap: 8px; flex-wrap: wrap; }
     
@@ -68,7 +68,7 @@
       color: var(--gold); 
       border-radius: 6px; 
       padding: 4px 14px; 
-      font-size: 12px; 
+      font-size: 17px; 
       font-family: 'Poppins', sans-serif; 
       font-weight: 300; 
       text-transform: lowercase; 
@@ -78,7 +78,7 @@
       color: #fff; 
       border-radius: 6px; 
       padding: 4px 14px; 
-      font-size: 12px; 
+      font-size: 17px; 
       font-family: 'Poppins', sans-serif; 
       font-weight: 300; 
     }
@@ -87,7 +87,7 @@
       color: var(--gold); 
       border-radius: 6px; 
       padding: 4px 14px; 
-      font-size: 12px; 
+      font-size: 17px; 
       font-family: 'Poppins', sans-serif; 
       font-weight: 300; 
     }
@@ -95,7 +95,7 @@
     /* --- Info grid --- */
     .form-label-upper { 
       font-family: 'Poppins', sans-serif; 
-      font-size: 10px; 
+      font-size: 15px; 
       font-weight: 400; 
       color: #C4C4C4; 
       text-transform: uppercase; 
@@ -103,7 +103,7 @@
       display: block; 
       margin-bottom: 6px; 
     }
-    .info-val { font-size: 15px; font-weight: 400; color: var(--text); margin-top: 2px; }
+    .info-val { font-size: 20px; font-weight: 400; color: var(--text); margin-top: 2px; }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
 
     @media (max-width: 768px), (max-aspect-ratio: 1/1) {
@@ -203,7 +203,7 @@
     </div>
     <div>
       <label class="form-label-upper">Display Address</label>
-      <p class="info-val" style="color:#555; line-height:1.6; font-size:14px;">{{ user.display_address|default:"—" }}</p>
+      <p class="info-val" style="color:#555; line-height:1.6; font-size:19px;">{{ user.display_address|default:"—" }}</p>
     </div>
   </div>
 </div>

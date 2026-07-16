@@ -89,7 +89,7 @@
     }
 
     .up {
-      font-size: 10px;
+      font-size: 15px;
       font-weight: 400;
       color: #888;
       text-transform: uppercase;
@@ -103,7 +103,7 @@
       border: 1px solid var(--brd);
       border-radius: 8px;
       padding: 10px 14px;
-      font-size: 13px;
+      font-size: 18px;
       color: #333;
       background: #fdfdfd;
       outline: none;
@@ -124,7 +124,7 @@
       align-items: center;
       justify-content: center;
       font-family: Lato, sans-serif;
-      font-size: 12px;
+      font-size: 17px;
       font-weight: 600;
     }
 
@@ -135,7 +135,7 @@
       align-items: center;
       padding: 8px 0;
       border-bottom: 1px solid #f6f6f6;
-      font-size: 13px;
+      font-size: 18px;
     }
 
     .drow:last-of-type {
@@ -174,7 +174,7 @@
         <div class="card">
           <div class="head">
             <div class="num">{{ forloop.counter }}</div>
-            <span style="font-weight:400;font-size:15px">Clothing {{ forloop.counter }}</span>
+            <span style="font-weight:400;font-size:20px">Clothing {{ forloop.counter }}</span>
           </div>
           <div class="row">
             <div class="group">
@@ -221,7 +221,7 @@
           <img src="{{ donation.upload|default:'' }}"
             class="upload-photo{% if not donation.upload %} hidden{% endif %}" alt="Donation">
           <div class="{% if donation.upload %}hidden{% endif %}"
-            style="font-size:12px;color:#999;margin-top:6px">No donation image uploaded.</div>
+            style="font-size:17px;color:#999;margin-top:6px">No donation image uploaded.</div>
         </div>
       </div>
     </div>

@@ -139,14 +139,14 @@
     }
 
     .up {
-      font-size: 10px;
+      font-size: 15px;
       font-weight: 400;
       color: #888;
       text-transform: uppercase;
     }
 
     .sub {
-      font-size: 13px;
+      font-size: 18px;
       font-weight: 600;
       margin-bottom: 8px;
       display: block;
@@ -158,7 +158,7 @@
       border-radius: 50%;
       background: var(--tuab);
       color: #fff;
-      font-size: 13px;
+      font-size: 18px;
       font-family: 'Lato', sans-serif;
       font-weight: 600;
       display: flex;
@@ -173,7 +173,7 @@
       border: 1.5px solid #d5d5d5;
       border-radius: 8px;
       padding: 10px 14px;
-      font-size: 14px;
+      font-size: 19px;
       outline: none;
     }
 
@@ -198,7 +198,7 @@
       align-items: center;
       gap: 8px;
       padding: 2px 0;
-      font-size: 13px;
+      font-size: 18px;
       line-height: 1.35;
     }
 
@@ -274,7 +274,7 @@
           {% for item in items %}
           <div class="card">
             <div class="head">
-              <div class="num">{{ forloop.counter }}</div><span style="font-weight:400;font-size:15px">Clothing {{ forloop.counter }}</span>
+              <div class="num">{{ forloop.counter }}</div><span style="font-weight:400;font-size:20px">Clothing {{ forloop.counter }}</span>
             </div>
             <div class="row">
               <div class="group">
@@ -323,7 +323,7 @@
             <img src="{{ donation.upload|default:'' }}"
               class="upload-photo{% if not donation.upload %} hidden{% endif %}" alt="Donation" id="donation-img">
             <div class="{% if donation.upload %}hidden{% endif %}"
-              style="font-size:12px;color:#999;margin-top:6px" id="donation-no-img-text">No donation image uploaded.</div>
+              style="font-size:17px;color:#999;margin-top:6px" id="donation-no-img-text">No donation image uploaded.</div>
             <div class="sep-line"></div>
 
             <div id="driver-section"{% if donation.delivery_method != 'DELIVERY' %} style="display:none"{% endif %}>
@@ -334,7 +334,7 @@
                 <div class="drow"><span class="lbl">Phone</span><span class="val" id="driver-phone">{{ donation.driver_details.phone|default:'-' }}</span></div>
                 <div class="drow"><span class="lbl">Plate No.</span><span class="val" id="driver-plate">{{ donation.driver_details.plateNumber|default:'-' }}</span></div>
                 {% else %}
-                <div style="font-size:13px;color:#999" id="driver-waiting">Waiting for driver assignment...</div>
+                <div style="font-size:18px;color:#999" id="driver-waiting">Waiting for driver assignment...</div>
                 {% endif %}
               </div>
             </div>
@@ -467,7 +467,7 @@
           container.innerHTML = data.items.map(function(it, i) {
             var ld = it.lookup_details || {};
             return '<div class="card">' +
-              '<div class="head"><div class="num">' + (i + 1) + '</div><span style="font-weight:400;font-size:15px">Clothing ' + (i + 1) + '</span></div>' +
+              '<div class="head"><div class="num">' + (i + 1) + '</div><span style="font-weight:400;font-size:20px">Clothing ' + (i + 1) + '</span></div>' +
               '<div class="row"><div class="group"><label class="up">Clothing</label><input class="in" value="' + escapeHtml(ld.clothing_type || '') + '" readonly></div>' +
               '<div class="group"><label class="up">Estimated Weight (kg)</label><input class="in" value="' + (it.weight_kg != null ? it.weight_kg : '') + '" readonly></div></div>' +
               '<div class="group" style="margin-bottom:14px"><label class="up">Condition</label><input class="in condition-val" value="' + prettifyCondition(it.condition_rating) + '" readonly></div>' +
@@ -496,7 +496,7 @@
           var waiting = document.getElementById('driver-waiting');
           if (waiting) waiting.remove();
         } else if (infoEl && document.getElementById('driver-name')) {
-          infoEl.innerHTML = '<div style="font-size:13px;color:#999" id="driver-waiting">Waiting for driver assignment...</div>';
+          infoEl.innerHTML = '<div style="font-size:18px;color:#999" id="driver-waiting">Waiting for driver assignment...</div>';
         }
         // Mark as In-Transit button visibility
         var transitBtn = document.getElementById('mark-transit-section');

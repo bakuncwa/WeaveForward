@@ -10,12 +10,12 @@
 <link rel="stylesheet" href="{% static 'frontend/css/edit-profile.css' %}">
 <style>
     .donor-edit-wrap, .donor-edit-wrap * { box-sizing: border-box; font-family: 'Poppins', sans-serif !important; }
-    .sec-lbl, label { font-size: 10px; font-weight: 600; color: var(--mu); text-transform: uppercase; letter-spacing: .5px; display: block; }
+    .sec-lbl, label { font-size: 15px; font-weight: 600; color: var(--mu); text-transform: uppercase; letter-spacing: .5px; display: block; }
     .sec-lbl { letter-spacing: .8px; margin-bottom: 18px; }
     .av-img { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; }
-    .av-ph { width: 60px; height: 60px; border-radius: 50%; background: #f0e8d8; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; color: var(--gold); }
+    .av-ph { width: 60px; height: 60px; border-radius: 50%; background: #f0e8d8; display: flex; align-items: center; justify-content: center; font-size: 23px; font-weight: 700; color: var(--gold); }
     .img-wrap { position:relative; display:inline-block; }
-    .img-x { position:absolute; top:-6px; right:-6px; width:22px; height:22px; border-radius:50%; background:#c0392b; color:#fff; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; line-height:1; padding:0; z-index:2; }
+    .img-x { position:absolute; top:-6px; right:-6px; width:22px; height:22px; border-radius:50%; background:#c0392b; color:#fff; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:19px; line-height:1; padding:0; z-index:2; }
     .img-x:hover { background:#a93226; }
 </style>
 
@@ -97,7 +97,7 @@
       <!-- Security & Actions -->
       <div class="sec">
         <div class="sec-lbl">Security</div>
-        <div style="display:flex;justify-content:flex-end;margin-bottom:4px"><button type="button" style="border:0;background:none;color:#e8a020;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:0" onclick="togglePw('dep-np','dep-cp','dep-txt')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span id="dep-txt">Show</span></button></div>
+        <div style="display:flex;justify-content:flex-end;margin-bottom:4px"><button type="button" style="border:0;background:none;color:#e8a020;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-size:16px;padding:0" onclick="togglePw('dep-np','dep-cp','dep-txt')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span id="dep-txt">Show</span></button></div>
         <div class="g2" style="margin-bottom:16px">
           <div class="field"><label>New Password</label><input type="password" class="wf-in" name="new_password" id="dep-np" autocomplete="new-password" placeholder="Leave blank to keep current" minlength="8" maxlength="70" pattern="(?=.*[A-Za-z])(?=.*\d).{8,70}" title="At least 8 characters with one letter and one number." /></div>
           <div class="field"><label>Confirm Password</label><input type="password" class="wf-in" name="confirm_password" id="dep-cp" autocomplete="new-password" maxlength="70" /></div>
@@ -105,7 +105,7 @@
         <input type="hidden" id="init-2fa" value="{{ user.is_2fa_enabled|yesno:'true,false' }}" />
         <div class="f-row" style="margin-bottom:24px">
           <div class="toggle {% if user.is_2fa_enabled %}on{% endif %}" id="tgl" onclick="onToggle2FA()"></div>
-          <span style="font-size:14px;color:#333;font-weight:500">Enable Two-Factor Authentication</span>
+          <span style="font-size:19px;color:#333;font-weight:500">Enable Two-Factor Authentication</span>
         </div>
         <div class="f-row" style="flex-wrap:wrap;gap:12px">
           <button type="button" id="save-btn" class="btn btn-gold" style="padding: 12px 32px" onclick="onSave()">Save Changes</button>
@@ -139,8 +139,8 @@
 <!-- 2FA Modal -->
 <div id="twofa-modal" class="modal-bg hidden">
   <div class="modal-box">
-    <h3 style="font-weight:600;font-size:20px;margin-bottom:12px;color:#1a1a1a">Set Up 2FA</h3>
-    <p style="font-size:13px;color:#666;margin-bottom:20px;line-height:1.5">Enter this secret key in your authenticator app, then type the 6-digit code below.<br><span style="font-size:11px;color:#999">e.g. Google Authenticator, Authy, or Microsoft Authenticator</span></p>
+    <h3 style="font-weight:600;font-size:25px;margin-bottom:12px;color:#1a1a1a">Set Up 2FA</h3>
+    <p style="font-size:18px;color:#666;margin-bottom:20px;line-height:1.5">Enter this secret key in your authenticator app, then type the 6-digit code below.<br><span style="font-size:16px;color:#999">e.g. Google Authenticator, Authy, or Microsoft Authenticator</span></p>
     <div id="qrcode" style="display:none;"></div>
     <div id="totp-secret-display" class="totp-sec">Loading...</div>
     <input id="totp-in" type="text" inputmode="numeric" maxlength="6" placeholder="000000" class="totp-in" />

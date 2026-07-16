@@ -5,7 +5,7 @@
 .fiber-row select:focus { border-color: var(--gold); }
 .fiber-row input { width: 70px; padding: 6px 8px; border: 1.5px solid var(--border); border-radius: 6px; font: 400 12px Poppins, sans-serif; color: #222; outline: none; }
 .fiber-row input:focus { border-color: var(--gold); }
-.fiber-row .fiber-rm { background: none; border: none; color: var(--red); cursor: pointer; padding: 4px; font-size: 16px; line-height: 1; }
+.fiber-row .fiber-rm { background: none; border: none; color: var(--red); cursor: pointer; padding: 4px; font-size: 21px; line-height: 1; }
 .fiber-add-btn { display: block; margin-top: 6px; background: none; border: 1px dashed var(--gold); border-radius: 6px; padding: 6px; width: 100%; font: 400 12px Poppins, sans-serif; color: var(--gold); cursor: pointer; }
 .fiber-total { font: 400 11px Poppins, sans-serif; color: var(--muted); margin-top: 4px; text-align: right; }
 .fiber-total.ok { color: var(--green); }

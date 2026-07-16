@@ -21,7 +21,7 @@
 
 .wf-table th {
   font-family: 'Poppins', sans-serif;
-  font-size: 10px;
+  font-size: 15px;
   font-weight: 600;
   color: #1a1a1a;
   text-align: left;
@@ -33,7 +33,7 @@
 
 .wf-table td {
   font-family: 'Poppins', sans-serif;
-  font-size: 12px;
+  font-size: 17px;
   color: var(--text, #333);
   padding: 14px 16px;
   line-height: 1.4;
@@ -79,7 +79,7 @@
   border: 1px solid #e2e2e2;
   border-radius: 6px;
   padding: 5px 10px;
-  font-size: 11px;
+  font-size: 16px;
   width: auto;
   text-align: center;
 }

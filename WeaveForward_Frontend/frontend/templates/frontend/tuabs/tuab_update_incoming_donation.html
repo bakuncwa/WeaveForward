@@ -27,7 +27,7 @@
     border-radius: 8px; 
     height: 48px; 
     font-weight: 400;
-    font-size: 16px;
+    font-size: 21px;
     border: none;
     cursor: pointer;
     font-family: 'Poppins', sans-serif;
@@ -39,7 +39,7 @@
     cursor: pointer; 
     font-family: 'Poppins', sans-serif; 
     border: none; 
-    font-size: 15px; 
+    font-size: 20px; 
     outline: none; 
     color: #fff;
     border-radius: 30px;
@@ -70,14 +70,14 @@
   }
   .reject-modal-text {
     font-family: 'Poppins', sans-serif; font-weight: 400;
-    color: #666666; font-size: 15px; text-align: left;
+    color: #666666; font-size: 20px; text-align: left;
     margin-bottom: 14px;
   }
   .reject-reason-input {
     width: 100%; box-sizing: border-box;
     border-radius: 10px;
     border: 1.5px solid #e0dbd4; padding: 10px 12px;
-    font-family: 'Poppins', sans-serif; font-size: 14px; color: #222;
+    font-family: 'Poppins', sans-serif; font-size: 19px; color: #222;
     outline: none; margin-bottom: 16px;
   }
   .reject-reason-input:focus { border-color: #e8a020; }
@@ -87,7 +87,7 @@
   .reject-btn-cancel, .reject-btn-confirm {
     border: none; border-radius: 30px; padding: 12px;
     font-family: 'Poppins', sans-serif; font-weight: 300;
-    font-size: 14px; cursor: pointer; transition: opacity .2s;
+    font-size: 19px; cursor: pointer; transition: opacity .2s;
     box-shadow: 0 2px 6px rgba(0,0,0,.1);
   }
   .reject-btn-cancel {
@@ -102,7 +102,7 @@
     font-family: 'Poppins', sans-serif;
     font-weight: 400;
     color: #666666;
-    font-size: 12px;
+    font-size: 17px;
     margin-bottom: 2px;
     line-height: 1.15;
   }
@@ -110,7 +110,7 @@
     font-family: 'Poppins', sans-serif;
     font-weight: 500;
     color: #1A1A18;
-    font-size: 12px;
+    font-size: 17px;
     margin-bottom: 10px;
     line-height: 1.25;
     word-break: break-word;
@@ -139,7 +139,7 @@
     font-family: 'Poppins', sans-serif;
     font-weight: 400;
     color: #666666;
-    font-size: 12px;
+    font-size: 17px;
     line-height: 1.15;
   }
 
@@ -147,7 +147,7 @@
     font-family: 'Poppins', sans-serif;
     font-weight: 500;
     color: #1A1A18;
-    font-size: 12px;
+    font-size: 17px;
     line-height: 1.25;
     word-break: break-word;
     text-align: right;
@@ -403,7 +403,7 @@
 
           <div class="incoming-photo-wrap">
             <img src="{{ donation.upload|default:'' }}" class="incoming-photo{% if not donation.upload %} hidden{% endif %}" alt="Donation image" id="donation-img">
-            <div{% if donation.upload %} class="hidden"{% endif %} style="color: var(--muted); font-size: 14px; font-family: 'Poppins', sans-serif;" id="donation-no-img-text">No image uploaded</div>
+            <div{% if donation.upload %} class="hidden"{% endif %} style="color: var(--muted); font-size: 19px; font-family: 'Poppins', sans-serif;" id="donation-no-img-text">No image uploaded</div>
           </div>
 
           <div class="incoming-divider"></div>

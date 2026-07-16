@@ -20,7 +20,7 @@
 
   /* ————— Cards ————— */
   .card { background: #fff; border-radius: 14px; padding: 24px; margin-bottom: 16px; border: 1.5px solid #ebe6df; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-  .card-title { font-weight: 500; font-size: 15px; margin-bottom: 16px; }
+  .card-title { font-weight: 500; font-size: 20px; margin-bottom: 16px; }
 
   /* ————— Business header ————— */
   .biz-header { display: flex; align-items: flex-start; gap: 20px; margin-bottom: 14px; }
@@ -28,25 +28,25 @@
   .biz-avatar { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: #f0e8d8; }
   .biz-avatar-fallback {
     width: 72px; height: 72px; border-radius: 50%; flex-shrink: 0; background: #f0e8d8;
-    color: var(--gold); font-size: 22px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    color: var(--gold); font-size: 27px; font-weight: 700; display: flex; align-items: center; justify-content: center;
   }
 
-  .biz-name { font-weight: 500; font-size: 34px; margin-bottom: 4px; }
-  .biz-loc { display: flex; align-items: center; gap: 5px; font-size: 13px; color: #777; }
+  .biz-name { font-weight: 500; font-size: 39px; margin-bottom: 4px; }
+  .biz-loc { display: flex; align-items: center; gap: 5px; font-size: 18px; color: #777; }
   .tag-wrap { display: inline-flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
-  .tag { background: #E8A020; color: #000; border-radius: 4px; padding: 2px 9px; font-size: 10px; font-weight: 300; }
+  .tag { background: #E8A020; color: #000; border-radius: 4px; padding: 2px 9px; font-size: 15px; font-weight: 300; }
 
   /* ————— Stats ————— */
   .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
   .stat-card { background: #fff; border-radius: 12px; padding: 20px 24px; border: 1.5px solid #ebe6df; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-  .form-label-upper { font-size: 10px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 5px; }
-  .stat-num { font-size: 38px; font-weight: 500; margin-top: 8px; }
-  .stat-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .form-label-upper { font-size: 15px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 5px; }
+  .stat-num { font-size: 43px; font-weight: 500; margin-top: 8px; }
+  .stat-sub { font-size: 17px; color: var(--muted); margin-top: 4px; }
 
   /* ————— Info cards ————— */
   .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .info-table { width: 100%; border-collapse: collapse; }
-  .info-table td { font-size: 13px; padding: 8px 0; border-bottom: 1px solid #f0ede8; }
+  .info-table td { font-size: 18px; padding: 8px 0; border-bottom: 1px solid #f0ede8; }
   .info-table tr:last-child td { border-bottom: none; }
   .info-table td:first-child { color: var(--muted); width: 45%; }
   .info-table td:last-child { text-align: right; overflow-wrap: anywhere; }
@@ -82,7 +82,7 @@
       </div>
     </div>
   </div>
-  <p style="font-size:13px;color:#555;line-height:1.75;margin-bottom:10px">
+  <p style="font-size:18px;color:#555;line-height:1.75;margin-bottom:10px">
     {% if business.description %}
       {{ business.description }}
     {% else %}
@@ -91,12 +91,12 @@
   </p>
    {% if business.social_link and business.social_link != 'None' %}
     {% if business.social_link|slice:":7" == "http://" or business.social_link|slice:":8" == "https://" %}
-    <a href="{{ business.social_link }}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#000;text-decoration:underline">
+    <a href="{{ business.social_link }}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:6px;font-size:18px;color:#000;text-decoration:underline">
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
       {{ business.social_link }}
     </a>
     {% else %}
-    <a href="https://{{ business.social_link }}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#000;text-decoration:underline">
+    <a href="https://{{ business.social_link }}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:6px;font-size:18px;color:#000;text-decoration:underline">
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
       {{ business.social_link }}
     </a>

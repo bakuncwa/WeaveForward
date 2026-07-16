@@ -26,7 +26,7 @@
   .card-title {
     font-family: 'Poppins', sans-serif;
     font-weight: 600;
-    font-size: 15px;
+    font-size: 20px;
     margin-bottom: 16px;
     color: var(--text);
   }
@@ -56,7 +56,7 @@
     background: #f0e8d8;
     color: var(--gold);
     font-family: 'Poppins', sans-serif;
-    font-size: 22px;
+    font-size: 27px;
     font-weight: 700;
     display: flex;
     align-items: center;
@@ -66,7 +66,7 @@
   .biz-name {
     font-family: 'Poppins', sans-serif;
     font-weight: 600;
-    font-size: 22px;
+    font-size: 27px;
     margin-bottom: 4px;
     color: var(--text);
   }
@@ -76,7 +76,7 @@
     align-items: center;
     gap: 5px;
     font-family: 'Poppins', sans-serif;
-    font-size: 13px;
+    font-size: 18px;
     color: #777;
     margin-bottom: 10px;
   }
@@ -91,7 +91,7 @@
     border-radius: 20px;
     padding: 3px 12px;
     font-family: 'Poppins', sans-serif;
-    font-size: 12px;
+    font-size: 17px;
     line-height: 1.4;
   }
 
@@ -121,7 +121,7 @@
     align-items: center;
     gap: 6px;
     font-family: 'Poppins', sans-serif;
-    font-size: 13px;
+    font-size: 18px;
     color: var(--gold);
     text-decoration: none;
   }
@@ -145,7 +145,7 @@
     transition: all .2s;
     border-radius: 8px;
     padding: 10px 20px;
-    font-size: 14px;
+    font-size: 19px;
     white-space: nowrap;
   }
 
@@ -171,7 +171,7 @@
 
   .form-label-upper {
     font-family: 'Poppins', sans-serif;
-    font-size: 10px;
+    font-size: 15px;
     font-weight: 600;
     color: var(--muted);
     text-transform: uppercase;
@@ -182,7 +182,7 @@
 
   .stat-num {
     font-family: 'Poppins', sans-serif;
-    font-size: 38px;
+    font-size: 43px;
     font-weight: 700;
     margin-top: 8px;
     color: var(--text);
@@ -190,7 +190,7 @@
 
   .stat-sub {
     font-family: 'Poppins', sans-serif;
-    font-size: 12px;
+    font-size: 17px;
     color: var(--muted);
     margin-top: 4px;
   }
@@ -208,7 +208,7 @@
 
   .info-table td {
     font-family: 'Poppins', sans-serif;
-    font-size: 13px;
+    font-size: 18px;
     padding: 8px 0;
     border-bottom: 1px solid #f0ede8;
     color: var(--text);
@@ -242,7 +242,7 @@
     border-radius: 20px;
     padding: 2px 9px;
     font-family: 'Poppins', sans-serif;
-    font-size: 10px;
+    font-size: 15px;
     font-weight: 500;
   }
 
@@ -302,7 +302,7 @@
         <span class="chip chip-grey">Member since {{ tuab.created_at|date:"F j Y" }}</span>
       </div>
 
-      <p style="font-family:'Poppins',sans-serif;font-size:13px;color:#555;line-height:1.75;margin:12px 0 0 0;">
+      <p style="font-family:'Poppins',sans-serif;font-size:18px;color:#555;line-height:1.75;margin:12px 0 0 0;">
         {% if tuab.description %}
           {{ tuab.description }}
         {% else %}
@@ -327,7 +327,7 @@
         </div>
         {% endif %}
       {% else %}
-        <p class="empty-text" style="font-family:'Poppins',sans-serif;font-size:13px;margin-top:10px;">No social link provided.</p>
+        <p class="empty-text" style="font-family:'Poppins',sans-serif;font-size:18px;margin-top:10px;">No social link provided.</p>
       {% endif %}
     </div>
 
@@ -411,25 +411,25 @@
   <div class="card-title">Donations ({{ donations|length }})</div>
   {% if donations %}
   {{ donations|json_script:"tuab-donations" }}
-  <table style="width:100%;border-collapse:collapse;font-size:13px">
+  <table style="width:100%;border-collapse:collapse;font-size:18px">
     <thead>
       <tr style="border-bottom:2px solid #ebe6df">
-        <th style="padding:8px 6px;text-align:left;font-weight:600;color:#888;font-size:10px;text-transform:uppercase">ID</th>
-        <th style="padding:8px 6px;text-align:left;font-weight:600;color:#888;font-size:10px;text-transform:uppercase">Status</th>
-        <th style="padding:8px 6px;text-align:left;font-weight:600;color:#888;font-size:10px;text-transform:uppercase">Delivery Type</th>
-        <th style="padding:8px 6px;text-align:left;font-weight:600;color:#888;font-size:10px;text-transform:uppercase">Pickup Date</th>
-        <th style="padding:8px 6px;text-align:left;font-weight:600;color:#888;font-size:10px;text-transform:uppercase">Donor</th>
+        <th style="padding:8px 6px;text-align:left;font-weight:600;color:#888;font-size:15px;text-transform:uppercase">ID</th>
+        <th style="padding:8px 6px;text-align:left;font-weight:600;color:#888;font-size:15px;text-transform:uppercase">Status</th>
+        <th style="padding:8px 6px;text-align:left;font-weight:600;color:#888;font-size:15px;text-transform:uppercase">Delivery Type</th>
+        <th style="padding:8px 6px;text-align:left;font-weight:600;color:#888;font-size:15px;text-transform:uppercase">Pickup Date</th>
+        <th style="padding:8px 6px;text-align:left;font-weight:600;color:#888;font-size:15px;text-transform:uppercase">Donor</th>
       </tr>
     </thead>
     <tbody id="donations-tbody"></tbody>
   </table>
-  <div style="display:flex;align-items:center;gap:12px;margin-top:12px;font-size:13px">
-    <button id="prev-btn" style="background:var(--gold);color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-family:'Poppins',sans-serif;font-size:12px">Previous</button>
+  <div style="display:flex;align-items:center;gap:12px;margin-top:12px;font-size:18px">
+    <button id="prev-btn" style="background:var(--gold);color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-family:'Poppins',sans-serif;font-size:17px">Previous</button>
     <span id="page-info" style="color:#888">Page 1 of 1</span>
-    <button id="next-btn" style="background:var(--gold);color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-family:'Poppins',sans-serif;font-size:12px">Next</button>
+    <button id="next-btn" style="background:var(--gold);color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-family:'Poppins',sans-serif;font-size:17px">Next</button>
   </div>
   {% else %}
-  <p style="color:#888;font-size:13px">No donations found.</p>
+  <p style="color:#888;font-size:18px">No donations found.</p>
   {% endif %}
 </div>
 </div>

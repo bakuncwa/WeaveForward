@@ -29,8 +29,8 @@ def send_password_reset_email(to_email, reset_link):
                 <p>If you didn't request this, you can safely ignore this email.</p>
                 <p>Best regards,<br>The WeaveForward Team</p>
                 <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-                <p style="font-size: 12px; color: #A0AEC0;">If the button above doesn't work, copy and paste this link into your browser:</p>
-                <p style="font-size: 12px; color: #A0AEC0;">{safe_reset_link}</p>
+                <p style="font-size: 17px; color: #A0AEC0;">If the button above doesn't work, copy and paste this link into your browser:</p>
+                <p style="font-size: 17px; color: #A0AEC0;">{safe_reset_link}</p>
             </div>
         """,
     }
@@ -62,8 +62,8 @@ def send_verification_email(to_email, verify_link, display_name):
                 <p>This link stays valid until your account is verified. If you didn't create an account, you can ignore this email.</p>
                 <p>Best regards,<br>The WeaveForward Team</p>
                 <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-                <p style="font-size: 12px; color: #A0AEC0;">If the button doesn't work, copy and paste this link:</p>
-                <p style="font-size: 12px; color: #A0AEC0;">{safe_verify_link}</p>
+                <p style="font-size: 17px; color: #A0AEC0;">If the button doesn't work, copy and paste this link:</p>
+                <p style="font-size: 17px; color: #A0AEC0;">{safe_verify_link}</p>
             </div>
         """,
     }

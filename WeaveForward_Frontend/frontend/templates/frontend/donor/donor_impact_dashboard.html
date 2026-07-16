@@ -24,26 +24,26 @@
       font-family: 'Poppins', sans-serif; font-weight: 500;
       transition: all .2s; text-decoration: none;
     }
-    .btn-primary     { background: var(--gold); color: #fff; border-radius: 30px; padding: 13px 28px; font-size: 15px; }
+    .btn-primary     { background: var(--gold); color: #fff; border-radius: 30px; padding: 13px 28px; font-size: 20px; }
     .btn-primary:hover { background: var(--gold-dark); }
-    .btn-primary-sq  { border-radius: 8px !important; padding: 10px 20px !important; font-size: 14px !important; }
+    .btn-primary-sq  { border-radius: 8px !important; padding: 10px 20px !important; font-size: 19px !important; }
 
     /* Form controls */
     .form-label-upper {
-      font-family: 'Poppins', sans-serif; font-size: 10px; font-weight: 600;
+      font-family: 'Poppins', sans-serif; font-size: 15px; font-weight: 600;
       color: var(--muted); text-transform: uppercase; letter-spacing: .5px;
       display: block; margin-bottom: 5px;
     }
     .form-input {
       width: 100%; border: 1.5px solid #d5d5d5; border-radius: 8px;
-      padding: 10px 14px; font-family: 'Poppins', sans-serif; font-size: 13px;
+      padding: 10px 14px; font-family: 'Poppins', sans-serif; font-size: 18px;
       color: var(--text); outline: none; transition: border-color .2s;
     }
     .form-input:focus { border-color: var(--gold); }
     .form-select {
       width: 100%; border: 1.5px solid var(--border); border-radius: 8px;
       padding: 10px 36px 10px 14px;
-      font-family: 'Poppins', sans-serif; font-size: 13px; color: var(--text);
+      font-family: 'Poppins', sans-serif; font-size: 18px; color: var(--text);
       background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23e8a020' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpolyline points='6,9 12,15 18,9'/%3E%3C/svg%3E") no-repeat right 12px center;
       appearance: none; outline: none; cursor: pointer; transition: border-color .2s;
     }
@@ -73,7 +73,7 @@
     }
     .dash-panel-title {
       font-family: 'Poppins', sans-serif;
-      font-weight: 600; font-size: 14px;
+      font-weight: 600; font-size: 19px;
       color: var(--text);
     }
     .stats-row {
@@ -81,15 +81,15 @@
       grid-template-columns: 1fr 1fr;
       gap: 10px;
     }
-    .stat-big  { font-family: 'Poppins', sans-serif; font-weight: 500; font-size: 32px; color: var(--gold); }
-    .stat-lbl  { font-family: 'Poppins', sans-serif; font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .stat-big  { font-family: 'Poppins', sans-serif; font-weight: 500; font-size: 37px; color: var(--gold); }
+    .stat-lbl  { font-family: 'Poppins', sans-serif; font-size: 16px; color: var(--muted); margin-top: 2px; }
 
     /* Leaderboard */
     .leaderboard-row {
       display: flex; justify-content: space-between;
       padding: 6px 0;
       border-bottom: 1px solid #f0ede8;
-      font-family: 'Poppins', sans-serif; font-size: 12px;
+      font-family: 'Poppins', sans-serif; font-size: 17px;
     }
     .leaderboard-row:last-child { border-bottom: none; }
     .leaderboard-scroll {
@@ -182,9 +182,9 @@
         <!-- Date range -->
         <div class="field-group">
           <label class="form-label-upper">Date Range</label>
-          <span style="font-size:12px;color:#718096;font-family:'Poppins',sans-serif;">From</span>
+          <span style="font-size:17px;color:#718096;font-family:'Poppins',sans-serif;">From</span>
           <input class="form-input" type="date" name="date_from" id="dash-from" value="{{ date_from }}" max="{{ today_iso }}" style="margin-bottom:6px"/>
-          <span style="font-size:12px;color:#718096;font-family:'Poppins',sans-serif;">To</span>
+          <span style="font-size:17px;color:#718096;font-family:'Poppins',sans-serif;">To</span>
           <input class="form-input" type="date" name="date_to" id="dash-to" value="{{ date_to }}" max="{{ today_iso }}"/>
         </div>
 
@@ -237,7 +237,7 @@
             <span style="color:var(--gold);font-weight:500">{{ entry.donation_count }}</span>
           </div>
         {% empty %}
-          <div style="font-family:'Poppins',sans-serif;font-size:12px;color:var(--muted);padding:10px 0;">No donations recorded yet.</div>
+          <div style="font-family:'Poppins',sans-serif;font-size:17px;color:var(--muted);padding:10px 0;">No donations recorded yet.</div>
         {% endfor %}
       </div>
 
@@ -277,7 +277,7 @@
       popupEl.appendChild(b);
       popupEl.appendChild(document.createElement('br'));
       const s = document.createElement('span');
-      s.style.cssText = 'color:#888;font-size:11px';
+      s.style.cssText = 'color:#888;font-size:16px';
       s.textContent = `Donations Received: ${d.donation_count}`;
       popupEl.appendChild(s);
       mk.bindPopup(popupEl);
@@ -306,7 +306,7 @@
       const lb = document.querySelector('.leaderboard-scroll');
       lb.innerHTML = d.leaderboard.length
         ? d.leaderboard.map(e => `<div class="leaderboard-row"><span title="${(e.full_name||'Anonymous Donor').replace(/"/g,'&quot;')}" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px;">${escapeHTML(e.full_name||'Anonymous Donor')}</span><span style="color:var(--gold);font-weight:500">${e.donation_count}</span></div>`).join('')
-        : '<div style="font-family:\'Poppins\',sans-serif;font-size:12px;color:var(--muted);padding:10px 0;">No donations recorded yet.</div>';
+        : '<div style="font-family:\'Poppins\',sans-serif;font-size:17px;color:var(--muted);padding:10px 0;">No donations recorded yet.</div>';
       if (d.donations_json) {
         dashMarkers.forEach(m => dashMap.removeLayer(m));
         dashMarkers = d.donations_json.filter(d2 => d2.latitude != null && d2.longitude != null).map(d2 => {
@@ -316,7 +316,7 @@
           const b = document.createElement('b'); b.textContent = d2.barangay;
           el.appendChild(b); el.appendChild(document.createElement('br'));
           const s = document.createElement('span');
-          s.style.cssText = 'color:#888;font-size:11px';
+          s.style.cssText = 'color:#888;font-size:16px';
           s.textContent = 'Donations Received: ' + d2.donation_count;
           el.appendChild(s);
           mk.bindPopup(el);

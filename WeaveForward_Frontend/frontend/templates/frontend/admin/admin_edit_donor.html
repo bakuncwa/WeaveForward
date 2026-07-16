@@ -50,7 +50,7 @@
   }
 
   .up {
-    font-size: 10px;
+    font-size: 15px;
     color: #888;
     text-transform: uppercase;
   }
@@ -61,7 +61,7 @@
     border: 1.5px solid #d5d5d5;
     border-radius: 8px;
     padding: 10px 14px;
-    font-size: 14px;
+    font-size: 19px;
     outline: none;
     background: #fff;
   }
@@ -121,7 +121,7 @@
     border: 1.5px solid #d5d5d5;
     border-radius: 8px;
     padding: 0 14px;
-    font-size: 14px;
+    font-size: 19px;
     color: #333;
     background: #fff;
     cursor: pointer;
@@ -176,13 +176,13 @@
     border: none;
     border-bottom: 1.5px solid var(--brd);
     padding: 10px 14px;
-    font-size: 13px;
+    font-size: 18px;
     outline: none;
   }
 
   .mat-item {
     padding: 10px 14px;
-    font-size: 13px;
+    font-size: 18px;
     cursor: pointer;
     border-bottom: 1px solid #f5f5f5;
   }
@@ -218,7 +218,7 @@
 
   .ac-item {
     padding: 10px 14px;
-    font-size: 13px;
+    font-size: 18px;
     cursor: pointer;
     border-bottom: 1px solid #f5f5f5;
   }
@@ -241,7 +241,7 @@
     background: var(--g);
     color: #fff;
     font-weight: 600;
-    font-size: 14px;
+    font-size: 19px;
     cursor: pointer;
     margin-top: 20px;
   }
@@ -261,7 +261,7 @@
   }
 
   .pfp-change {
-    font-size: 12px;
+    font-size: 17px;
     color: var(--g);
     cursor: pointer;
     font-weight: 600;
@@ -270,7 +270,7 @@
   }
 
   .img-wrap { position:relative; display:inline-block; }
-  .img-x { position:absolute; top:-6px; right:-6px; width:22px; height:22px; border-radius:50%; background:#c0392b; color:#fff; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; line-height:1; padding:0; z-index:2; }
+  .img-x { position:absolute; top:-6px; right:-6px; width:22px; height:22px; border-radius:50%; background:#c0392b; color:#fff; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:19px; line-height:1; padding:0; z-index:2; }
   .img-x:hover { background:#a93226; }
 
   .tfa-row {
@@ -284,12 +284,12 @@
   }
 
   .tfa-status {
-    font-size: 13px;
+    font-size: 18px;
     font-weight: 600;
   }
 
   .btn-disable {
-    font-size: 11px;
+    font-size: 16px;
     font-weight: 600;
     padding: 4px 12px;
     border-radius: 6px;
@@ -332,12 +332,12 @@
   }
 
   .map-title-text {
-    font-size: 20px;
+    font-size: 25px;
     color: #1f1f1f;
   }
 
   .map-caption {
-    font-size: 12px;
+    font-size: 17px;
     color: #7a7a7a;
     margin-top: 4px;
   }
@@ -390,7 +390,7 @@
             <button type="button" class="img-x" onclick="event.stopPropagation();clearProfilePhoto()">✕</button>
           </div>
           <div id="pfp-ph" style="{% if donor.upload %}display:none{% endif %}">
-            <div class="pfp-img" style="display:flex;align-items:center;justify-content:center;background:#f0e8d8;color:var(--g);font-weight:700;font-size:20px">{{ donor.first_name|slice:":1"|upper }}{{ donor.last_name|slice:":1"|upper }}</div>
+            <div class="pfp-img" style="display:flex;align-items:center;justify-content:center;background:#f0e8d8;color:var(--g);font-weight:700;font-size:25px">{{ donor.first_name|slice:":1"|upper }}{{ donor.last_name|slice:":1"|upper }}</div>
           </div>
           <input type="hidden" name="clear_upload" id="clear-upload" value="">
           <button type="button" class="pfp-change" onclick="getEl('pfp-in').click()">Change Photo</button>
@@ -434,7 +434,7 @@
 
       <hr>
 
-      <div class="group"><div style="display:flex;justify-content:space-between;align-items:center"><label class="up">New Password (leave blank to keep current)</label><button type="button" style="border:0;background:none;color:var(--g);cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:0" onclick="togglePw('aed-pw','aed-cp','aed-txt')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span id="aed-txt">Show</span></button></div><input class="in" type="password" name="password" id="aed-pw" autocomplete="new-password" minlength="8" maxlength="70" pattern="(?=.*[A-Za-z])(?=.*\d).{8,70}" title="At least 8 characters with one letter and one number."></div>
+      <div class="group"><div style="display:flex;justify-content:space-between;align-items:center"><label class="up">New Password (leave blank to keep current)</label><button type="button" style="border:0;background:none;color:var(--g);cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-size:16px;padding:0" onclick="togglePw('aed-pw','aed-cp','aed-txt')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span id="aed-txt">Show</span></button></div><input class="in" type="password" name="password" id="aed-pw" autocomplete="new-password" minlength="8" maxlength="70" pattern="(?=.*[A-Za-z])(?=.*\d).{8,70}" title="At least 8 characters with one letter and one number."></div>
       <div class="group"><label class="up">Confirm New Password</label><input class="in" type="password" name="confirm_password" id="aed-cp" autocomplete="new-password" maxlength="70"></div>
 
       <hr>

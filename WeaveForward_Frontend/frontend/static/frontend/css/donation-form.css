@@ -43,34 +43,34 @@
   width: 32px; height: 32px; border-radius: 50%;
   background: var(--gold); color: #fff;
   display: flex; align-items: center; justify-content: center;
-  font-family: 'Lato', sans-serif; font-weight: 600; font-size: 16px;
+  font-family: 'Lato', sans-serif; font-weight: 600; font-size: 21px;
 }
 .card-num::after { content: counter(clothing-counter); }
 
 .card-title {
-  font-size: 18px; font-weight: 400; color: #333; margin: 0;
+  font-size: 23px; font-weight: 400; color: #333; margin: 0;
   font-family: 'Poppins', sans-serif;
 }
 .card-title::after { content: "Clothing " counter(clothing-counter); }
 
 .up-label {
-  font-family: 'Poppins', sans-serif; font-size: 14px; font-weight: 400;
+  font-family: 'Poppins', sans-serif; font-size: 19px; font-weight: 400;
   color: #666666; letter-spacing: normal; text-transform: none;
   display: flex; align-items: flex-end; min-height: 20px; white-space: nowrap;
 }
 
 .sub-title {
-  font-size: 18px; font-weight: 400; margin-bottom: 12px; display: block; color: #333;
+  font-size: 23px; font-weight: 400; margin-bottom: 12px; display: block; color: #333;
   font-family: 'Poppins', sans-serif;
 }
 
 .restored-in, .restored-sel {
   width: 100%; height: 44px; border: 1.5px solid #d5d5d5; border-radius: 8px;
-  padding: 10px 14px; font-size: 14px; outline: none; background: #fff; color: #666666;
+  padding: 10px 14px; font-size: 19px; outline: none; background: #fff; color: #666666;
   font-family: 'Poppins', sans-serif;
 }
 .restored-in:disabled { background: #f4f4f4; color: #aaa; cursor: not-allowed; }
-.restored-in-lg { height: 48px; font-size: 16px; }
+.restored-in-lg { height: 48px; font-size: 21px; }
 
 .restored-sel {
   appearance: none;
@@ -120,7 +120,7 @@
   border: 1.5px solid #d5d5d5;
   border-radius: 8px;
   padding: 10px 14px;
-  font-size: 14px;
+  font-size: 19px;
   font-family: 'Poppins', sans-serif;
   color: #666666;
   background: #fff;
@@ -175,7 +175,7 @@
 
 .custom-select-item {
   padding: 10px 14px;
-  font-size: 13px;
+  font-size: 18px;
   cursor: pointer;
   border-bottom: 1px solid #f5f5f5;
   color: #666666;
@@ -203,7 +203,7 @@
 .mat-trigger {
   display: flex; justify-content: space-between; align-items: center;
   width: 100%; height: 44px; border: 1.5px solid #d5d5d5; border-radius: 8px;
-  padding: 0 14px; font-size: 14px; font-family: 'Poppins', sans-serif;
+  padding: 0 14px; font-size: 19px; font-family: 'Poppins', sans-serif;
   color: #666; background: #fff; cursor: pointer; user-select: none;
   transition: border-color 0.2s, box-shadow 0.2s; overflow: hidden;
 }
@@ -219,17 +219,17 @@
 .ss-wrap.open .mat-trigger { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(232,160,32,.15); }
 .mat-search {
   width: 100%; border: none; border-bottom: 1.5px solid #d5d5d5;
-  padding: 10px 14px; font-family: 'Poppins', sans-serif; font-size: 13px;
+  padding: 10px 14px; font-family: 'Poppins', sans-serif; font-size: 18px;
   outline: none; border-radius: 8px 8px 0 0; background: #fff;
 }
 .mat-item {
-  padding: 10px 14px; font-size: 13px; cursor: pointer;
+  padding: 10px 14px; font-size: 18px; cursor: pointer;
   border-bottom: 1px solid #f5f5f5; color: #666;
   font-family: 'Poppins', sans-serif; transition: background .15s;
 }
 .mat-item:last-child { border-bottom: none; }
 .mat-item:hover { background: #f5f4f0; }
-.mat-item b { display: block; color: var(--gold); font-size: 11px; }
+.mat-item b { display: block; color: var(--gold); font-size: 16px; }
 
 @media (max-width: 1100px), (max-aspect-ratio: 1/1) {
   .restored-row {

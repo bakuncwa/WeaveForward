@@ -18,11 +18,11 @@
 
     /* ── Cards ── */
     .card { background: #fff; border-radius: 14px; padding: 24px; margin-bottom: 16px; border: 1.5px solid #ebe6df; }
-    .card-title { font-weight: 600; font-size: 15px; margin-bottom: 16px; }
+    .card-title { font-weight: 600; font-size: 20px; margin-bottom: 16px; }
 
     /* ── Button ── */
     .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: none; cursor: pointer; font-weight: 500; transition: all .2s; text-decoration: none; }
-    .btn-primary { background: var(--gold); color: #fff; border-radius: 8px; padding: 10px 20px; font-size: 14px; white-space: nowrap; }
+    .btn-primary { background: var(--gold); color: #fff; border-radius: 8px; padding: 10px 20px; font-size: 19px; white-space: nowrap; }
     .btn-primary:hover { background: var(--gold-dark); }
 
     /* ── Profile hero ── */
@@ -30,21 +30,21 @@
     .profile-avatar-lg {
       width: 68px; height: 68px; border-radius: 50%;
       background: #f0e8d8; display: flex; align-items: center; justify-content: center;
-      color: var(--gold); font-weight: 700; font-size: 17px; flex-shrink: 0;
+      color: var(--gold); font-weight: 700; font-size: 22px; flex-shrink: 0;
       overflow: hidden;
     }
     .profile-avatar-lg img { width: 100%; height: 100%; object-fit: cover; }
     
     .profile-info { flex: 1; min-width: 0; }
-    .profile-name  { font-weight: 600; font-size: 20px; margin-bottom: 4px; }
-    .profile-email { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--gold); margin-bottom: 8px; }
+    .profile-name  { font-weight: 600; font-size: 25px; margin-bottom: 4px; }
+    .profile-email { display: flex; align-items: center; gap: 6px; font-size: 18px; color: var(--gold); margin-bottom: 8px; }
     .profile-chips { display: flex; gap: 8px; flex-wrap: wrap; }
-    .chip-outline { border: 1.5px solid var(--gold); color: var(--gold); border-radius: 20px; padding: 3px 12px; font-size: 12px; }
-    .chip-filled  { background: var(--gold); color: #fff; border-radius: 20px; padding: 3px 12px; font-size: 12px; }
-    .chip-grey    { border: 1.5px solid #ccc; color: #888; border-radius: 20px; padding: 3px 12px; font-size: 12px; }
+    .chip-outline { border: 1.5px solid var(--gold); color: var(--gold); border-radius: 20px; padding: 3px 12px; font-size: 17px; }
+    .chip-filled  { background: var(--gold); color: #fff; border-radius: 20px; padding: 3px 12px; font-size: 17px; }
+    .chip-grey    { border: 1.5px solid #ccc; color: #888; border-radius: 20px; padding: 3px 12px; font-size: 17px; }
 
     /* ── Info grid ── */
-    .form-label-upper { font-size: 10px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 5px; }
+    .form-label-upper { font-size: 15px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 5px; }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 
     /* ── Mobile ── */
@@ -92,27 +92,27 @@
       <div class="grid-2">
         <div>
           <label class="form-label-upper">First Name</label>
-          <p style="font-size:14px;margin-top:2px">{{ donor.first_name }}</p>
+          <p style="font-size:19px;margin-top:2px">{{ donor.first_name }}</p>
         </div>
         <div>
           <label class="form-label-upper">Middle Name</label>
-          <p style="font-size:14px;margin-top:2px">{{ donor.middle_name|default:"" }}</p>
+          <p style="font-size:19px;margin-top:2px">{{ donor.middle_name|default:"" }}</p>
         </div>
         <div>
           <label class="form-label-upper">Last Name</label>
-          <p style="font-size:14px;margin-top:2px">{{ donor.last_name }}</p>
+          <p style="font-size:19px;margin-top:2px">{{ donor.last_name }}</p>
         </div>
         <div>
           <label class="form-label-upper">Phone Number</label>
-          <p style="font-size:14px;margin-top:2px">{{ donor.contact_no }}</p>
+          <p style="font-size:19px;margin-top:2px">{{ donor.contact_no }}</p>
         </div>
         <div>
             <label class="form-label-upper">User ID</label>
-            <p style="font-size:14px;margin-top:2px">#{{ donor.user_id }}</p>
+            <p style="font-size:19px;margin-top:2px">#{{ donor.user_id }}</p>
         </div>
         <div>
             <label class="form-label-upper">2FA Enabled</label>
-            <p style="font-size:14px;margin-top:2px">{{ donor.is_2fa_enabled|yesno:"Yes,No" }}</p>
+            <p style="font-size:19px;margin-top:2px">{{ donor.is_2fa_enabled|yesno:"Yes,No" }}</p>
         </div>
       </div>
     </div>
@@ -123,16 +123,16 @@
       <div class="grid-2" style="margin-bottom:14px">
         <div>
           <label class="form-label-upper">Barangay</label>
-          <p style="font-size:14px;margin-top:2px">{{ donor.barangay|default:"" }}</p>
+          <p style="font-size:19px;margin-top:2px">{{ donor.barangay|default:"" }}</p>
         </div>
         <div>
           <label class="form-label-upper">City</label>
-          <p style="font-size:14px;margin-top:2px">{{ donor.city|default:"" }}</p>
+          <p style="font-size:19px;margin-top:2px">{{ donor.city|default:"" }}</p>
         </div>
       </div>
       <div>
         <label class="form-label-upper">Display Address</label>
-        <p style="font-size:13px;color:#555;line-height:1.6;margin-top:4px">{{ donor.display_address|default:"" }}</p>
+        <p style="font-size:18px;color:#555;line-height:1.6;margin-top:4px">{{ donor.display_address|default:"" }}</p>
       </div>
     </div>
 
@@ -142,11 +142,11 @@
         <div class="grid-2">
           <div>
             <label class="form-label-upper">Registration Date</label>
-            <p style="font-size:14px;margin-top:2px">{{ donor.created_at|date:"M d, Y H:i" }}</p>
+            <p style="font-size:19px;margin-top:2px">{{ donor.created_at|date:"M d, Y H:i" }}</p>
           </div>
           <div>
             <label class="form-label-upper">Last Updated</label>
-            <p style="font-size:14px;margin-top:2px">{{ donor.updated_at|date:"M d, Y H:i" }}</p>
+            <p style="font-size:19px;margin-top:2px">{{ donor.updated_at|date:"M d, Y H:i" }}</p>
           </div>
         </div>
     </div>
@@ -156,25 +156,25 @@
         <div class="card-title">Donations ({{ donations|length }})</div>
         {% if donations %}
         {{ donations|json_script:"donor-donations" }}
-        <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <table style="width:100%;border-collapse:collapse;font-size:18px">
             <thead>
                 <tr style="border-bottom:2px solid #ebe6df">
-                    <th style="padding:8px 6px;text-align:left;font-weight:600;color:#888;font-size:10px;text-transform:uppercase">ID</th>
-                    <th style="padding:8px 6px;text-align:left;font-weight:600;color:#888;font-size:10px;text-transform:uppercase">Status</th>
-                    <th style="padding:8px 6px;text-align:left;font-weight:600;color:#888;font-size:10px;text-transform:uppercase">Delivery Type</th>
-                    <th style="padding:8px 6px;text-align:left;font-weight:600;color:#888;font-size:10px;text-transform:uppercase">Pickup Date</th>
-                    <th style="padding:8px 6px;text-align:left;font-weight:600;color:#888;font-size:10px;text-transform:uppercase">TUAB</th>
+                    <th style="padding:8px 6px;text-align:left;font-weight:600;color:#888;font-size:15px;text-transform:uppercase">ID</th>
+                    <th style="padding:8px 6px;text-align:left;font-weight:600;color:#888;font-size:15px;text-transform:uppercase">Status</th>
+                    <th style="padding:8px 6px;text-align:left;font-weight:600;color:#888;font-size:15px;text-transform:uppercase">Delivery Type</th>
+                    <th style="padding:8px 6px;text-align:left;font-weight:600;color:#888;font-size:15px;text-transform:uppercase">Pickup Date</th>
+                    <th style="padding:8px 6px;text-align:left;font-weight:600;color:#888;font-size:15px;text-transform:uppercase">TUAB</th>
                 </tr>
             </thead>
             <tbody id="donations-tbody"></tbody>
         </table>
-        <div style="display:flex;align-items:center;gap:12px;margin-top:12px;font-size:13px">
-            <button id="prev-btn" style="background:var(--gold);color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-family:'Poppins',sans-serif;font-size:12px">Previous</button>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:12px;font-size:18px">
+            <button id="prev-btn" style="background:var(--gold);color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-family:'Poppins',sans-serif;font-size:17px">Previous</button>
             <span id="page-info" style="color:#888">Page 1 of 1</span>
-            <button id="next-btn" style="background:var(--gold);color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-family:'Poppins',sans-serif;font-size:12px">Next</button>
+            <button id="next-btn" style="background:var(--gold);color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-family:'Poppins',sans-serif;font-size:17px">Next</button>
         </div>
         {% else %}
-        <p style="color:#888;font-size:13px">No donations found.</p>
+        <p style="color:#888;font-size:18px">No donations found.</p>
         {% endif %}
     </div>
 </div>

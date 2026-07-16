@@ -20,21 +20,21 @@
       --blue:      #0b77dc;
     }
 
-    .count { font-family:'Poppins',sans-serif; font-weight:300; font-size:13px; color:#666; margin-bottom:10px; }
-    .items-list { margin:0; padding-left:16px; font-size:12px; line-height:1.5; }
+    .count { font-family:'Poppins',sans-serif; font-weight:300; font-size:18px; color:#666; margin-bottom:10px; }
+    .items-list { margin:0; padding-left:16px; font-size:17px; line-height:1.5; }
     .items-list li { list-style:disc; }
     .search-bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
     .search-wrap { position: relative; flex: 1; min-width: 220px; }
     .search-wrap input {
       width: 100%; border-radius: 8px; padding: 10px 16px 10px 40px;
       border: 1.5px solid var(--border); background: #fff;
-      font-family: 'Poppins', sans-serif; font-size: 14px; outline: none;
+      font-family: 'Poppins', sans-serif; font-size: 19px; outline: none;
     }
     .search-wrap input:focus { border-color: var(--gold); }
     .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; }
 
     .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: none; cursor: pointer; font-family: 'Poppins', sans-serif; font-weight: 500; transition: all .2s; text-decoration: none; }
-    .btn-primary { background: var(--gold); color: #fff; border-radius: 8px; padding: 10px 20px; font-size: 14px; white-space: nowrap; }
+    .btn-primary { background: var(--gold); color: #fff; border-radius: 8px; padding: 10px 20px; font-size: 19px; white-space: nowrap; }
     .btn-primary:hover { background: var(--gold-dark); }
     th a { color: inherit; text-decoration: none; }
     @media (max-width: 768px), (max-aspect-ratio: 1/1) {
@@ -65,7 +65,7 @@
     }
     .modal-title {
       font-family: 'Poppins', sans-serif;
-      font-size: 16px;
+      font-size: 21px;
       font-weight: 400;
       color: #222;
       margin-bottom: 16px;
@@ -83,7 +83,7 @@
       min-height: 40px;
       border-radius: 20px;
       font-family: 'Poppins', sans-serif;
-      font-size: 13px;
+      font-size: 18px;
       font-weight: 500;
       padding: 10px 24px;
     }
@@ -117,20 +117,20 @@
       color: var(--text, #222);
       border: 1.5px solid var(--border, #e0dbd4);
       border-radius: 12px; padding: 14px 18px;
-      font-family: 'Poppins', sans-serif; font-size: 12px;
+      font-family: 'Poppins', sans-serif; font-size: 17px;
       min-width: 260px; max-width: 340px;
       box-shadow: 0 8px 30px rgba(0,0,0,.12);
       pointer-events: none; opacity: 0; transition: opacity .12s;
       line-height: 1.6;
     }
     .dash-hover-card.visible { opacity: 1; }
-    .dash-hover-card .hc-hdr { font-size: 13px; font-weight: 600; color: var(--text, #222); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .dash-hover-card .hc-hdr { font-size: 18px; font-weight: 600; color: var(--text, #222); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .dash-hover-card .hc-row { display: flex; gap: 8px; padding: 1px 0; }
     .dash-hover-card .hc-lbl { color: var(--muted, #888); min-width: 64px; flex-shrink: 0; }
     .dash-hover-card .hc-items { list-style: none; padding: 0; margin: 4px 0 0 0; }
-    .dash-hover-card .hc-items li { padding: 1px 0 1px 14px; position: relative; font-size: 11px; color: var(--text, #222); }
+    .dash-hover-card .hc-items li { padding: 1px 0 1px 14px; position: relative; font-size: 16px; color: var(--text, #222); }
     .dash-hover-card .hc-items li::before { content: '•'; position: absolute; left: 0; color: var(--gold, #e8a020); }
-    .dash-hover-card .hc-more { font-size: 10px; color: var(--muted, #888); padding-left: 14px; }
+    .dash-hover-card .hc-more { font-size: 15px; color: var(--muted, #888); padding-left: 14px; }
 </style>
 
 <p class="count" id="don-count">{{ count }} Donation Request{{ count|pluralize }}</p>
@@ -180,7 +180,7 @@
 
 <div id="cancel-modal" class="modal-backdrop" aria-hidden="true">
   <div class="modal-box">
-    <div class="modal-title" style="text-align: center; font-size: 13px; color: #666666; font-weight: 300; font-family: 'Poppins', sans-serif;">Are you sure you want to cancel this Donation?</div>
+    <div class="modal-title" style="text-align: center; font-size: 18px; color: #666666; font-weight: 300; font-family: 'Poppins', sans-serif;">Are you sure you want to cancel this Donation?</div>
     <form id="cancel-form" method="POST" action="">
       {% csrf_token %}
       <div class="modal-actions">
@@ -233,7 +233,7 @@
       var windowHtml = d.pickupStart ? escapeHTML(d.pickupStart) + ' &ndash; ' + escapeHTML(d.pickupEnd) : '-';
       var statusLabel = d.status ? d.status.split('_').map(function(w) { return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(); }).join(' ') : '';
       var cancelEditBtns = (s === 'PENDING') ? '<a href="/donor/my-donations/' + d.donation_id + '/edit/" class="btn btn-outline">Edit</a><button type="button" class="btn btn-outline cancel-btn" data-api-url="/donor/my-donations/' + d.donation_id + '/cancel/">Cancel</button>' : '';
-      var imgHtml = d.upload ? '<img src="' + escapeHTML(d.upload) + '" class="thumb" alt="Donation"/>' : '<div class="thumb" style="display:flex;align-items:center;justify-content:center;font-size:10px;color:#aaa;">No Image</div>';
+      var imgHtml = d.upload ? '<img src="' + escapeHTML(d.upload) + '" class="thumb" alt="Donation"/>' : '<div class="thumb" style="display:flex;align-items:center;justify-content:center;font-size:15px;color:#aaa;">No Image</div>';
       return '<tr data-id="' + d.donation_id + '">' +
         '<td style="white-space:nowrap">' + escapeHTML(d.pickupDate) + '</td>' +
         '<td style="white-space:nowrap">' + windowHtml + '</td>' +
@@ -291,13 +291,13 @@
     var s = (d.status || '').toUpperCase();
     var cls = s === 'IN_TRANSIT' ? 'transit' : s.toLowerCase();
     const label = d.status ? d.status.split('_').map(function(w) { return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(); }).join(' ') : '';
-    var itemsHtml = d.items && d.items.length ? '<div style="padding:6px 0;font-size:11px;color:var(--text,#222)">' + renderItems(d.items) + '</div>' : '';
+    var itemsHtml = d.items && d.items.length ? '<div style="padding:6px 0;font-size:16px;color:var(--text,#222)">' + renderItems(d.items) + '</div>' : '';
     var windowHtml = d.pickupStart && d.pickupEnd ? '<div class="hc-row"><span class="hc-lbl">Window</span><span>' + escapeHTML(d.pickupStart) + ' &ndash; ' + escapeHTML(d.pickupEnd) + '</span></div>' : '';
     const tuabHtml = d.business_name ? '<div class="hc-row"><span class="hc-lbl">Claimed By</span><span>' + (d.claimed_by_tuab_user_id ? '<a href="/donor/tuabs/' + d.claimed_by_tuab_user_id + '/">' + escapeHTML(d.business_name) + '</a>' : escapeHTML(d.business_name)) + '</span></div>' : '';
     card.innerHTML = '<div class="hc-hdr">Donation #' + escapeHTML(String(d.donation_id)) + ' <span class="badge badge-' + escapeHTML(cls) + '">' + escapeHTML(label) + '</span></div>' +
       '<div class="hc-row"><span class="hc-lbl">Address</span><span>' + escapeHTML(d.address) + '</span></div>' +
       tuabHtml + windowHtml +
-      '<div style="margin-top:6px;border-top:1px solid var(--border,#e0dbd4);padding-top:6px;font-size:11px;color:var(--muted,#888)">Items</div>' +
+      '<div style="margin-top:6px;border-top:1px solid var(--border,#e0dbd4);padding-top:6px;font-size:16px;color:var(--muted,#888)">Items</div>' +
       itemsHtml;
     card._hcContent = d.donation_id;
     card.classList.add('visible');
@@ -411,7 +411,7 @@
   }
 
   function showFailureScreen() {
-    modalBox.innerHTML = '<div class="modal-title" style="text-align:center;font-size:13px;color:#666666;font-weight:300;font-family:\'Poppins\',sans-serif;">This donation can no longer be cancelled. Please contact the system administrators.</div><div class="modal-actions"><button type="button" id="close-modal-btn" class="btn modal-btn-yes">Close</button></div>';
+    modalBox.innerHTML = '<div class="modal-title" style="text-align:center;font-size:18px;color:#666666;font-weight:300;font-family:\'Poppins\',sans-serif;">This donation can no longer be cancelled. Please contact the system administrators.</div><div class="modal-actions"><button type="button" id="close-modal-btn" class="btn modal-btn-yes">Close</button></div>';
     document.getElementById('close-modal-btn').addEventListener('click', closeModal);
   }
 

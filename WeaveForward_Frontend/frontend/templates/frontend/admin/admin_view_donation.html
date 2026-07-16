@@ -55,14 +55,14 @@
     }
 
     label.up-label {
-        font-size: 10px;
+        font-size: 15px;
         font-weight: 400;
         color: var(--muted);
         letter-spacing: .5px;
     }
 
     .sub-title {
-        font-size: 15px;
+        font-size: 20px;
         font-weight: 400;
         color: #333;
         margin-bottom: 8px;
@@ -105,7 +105,7 @@
         border-radius: 50%;
         background: var(--gold);
         color: #fff;
-        font-size: 13px;
+        font-size: 18px;
         font-weight: 700;
         display: flex;
         align-items: center;
@@ -123,7 +123,7 @@
     }
 
     .restored-meta p {
-        font-size: 12px;
+        font-size: 17px;
         margin-bottom: 6px;
     }
 
@@ -158,7 +158,7 @@
         <div class="restored-card">
             <div class="restored-head">
                 <div class="restored-num">{{ forloop.counter }}</div>
-                <span style="font-weight:400;font-size:15px">Clothing {{ forloop.counter }}</span>
+                <span style="font-weight:400;font-size:20px">Clothing {{ forloop.counter }}</span>
             </div>
             <div class="restored-row">
                 <div class="restored-group">
@@ -257,7 +257,7 @@
             {% if donation.upload %}
             <img src="{{ donation.upload }}" style="width:100%;max-height:180px;object-fit:cover;border-radius:10px" alt="Donation" />
             {% else %}
-            <div style="font-size:12px;color:#999;padding:20px 0">No donation image uploaded.</div>
+            <div style="font-size:17px;color:#999;padding:20px 0">No donation image uploaded.</div>
             {% endif %}
         </div>
     </div>
