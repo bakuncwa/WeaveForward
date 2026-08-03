@@ -47,7 +47,7 @@ jobs:
             --region asia-southeast1 \
             --platform managed \
             --project weaveforward-system \
-            --update-env-vars DJANGO_ML_DIR=fiber_match_api/models
+            --update-env-vars "DJANGO_ML_DIR=fiber_match_api/models,RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}"
 
   deploy-frontend:
     name: Build & Deploy Frontend
