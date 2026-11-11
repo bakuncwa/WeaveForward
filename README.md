@@ -64,6 +64,37 @@ Core infrastructure are fully operational. Final development is focused on deplo
 
 ---
 
+## Technical Contributions
+
+### Platform and security
+
+- Architected a physically decoupled 3-tier, GCP-native platform: Django BFF/SSR and Django REST Framework on dual Cloud Run instances for independent service orchestration, with Cloud SQL, Cloud Storage and Cloud Scheduler.
+- Deployed both services through GitHub Actions on every push to `main`: Docker images built and released to Cloud Run, authenticated with keyless Workload Identity Federation instead of stored service-account keys.
+- Secured authentication with bcrypt password hashing and simple-jwt, applying role-based access control across donors, free and premium TUABs and administrators, with CORS and XSS protections across application layers.
+- Integrated a ₱499/month TUAB subscription through the Maya payment gateway, with OpenStreetMap geolocation and Lalamove delivery.
+
+### Data and machine learning
+
+- Built an automated ETL web-scraping pipeline producing brand fiber catalog CSVs, and engineered 30 PySpark/Spark SQL features via an `expand_fibers()` UDF (per-fiber percentage columns, biodegradability scores, `clip(upper=100.0)` guards).
+- Constructed a 426-row donation × artisan pair matrix with three-gate `is_match` labels (fiber ≥ 85%, biodegradability score, haversine distance) and Nominatim OSM geocoding across NCR barangays.
+- Optimized a CatBoost GBDT classifier via Optuna (30 trials, 3-fold stratified CV) to 97.67% accuracy, 95.24% F1, 100% precision, 90.91% recall and 1.00 ROC-AUC on the 86-row held-out test set, exporting model artifacts to a Django REST API for live inference.
+- Designed a cumulative product archive with `is_active` provenance tracking per scrape run, and `fiber_approximation()`, a greedy 4-tier nearest-neighbour lookup for discontinued catalog items.
+
+### User acceptance testing
+
+- 100% task completion across all donor and TUAB workflows, with overall satisfaction averaging 3.57 to 4.00 on a 4-point scale.
+- Donors gave perfect scores to registration and geolocation-based TUAB discovery (4.00), with donation tracking and the impact leaderboard at 3.86.
+- TUAB subscription management, inventory archiving, overall experience and platform fit all closed at 100% Strongly Agree.
+- Interface clarity and loading speed each reached 90% Strongly Agree with zero negative ratings across all roles.
+- Fed findings back into the build, identifying 2FA setup guidance, TUAB registration complexity and donation edit button labeling as the improvement areas.
+
+### Leadership
+
+- Led the team as Team Leader from problem framing through deployment, and earned a Best Capstone nomination.
+- Identified a market-access gap between independent fiber artisans and buyers, validating the business case through UX testing with 10 artisan businesses and market research across 200+ Metro Manila stakeholders, for a post-deployment CSAT of 95%+.
+
+---
+
 ## Getting Started
 
 ### Prerequisites
